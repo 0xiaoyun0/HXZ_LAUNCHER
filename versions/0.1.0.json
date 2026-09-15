@@ -1,0 +1,10 @@
+{
+  "sha256": [
+    "4eb7de14981e49a8b0c05f09ac824347afaa29a0b994532ffc5c12e735f8228f  幻想镇启动器-0.1.0-windows-x64-便携版.zip",
+    "aa4e7a6585e292b857f3f3dd5d0fe02e6c0fc264306ed574647732c08478cff4  幻想镇启动器-0.1.0-x64-安装程序.exe",
+    "001bfcf50bb236c419da38f3faa07e7108537937356ab6d1ad48daa8fabed6fe  幻想镇社区服务端-0.1.0-windows-x64.zip"
+  ],
+  "kind": "historical-release",
+  "sourceStatus": "Original source snapshot was not preserved; this tag records the original release artifacts, not reconstructed source.",
+  "version": "0.1.0"
+}
