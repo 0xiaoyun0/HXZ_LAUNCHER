@@ -34,7 +34,7 @@ test('skin identity, administration, chat persistence and room-scoped signaling'
   const a=await client(admin.token),b=await client(player.token);const readyA=await a.wait('ready'),readyB=await b.wait('ready');
   b.send({type:'chat',body:'Hello fantasy town',name:'forged admin',uid:'admin'});const chat=await a.wait('chat');assert.equal(chat.message.uid,'player');assert.equal(chat.message.name,'player');
   b.send({type:'signal',to:readyA.id,data:{description:'outside-room'}});assert.match((await b.wait('error')).error,/同一房间/);
-  a.send({type:'voice-join',room:'lobby'});b.send({type:'voice-join',room:'lobby'});await new Promise(r=>setTimeout(r,60));
+  a.send({type:'voice-join',room:'lobby',transport:'ws-opus-v1'});b.send({type:'voice-join',room:'lobby',transport:'ws-opus-v1'});await new Promise(r=>setTimeout(r,60));
   a.send({type:'signal',to:readyB.id,data:{candidate:{candidate:'test'}}});const signal=await b.wait('signal');assert.equal(signal.from,readyA.id);
   b.send({type:'voice-leave'});await new Promise(r=>setTimeout(r,40));a.send({type:'signal',to:readyB.id,data:{candidate:{candidate:'test'}}});assert.match((await a.wait('error')).error,/同一房间/);
   const c=await client(player.token);assert.equal((await c.wait('ready')).messages.at(-1).body,'Hello fantasy town');

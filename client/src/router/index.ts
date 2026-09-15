@@ -21,6 +21,14 @@ export default defineRouter(() =>
             path: "appearance",
             component: () => import("../pages/AppearancePage.vue")
           },
+          {
+            path: "blueprints/:id?",
+            component: () => import("../pages/BlueprintsPage.vue")
+          },
+          {
+            path: "forum/:id?",
+            component: () => import("../pages/ForumPage.vue")
+          },
           { path: "chat", component: () => import("../pages/ChatPage.vue") },
           {
             path: "notices/:group?",

@@ -8,7 +8,8 @@ server {
     server_name community.example.com;
     ssl_certificate /etc/letsencrypt/live/community.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/community.example.com/privkey.pem;
-    client_max_body_size 32k;
+    # Blueprint files are limited to 8 MB; API metadata has smaller per-route limits.
+    client_max_body_size 8m;
     location / {
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;
@@ -19,5 +20,6 @@ server {
         proxy_read_timeout 180s;
         proxy_send_timeout 180s;
         proxy_buffering off;
+        proxy_request_buffering off;
     }
 }

@@ -159,6 +159,8 @@ async function downloadOne(
     sha256,
     sha512,
     size,
+    headers,
+    maxSize = 8 * 1024 ** 3,
     signal,
     onProgress = () => {},
     onTransfer = () => {}
@@ -210,6 +212,7 @@ async function downloadOne(
     : controller.signal;
   try {
     const r = await fetch(url, {
+      headers,
       signal: transferSignal
     });
     if (!r.ok || !r.body) {
@@ -230,7 +233,7 @@ async function downloadOne(
       transform(chunk, _, done) {
         touch();
         bytes += chunk.length;
-        if (bytes > 8 * 1024 ** 3) {
+        if (bytes > maxSize) {
           done(Error("文件超过下载上限"));
           return;
         }

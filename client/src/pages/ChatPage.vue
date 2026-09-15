@@ -1,9 +1,16 @@
 <script setup lang="ts">
 import PlayerAvatar from "../components/PlayerAvatar.vue";
-import { ref, watch, nextTick } from "vue";
-import { groups, perform, selectedAccount } from "../lib/launcher";
+import { ref, toRef, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
+import type { QInput } from "quasar";
+import {
+  groups,
+  perform,
+  selectedAccount,
+  errorMessage
+} from "../lib/launcher";
 import {
   community,
+  chatView,
   connect,
   disconnect,
   sendChat,
@@ -12,16 +19,36 @@ import {
   toggleMute,
   toggleDeafen
 } from "../lib/community";
-const message = ref(""),
+const composer = ref<QInput>(),
   history = ref<HTMLElement>(),
-  device = ref(""),
-  devices = ref<MediaDeviceInfo[]>([]),
+  device = toRef(chatView, "device"),
+  devices = toRef(chatView, "devices"),
   joining = ref(false);
 const rooms = [{ id: "lobby", name: "旅人休息室" }, ...groups];
 function submit() {
-  sendChat(message.value);
-  message.value = "";
+  sendChat(chatView.draft);
+  chatView.draft = "";
+  chatView.atBottom = true;
+  void nextTick(() => {
+    scrollLatest();
+    composer.value?.focus();
+  });
 }
+function rememberScroll() {
+  const el = history.value;
+  if (!el) return;
+  chatView.scrollTop = el.scrollTop;
+  chatView.atBottom = el.scrollHeight - el.clientHeight - el.scrollTop < 40;
+}
+function scrollLatest() {
+  const el = history.value;
+  if (el) el.scrollTop = el.scrollHeight;
+}
+onMounted(() => {
+  if (chatView.atBottom) scrollLatest();
+  else if (history.value) history.value.scrollTop = chatView.scrollTop;
+});
+onBeforeUnmount(rememberScroll);
 async function join(id: string) {
   joining.value = true;
   try {
@@ -29,19 +56,19 @@ async function join(id: string) {
     devices.value = (await navigator.mediaDevices.enumerateDevices()).filter(
       d => d.kind === "audioinput"
     );
+  } catch (error) {
+    community.voiceError = errorMessage(error);
+    throw error;
   } finally {
     joining.value = false;
   }
 }
 watch(
-  () => community.messages.length,
+  () => community.messages.at(-1)?.id,
   () =>
-    void nextTick(() =>
-      history.value?.scrollTo({
-        top: history.value.scrollHeight,
-        behavior: "smooth"
-      })
-    )
+    void nextTick(() => {
+      if (chatView.atBottom) scrollLatest();
+    })
 );
 </script>
 <template>
@@ -69,7 +96,7 @@ watch(
       ><header class="chat-header"
         ><h2><span class="hash">#</span> 公共大厅</h2
         ><span class="subtle">{{ community.users.length }} 人在线</span></header
-      ><div ref="history" class="chat-history"
+      ><div ref="history" class="chat-history" @scroll.passive="rememberScroll"
         ><div v-if="!community.messages.length" class="chat-welcome"
           ><q-icon name="waving_hand" size="42px" /><h2>公共聊天</h2
           ><p>{{
@@ -103,7 +130,8 @@ watch(
         class="chat-composer"
         @submit.prevent="perform(async () => submit())"
         ><q-input
-          v-model="message"
+          ref="composer"
+          v-model="chatView.draft"
           outlined
           dense
           placeholder="和大家聊聊…"
@@ -115,7 +143,8 @@ watch(
           type="submit"
           icon="send"
           title="发送消息"
-          :disable="!community.connected || !message.trim()" /></form
+          @mousedown.prevent
+          :disable="!community.connected || !chatView.draft.trim()" /></form
     ></section>
     <aside class="voice-column"
       ><section class="panel voice-panel"
@@ -143,8 +172,35 @@ watch(
             >
             <span class="voice-capacity"
               >{{ community.users.filter(u => u.room === room.id).length
-              }}<small>/ 8</small></span
+              }}<small>/ {{ community.roomLimit }}</small></span
             >
+            <q-tooltip
+              class="voice-members-tooltip"
+              :delay="250"
+              anchor="center left"
+              self="center right"
+            >
+              <strong
+                >{{ room.name }} ·
+                {{ community.users.filter(u => u.room === room.id).length }} /
+                {{ community.roomLimit }}</strong
+              >
+              <div
+                v-for="member in community.users.filter(
+                  u => u.room === room.id
+                )"
+                :key="member.id"
+                class="voice-tooltip-member"
+              >
+                <q-icon :name="member.muted ? 'mic_off' : 'mic'" />
+                {{ member.name }}
+              </div>
+              <div
+                v-if="!community.users.some(u => u.room === room.id)"
+                class="q-mt-sm"
+                >暂无成员</div
+              >
+            </q-tooltip>
           </button></div
         >
         <div v-if="community.room" class="voice-session">
@@ -179,24 +235,24 @@ watch(
               ><q-icon name="call_end" /><span>离开</span></button
             >
           </div> </div
-        ><q-select
-          v-if="devices.length"
-          v-model="device"
-          outlined
-          dense
-          emit-value
-          map-options
-          :options="[
-            { label: '系统默认麦克风', value: '' },
-            ...devices.map(d => ({
-              label: d.label || '麦克风',
-              value: d.deviceId
-            }))
-          ]"
-          label="麦克风"
-          hint="更改后，下次加入生效"
-          class="q-mt-md"
-        /><p v-if="community.voiceError" class="error-note">{{
+        ><div v-if="devices.length" class="voice-device"
+          ><label>麦克风</label
+          ><q-select
+            v-if="devices.length"
+            v-model="device"
+            outlined
+            emit-value
+            map-options
+            :options="[
+              { label: '系统默认麦克风', value: '' },
+              ...devices.map(d => ({
+                label: d.label || '麦克风',
+                value: d.deviceId
+              }))
+            ]"
+            aria-label="麦克风"
+          /><p class="subtle">更改后，下次加入生效</p></div
+        ><p v-if="community.voiceError" class="error-note">{{
           community.voiceError
         }}</p></section
       ><section class="panel online-panel"

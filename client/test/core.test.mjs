@@ -97,6 +97,14 @@ await test("streaming downloads reject corrupt payloads, retain originals and st
       res.end("x".repeat(4 * 1024 * 1024 + 1));
       return;
     }
+    if (
+      req.url === "/private" &&
+      req.headers.authorization !== "Bearer fixture"
+    ) {
+      res.writeHead(401);
+      res.end();
+      return;
+    }
     res.end("new-file");
   });
   server.listen(0, "127.0.0.1");
@@ -115,7 +123,22 @@ await test("streaming downloads reject corrupt payloads, retain originals and st
     size: 8
   });
   assert.equal(await fs.readFile(file, "utf8"), "new-file");
-  assert.equal((await fs.readdir(root)).length, 1);
+  await assert.rejects(
+    download(base + "/large", file, { maxSize: 16 }),
+    /下载上限/
+  );
+  assert.equal(await fs.readFile(file, "utf8"), "new-file");
+  await download(base + "/private", path.join(root, "private.nbt"), {
+    headers: { Authorization: "Bearer fixture" },
+    maxSize: 16,
+    sha256: createHash("sha256").update("new-file").digest("hex"),
+    size: 8
+  });
+  assert.equal(
+    await fs.readFile(path.join(root, "private.nbt"), "utf8"),
+    "new-file"
+  );
+  assert.equal((await fs.readdir(root)).length, 2);
   await assert.rejects(remoteJSON(base + "/large"), /过大/);
   let started = 0,
     finished = 0;

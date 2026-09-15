@@ -1321,6 +1321,44 @@ export async function createServices({
       await saveAccounts();
       return { synced: await syncAvatar(a) };
     },
+    async "blueprints.download"(input) {
+      if (typeof input.id !== "string" || !/^[\w-]{1,64}$/.test(input.id))
+        throw Error("蓝图标识无效");
+      const base = endpoint(settings.communityUrl),
+        headers =
+          community?.base === base
+            ? { Authorization: "Bearer " + community.token }
+            : {};
+      const item = await remoteJSON(base + "/api/blueprints/" + input.id, {
+        headers
+      });
+      if (
+        !Number.isInteger(item.size) ||
+        item.size <= 0 ||
+        item.size > 8 * 1024 * 1024 ||
+        !/^[a-f0-9]{64}$/.test(item.sha256)
+      )
+        throw Error("蓝图文件信息无效");
+      const result = await dialog.showSaveDialog(window(), {
+        defaultPath: String(item.filename || "blueprint.nbt").replace(
+          /[\\/:*?"<>|]/g,
+          "_"
+        ),
+        filters: [{ name: "机械动力蓝图", extensions: ["nbt"] }]
+      });
+      if (result.canceled || !result.filePath) return { canceled: true };
+      await download(
+        base + "/api/blueprints/" + input.id + "/file",
+        result.filePath,
+        {
+          headers,
+          size: item.size,
+          sha256: item.sha256,
+          maxSize: 8 * 1024 * 1024
+        }
+      );
+      return { ok: true };
+    },
     async "notices.list"() {
       return remoteJSON(endpoint(settings.communityUrl) + "/api/notices");
     },

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PlayerAvatar from "../components/PlayerAvatar.vue";
 import { onMounted } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import {
   state,
   appUpdate,
@@ -18,13 +18,14 @@ import {
 import { community, connect } from "../lib/community";
 import PackImport from "../components/PackImport.vue";
 import LaunchDock from "../components/LaunchDock.vue";
-const route = useRoute(),
-  router = useRouter();
+const route = useRoute();
 const links = [
   { to: "/", icon: "sports_esports", label: "启动游戏" },
   { to: "/instances", icon: "widgets", label: "游戏实例" },
   { to: "/downloads", icon: "download", label: "下载与安装" },
+  { to: "/blueprints", icon: "view_in_ar", label: "机械动力蓝图库" },
   { to: "/chat", icon: "forum", label: "聊天大厅" },
+  { to: "/forum", icon: "article", label: "幻想镇论坛" },
   { to: "/notices", icon: "campaign", label: "通知公告" }
 ];
 onMounted(() => {
@@ -88,22 +89,8 @@ onMounted(() => {
     </aside>
     <section class="workspace">
       <header class="window-bar"
-        ><div class="no-drag row items-center q-gutter-xs"
-          ><q-btn
-            flat
-            round
-            dense
-            icon="arrow_back"
-            title="后退"
-            @click="router.back()"
-          /><q-btn
-            flat
-            round
-            dense
-            icon="arrow_forward"
-            title="前进"
-            @click="router.forward()"
-          /><span class="window-label">HXZ LAUNCHER <b>0.3.3</b></span></div
+        ><div class="row items-center"
+          ><span class="window-label">HXZ LAUNCHER <b>0.4.0</b></span></div
         ><div class="row items-center no-drag"
           ><q-btn
             v-if="appUpdate.available"

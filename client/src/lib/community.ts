@@ -1,5 +1,6 @@
 import { reactive } from "vue";
-import { invoke, errorMessage, loadNotices } from "./launcher";
+import { createRelayVoice } from "./voice-relay.mjs";
+import { invoke, errorMessage, loadNotices, state } from "./launcher";
 export interface Member {
   id: string;
   uid: string;
@@ -23,6 +24,8 @@ interface Session {
 }
 interface Packet {
   heartbeatInterval?: number;
+  voiceTransport?: string;
+  roomLimit?: number;
   uid?: string;
   avatarVersion?: string;
   type: string;
@@ -38,12 +41,13 @@ interface Packet {
     candidate?: RTCIceCandidateInit;
   };
 }
-interface Peer {
-  pc: RTCPeerConnection;
-  audio: HTMLAudioElement;
-  candidates: RTCIceCandidateInit[];
-  queue: Promise<void>;
-}
+export const chatView = reactive({
+  draft: "",
+  scrollTop: 0,
+  atBottom: true,
+  device: "",
+  devices: [] as MediaDeviceInfo[]
+});
 export const community = reactive({
   status: "未连接",
   connected: false,
@@ -57,38 +61,47 @@ export const community = reactive({
   muted: false,
   deafened: false,
   voiceError: "",
-  peers: 0
+  peers: 0,
+  roomLimit: 20,
+  voiceTransport: ""
 });
 let socket: WebSocket | null = null,
   credentials: Session | null = null,
-  stream: MediaStream | null = null,
-  iceServers: RTCIceServer[] = [];
+  stream: MediaStream | null = null;
+let voice: ReturnType<typeof createRelayVoice> | null = null,
+  voiceGeneration = 0;
 let generation = 0,
   retryTimer: ReturnType<typeof setTimeout> | undefined,
   retries = 0,
   heartbeat: ReturnType<typeof setInterval> | undefined,
   wanted = false,
   refreshSession = false;
-const peers = new Map<string, Peer>();
+
 function send(value: unknown) {
   if (!socket || socket.readyState !== WebSocket.OPEN || !community.connected)
     throw Error("社区尚未连接");
   socket.send(JSON.stringify(value));
 }
-function disposePeer(id: string) {
-  const peer = peers.get(id);
-  if (!peer) return;
-  peer.pc.close();
-  peer.audio.pause();
-  peer.audio.srcObject = null;
-  peers.delete(id);
-  community.peers = peers.size;
+function voiceMembers() {
+  return community.users
+    .filter(u => u.id !== community.id && u.room === community.room)
+    .map(u => u.id);
+}
+function syncPeers() {
+  const own = community.users.find(u => u.id === community.id);
+  if (community.room && own?.room !== community.room) return;
+  const ids = voiceMembers();
+  voice?.sync(ids);
+  community.peers = community.room ? ids.length : 0;
 }
 function voiceCleanup() {
+  voiceGeneration++;
   stream?.getTracks().forEach(track => track.stop());
   stream = null;
-  for (const id of peers.keys()) disposePeer(id);
+  voice?.close();
+  voice = null;
   community.room = "";
+  community.peers = 0;
   community.muted = false;
   community.deafened = false;
 }
@@ -108,103 +121,10 @@ export function disconnect() {
   community.user = null;
   community.users = [];
   community.messages = [];
+  chatView.draft = "";
+  chatView.scrollTop = 0;
+  chatView.atBottom = true;
   community.status = "未连接";
-}
-function createPeer(id: string) {
-  const existing = peers.get(id);
-  if (existing) return existing;
-  if (!stream) throw Error("麦克风尚未准备好");
-  const pc = new RTCPeerConnection({ iceServers }),
-    audio = new Audio();
-  audio.autoplay = true;
-  audio.muted = community.deafened;
-  const peer: Peer = { pc, audio, candidates: [], queue: Promise.resolve() };
-  peers.set(id, peer);
-  community.peers = peers.size;
-  stream.getTracks().forEach(track => pc.addTrack(track, stream!));
-  pc.onicecandidate = event => {
-    if (event.candidate && community.connected)
-      send({
-        type: "signal",
-        to: id,
-        data: { candidate: event.candidate.toJSON() }
-      });
-  };
-  pc.ontrack = event => {
-    audio.srcObject = event.streams[0] || new MediaStream([event.track]);
-    void audio.play().catch(() => {
-      community.voiceError = "音频播放被暂停，请重新加入语音";
-    });
-  };
-  pc.onconnectionstatechange = () => {
-    if (pc.connectionState === "failed")
-      community.voiceError =
-        "语音连接失败；请重连。跨网络连接需要服务端配置 TURN。";
-  };
-  return peer;
-}
-function syncPeers() {
-  const own = community.users.find(user => user.id === community.id);
-  if (!community.room || !stream || own?.room !== community.room) return;
-  const members = community.users.filter(
-    user => user.id !== community.id && user.room === community.room
-  );
-  for (const id of peers.keys())
-    if (!members.some(user => user.id === id)) disposePeer(id);
-  for (const member of members)
-    if (!peers.has(member.id)) {
-      const peer = createPeer(member.id);
-      if (community.id < member.id)
-        peer.queue = peer.queue
-          .then(async () => {
-            await peer.pc.setLocalDescription(await peer.pc.createOffer());
-            send({
-              type: "signal",
-              to: member.id,
-              data: { description: peer.pc.localDescription }
-            });
-          })
-          .catch(error => {
-            community.voiceError = errorMessage(error);
-          });
-    }
-}
-async function receiveSignal(packet: Packet) {
-  if (!packet.from || !packet.data || !stream || !community.room) return;
-  if (
-    !community.users.some(
-      user => user.id === packet.from && user.room === community.room
-    )
-  )
-    return;
-  const id = packet.from,
-    data = packet.data,
-    peer = createPeer(id);
-  peer.queue = peer.queue
-    .then(async () => {
-      if (data.description) {
-        await peer.pc.setRemoteDescription(data.description);
-        for (const candidate of peer.candidates.splice(0))
-          await peer.pc.addIceCandidate(candidate);
-        if (data.description.type === "offer") {
-          await peer.pc.setLocalDescription(await peer.pc.createAnswer());
-          send({
-            type: "signal",
-            to: id,
-            data: { description: peer.pc.localDescription }
-          });
-        }
-      } else if (data.candidate) {
-        if (peer.pc.remoteDescription)
-          await peer.pc.addIceCandidate(data.candidate);
-        else if (peer.candidates.length < 128)
-          peer.candidates.push(data.candidate);
-      }
-    })
-    .catch(error => {
-      community.voiceError = errorMessage(error);
-    });
-  await peer.queue;
 }
 function scheduleRetry() {
   clearTimeout(retryTimer);
@@ -237,6 +157,7 @@ export async function connect() {
     url.pathname = url.pathname.replace(/\/$/, "") + "/ws";
     const ws = new WebSocket(url);
     socket = ws;
+    ws.binaryType = "arraybuffer";
     community.status = "正在连接社区";
     const timeout = setTimeout(() => ws.close(), 20000);
     let lastMessage = Date.now(),
@@ -251,6 +172,10 @@ export async function connect() {
     ws.onmessage = event => {
       if (attempt !== generation) return;
       lastMessage = Date.now();
+      if (event.data instanceof ArrayBuffer) {
+        voice?.receive(event.data, voiceMembers());
+        return;
+      }
       let packet: Packet;
       try {
         packet = JSON.parse(String(event.data)) as Packet;
@@ -274,6 +199,8 @@ export async function connect() {
         community.connected = true;
         community.connecting = false;
         community.status = "社区在线";
+        community.voiceTransport = packet.voiceTransport || "";
+        community.roomLimit = packet.roomLimit || 20;
         community.id = packet.id!;
         community.user = packet.user!;
         community.messages = packet.messages || [];
@@ -297,8 +224,7 @@ export async function connect() {
         community.messages.push(packet.message);
         if (community.messages.length > 300)
           community.messages.splice(0, community.messages.length - 300);
-      } else if (packet.type === "signal") void receiveSignal(packet);
-      else if (packet.type === "notices-changed") void loadNotices();
+      } else if (packet.type === "notices-changed") void loadNotices();
       else if (packet.type === "error") {
         community.error = packet.error || "社区请求未完成";
         if (
@@ -349,16 +275,11 @@ export function sendChat(body: string) {
 }
 export async function joinVoice(room: string, deviceId = "") {
   if (!credentials || !community.connected) throw Error("请先连接社区");
+  if (community.voiceTransport !== "ws-opus-v1")
+    throw Error("社区服务端尚未升级到 0.4.0，暂不支持语音转发");
   leaveVoice();
   community.voiceError = "";
-  const attempt = generation;
-  const response = await fetch(credentials.base + "/api/voice-config", {
-    headers: { Authorization: "Bearer " + credentials.token },
-    signal: AbortSignal.timeout(10000)
-  });
-  if (!response.ok) throw Error("获取语音配置失败");
-  iceServers = ((await response.json()) as { iceServers: RTCIceServer[] })
-    .iceServers;
+  const attempt = voiceGeneration;
   const acquired = await navigator.mediaDevices.getUserMedia({
     video: false,
     audio: {
@@ -368,13 +289,38 @@ export async function joinVoice(room: string, deviceId = "") {
       ...(deviceId ? { deviceId: { exact: deviceId } } : {})
     }
   });
-  if (attempt !== generation || !community.connected) {
-    acquired.getTracks().forEach(track => track.stop());
+  if (attempt !== voiceGeneration || !community.connected) {
+    acquired.getTracks().forEach(t => t.stop());
     return;
   }
   stream = acquired;
-  community.room = room;
-  send({ type: "voice-join", room });
+  const relay = createRelayVoice({
+    send: (bytes: ArrayBuffer) => {
+      if (
+        socket?.readyState === WebSocket.OPEN &&
+        community.room &&
+        !community.muted &&
+        socket.bufferedAmount < 32768
+      )
+        socket.send(bytes);
+    },
+    onError: (error: unknown) => {
+      community.voiceError = errorMessage(error);
+    }
+  });
+  voice = relay;
+  try {
+    await relay.start(acquired);
+    if (attempt !== voiceGeneration || !community.connected) {
+      relay.close();
+      return;
+    }
+    community.room = room;
+    send({ type: "voice-join", room, transport: "ws-opus-v1" });
+  } catch (error) {
+    if (attempt === voiceGeneration) voiceCleanup();
+    throw error;
+  }
 }
 export function leaveVoice() {
   if (community.connected && community.room) send({ type: "voice-leave" });
@@ -382,6 +328,7 @@ export function leaveVoice() {
 }
 export function toggleMute() {
   community.muted = !community.muted;
+  voice?.mute(community.muted);
   stream?.getAudioTracks().forEach(track => {
     track.enabled = !community.muted;
   });
@@ -389,7 +336,9 @@ export function toggleMute() {
 }
 export function toggleDeafen() {
   community.deafened = !community.deafened;
-  for (const peer of peers.values()) peer.audio.muted = community.deafened;
+  voice?.deafen(community.deafened);
+  if (community.connected)
+    send({ type: "voice-deafen", deafened: community.deafened });
 }
 window.addEventListener("online", () => {
   if (wanted && !community.connected && !community.connecting) {
@@ -398,3 +347,31 @@ window.addEventListener("online", () => {
   }
 });
 window.addEventListener("beforeunload", disconnect);
+
+export async function communityRequest<T>(
+  path: string,
+  options: RequestInit = {},
+  requireLogin = false
+): Promise<T> {
+  if (requireLogin && !credentials) throw Error("请先连接社区");
+  if (!path.startsWith("/api/")) throw Error("无效社区接口");
+  const base =
+    credentials?.base || state.settings.communityUrl.replace(/\/$/, "");
+  const headers = new Headers(options.headers);
+  if (credentials) headers.set("Authorization", "Bearer " + credentials.token);
+  const response = await fetch(base + path, {
+    ...options,
+    headers,
+    signal: options.signal || AbortSignal.timeout(30000)
+  });
+  if (
+    response.status === 404 &&
+    ["/api/content/access", "/api/blueprints", "/api/forum/posts"].includes(
+      path.split("?")[0]!
+    )
+  )
+    throw Error("社区服务端尚未升级到 0.4.0，请联系管理员更新社区服务");
+  const value = await response.json();
+  if (!response.ok) throw Error(value.error || "社区请求未完成");
+  return value as T;
+}

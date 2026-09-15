@@ -1,3 +1,6 @@
+import {createContent} from "./content.mjs";
+import {VERSION} from "./version.mjs";
+import {relayVoice} from "./voice-relay.mjs";
 import {createUpdateLogs} from "./update-logs.mjs";
 import {avatarData} from "./avatars.mjs";
 import http from 'node:http';
@@ -28,7 +31,7 @@ export function createCommunity(options={}) {
   // Packaged Electron WebSockets use file://; opaque browser origins use null.
   // Preserve compatibility with existing .env files that already trust desktop clients.
   if(origins.has('null'))origins.add('file://');
-  const roomLimit=8, clients=new Map(), attempts=new Map();
+  const roomLimit=20, clients=new Map(), attempts=new Map();
   function issue(identity) {const payload=Buffer.from(JSON.stringify({...identity,exp:Date.now()+12*3600000})).toString('base64url');return payload+'.'+createHmac('sha256',key).update(payload).digest('base64url');}
   function verify(token) {
     if(typeof token!=='string'||token.length>8192)throw Error('请先登录');
@@ -42,7 +45,7 @@ export function createCommunity(options={}) {
   function clientIP(req) {const remote=req.socket.remoteAddress;const forwarded=req.headers['x-real-ip'];if(process.env.HXZ_TRUST_PROXY==='loopback'&&['127.0.0.1','::1','::ffff:127.0.0.1'].includes(remote)&&typeof forwarded==='string'&&isIP(forwarded))return forwarded;return remote;}
   function limit(id,max=30,window=60000) {if(attempts.size>=20000&&!attempts.has(id))throw Error('服务繁忙，请稍后重试');const now=Date.now();let value=attempts.get(id);if(!value||now-value.time>window)attempts.set(id,value={time:now,count:0});if(++value.count>max)throw Error('操作过于频繁，请稍后再试');}
   function send(res,status,value) {res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}
-  async function body(req) {let size=0,chunks=[];for await(const chunk of req){size+=chunk.length;if(size>32768)throw Error('请求过大');chunks.push(chunk);}return JSON.parse(Buffer.concat(chunks).toString()||'{}');}
+  async function body(req,max=32768) {let size=0,chunks=[];for await(const chunk of req){size+=chunk.length;if(size>max)throw Error('请求过大');chunks.push(chunk);}return JSON.parse(Buffer.concat(chunks).toString()||'{}');}
   function text(value,max) {if(typeof value!=='string'||!value.trim()||value.length>max)throw Error('内容为空或超过长度限制');return value.trim();}
   function history(channel) {return db.prepare('SELECT m.id,m.channel,m.uid,m.name,m.body,m.created,p.version AS avatarVersion FROM messages m LEFT JOIN profiles p ON p.uid=m.uid WHERE m.channel=? ORDER BY m.id DESC LIMIT 100').all(channel).reverse();}
   function packet(ws,value){if(ws.readyState===WebSocket.OPEN){if(ws.bufferedAmount>256*1024)ws.close(1013,'连接太慢');else ws.send(JSON.stringify(value));}}
@@ -59,18 +62,20 @@ export function createCommunity(options={}) {
     }
     const p=response.selectedProfile;if(!p||!/^\w{1,64}$/.test(p.id)||typeof p.name!=='string')throw Error('请先在皮肤站选择游戏角色');
     // Identity comes from the authenticated upstream response, never the caller's claimed UUID.
-    const identity={uid:p.id,name:p.name};return {token:issue(identity),user:{...identity,admin:adminIDs.has(identity.uid)},credentials:response};
+    const identity={uid:p.id,name:p.name};content.recordMember(identity);return {token:issue(identity),user:{...identity,admin:adminIDs.has(identity.uid)},credentials:response};
   }
   const updateSources={};
   const updateLogs=createUpdateLogs(()=>updateSources);
+  const content=createContent({data,db,auth,admin,adminIDs,body,send,limit});
   const adminRoute=createAdmin({updateSources,data,db,issue,admin,send,body,limit,clients,broadcast,adminIDs});
   const server=http.createServer(async(req,res)=>{
-    const origin=req.headers.origin;if(origin&&!origins.has(origin)&&!(['localhost','127.0.0.1'].some(h=>req.headers.host===h+':'+(server.address()?.port))&&origin==='http://'+req.headers.host)){send(res,403,{error:'来源不允许'});return;}
+    const origin=req.headers.origin;if(origin&&!origins.has(origin)&&!['http://','https://'].some(protocol=>origin===protocol+req.headers.host)){send(res,403,{error:'来源不允许'});return;}
     if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');}
     res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization');res.setHeader('Access-Control-Allow-Methods','GET,POST,PUT,DELETE,OPTIONS');
     if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
     try {
       const url=new URL(req.url,'http://localhost'),path=url.pathname;limit('http:'+clientIP(req),240);
+      if(await content.route(req,res,url))return;
       if(await adminRoute(req,res,url))return;
       if(path==='/api/update-logs'&&req.method==='GET')return send(res,200,await updateLogs());
       if(path==='/api/profile/avatar'&&req.method==='POST'){
@@ -83,8 +88,8 @@ export function createCommunity(options={}) {
         const profile=db.prepare('SELECT avatar,version FROM profiles WHERE uid=?').get(uid);if(!profile?.avatar)return send(res,404,{error:'尚未设置头像'});
         res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'private, max-age=300','X-Content-Type-Options':'nosniff','ETag':'"'+profile.version+'"'});res.end(Buffer.from(profile.avatar.slice(22),'base64'));return;
       }
-      if(path==='/health')return send(res,200,{ok:true,version:'0.3.3',service:'hxz-community'});
-      if(path==='/api/config')return send(res,200,{groups:GROUPS,skinSite:'https://skin.hxzmc.top/user',roomLimit});
+      if(path==='/health')return send(res,200,{ok:true,version:VERSION,service:'hxz-community'});
+      if(path==='/api/config')return send(res,200,{groups:GROUPS,skinSite:'https://skin.hxzmc.top/user',roomLimit,version:VERSION,voiceTransport:'ws-opus-v1',features:['blueprints','forum']});
       if(path==='/api/session'&&req.method==='POST'){limit('login:'+clientIP(req),12);return send(res,200,await exchange(await body(req)));}
       if(path==='/api/notices'&&req.method==='GET')return send(res,200,db.prepare('SELECT id,group_id AS groupId,title,body,author,updated FROM notices ORDER BY updated DESC LIMIT 100').all());
       if(path==='/api/notices'&&req.method==='POST') {
@@ -96,11 +101,9 @@ export function createCommunity(options={}) {
       if(path==='/api/moderation'&&req.method==='POST') {admin(req);const input=await body(req);if(typeof input.uid!=='string')throw Error('无效角色');
         if(input.banned)db.prepare('INSERT OR IGNORE INTO banned VALUES(?)').run(input.uid);else db.prepare('DELETE FROM banned WHERE uid=?').run(input.uid);
         for(const [ws,c] of clients)if(c.user.uid===input.uid&&input.banned)ws.close(1008,'账号已禁用');return send(res,200,{ok:true});}
-      if(path==='/api/voice-config') {auth(req);const iceServers=[{urls:['stun:stun.l.google.com:19302']}];const turn=process.env.HXZ_TURN_URL,secret=process.env.HXZ_TURN_SECRET;
-        if(turn&&secret){const username=String(Math.floor(Date.now()/1000)+3600);iceServers.push({urls:turn.split(','),username,credential:createHmac('sha1',secret).update(username).digest('base64')});}
-        return send(res,200,{iceServers});}
+      if(path==='/api/voice-config') {auth(req);return send(res,200,{transport:'ws-opus-v1',roomLimit,codec:'opus',sampleRate:48000});}
       send(res,404,{error:'接口不存在'});
-    }catch(error){send(res,400,{error:error.message||'请求失败'});}
+    }catch(error){if(!res.headersSent&&!res.destroyed)send(res,error.status||400,{error:error.message||'请求失败'});}
   });
   server.requestTimeout=30000;server.headersTimeout=15000;server.maxConnections=1000;
   const wss=new WebSocketServer({noServer:true,maxPayload:32768,perMessageDeflate:false});
@@ -110,17 +113,19 @@ export function createCommunity(options={}) {
   });
   wss.on('connection',ws=>{
     const timer=setTimeout(()=>ws.close(1008,'请登录'),5000);ws.alive=true;ws.on('pong',()=>{ws.alive=true;});
-    ws.on('message',raw=>{try{
+    ws.on('message',(raw,isBinary)=>{try{
+      if(isBinary){relayVoice(ws,raw,clients);return;}
       const message=JSON.parse(raw.toString());let c=clients.get(ws);
-      if(!c){if(message.type!=='auth')throw Error('请先登录');const user=verify(message.token);if([...clients.values()].filter(x=>x.user.uid===user.uid).length>=2)throw Error('此账号已打开过多连接');
-        c={id:randomUUID(),user,room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',heartbeatInterval:15000,id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
+      if(!c){if(message.type!=='auth')throw Error('请先登录');const user=verify(message.token);content.recordMember(user);if([...clients.values()].filter(x=>x.user.uid===user.uid).length>=2)throw Error('此账号已打开过多连接');
+        c={id:randomUUID(),user,room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',heartbeatInterval:15000,voiceTransport:'ws-opus-v1',roomLimit,id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
       verify(c.token);limit('client:'+c.id,120,10000);
       if(message.type==='ping'){ws.alive=true;packet(ws,{type:'pong'});}
       else if(message.type==='chat'){limit('chat:'+c.user.uid,8,10000);const value=text(message.body,1000);const created=Date.now();const inserted=db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)').run('lobby',c.user.uid,c.user.name,value,created);
         db.prepare('DELETE FROM messages WHERE id < (SELECT MAX(id)-3000 FROM messages)').run();broadcast({type:'chat',message:{id:Number(inserted.lastInsertRowid),channel:'lobby',uid:c.user.uid,name:c.user.name,avatarVersion:avatarVersion(c.user.uid),body:value,created}});}
-      else if(message.type==='voice-join'){if(!ROOMS.includes(message.room))throw Error('房间不存在');if([...clients.values()].filter(p=>p.room===message.room&&p.id!==c.id).length>=roomLimit)throw Error('语音房间已满');c.room=message.room;presence();}
-      else if(message.type==='voice-leave'){c.room=null;presence();}
+      else if(message.type==='voice-join'){if(!ROOMS.includes(message.room))throw Error('房间不存在');if([...clients.values()].filter(p=>p.room===message.room&&p.id!==c.id).length>=roomLimit)throw Error('语音房间已满');if(message.transport!=='ws-opus-v1')throw Error('请更新启动器到 0.4.0 后使用语音');c.voiceTransport=message.transport;c.muted=false;c.deafened=false;c.audioEpoch=null;c.audioSeq=-1;c.room=message.room;presence();}
+      else if(message.type==='voice-leave'){c.room=null;c.muted=false;c.deafened=false;presence();}
       else if(message.type==='voice-mute'){c.muted=!!message.muted;presence();}
+      else if(message.type==='voice-deafen'){c.deafened=!!message.deafened;}
       else if(message.type==='signal'){const peer=[...clients.entries()].find(([,p])=>p.id===message.to);if(!peer||!c.room||peer[1].room!==c.room)throw Error('语音目标不在同一房间');packet(peer[0],{type:'signal',from:c.id,data:message.data});}
       else throw Error('未知消息');
     }catch(error){packet(ws,{type:'error',error:error.message});}});
