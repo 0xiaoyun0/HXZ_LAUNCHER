@@ -1,0 +1,12 @@
+{
+  "sha256": [
+    "59809ce7202d07bbd4ed28b3c63ee9e90455dca26efac6ac454699f6f6c1620d  client/latest.yml",
+    "a34c81b3e63f49723879aad4ca1002482afeae2323150da61859d665fa9effe8  client/幻想镇启动器-0.2.1-windows-x64-便携版.zip",
+    "103a0212a52bc32a6621fbd41d35b73556c31629870c3906c28623d32f3a94c0  client/幻想镇启动器-0.2.1-x64.exe",
+    "d79cd1bc0d81652ab589d1acab7a3d9a334e752dacae7dad59654dae22cb256e  client/幻想镇启动器-0.2.1-x64.exe.blockmap",
+    "bd392a16e63f8259d56ea6d5812113da8925941f5d77bd5047db197a608c110c  server/幻想镇社区服务端-0.2.1-windows-x64.zip"
+  ],
+  "kind": "historical-release",
+  "sourceStatus": "Original source snapshot was not preserved; this tag records the original release artifacts, not reconstructed source.",
+  "version": "0.2.1"
+}
