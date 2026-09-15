@@ -1,3 +1,4 @@
+import { normalizeDownloadConcurrency } from "./download-settings.mjs";
 import { serverAddress } from "./instances.mjs";
 import { fileProgress } from "./progress.mjs";
 import path from "node:path";
@@ -195,6 +196,7 @@ function legacySplit(text) {
   );
 }
 export async function prepareLaunch({
+  downloadConcurrency = 64,
   root,
   id,
   java,
@@ -204,6 +206,8 @@ export async function prepareLaunch({
   signal,
   onProgress = () => {}
 }) {
+  const downloadFiles = (values, fn) =>
+    parallel(values, fn, normalizeDownloadConcurrency(downloadConcurrency));
   const version = await readVersion(root, id),
     instance = inside(root, `versions/${id}`);
   await noLinks(instance);
@@ -279,7 +283,7 @@ export async function prepareLaunch({
     onProgress,
     "文件"
   );
-  await parallel(entries, e =>
+  await downloadFiles(entries, e =>
     dependencies.run(path.relative(root, e.file), async onProgress => {
       if (!(await exists(e.file)) || e.sha1) {
         if (!e.url) {
@@ -339,7 +343,7 @@ export async function prepareLaunch({
       onProgress,
       "文件"
     );
-    await parallel(objects, o =>
+    await downloadFiles(objects, o =>
       assets.run("assets/objects/" + o.hash, async onProgress => {
         if (!/^[a-f0-9]{40}$/.test(o.hash)) throw Error("无效资源哈希");
         await download(

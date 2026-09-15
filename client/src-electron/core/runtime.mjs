@@ -1,3 +1,4 @@
+import { normalizeDownloadConcurrency } from "./download-settings.mjs";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { remoteJSON, download, inside, noLinks, json, exists } from "./io.mjs";
@@ -5,7 +6,13 @@ import { fileProgress } from "./progress.mjs";
 import { parallel } from "./io.mjs";
 const MANIFEST =
   "https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json";
-export async function ensureRuntime(data, metadata, signal, onProgress) {
+export async function ensureRuntime(
+  data,
+  metadata,
+  signal,
+  onProgress,
+  downloadConcurrency = 64
+) {
   const component = metadata.javaVersion?.component;
   if (
     process.platform !== "win32" ||
@@ -58,7 +65,7 @@ export async function ensureRuntime(data, metadata, signal, onProgress) {
           });
         } else throw Error("不支持的 Java 文件类型");
       }),
-    6
+    normalizeDownloadConcurrency(downloadConcurrency)
   );
   const java = path.join(home, "bin/java.exe");
   if (!(await exists(java))) throw Error("Java 安装不完整");

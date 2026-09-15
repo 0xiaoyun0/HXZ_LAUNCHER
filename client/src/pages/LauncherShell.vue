@@ -103,7 +103,7 @@ onMounted(() => {
             icon="arrow_forward"
             title="前进"
             @click="router.forward()"
-          /><span class="window-label">HXZ LAUNCHER <b>0.3.1</b></span></div
+          /><span class="window-label">HXZ LAUNCHER <b>0.3.2</b></span></div
         ><div class="row items-center no-drag"
           ><q-btn
             v-if="appUpdate.available"

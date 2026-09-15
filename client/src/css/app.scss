@@ -975,24 +975,6 @@ a:focus-visible {
 .about-line > .subtle {
   margin-left: auto;
 }
-.filter-tabs {
-  display: flex;
-  gap: 9px;
-  flex-wrap: wrap;
-  margin-bottom: 26px;
-}
-.filter-tabs a {
-  padding: 9px 18px;
-  border: 1px solid var(--border);
-  border-radius: 30px;
-  font-size: calc(var(--ui-font-size, 15px) * 0.857);
-  color: var(--muted);
-}
-.filter-tabs a.selected {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-}
 .notice-article {
   margin-bottom: 20px;
 }
@@ -1988,22 +1970,6 @@ a:focus-visible {
 .chat-welcome h2 {
   font-size: calc(var(--ui-font-size, 15px) * 1.214);
 }
-.filter-tabs {
-  margin-bottom: 17px;
-  gap: 0;
-  border-bottom: 1px solid var(--border);
-}
-.filter-tabs a {
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  padding: 10px 18px;
-}
-.filter-tabs a.selected {
-  background: transparent;
-  color: var(--accent);
-  border-bottom-color: var(--accent);
-}
 .notice-article h2 {
   font-size: calc(var(--ui-font-size, 15px) * 1.286);
 }
@@ -2910,8 +2876,7 @@ a:focus-visible {
   background: color-mix(in srgb, var(--panel) 76%, transparent);
 }
 .status-task,
-.detail-tabs button,
-.filter-tabs button {
+.detail-tabs button {
   background: none;
   border: 0;
   color: inherit;
@@ -2925,14 +2890,6 @@ a:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.filter-tabs button {
-  padding: 10px 16px;
-  border-radius: 8px;
-}
-.filter-tabs .selected {
-  background: var(--panel-hover);
-  color: var(--accent);
 }
 .instance-cover {
   position: absolute;
@@ -3042,4 +2999,46 @@ a:focus-visible {
 }
 .instance-table-row > .row {
   flex-wrap: wrap !important;
+}
+
+.filter-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.filter-tabs a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: calc(var(--ui-font-size, 15px) * 0.95);
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  text-decoration: none;
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.filter-tabs a:hover {
+  background: var(--panel-hover);
+  color: var(--text);
+}
+.filter-tabs a.selected {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.filter-tabs a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -3px;
 }

@@ -1,3 +1,4 @@
+import { normalizeDownloadConcurrency } from "./download-settings.mjs";
 import { fileProgress } from "./progress.mjs";
 import fs from "node:fs/promises";
 import { createWriteStream } from "node:fs";
@@ -163,8 +164,16 @@ export async function inspectPack(file) {
 export async function extractPack(
   pack,
   instance,
-  { signal, onProgress = () => {}, includeOptional = true, optionalFiles } = {}
+  {
+    signal,
+    onProgress = () => {},
+    includeOptional = true,
+    optionalFiles,
+    downloadConcurrency = 64
+  } = {}
 ) {
+  const downloadFiles = (values, fn) =>
+    parallel(values, fn, normalizeDownloadConcurrency(downloadConcurrency));
   const protectedPath = relative => {
     const r = relative.toLowerCase();
     if (
@@ -190,7 +199,7 @@ export async function extractPack(
     onProgress,
     "文件"
   );
-  await parallel(files, f =>
+  await downloadFiles(files, f =>
     downloads.run(f.path, async onProgress => {
       signal?.throwIfAborted();
       await download(

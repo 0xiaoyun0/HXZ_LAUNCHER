@@ -13,6 +13,7 @@ import {
 import { disconnect, connect } from "../lib/community";
 const hxzupPopup = ref(state.settings.hxzupPopup !== false);
 const simpleHome = ref(state.settings.simpleHome);
+const downloadConcurrency = ref(state.settings.downloadConcurrency ?? 64);
 const automatic = ref(state.settings.autoCheckUpdates !== false);
 async function checkUpdate() {
   await invoke("app-update.check");
@@ -65,6 +66,7 @@ async function save() {
     communityUrl: base.value,
     javaPath: java.value,
     downloadMode: downloadMode.value,
+    downloadConcurrency: downloadConcurrency.value,
     hxzupPopup: hxzupPopup.value,
     simpleHome: simpleHome.value,
     autoCheckUpdates: automatic.value
@@ -100,7 +102,7 @@ async function root() {
   </section>
   <section class="panel settings-section"
     ><h2>外观</h2
-    ><q-toggle v-model="simpleHome" label="使用简化版启动游戏界面" /> ><q-btn
+    ><q-toggle v-model="simpleHome" label="使用简化版启动游戏界面" /><q-btn
       outline
       to="/appearance"
       label="字号、颜色与布局"
@@ -170,7 +172,7 @@ async function root() {
         @click="perform(choose)" /></div
   ></section>
   <section class="panel settings-section"
-    ><h2>下载来源</h2
+    ><h2>下载设置</h2
     ><q-select
       v-model="downloadMode"
       outlined
@@ -181,7 +183,17 @@ async function root() {
         { label: '官方来源', value: 'official' }
       ]"
       label="资源下载"
-  /></section>
+    /><q-select
+      v-model="downloadConcurrency"
+      outlined
+      class="q-mt-md"
+      :options="[8, 16, 32, 64, 128]"
+      :display-value="downloadConcurrency + ' 并发'"
+      label="下载并发数"
+      hint="默认 64，开始或继续安装时生效"
+      :disable="task.busy || state.running"
+    />
+  </section>
   <section class="panel settings-section"
     ><h2>社区服务</h2
     ><p class="subtle">聊天、语音和公告共用此地址；皮肤站与 HXZ UP 独立运行。</p

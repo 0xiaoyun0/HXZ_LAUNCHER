@@ -20,6 +20,7 @@ export interface Settings {
   backgroundOpacity: number;
   layout: string;
   downloadMode: string;
+  downloadConcurrency: number;
   updateFeed: string;
   autoCheckUpdates: boolean;
   hxzupPopup: boolean;
@@ -126,6 +127,7 @@ export const state = reactive<State>({
     backgroundOpacity: 0.4,
     layout: "standard",
     downloadMode: "domestic",
+    downloadConcurrency: 64,
     updateFeed: "",
     autoCheckUpdates: true,
     hxzupPopup: true,
@@ -178,7 +180,7 @@ export const taskCount = computed(() =>
 );
 export const appUpdate = reactive({
   phase: "尚未检查",
-  version: "0.3.1",
+  version: "0.3.2",
   available: false,
   ready: false,
   percent: 0

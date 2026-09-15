@@ -98,7 +98,7 @@ final class GameInstaller {
         IO.noLinks(runDirectory);
         temp=updater.resolve(".updater/game-downloads");IO.noLinks(temp);Files.createDirectories(temp);
         versionWorkspace=temp.resolve("versions");IO.noLinks(versionWorkspace);Files.createDirectories(versionWorkspace);
-        this.network=network;mirrors=IO.object(config,"mirrorUrls");concurrency=IO.integer(config,"parallelDownloads",8,2,16);
+        this.network=network;mirrors=IO.object(config,"mirrorUrls");concurrency=IO.integer(config,"parallelDownloads",64,2,128);
     }
     String install(JsonObject profile)throws Exception{
         String gameVersion=IO.str(profile,"gameVersion","");if(gameVersion.isEmpty())return "";

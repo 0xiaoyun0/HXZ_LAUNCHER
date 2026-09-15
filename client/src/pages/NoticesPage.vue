@@ -6,7 +6,7 @@ import { useRoute } from "vue-router";
 import { notices, loadNotices, groups, invoke, perform } from "../lib/launcher";
 import { community, connect } from "../lib/community";
 const route = useRoute(),
-  launcherTab = ref(false),
+  launcherTab = computed(() => route.params.group === "launcher"),
   show = ref(false),
   title = ref(""),
   body = ref(""),
@@ -42,20 +42,21 @@ onMounted(() => void loadNotices());
       ><h1>{{ launcherTab ? "启动器更新" : heading }}</h1></div
     ><div class="row q-gutter-sm"
       ><q-btn
+        v-if="!launcherTab"
         flat
         round
         icon="refresh"
         :loading="notices.loading"
         title="刷新公告"
         @click="loadNotices" /><q-btn
-        v-if="community.user?.admin"
+        v-if="community.user?.admin && !launcherTab"
         unelevated
         class="primary-button"
         icon="edit_note"
         label="发布公告"
         @click="show = true" /></div
   ></div>
-  <div class="filter-tabs" @click="launcherTab = false"
+  <nav class="filter-tabs" aria-label="公告分类"
     ><router-link
       to="/notices"
       :class="{ selected: !launcherTab && !route.params.group }"
@@ -66,9 +67,9 @@ onMounted(() => void loadNotices());
       :to="'/notices/' + group.id"
       :class="{ selected: !launcherTab && route.params.group === group.id }"
       >{{ group.name }}</router-link
-    ><button :class="{ selected: launcherTab }" @click.stop="launcherTab = true"
-      >启动器更新</button
-    ></div
+    ><router-link to="/notices/launcher" :class="{ selected: launcherTab }"
+      >启动器更新</router-link
+    ></nav
   >
   <LauncherReleases v-if="launcherTab" />
   <template v-else>

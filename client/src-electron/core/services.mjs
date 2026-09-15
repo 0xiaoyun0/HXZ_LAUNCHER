@@ -1,3 +1,7 @@
+import {
+  normalizeDownloadConcurrency,
+  validateDownloadConcurrency
+} from "./download-settings.mjs";
 import { ensureRuntime } from "./runtime.mjs";
 import path from "node:path";
 import os from "node:os";
@@ -62,6 +66,7 @@ export async function createServices({
     backgroundOpacity: 0.4,
     layout: "standard",
     downloadMode: "domestic",
+    downloadConcurrency: 64,
     updateFeed: "",
     autoCheckUpdates: true,
     hxzupPopup: true,
@@ -71,6 +76,9 @@ export async function createServices({
   };
   if (await exists(configFile))
     settings = { ...settings, ...(await json(configFile)) };
+  settings.downloadConcurrency = normalizeDownloadConcurrency(
+    settings.downloadConcurrency
+  );
   setDownloadMode(settings.downloadMode);
   const persistent =
     safeStorage.isEncryptionAvailable() &&
@@ -474,8 +482,12 @@ export async function createServices({
         available
           .filter(j => j.major >= required)
           .sort((a, b) => a.major - b.major)[0]?.path ||
-        (await ensureRuntime(data, metadata, controller.signal, p =>
-          phase({ ...p, busy: true })
+        (await ensureRuntime(
+          data,
+          metadata,
+          controller.signal,
+          p => phase({ ...p, busy: true }),
+          settings.downloadConcurrency
         ));
       if (!java) throw Error("没有找到 Java，请在设置中选择");
       const command = await prepareLaunch({
@@ -483,6 +495,7 @@ export async function createServices({
         id,
         java,
         settings: cfg,
+        downloadConcurrency: settings.downloadConcurrency,
         account: { ...account },
         authAgent,
         signal: controller.signal,
@@ -599,8 +612,12 @@ export async function createServices({
           versions
             .filter(j => j.major >= required)
             .sort((a, b) => a.major - b.major)[0]?.path ||
-          (await ensureRuntime(data, metadata, controller.signal, p =>
-            phase({ ...p, busy: true })
+          (await ensureRuntime(
+            data,
+            metadata,
+            controller.signal,
+            p => phase({ ...p, busy: true }),
+            settings.downloadConcurrency
           ));
       if (!java)
         throw Error(
@@ -613,7 +630,7 @@ export async function createServices({
       await writeJSON(requestFile, request);
       await writeJSON(configFile, {
         gameDir: settings.gameRoot,
-        parallelDownloads: 8
+        parallelDownloads: settings.downloadConcurrency
       });
       await fs.mkdir(path.join(instance, "updater"), { recursive: true });
       await runProcess(
@@ -647,7 +664,8 @@ export async function createServices({
         update = await extractPack(pack, instance, {
           signal: controller.signal,
           onProgress: p => phase({ ...p, busy: true }),
-          includeOptional: input.includeOptional !== false
+          includeOptional: input.includeOptional !== false,
+          downloadConcurrency: settings.downloadConcurrency
         });
       }
       if (update.hxzup)
@@ -933,6 +951,10 @@ export async function createServices({
         );
       if (["standard", "compact", "wide"].includes(input.layout))
         settings.layout = input.layout;
+      if (input.downloadConcurrency != null)
+        settings.downloadConcurrency = validateDownloadConcurrency(
+          input.downloadConcurrency
+        );
       if (input.downloadMode) {
         settings.downloadMode =
           input.downloadMode === "official" ? "official" : "domestic";
