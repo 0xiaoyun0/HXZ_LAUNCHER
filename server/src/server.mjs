@@ -83,7 +83,7 @@ export function createCommunity(options={}) {
         const profile=db.prepare('SELECT avatar,version FROM profiles WHERE uid=?').get(uid);if(!profile?.avatar)return send(res,404,{error:'尚未设置头像'});
         res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'private, max-age=300','X-Content-Type-Options':'nosniff','ETag':'"'+profile.version+'"'});res.end(Buffer.from(profile.avatar.slice(22),'base64'));return;
       }
-      if(path==='/health')return send(res,200,{ok:true,version:'0.3.0',service:'hxz-community'});
+      if(path==='/health')return send(res,200,{ok:true,version:'0.3.1',service:'hxz-community'});
       if(path==='/api/config')return send(res,200,{groups:GROUPS,skinSite:'https://skin.hxzmc.top/user',roomLimit});
       if(path==='/api/session'&&req.method==='POST'){limit('login:'+clientIP(req),12);return send(res,200,await exchange(await body(req)));}
       if(path==='/api/notices'&&req.method==='GET')return send(res,200,db.prepare('SELECT id,group_id AS groupId,title,body,author,updated FROM notices ORDER BY updated DESC LIMIT 100').all());

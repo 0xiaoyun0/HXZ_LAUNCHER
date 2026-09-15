@@ -178,7 +178,7 @@ export const taskCount = computed(() =>
 );
 export const appUpdate = reactive({
   phase: "尚未检查",
-  version: "0.3.0",
+  version: "0.3.1",
   available: false,
   ready: false,
   percent: 0

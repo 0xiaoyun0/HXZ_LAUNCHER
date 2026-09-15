@@ -9,6 +9,7 @@ const tool = name =>
     : name;
 const out = path.join(root, ".installer-build"),
   resources = path.join(root, "resources/installer");
+fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });
 fs.mkdirSync(resources, { recursive: true });
 for (const [command, args] of [
