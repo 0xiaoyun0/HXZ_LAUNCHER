@@ -3042,3 +3042,28 @@ a:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -3px;
 }
+
+.settings-appearance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 24px;
+  margin: 12px 0 18px;
+}
+.settings-appearance-actions .q-toggle {
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+}
+.settings-appearance-actions .q-toggle__label {
+  min-width: 0;
+  white-space: normal;
+}
+.settings-appearance-actions .q-btn {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+.settings-appearance .theme-options {
+  flex-wrap: wrap;
+  margin-top: 0;
+}

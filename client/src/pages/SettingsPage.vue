@@ -100,14 +100,13 @@ async function root() {
       >默认开启：启动游戏更新时显示独立窗口。关闭后在启动器任务详情中查看。是否自动更新仍由各实例的配置决定。</p
     >
   </section>
-  <section class="panel settings-section"
-    ><h2>外观</h2
-    ><q-toggle v-model="simpleHome" label="使用简化版启动游戏界面" /><q-btn
-      outline
-      to="/appearance"
-      label="字号、颜色与布局"
-      icon="palette" /><p class="subtle"></p
-    ><div class="theme-options"
+  <section class="panel settings-section settings-appearance">
+    <h2>外观</h2>
+    <div class="settings-appearance-actions">
+      <q-toggle v-model="simpleHome" label="使用简化版启动游戏界面" />
+      <q-btn outline to="/appearance" label="字号、颜色与布局" icon="palette" />
+    </div>
+    <div class="theme-options"
       ><button
         :class="[
           'theme-card',
