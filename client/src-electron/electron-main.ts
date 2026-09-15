@@ -14,7 +14,7 @@ import {
   registerQuasarRuntime,
   resolveElectronAssetsPath
 } from "#q-app/electron/main";
-import { createAppUpdate } from "./core/app-update.mjs";
+import { createAppUpdate, launcherReleases } from "./core/app-update.mjs";
 import { createServices } from "./core/services.mjs";
 
 let appUpdate: ReturnType<typeof createAppUpdate>;
@@ -68,13 +68,20 @@ async function createWindow() {
       preload: path.join(import.meta.dirname, "electron-preload.cjs"),
       contextIsolation: true,
       sandbox: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      backgroundThrottling: false
     }
   });
   const win = main;
   win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   win.webContents.on("will-navigate", event => event.preventDefault());
   win.once("ready-to-show", () => win.show());
+  win.on("close", event => {
+    if (services?.isBusy()) {
+      event.preventDefault();
+      win.minimize();
+    }
+  });
   win.on("closed", () => {
     main = null;
     services?.dispose();
@@ -110,9 +117,7 @@ async function createWindow() {
     const current = (await services.invoke("state")) as {
       settings: { updateFeed: string; autoCheckUpdates: boolean };
     };
-    if (current.settings.updateFeed && current.settings.autoCheckUpdates) {
-      void appUpdate.check(current.settings.updateFeed).catch(() => {});
-    }
+    appUpdate.configure(current.settings.autoCheckUpdates);
   }
 }
 if (!app.requestSingleInstanceLock()) app.quit();
@@ -174,14 +179,19 @@ else {
           let value;
           if (action === "app-update.status") value = appUpdate.status();
           else if (action === "app-update.check") {
-            const current = (await services.invoke("state")) as {
-              settings: { updateFeed: string };
-            };
-            value = await appUpdate.check(current.settings.updateFeed);
+            value = await appUpdate.check();
           } else if (action === "app-update.download")
             value = await appUpdate.download();
           else if (action === "app-update.install") value = appUpdate.install();
-          else value = await services.invoke(action, input);
+          else if (action === "launcher.releases")
+            value = await launcherReleases();
+          else {
+            value = await services.invoke(action, input);
+            if (action === "settings.save")
+              appUpdate.configure(
+                (value as { autoCheckUpdates: boolean }).autoCheckUpdates
+              );
+          }
           return { ok: true, value };
         } catch (error) {
           return {

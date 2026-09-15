@@ -1,8 +1,9 @@
+import { ensureRuntime } from "./runtime.mjs";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs/promises";
 import { spawn } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import {
   exists,
   json,
@@ -22,6 +23,14 @@ import {
   readVersion
 } from "./minecraft.mjs";
 
+import {
+  SERVERS,
+  serverAddress,
+  modDirectory,
+  listMods,
+  modFile
+} from "./instances.mjs";
+import { beginInstall, listInstalls, discardInstall } from "./install-jobs.mjs";
 import { inspectPack, extractPack } from "./packs.mjs";
 import * as catalog from "./catalog.mjs";
 import { setDownloadMode } from "./sources.mjs";
@@ -50,13 +59,14 @@ export async function createServices({
     accentColor: "#a9ce80",
     backgroundColor: "",
     backgroundImage: "",
-    backgroundOpacity: 0.12,
+    backgroundOpacity: 0.4,
     layout: "standard",
     downloadMode: "domestic",
     updateFeed: "",
     autoCheckUpdates: true,
     hxzupPopup: true,
-    communityUrl: "http://127.0.0.1:8787",
+    simpleHome: false,
+    communityUrl: "https://qqbot.hxzmc.top",
     instanceSettings: {}
   };
   if (await exists(configFile))
@@ -310,7 +320,8 @@ export async function createServices({
         finished = true;
         signal?.removeEventListener("abort", abort);
         if (signal?.aborted) reject(Error("任务已取消"));
-        else if (code !== 0) reject(Error("任务进程未完成，请查看启动日志"));
+        else if (code !== 0)
+          reject(Error("任务进程未完成，请查看任务详情中的日志"));
         else resolve();
       });
     });
@@ -391,8 +402,19 @@ export async function createServices({
         throw Error("部分文件未更新完成，请解除占用后重试；详情见日志");
     }
   }
-  async function launch(id, updateOnly = false) {
+  async function launch(id, updateOnly = false, joinServer = false) {
     busy();
+    const preset = SERVERS.find(p => p.id === id);
+    if (preset?.placeholder) throw Error("此服务器的整合包尚未发布");
+    if (preset && !updateOnly) {
+      if (!settings.gameRoot) {
+        settings.gameRoot = path.join(data, "games/.minecraft");
+        await writeJSON(configFile, settings);
+      }
+      const metadata = inside(settings.gameRoot, `versions/${id}/${id}.json`);
+      if (!(await exists(metadata)))
+        await installGame({ name: id, minecraft: preset.version });
+    }
     if (
       !settings.gameRoot ||
       typeof id !== "string" ||
@@ -417,8 +439,14 @@ export async function createServices({
         height: 720,
         isolated: true,
         autoUpdate: false,
+        autoJoin: !!preset?.address,
+        serverAddress: preset?.address || "",
         ...settings.instanceSettings[id]
       };
+      if (joinServer) {
+        if (!cfg.serverAddress) throw Error("请先在实例配置中填写服务器地址");
+        cfg.autoJoin = true;
+      }
       if (updateOnly || cfg.autoUpdate)
         await updateInstance(id, cfg, controller.signal);
       if (updateOnly) {
@@ -432,13 +460,23 @@ export async function createServices({
       phase({ phase: "读取实例与选择 Java", busy: true });
       const metadata = await readVersion(settings.gameRoot, id);
       const available = await findJava();
+      const managed = path.join(
+        data,
+        "runtimes",
+        metadata.javaVersion?.component || "none",
+        "bin/java.exe"
+      );
+      if (await exists(managed)) available.unshift(await inspectJava(managed));
       const required = metadata.javaVersion?.majorVersion || 8;
       const java =
         settings.javaPath ||
         available.find(j => j.major === required)?.path ||
         available
           .filter(j => j.major >= required)
-          .sort((a, b) => a.major - b.major)[0]?.path;
+          .sort((a, b) => a.major - b.major)[0]?.path ||
+        (await ensureRuntime(data, metadata, controller.signal, p =>
+          phase({ ...p, busy: true })
+        ));
       if (!java) throw Error("没有找到 Java，请在设置中选择");
       const command = await prepareLaunch({
         root: settings.gameRoot,
@@ -523,11 +561,6 @@ export async function createServices({
       /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(id)
     )
       throw Error("实例名称无效");
-    const instance = inside(settings.gameRoot, "versions/" + id);
-    await noLinks(instance);
-    const marker = path.join(instance, ".hxzl/install-request.json");
-    if ((await exists(instance)) && !(await exists(marker)))
-      throw Error("同名实例已存在，请使用新的名称");
     const request = {
       gameVersion: pack?.minecraft || input.minecraft,
       loader: {
@@ -544,20 +577,16 @@ export async function createServices({
       (request.loader.type && !/^[\w.+-]{1,100}$/.test(request.loader.version))
     )
       throw Error("游戏或加载器版本无效");
-    if (await exists(marker)) {
-      const previous = await json(marker);
-      if (
-        JSON.stringify(previous.request) !== JSON.stringify(request) ||
-        previous.pack !== (pack?.file || "")
-      )
-        throw Error("此目录属于另一次未完成安装，请更换名称");
-    }
     const controller = new AbortController();
     task = controller;
     logs = [];
     emit({ type: "logs-reset" });
     phase({ phase: "准备安装 " + id, busy: true });
+    let job;
     try {
+      job = await beginInstall(settings.gameRoot, id, request, pack, input);
+      const instance = job.stage;
+      const marker = path.join(instance, ".hxzl/install-request.json");
       await writeJSON(marker, { request, pack: pack?.file || "" });
       const [versions, metadata] = await Promise.all([
           findJava(),
@@ -569,7 +598,10 @@ export async function createServices({
           versions.find(j => j.major === required)?.path ||
           versions
             .filter(j => j.major >= required)
-            .sort((a, b) => a.major - b.major)[0]?.path;
+            .sort((a, b) => a.major - b.major)[0]?.path ||
+          (await ensureRuntime(data, metadata, controller.signal, p =>
+            phase({ ...p, busy: true })
+          ));
       if (!java)
         throw Error(
           "此版本需要 Java " + required + "，请在设置中选择已安装的 Java"
@@ -581,13 +613,14 @@ export async function createServices({
       await writeJSON(requestFile, request);
       await writeJSON(configFile, {
         gameDir: settings.gameRoot,
-        parallelDownloads: 32
+        parallelDownloads: 8
       });
       await fs.mkdir(path.join(instance, "updater"), { recursive: true });
       await runProcess(
         java,
         [
           "-Xmx768m",
+          "-Djava.awt.headless=true",
           "-Dfile.encoding=UTF-8",
           "-Dstdout.encoding=UTF-8",
           "-Dstderr.encoding=UTF-8",
@@ -631,26 +664,33 @@ export async function createServices({
         fullscreen: false,
         jvmArgs: [],
         autoUpdate: update.hxzup,
-        updateUrls: update.updateUrls
+        updateUrls: update.updateUrls,
+        ...settings.instanceSettings[id]
       };
       settings.selectedInstance = id;
       await writeJSON(
         configFile.replace("installer-settings.json", "installed.json"),
         { request, pack: pack?.name || "", hxzup: update.hxzup }
       );
-      await writeJSON(path.join(data, "settings.json"), settings);
       await fs.rm(marker, { force: true });
+      controller.signal.throwIfAborted();
+      await writeJSON(path.join(data, "settings.json"), settings);
+      await job.commit();
       phase({
         phase: "安装完成" + (update.hxzup ? " · 已启用 HXZ UP 自动更新" : ""),
         busy: false
       });
       return { id, ...update };
     } catch (error) {
+      await job?.save(
+        controller.signal.aborted ? "paused" : "failed",
+        error.message
+      );
       log(error.stack || error.message);
       phase({
         phase: controller.signal.aborted
           ? "任务已取消"
-          : "安装未完成，可用同一名称重试",
+          : "安装已暂停，可在任务详情继续或清理",
         busy: false,
         failed: !controller.signal.aborted,
         cancelled: controller.signal.aborted,
@@ -678,6 +718,33 @@ export async function createServices({
     },
     async "catalog.packVersions"(input) {
       return catalog.packVersions(input.id);
+    },
+    async "install.list"() {
+      return listInstalls(settings.gameRoot);
+    },
+    async "install.discard"(input) {
+      busy();
+      await discardInstall(settings.gameRoot, input.id);
+      return { ok: true };
+    },
+    async "install.resume"(input) {
+      busy();
+      const job = (await listInstalls(settings.gameRoot)).find(
+        j => j.id === input.id
+      );
+      if (!job) throw Error("未找到安装任务");
+      const i = job.identity;
+      const pack = i.pack ? await inspectPack(i.pack) : null;
+      return installGame(
+        {
+          name: job.id,
+          minecraft: i.request.gameVersion,
+          loader: i.request.loader.type,
+          loaderVersion: i.request.loader.version,
+          includeOptional: i.includeOptional
+        },
+        pack
+      );
     },
     async "game.install"(input) {
       return installGame(input);
@@ -794,10 +861,19 @@ export async function createServices({
       );
     },
     async state() {
+      const local = await scanInstances(settings.gameRoot);
+      const instances = [
+        ...SERVERS.map(p => ({
+          ...p,
+          ...local.find(i => i.id === p.id),
+          name: p.name
+        })),
+        ...local.filter(i => !SERVERS.some(p => p.id === i.id))
+      ];
       return {
         settings,
         accounts: accounts.map(accountView),
-        instances: await scanInstances(settings.gameRoot),
+        instances,
         persistentCredentials: persistent,
         system: {
           memoryMB: Math.floor(os.totalmem() / 1048576),
@@ -811,6 +887,7 @@ export async function createServices({
         Object.keys(input).some(
           k =>
             ![
+              "autoCheckUpdates",
               "theme",
               "fontSize",
               "accentColor",
@@ -852,7 +929,7 @@ export async function createServices({
       if (input.backgroundOpacity != null)
         settings.backgroundOpacity = Math.max(
           0,
-          Math.min(0.7, Number(input.backgroundOpacity) || 0)
+          Math.min(1, Number(input.backgroundOpacity) || 0)
         );
       if (["standard", "compact", "wide"].includes(input.layout))
         settings.layout = input.layout;
@@ -866,6 +943,7 @@ export async function createServices({
           throw Error("更新弹窗设置无效");
         settings.hxzupPopup = input.hxzupPopup;
       }
+      if (input.simpleHome != null) settings.simpleHome = !!input.simpleHome;
       if (input.autoCheckUpdates != null)
         settings.autoCheckUpdates = !!input.autoCheckUpdates;
       if (input.updateFeed != null)
@@ -912,6 +990,9 @@ export async function createServices({
           throw Error("更新地址最多 16 个");
         v.updateUrls = v.updateUrls.map(endpoint);
         settings.instanceSettings[id] = {
+          ...settings.instanceSettings[id],
+          autoJoin: !!v.autoJoin,
+          serverAddress: serverAddress(v.serverAddress || ""),
           memoryMB: v.memoryMB,
           width: v.width,
           height: v.height,
@@ -968,6 +1049,89 @@ export async function createServices({
       await writeJSON(configFile, settings);
       await launch(input.name, true);
       return { ok: true };
+    },
+    async "mods.list"(input) {
+      return listMods(await modDirectory(settings, input.id));
+    },
+    async "mods.open"(input) {
+      const dir = await modDirectory(settings, input.id);
+      await fs.mkdir(dir, { recursive: true });
+      return shell.openPath(dir);
+    },
+    async "mods.toggle"(input) {
+      busy();
+      const dir = await modDirectory(settings, input.id),
+        file = modFile(dir, input.file),
+        target = file.endsWith(".disabled")
+          ? file.slice(0, -9)
+          : file + ".disabled";
+      await noLinks(file);
+      await noLinks(target);
+      if (await exists(target)) throw Error("目标模组已存在");
+      await fs.rename(file, target);
+      return { ok: true };
+    },
+    async "mods.remove"(input) {
+      busy();
+      const dir = await modDirectory(settings, input.id),
+        file = modFile(dir, input.file);
+      await noLinks(file);
+      await shell.trashItem(file);
+      return { ok: true };
+    },
+    async "mods.add"(input) {
+      busy();
+      const dir = await modDirectory(settings, input.id);
+      const r = await dialog.showOpenDialog(window(), {
+        properties: ["openFile", "multiSelections"],
+        filters: [{ name: "Minecraft MOD", extensions: ["jar"] }]
+      });
+      if (r.canceled) return;
+      await fs.mkdir(dir, { recursive: true });
+      for (const source of r.filePaths) {
+        await noLinks(source);
+        const target = modFile(dir, path.basename(source));
+        await noLinks(target);
+        await fs.copyFile(source, target, fs.constants.COPYFILE_EXCL);
+      }
+      return { ok: true };
+    },
+    async "instance.cover"(input) {
+      if (typeof input.id !== "string" || !input.id || input.id.length > 100)
+        throw Error("无效实例");
+      const file = path.join(
+        data,
+        "covers",
+        createHash("sha256").update(input.id).digest("hex") + ".jpg"
+      );
+      if (input.choose) {
+        if (!nativeImage) throw Error("图片处理不可用");
+        const r = await dialog.showOpenDialog(window(), {
+          properties: ["openFile"],
+          filters: [
+            { name: "头图", extensions: ["png", "jpg", "jpeg", "webp"] }
+          ]
+        });
+        if (r.canceled) return null;
+        const source = r.filePaths[0];
+        await noLinks(source);
+        if ((await fs.stat(source)).size > 16 * 1024 * 1024)
+          throw Error("头图原图不能超过16MB");
+        const image = await nativeImage.createThumbnailFromPath(source, {
+          width: 1600,
+          height: 900
+        });
+        if (image.isEmpty()) throw Error("无法读取图片");
+        const buffer = image.toJPEG(80);
+        if (buffer.length > 1024 * 1024) throw Error("头图过大，请换一张图片");
+        await fs.mkdir(path.dirname(file), { recursive: true });
+        await fs.writeFile(file, buffer);
+      }
+      if (input.reset) await fs.rm(file, { force: true });
+      return (await exists(file))
+        ? "data:image/jpeg;base64," +
+            (await fs.readFile(file)).toString("base64")
+        : "";
     },
     async "instance.open"(input) {
       const dir = inside(settings.gameRoot, "versions/" + input.id);
@@ -1048,13 +1212,14 @@ export async function createServices({
     async "skin.open"() {
       return openSkin(settings.selectedAccount || "default");
     },
-    async "community.connect"() {
+    async "community.connect"(input) {
+      if (input.refresh) community = null;
       if (
         community &&
         community.user.uid === selected().uuid &&
         community.expiresAt > Date.now() + 60000
       ) {
-        await syncAvatar(selected());
+        void syncAvatar(selected());
         return community;
       }
       const a = await ensureAccount();
@@ -1078,7 +1243,7 @@ export async function createServices({
         base,
         expiresAt: Date.now() + 11 * 3600000
       };
-      await syncAvatar(a);
+      void syncAvatar(a);
       return community;
     },
     async "update-logs.list"() {
@@ -1159,7 +1324,7 @@ export async function createServices({
       );
     },
     async "game.launch"(input) {
-      return launch(input.id);
+      return launch(input.id, false, !!input.joinServer);
     },
     async "game.update"(input) {
       return launch(input.id, true);
@@ -1197,6 +1362,11 @@ export async function createServices({
       if (input == null || typeof input !== "object" || Array.isArray(input))
         throw Error("请求格式错误");
       const owns = [
+        "mods.add",
+        "mods.toggle",
+        "mods.remove",
+        "install.resume",
+        "install.discard",
         "game.install",
         "pack.install",
         "pack.download",
@@ -1204,7 +1374,12 @@ export async function createServices({
         "game.update",
         "instance.create"
       ].includes(action);
-      if (exclusive && (owns || action === "settings.save"))
+      if (
+        exclusive &&
+        (owns ||
+          (action === "settings.save" &&
+            Object.keys(input).some(k => k !== "autoCheckUpdates")))
+      )
         throw Error("请等待当前游戏任务完成");
       if (owns) exclusive = true;
       try {

@@ -22,6 +22,7 @@ interface Session {
   user: { uid: string; name: string; admin: boolean; avatarVersion?: string };
 }
 interface Packet {
+  heartbeatInterval?: number;
   uid?: string;
   avatarVersion?: string;
   type: string;
@@ -64,7 +65,10 @@ let socket: WebSocket | null = null,
   iceServers: RTCIceServer[] = [];
 let generation = 0,
   retryTimer: ReturnType<typeof setTimeout> | undefined,
-  retries = 0;
+  retries = 0,
+  heartbeat: ReturnType<typeof setInterval> | undefined,
+  wanted = false,
+  refreshSession = false;
 const peers = new Map<string, Peer>();
 function send(value: unknown) {
   if (!socket || socket.readyState !== WebSocket.OPEN || !community.connected)
@@ -89,7 +93,10 @@ function voiceCleanup() {
   community.deafened = false;
 }
 export function disconnect() {
+  wanted = false;
+  retries = 0;
   generation++;
+  clearInterval(heartbeat);
   clearTimeout(retryTimer);
   retryTimer = undefined;
   voiceCleanup();
@@ -199,31 +206,71 @@ async function receiveSignal(packet: Packet) {
     });
   await peer.queue;
 }
+function scheduleRetry() {
+  clearTimeout(retryTimer);
+  if (!wanted) return;
+  const wait =
+    Math.min(30000, 1500 * 2 ** Math.min(retries++, 5)) +
+    Math.floor(Math.random() * 1000);
+  community.status = "连接中断，正在重试";
+  retryTimer = setTimeout(() => {
+    if (wanted) void connect();
+  }, wait);
+}
 export async function connect() {
+  wanted = true;
+  clearTimeout(retryTimer);
   if (community.connecting || community.connected) return;
   const attempt = ++generation;
   community.connecting = true;
   community.error = "";
   community.status = "正在验证身份";
   try {
-    const session = await invoke<Session>("community.connect");
+    const session = await invoke<Session>("community.connect", {
+      refresh: refreshSession
+    });
     if (attempt !== generation) return;
     credentials = session;
+    refreshSession = false;
     const url = new URL(session.base);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     url.pathname = url.pathname.replace(/\/$/, "") + "/ws";
     const ws = new WebSocket(url);
     socket = ws;
     community.status = "正在连接社区";
-    const timeout = setTimeout(() => ws.close(), 10000);
-    ws.onopen = () =>
+    const timeout = setTimeout(() => ws.close(), 20000);
+    let lastMessage = Date.now(),
+      readyAt = 0;
+    ws.onopen = () => {
+      if (attempt !== generation) {
+        ws.close();
+        return;
+      }
       ws.send(JSON.stringify({ type: "auth", token: session.token }));
+    };
     ws.onmessage = event => {
       if (attempt !== generation) return;
-      const packet = JSON.parse(String(event.data)) as Packet;
+      lastMessage = Date.now();
+      let packet: Packet;
+      try {
+        packet = JSON.parse(String(event.data)) as Packet;
+      } catch {
+        return;
+      }
       if (packet.type === "ready") {
         clearTimeout(timeout);
-        retries = 0;
+        readyAt = Date.now();
+        clearInterval(heartbeat);
+        heartbeat = setInterval(() => {
+          if (attempt !== generation || ws.readyState !== WebSocket.OPEN)
+            return;
+          if (packet.heartbeatInterval && Date.now() - lastMessage > 90000) {
+            ws.close();
+            return;
+          }
+          if (packet.heartbeatInterval)
+            ws.send(JSON.stringify({ type: "ping" }));
+        }, 15000);
         community.connected = true;
         community.connecting = false;
         community.status = "社区在线";
@@ -275,20 +322,24 @@ export async function connect() {
       community.users = [];
       community.status = "连接已断开";
       if (event.reason) community.error = event.reason;
-      if (event.code !== 1008 && retries < 4)
-        retryTimer = setTimeout(
-          () => {
-            retries++;
-            void connect();
-          },
-          Math.min(30000, 2000 * 2 ** retries)
-        );
+      clearInterval(heartbeat);
+      socket = null;
+      if (readyAt && Date.now() - readyAt > 60000) retries = 0;
+      if (event.code === 1008 && /禁用|封禁|过多连接/.test(event.reason)) {
+        wanted = false;
+        return;
+      }
+      if (event.code === 1008) refreshSession = true;
+      scheduleRetry();
     };
   } catch (error) {
     if (attempt !== generation) return;
     community.connecting = false;
     community.status = "连接未完成";
     community.error = errorMessage(error);
+    if (/请先登录|未选择角色|账号已失效|密码|禁用|封禁/.test(community.error))
+      wanted = false;
+    scheduleRetry();
   }
 }
 export function sendChat(body: string) {
@@ -340,4 +391,10 @@ export function toggleDeafen() {
   community.deafened = !community.deafened;
   for (const peer of peers.values()) peer.audio.muted = community.deafened;
 }
+window.addEventListener("online", () => {
+  if (wanted && !community.connected && !community.connecting) {
+    retries = 0;
+    void connect();
+  }
+});
 window.addEventListener("beforeunload", disconnect);

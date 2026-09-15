@@ -55,7 +55,7 @@ async function reset() {
     accentColor: "#a9ce80",
     backgroundColor: "",
     backgroundImage: "",
-    backgroundOpacity: 0.12,
+    backgroundOpacity: 0.4,
     layout: "standard"
   });
   await save();
@@ -174,7 +174,7 @@ async function reset() {
         ><q-slider
           v-model="form.backgroundOpacity"
           :min="0"
-          :max="0.7"
+          :max="1"
           :step="0.01"
           label /></div></div></section
   ><q-btn

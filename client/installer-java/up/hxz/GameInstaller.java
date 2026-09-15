@@ -98,7 +98,7 @@ final class GameInstaller {
         IO.noLinks(runDirectory);
         temp=updater.resolve(".updater/game-downloads");IO.noLinks(temp);Files.createDirectories(temp);
         versionWorkspace=temp.resolve("versions");IO.noLinks(versionWorkspace);Files.createDirectories(versionWorkspace);
-        this.network=network;mirrors=IO.object(config,"mirrorUrls");concurrency=IO.integer(config,"parallelDownloads",32,32,64);
+        this.network=network;mirrors=IO.object(config,"mirrorUrls");concurrency=IO.integer(config,"parallelDownloads",8,2,16);
     }
     String install(JsonObject profile)throws Exception{
         String gameVersion=IO.str(profile,"gameVersion","");if(gameVersion.isEmpty())return "";
@@ -236,9 +236,15 @@ final class GameInstaller {
                 while(iterator.hasNext()&&running<concurrency){T item=iterator.next();completed.submit(()->{operation.run(item);return null;});running++;}
                 try{completed.take().get();running--;count(++done,total,"项");if(done==total)report();}catch(ExecutionException e){Throwable cause=e.getCause();if(cause instanceof Exception)throw (Exception)cause;throw new IOException("下载工作线程失败",cause);}
             }
-        }finally{workers.shutdownNow();if(!workers.awaitTermination(1900,TimeUnit.SECONDS))throw new IOException("游戏文件下载线程未正常退出");}
+        }finally{workers.shutdownNow();if(!workers.awaitTermination(45,TimeUnit.SECONDS))throw new IOException("游戏文件下载线程未正常退出");}
     }
     private boolean allowed(JsonObject library){
+        String name=IO.str(library,"name",""),arch=System.getProperty("os.arch");
+        if(name.contains(":natives-windows")&&osName().equals("windows")){
+            boolean arm=arch.equals("aarch64")||arch.equals("arm64");
+            if(name.endsWith("-arm64")!=arm)return false;
+            if(!arm&&name.endsWith("-x86")!=arch.equals("x86"))return false;
+        }
         if(!library.has("rules"))return true;boolean allowed=false;
         for(JsonElement entry:library.getAsJsonArray("rules")){JsonObject rule=entry.getAsJsonObject(),os=IO.object(rule,"os");boolean matches=true;
             if(os.has("name"))matches=osName().equals(os.get("name").getAsString());

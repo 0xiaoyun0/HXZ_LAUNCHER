@@ -83,7 +83,7 @@ export function createCommunity(options={}) {
         const profile=db.prepare('SELECT avatar,version FROM profiles WHERE uid=?').get(uid);if(!profile?.avatar)return send(res,404,{error:'尚未设置头像'});
         res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'private, max-age=300','X-Content-Type-Options':'nosniff','ETag':'"'+profile.version+'"'});res.end(Buffer.from(profile.avatar.slice(22),'base64'));return;
       }
-      if(path==='/health')return send(res,200,{ok:true,version:'0.2.2',service:'hxz-community'});
+      if(path==='/health')return send(res,200,{ok:true,version:'0.3.0',service:'hxz-community'});
       if(path==='/api/config')return send(res,200,{groups:GROUPS,skinSite:'https://skin.hxzmc.top/user',roomLimit});
       if(path==='/api/session'&&req.method==='POST'){limit('login:'+clientIP(req),12);return send(res,200,await exchange(await body(req)));}
       if(path==='/api/notices'&&req.method==='GET')return send(res,200,db.prepare('SELECT id,group_id AS groupId,title,body,author,updated FROM notices ORDER BY updated DESC LIMIT 100').all());
@@ -113,9 +113,10 @@ export function createCommunity(options={}) {
     ws.on('message',raw=>{try{
       const message=JSON.parse(raw.toString());let c=clients.get(ws);
       if(!c){if(message.type!=='auth')throw Error('请先登录');const user=verify(message.token);if([...clients.values()].filter(x=>x.user.uid===user.uid).length>=2)throw Error('此账号已打开过多连接');
-        c={id:randomUUID(),user,room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
+        c={id:randomUUID(),user,room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',heartbeatInterval:15000,id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
       verify(c.token);limit('client:'+c.id,120,10000);
-      if(message.type==='chat'){limit('chat:'+c.user.uid,8,10000);const value=text(message.body,1000);const created=Date.now();const inserted=db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)').run('lobby',c.user.uid,c.user.name,value,created);
+      if(message.type==='ping'){ws.alive=true;packet(ws,{type:'pong'});}
+      else if(message.type==='chat'){limit('chat:'+c.user.uid,8,10000);const value=text(message.body,1000);const created=Date.now();const inserted=db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)').run('lobby',c.user.uid,c.user.name,value,created);
         db.prepare('DELETE FROM messages WHERE id < (SELECT MAX(id)-3000 FROM messages)').run();broadcast({type:'chat',message:{id:Number(inserted.lastInsertRowid),channel:'lobby',uid:c.user.uid,name:c.user.name,avatarVersion:avatarVersion(c.user.uid),body:value,created}});}
       else if(message.type==='voice-join'){if(!ROOMS.includes(message.room))throw Error('房间不存在');if([...clients.values()].filter(p=>p.room===message.room&&p.id!==c.id).length>=roomLimit)throw Error('语音房间已满');c.room=message.room;presence();}
       else if(message.type==='voice-leave'){c.room=null;presence();}
@@ -125,7 +126,7 @@ export function createCommunity(options={}) {
     }catch(error){packet(ws,{type:'error',error:error.message});}});
     ws.on('error',()=>{});ws.on('close',()=>{clearTimeout(timer);clients.delete(ws);presence();});
   });
-  const sweep=setInterval(()=>{for(const [id,v] of attempts)if(Date.now()-v.time>60000)attempts.delete(id);for(const ws of wss.clients){const c=clients.get(ws);if(c&&c.user.exp<Date.now()){ws.close(1008,'登录已过期');continue;}if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();}},30000);sweep.unref();
+  const sweep=setInterval(()=>{for(const [id,v] of attempts)if(Date.now()-v.time>60000)attempts.delete(id);for(const ws of wss.clients){const c=clients.get(ws);if(c&&c.user.exp<Date.now()){ws.close(1008,'登录已过期');continue;}if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();}},15000);sweep.unref();
   return {server,db,async close(){clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const service=createCommunity();const port=Number(process.env.PORT||8787),host=process.env.HOST||'127.0.0.1';service.server.listen(port,host,()=>console.log(`幻想镇社区服务 http://${host}:${port}\n网页管理：http://127.0.0.1:${port}/admin/\n初始密码见数据目录的 初始管理员密码.txt`));for(const sig of ['SIGINT','SIGTERM'])process.on(sig,()=>service.close().then(()=>process.exit()));}

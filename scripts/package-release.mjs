@@ -15,12 +15,12 @@ for(const relative of ['server/幻想镇社区服务端/data','server/幻想镇�
  throw Error('Release directory contains runtime data; use a clean release directory: '+runtime);
 }
 for(const dir of [client,server])await fs.mkdir(dir,{recursive:true});
-const exe='幻想镇启动器-'+version+'-x64.exe';
+const exe='HXZ-Launcher-'+version+'-x64.exe';
 await fs.copyFile(path.join(build,exe),path.join(client,exe));
 try{await fs.copyFile(path.join(build,exe+'.blockmap'),path.join(client,exe+'.blockmap'));}catch(e){if(e.code!=='ENOENT')throw e;}
 const portable=path.join(client,'幻想镇启动器');await fs.cp(path.join(build,'win-unpacked'),portable,{recursive:true});
 await fs.writeFile(path.join(portable,'便携启动.bat'),'@echo off\r\nchcp 65001 >nul\r\nsetlocal\r\ncd /d "%~dp0" || exit /b 1\r\nset "HXZ_LA_HOME=%~dp0profile"\r\nstart "" "%~dp0幻想镇启动器.exe"\r\n');
-await fs.writeFile(path.join(client,'使用说明.txt'),'幻想镇启动器 '+version+'\n玩家只需本目录客户端。安装程序支持安装版升级；便携版解压后运行 便携启动.bat。\n下载与安装：Minecraft / 加载器 / Modrinth / 拖入 mrpack。\n个性化：字号、颜色、图片、布局。\n社区服务端是另一个独立发布包，客户端不会自动启动它。\n内置自更新请使用管理员的 HTTPS 发布目录；便携版建议手动替换程序并保留 profile。\n');
+await fs.writeFile(path.join(client,'使用说明.txt'),'幻想镇启动器 '+version+'\n玩家只需本目录客户端。安装程序支持安装版升级；便携版解压后运行 便携启动.bat。\n下载与安装：Minecraft / 加载器 / Modrinth / 拖入 mrpack。\n个性化：字号、颜色、图片、布局。\n社区服务端是另一个独立发布包，客户端不会自动启动它。\n安装版默认从 GitHub 正式版本自动更新，可在设置中关闭；便携版建议手动替换程序并保留 profile。\n');
 const serverApp=path.join(server,'幻想镇社区服务端');await fs.mkdir(serverApp,{recursive:true});
 for(const dir of ['src','public'])await fs.cp(path.join(root,'server',dir),path.join(serverApp,dir),{recursive:true});
 for(const file of ['package.json','pnpm-lock.yaml','.env.example','Dockerfile','compose.yaml','nginx-community.conf.example'])await fs.copyFile(path.join(root,file==='nginx-community.conf.example'?'docs':'server',file),path.join(serverApp,file));
@@ -35,7 +35,7 @@ async function digest(file,algorithm,encoding='hex'){const h=createHash(algorith
 const sha512=await digest(path.join(client,exe),'sha512','base64'),size=(await fs.stat(path.join(client,exe))).size;
 await fs.writeFile(path.join(client,'latest.yml'),`version: ${version}\nfiles:\n  - url: ${JSON.stringify(exe)}\n    sha512: ${sha512}\n    size: ${size}\npath: ${JSON.stringify(exe)}\nsha512: ${sha512}\nreleaseDate: ${JSON.stringify(new Date().toISOString())}\n`);
 async function zip(dir,file){await new Promise((resolve,reject)=>{const child=spawn('tar.exe',['-a','-c','-f',file,'-C',dir,'.'],{stdio:'inherit',windowsHide:true,shell:false});child.on('error',reject);child.on('close',code=>code?reject(Error('ZIP failed '+code)):resolve());});}
-await Promise.all([zip(portable,path.join(client,'幻想镇启动器-'+version+'-windows-x64-便携版.zip')),zip(serverApp,path.join(server,'幻想镇社区服务端-'+version+'-windows-x64.zip'))]);
+await Promise.all([zip(portable,path.join(client,'HXZ-Launcher-'+version+'-windows-x64-portable.zip')),zip(serverApp,path.join(server,'HXZ-Community-'+version+'-windows-x64.zip'))]);
 const checks=[];for(const folder of ['client','server'])for(const name of await fs.readdir(path.join(release,folder)))if(/\.(zip|exe|yml|blockmap)$/.test(name))checks.push((await digest(path.join(release,folder,name),'sha256'))+'  '+folder+'/'+name);
 await fs.writeFile(path.join(release,'SHA256SUMS.txt'),checks.join('\n')+'\n');
 console.log('Separate client and server releases:',release);

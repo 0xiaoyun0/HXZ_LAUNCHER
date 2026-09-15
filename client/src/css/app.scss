@@ -2884,3 +2884,162 @@ a:focus-visible {
   margin: 0;
   font-size: inherit;
 }
+/* Full-window backgrounds retain readable translucent surfaces. */
+.workspace::before {
+  display: none;
+}
+.launcher::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--background-image) center/cover no-repeat;
+  opacity: var(--background-opacity, 0.4);
+}
+:root[data-background="custom"] .sidebar,
+:root[data-background="custom"] .window-bar,
+:root[data-background="custom"] .launch-dock,
+:root[data-background="custom"] .status-bar {
+  background: color-mix(in srgb, var(--sidebar) 78%, transparent);
+}
+:root[data-background="custom"] .panel,
+:root[data-background="custom"] .world-list,
+:root[data-background="custom"] .world-detail,
+:root[data-background="custom"] .chat-messages {
+  background: color-mix(in srgb, var(--panel) 76%, transparent);
+}
+.status-task,
+.detail-tabs button,
+.filter-tabs button {
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.status-task {
+  margin-left: auto;
+  color: var(--muted);
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.filter-tabs button {
+  padding: 10px 16px;
+  border-radius: 8px;
+}
+.filter-tabs .selected {
+  background: var(--panel-hover);
+  color: var(--accent);
+}
+.instance-cover {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.custom-cover .preview-caption {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 24px;
+  background: linear-gradient(transparent, #000a);
+  color: #fff;
+  text-shadow: 0 1px 8px #0008;
+}
+.custom-cover .preview-caption span {
+  color: #fff;
+}
+.simple-home .world-detail {
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border: 0;
+}
+.simple-home .world-preview {
+  flex: 1;
+  min-height: 260px;
+  border-radius: 14px;
+  margin-top: 12px;
+}
+.simple-home .preview-caption {
+  padding: 36px;
+}
+.detail-toolbar {
+  flex-wrap: wrap;
+  gap: 8px;
+  height: auto;
+  min-height: 52px;
+}
+.mod-manager {
+  width: 860px;
+  max-width: 94vw;
+}
+.mod-list {
+  max-height: 52vh;
+  overflow: auto;
+  margin-top: 16px;
+}
+.mod-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid var(--border);
+  min-height: 54px;
+}
+.mod-row > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mod-row small {
+  white-space: nowrap;
+  color: var(--muted);
+}
+.install-recovery {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin-bottom: 18px;
+  background: var(--panel-hover);
+}
+.recovery-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  flex-wrap: wrap;
+}
+.recovery-row > div {
+  flex: 1;
+  min-width: 180px;
+}
+.recovery-row small {
+  display: block;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  margin-top: 6px;
+}
+.launcher-releases details {
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+}
+.launcher-releases summary {
+  cursor: pointer;
+}
+.launcher-releases summary time {
+  float: right;
+  color: var(--muted);
+}
+.launcher-releases pre {
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.8;
+  margin: 20px 0 0;
+}
+.instance-table-row > .row {
+  flex-wrap: wrap !important;
+}

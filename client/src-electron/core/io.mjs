@@ -6,6 +6,7 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import yauzl from "yauzl";
 import { downloadSources } from "./sources.mjs";
+import { setTimeout as delay } from "node:timers/promises";
 
 export async function json(file) {
   const stat = await fs.stat(file);
@@ -126,16 +127,27 @@ async function remoteJSONOnce(url, options = {}) {
 }
 export async function download(url, file, options = {}) {
   let failure;
-  for (const candidate of new Set([
-    ...(options.urls || []).flatMap(downloadSources),
-    ...downloadSources(url)
-  ])) {
-    try {
-      return await downloadOne(candidate, file, options);
-    } catch (error) {
-      if (options.signal?.aborted) throw error;
-      failure = error;
+  const candidates = [
+    ...new Set([
+      ...(options.urls || []).flatMap(downloadSources),
+      ...downloadSources(url)
+    ])
+  ];
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let retryable = false;
+    for (const candidate of candidates) {
+      try {
+        return await downloadOne(candidate, file, options);
+      } catch (error) {
+        if (options.signal?.aborted) throw error;
+        failure = error;
+        retryable ||= error.retryable !== false;
+      }
     }
+    if (!retryable || attempt === 2) break;
+    await delay(options.retryDelay ?? 1000 * 2 ** attempt, undefined, {
+      signal: options.signal
+    });
   }
   throw failure;
 }
@@ -191,15 +203,32 @@ async function downloadOne(
       sum: createHash(algorithm),
       expected: expected.toLowerCase()
     }));
+  const controller = new AbortController();
+  let idle = setTimeout(() => controller.abort(Error("下载连接超时")), 20000);
+  const transferSignal = signal
+    ? AbortSignal.any([signal, controller.signal])
+    : controller.signal;
   try {
     const r = await fetch(url, {
-      signal: signal
-        ? AbortSignal.any([signal, AbortSignal.timeout(180000)])
-        : AbortSignal.timeout(180000)
+      signal: transferSignal
     });
-    if (!r.ok || !r.body) throw Error(`下载失败 (${r.status}): ${u.hostname}`);
+    if (!r.ok || !r.body) {
+      await r.body?.cancel();
+      const error = Error(`下载失败 (${r.status}): ${u.hostname}`);
+      error.retryable = r.status === 408 || r.status === 429 || r.status >= 500;
+      throw error;
+    }
+    const touch = () => {
+      clearTimeout(idle);
+      idle = setTimeout(
+        () => controller.abort(Error("下载长时间没有数据")),
+        45000
+      );
+    };
+    touch();
     const meter = new Transform({
       transform(chunk, _, done) {
+        touch();
         bytes += chunk.length;
         if (bytes > 8 * 1024 ** 3) {
           done(Error("文件超过下载上限"));
@@ -218,7 +247,8 @@ async function downloadOne(
     await pipeline(
       Readable.fromWeb(r.body),
       meter,
-      createWriteStream(temp, { flags: "wx" })
+      createWriteStream(temp, { flags: "wx" }),
+      { signal: transferSignal }
     );
     if (sums.some(check => check.sum.digest("hex") !== check.expected))
       throw Error("下载内容校验不一致");
@@ -228,6 +258,7 @@ async function downloadOne(
     await fs.rename(temp, file);
     onTransfer({ bytes, total: bytes, verified: true, source: u.hostname });
   } finally {
+    clearTimeout(idle);
     await fs.rm(temp, { force: true }).catch(() => {});
   }
 }

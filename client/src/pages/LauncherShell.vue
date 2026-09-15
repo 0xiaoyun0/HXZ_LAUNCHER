@@ -6,7 +6,7 @@ import {
   state,
   appUpdate,
   desktop,
-  groups,
+  taskDetailsOpen,
   selectedAccount,
   task,
   reload,
@@ -64,22 +64,11 @@ onMounted(() => {
               v-if="link.to === '/chat' && community.connected"
               class="online-dot"
           /></router-link>
-          <div v-if="link.to === '/notices'" class="nav-children"
-            ><router-link
-              v-for="group in groups"
-              :key="group.id"
-              :to="'/notices/' + group.id"
-              :class="{ active: route.params.group === group.id }"
-              >{{ group.name }}</router-link
-            ></div
-          >
         </template>
       </nav>
       <div class="sidebar-bottom"
         ><router-link to="/accounts" class="nav-link" active-class="active"
           ><q-icon name="badge" size="20px" />皮肤站账号</router-link
-        ><router-link to="/logs" class="nav-link" active-class="active"
-          ><q-icon name="subject" size="20px" />启动日志</router-link
         ><router-link to="/appearance" class="nav-link" active-class="active"
           ><q-icon name="palette" size="20px" />个性化</router-link
         ><router-link to="/settings" class="nav-link" active-class="active"
@@ -114,7 +103,7 @@ onMounted(() => {
             icon="arrow_forward"
             title="前进"
             @click="router.forward()"
-          /><span class="window-label">HXZ LAUNCHER <b>0.2.2</b></span></div
+          /><span class="window-label">HXZ LAUNCHER <b>0.3.0</b></span></div
         ><div class="row items-center no-drag"
           ><q-btn
             v-if="appUpdate.available"
@@ -172,7 +161,9 @@ onMounted(() => {
         ><span v-if="community.room"
           ><q-icon name="headset_mic" /> 语音已连接 ·
           {{ community.peers }} 位同伴</span
-        ><router-link to="/logs">{{ task.phase }}</router-link></footer
+        ><button class="status-task" @click="taskDetailsOpen.value = true">{{
+          task.phase
+        }}</button></footer
       >
     </section>
   </div>

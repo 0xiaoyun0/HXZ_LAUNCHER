@@ -36,7 +36,6 @@ import {
         }}</small></div
       ></div
     ><q-btn
-      v-if="task.steps.length"
       flat
       dense
       class="dock-details"
@@ -68,7 +67,9 @@ import {
       label="启动游戏"
       icon="play_arrow"
       :loading="task.busy"
-      :disable="!selectedInstance || !selectedAccount"
+      :disable="
+        !selectedInstance || !selectedAccount || selectedInstance.placeholder
+      "
       @click="perform(() => launch())"
   /></div>
   <TaskDetails />

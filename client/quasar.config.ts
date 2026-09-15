@@ -233,7 +233,10 @@ export default defineConfig(ctx => {
         ),
         productName: "幻想镇启动器",
         extraResources: [
-          { from: ctx.appPaths.resolve.app("resources/app-update.yml"), to: "app-update.yml" },
+          {
+            from: ctx.appPaths.resolve.app("resources/app-update.yml"),
+            to: "app-update.yml"
+          },
           { from: ctx.appPaths.resolve.app("resources/hxzup"), to: "hxzup" },
           {
             from: ctx.appPaths.resolve.app("resources/installer"),
@@ -241,7 +244,7 @@ export default defineConfig(ctx => {
           }
         ],
         // 自定义安装包和压缩包的命名规则
-        artifactName: "${productName}-${version}-${arch}.${ext}",
+        artifactName: "HXZ-Launcher-${version}-${arch}.${ext}",
         win: {
           target: [
             {

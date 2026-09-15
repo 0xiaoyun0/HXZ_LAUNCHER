@@ -15,7 +15,7 @@ test('independent web admin: local origin, login, protected CRUD and password ro
  assert.equal((await api('/api/admin/overview')).status,400);
  const password=(await readFile(path.join(data,'初始管理员密码.txt'),'utf8')).match(/初始密码：([^\n]+)/)[1];
  const login=await api('/api/admin/login',{username:'admin',password},false);assert.equal(login.status,200);token=login.value.token;
- assert.equal((await api('/api/admin/overview')).value.version,'0.2.2');
+ assert.equal((await api('/api/admin/overview')).value.version,'0.3.0');
  assert.equal((await api('/api/notices',{groupId:'mod-1',title:'Test',body:'Admin publish'})).status,201);
  assert.equal((await api('/api/admin/settings',{adminIDs:['test-uuid'],turnUrl:''})).status,200);
  assert.deepEqual((await api('/api/admin/overview')).value.adminIDs,['test-uuid']);

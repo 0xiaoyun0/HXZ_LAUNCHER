@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InstallRecovery from "./InstallRecovery.vue";
 import { computed, ref, onMounted, onUnmounted } from "vue";
 import {
   task,
@@ -42,7 +43,7 @@ const hint = computed(() => {
     return "可在设置中切换下载来源后重试；已通过校验的文件会复用。";
   if (/权限|占用|EPERM|EACCES/i.test(text))
     return "关闭占用文件的游戏或程序，并检查游戏目录的写入权限。";
-  return "安装可用相同实例名称重试；启动可直接重试。详细原因可搜索下方日志或导出给管理员。";
+  return "安装可在上方继续或清理；启动可直接重试。详细原因可搜索下方日志或导出给管理员。";
 });
 </script>
 <template>
@@ -53,6 +54,7 @@ const hint = computed(() => {
           ><small>当前任务</small><h2>{{ task.phase }}</h2></div
         ><q-btn flat round icon="close" title="收起任务详情" v-close-popup
       /></header>
+      <InstallRecovery />
       <q-linear-progress
         :indeterminate="task.busy && !task.total"
         :value="task.total ? Math.min(1, task.completed / task.total) : 0"

@@ -12,9 +12,9 @@ import {
 } from "../lib/launcher";
 import { disconnect, connect } from "../lib/community";
 const hxzupPopup = ref(state.settings.hxzupPopup !== false);
-const feed = ref(state.settings.updateFeed);
+const simpleHome = ref(state.settings.simpleHome);
+const automatic = ref(state.settings.autoCheckUpdates !== false);
 async function checkUpdate() {
-  await saveSettings({ updateFeed: feed.value });
   await invoke("app-update.check");
 }
 const connection = ref(""),
@@ -65,7 +65,9 @@ async function save() {
     communityUrl: base.value,
     javaPath: java.value,
     downloadMode: downloadMode.value,
-    hxzupPopup: hxzupPopup.value
+    hxzupPopup: hxzupPopup.value,
+    simpleHome: simpleHome.value,
+    autoCheckUpdates: automatic.value
   });
   disconnect();
   if (state.settings.selectedAccount) await connect();
@@ -98,7 +100,7 @@ async function root() {
   </section>
   <section class="panel settings-section"
     ><h2>外观</h2
-    ><q-btn
+    ><q-toggle v-model="simpleHome" label="使用简化版启动游戏界面" /> ><q-btn
       outline
       to="/appearance"
       label="字号、颜色与布局"
@@ -198,18 +200,20 @@ async function root() {
         @click="perform(check)"
       /><span>{{ connection }}</span></div
     ><p class="subtle q-mb-none"
-      >本地联调默认 http://127.0.0.1:8787。正式部署填写管理员提供的 HTTPS
-      地址。</p
+      >幻想镇社区：https://qqbot.hxzmc.top。</p
     ></section
   >
   <section class="panel settings-section"
     ><h2>启动器更新</h2
-    ><q-input
-      v-model="feed"
-      outlined
-      label="更新发布地址"
-      placeholder="https://你的更新站/launcher/"
-    /><div class="row items-center q-gutter-sm q-mt-md"
+    ><q-toggle
+      v-model="automatic"
+      label="自动更新启动器并安装（GitHub）"
+      @update:model-value="
+        perform(() => saveSettings({ autoCheckUpdates: automatic }))
+      "
+    /><p class="subtle"
+      >发现更高的正式版本后自动下载，游戏与安装任务结束后自动重启安装。可随时关闭。</p
+    ><div class="row items-center q-gutter-sm q-mt-md"
       ><q-btn
         outline
         label="检查更新"

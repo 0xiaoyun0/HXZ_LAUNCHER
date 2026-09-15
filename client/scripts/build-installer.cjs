@@ -23,8 +23,8 @@ for (const [command, args] of [
       path.join(root, "resources/hxzup/updater-1.0.3.jar"),
       "-d",
       out,
-      ...["GameInstaller", "ForgeInstaller", "LauncherInstall"].map(n =>
-        path.join(root, "installer-java/up/hxz", n + ".java")
+      ...["Network", "GameInstaller", "ForgeInstaller", "LauncherInstall"].map(
+        n => path.join(root, "installer-java/up/hxz", n + ".java")
       )
     ]
   ],

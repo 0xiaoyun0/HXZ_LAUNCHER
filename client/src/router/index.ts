@@ -34,7 +34,7 @@ export default defineRouter(() =>
             path: "settings",
             component: () => import("../pages/SettingsPage.vue")
           },
-          { path: "logs", component: () => import("../pages/LogsPage.vue") },
+          { path: "logs", redirect: "/" },
           { path: ":pathMatch(.*)*", redirect: "/" }
         ]
       }

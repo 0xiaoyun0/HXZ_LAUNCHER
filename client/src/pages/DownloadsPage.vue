@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import InstallRecovery from "../components/InstallRecovery.vue";
 import { ref, computed, onMounted, watch } from "vue";
 import { invoke, perform, reload, state, task, desktop } from "../lib/launcher";
 import { choosePack, chooseRoot, showPack, type PackInfo } from "../lib/packs";
@@ -126,6 +127,7 @@ onMounted(() => {
 });
 </script>
 <template>
+  <InstallRecovery />
   <div class="page-heading"
     ><h1>下载与安装</h1
     ><q-btn

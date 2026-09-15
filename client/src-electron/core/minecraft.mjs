@@ -1,3 +1,4 @@
+import { serverAddress } from "./instances.mjs";
 import { fileProgress } from "./progress.mjs";
 import path from "node:path";
 import os from "node:os";
@@ -224,6 +225,17 @@ export async function prepareLaunch({
         : "linux";
   for (const lib of version.libraries || []) {
     if (!allowed(lib.rules)) continue;
+    if (
+      process.platform === "win32" &&
+      lib.name?.includes(":natives-windows")
+    ) {
+      if (lib.name.endsWith("-arm64") !== (process.arch === "arm64")) continue;
+      if (
+        process.arch !== "arm64" &&
+        lib.name.endsWith("-x86") !== (process.arch === "ia32")
+      )
+        continue;
+    }
     const artifact = lib.downloads?.artifact;
     if (artifact || !lib.downloads) {
       const rel = artifact?.path || maven(lib.name),
@@ -398,7 +410,7 @@ export async function prepareLaunch({
     classpath,
     classpath_separator: path.delimiter,
     launcher_name: "HXZ Launcher",
-    launcher_version: "0.2.2",
+    launcher_version: "0.3.0",
     resolution_width: String(settings.width || 1280),
     resolution_height: String(settings.height || 720),
     clientid: "",
@@ -422,7 +434,8 @@ export async function prepareLaunch({
   let jvm = flatten(version.arguments?.jvm || []);
   if (!jvm.includes("-cp") && !jvm.includes("-classpath"))
     jvm.push("-cp", classpath);
-  jvm.push("-Djava.library.path=" + natives);
+  if (!jvm.some(arg => arg.startsWith("-Djava.library.path=")))
+    jvm.push("-Djava.library.path=" + natives);
   if (version.logging?.client?.file?.url) {
     const l = version.logging.client,
       file = inside(root, "assets/log_configs/" + l.file.id);
@@ -468,6 +481,17 @@ export async function prepareLaunch({
   const gameArgs = version.minecraftArguments
     ? legacySplit(version.minecraftArguments).map(replace)
     : flatten(version.arguments?.game || [], { has_custom_resolution: true });
+  if (settings.autoJoin && settings.serverAddress) {
+    const address = serverAddress(settings.serverAddress);
+    const quick = JSON.stringify(version.arguments?.game || []).includes(
+      "quickPlayMultiplayer"
+    );
+    if (quick) gameArgs.push("--quickPlayMultiplayer", address);
+    else {
+      const u = new URL("http://" + address);
+      gameArgs.push("--server", u.hostname, "--port", u.port || "25565");
+    }
+  }
   if (settings.fullscreen) gameArgs.push("--fullscreen");
   else if (!gameArgs.includes("--width"))
     gameArgs.push(

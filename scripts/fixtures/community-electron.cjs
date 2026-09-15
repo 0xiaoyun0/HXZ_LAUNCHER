@@ -8,6 +8,7 @@ app.whenReady().then(async()=>{
 
  session.defaultSession.setPermissionRequestHandler((_,p,cb)=>cb(p==='media'));session.defaultSession.setPermissionCheckHandler((_,p)=>p==='media');
  ipcMain.handle('fixture:invoke',async(event,action,input)=>{try{const c=clients.get(event.sender.id);let value;if(action==='state')value=c.state;else if(action==='community.connect')value={...c.session,base:fixture.base};else if(action==='settings.save'){Object.assign(c.state.settings,input);value=c.state.settings;}
+ else if(action==='install.list')value=[];
  else if(action==='avatar.choose')value=await avatarHelper.invoke('avatar.choose');
  else if(action==='avatar.save'){const r=await fetch(fixture.base+'/api/profile/avatar',{method:'POST',headers:{Authorization:'Bearer '+c.session.token,'Content-Type':'application/json'},body:JSON.stringify({avatar:input.avatar})});if(!r.ok)throw Error((await r.json()).error);c.state.accounts[0].avatar=input.avatar;value={synced:true};}
  else if(action==='update-logs.list')value=await fetch(fixture.base+'/api/update-logs').then(r=>r.json());

@@ -1,6 +1,8 @@
 import { reactive, computed } from "vue";
 import { Notify } from "quasar";
 export interface InstanceConfig {
+  autoJoin: boolean;
+  serverAddress: string;
   memoryMB: number;
   width: number;
   height: number;
@@ -21,6 +23,7 @@ export interface Settings {
   updateFeed: string;
   autoCheckUpdates: boolean;
   hxzupPopup: boolean;
+  simpleHome: boolean;
   gameRoot: string;
   javaPath: string;
   selectedInstance: string;
@@ -45,6 +48,9 @@ export interface Instance {
   loader: string;
   javaMajor: number;
   error?: string;
+  builtin?: boolean;
+  placeholder?: boolean;
+  address?: string;
 }
 export interface Notice {
   id: string;
@@ -117,18 +123,19 @@ export const state = reactive<State>({
     accentColor: "#a9ce80",
     backgroundColor: "",
     backgroundImage: "",
-    backgroundOpacity: 0.12,
+    backgroundOpacity: 0.4,
     layout: "standard",
     downloadMode: "domestic",
     updateFeed: "",
     autoCheckUpdates: true,
     hxzupPopup: true,
+    simpleHome: false,
     gameRoot: "",
     javaPath: "",
     selectedInstance: "",
     selectedAccount: "",
     theme: localStorage.getItem("hxz-theme") || "dark",
-    communityUrl: "http://127.0.0.1:8787",
+    communityUrl: "https://qqbot.hxzmc.top",
     instanceSettings: {}
   },
   accounts: [],
@@ -171,7 +178,7 @@ export const taskCount = computed(() =>
 );
 export const appUpdate = reactive({
   phase: "尚未检查",
-  version: "0.2.2",
+  version: "0.3.0",
   available: false,
   ready: false,
   percent: 0
@@ -227,6 +234,7 @@ export function applyTheme() {
   localStorage.setItem("hxz-theme", state.settings.theme);
   const root = document.documentElement,
     cfg = state.settings;
+  root.dataset.background = cfg.backgroundImage ? "custom" : "default";
   root.dataset.layout = cfg.layout || "standard";
   root.style.setProperty("--ui-font-size", (cfg.fontSize || 15) + "px");
   const accent = cfg.accentColor || "#a9ce80";
@@ -250,7 +258,7 @@ export function applyTheme() {
   );
   root.style.setProperty(
     "--background-opacity",
-    String(cfg.backgroundOpacity ?? 0.12)
+    String(cfg.backgroundOpacity ?? 0.4)
   );
 }
 export async function saveSettings(
@@ -273,6 +281,8 @@ export function instanceConfig(id: string): InstanceConfig {
     width: 1280,
     height: 720,
     isolated: true,
+    autoJoin: id === "HXZ-survival",
+    serverAddress: id === "HXZ-survival" ? "s1.hxzmc.top" : "",
     autoUpdate: false,
     fullscreen: false,
     updateUrls: [],
@@ -300,11 +310,19 @@ export async function loadNotices() {
 }
 export async function launch(
   id = state.settings.selectedInstance,
-  updateOnly = false
+  updateOnly = false,
+  joinServer = false
 ) {
   if (!id) throw Error("请先添加或选择游戏实例");
-  await invoke(updateOnly ? "game.update" : "game.launch", { id });
-  await reload();
+  taskDetailsOpen.value = true;
+  try {
+    await invoke(updateOnly ? "game.update" : "game.launch", {
+      id,
+      joinServer
+    });
+  } finally {
+    await reload();
+  }
 }
 window.launcher?.subscribe(event => {
   if (event.type === "app-update") Object.assign(appUpdate, event);

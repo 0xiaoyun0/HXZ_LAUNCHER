@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ModManager from "../components/ModManager.vue";
 import { ref } from "vue";
 import {
   state,
@@ -12,6 +13,7 @@ import {
   instanceConfig,
   type InstanceConfig
 } from "../lib/launcher";
+const modID = ref("");
 const showCreate = ref(false),
   name = ref(""),
   updateUrl = ref(""),
@@ -65,6 +67,7 @@ async function save() {
 }
 </script>
 <template>
+  <ModManager :id="modID" @close="modID = ''" />
   <div class="page-heading"
     ><div><h1>游戏实例</h1></div
     ><q-btn
@@ -143,6 +146,20 @@ async function save() {
           flat
           round
           dense
+          icon="extension"
+          title="MOD 管理"
+          :disable="instance.placeholder || !!instance.error"
+          @click="modID = instance.id" /><q-btn
+          flat
+          round
+          dense
+          icon="login"
+          title="启动并进入服务器"
+          :disable="instance.placeholder || task.busy || state.running"
+          @click="perform(() => launch(instance.id, false, true))" /><q-btn
+          flat
+          round
+          dense
           icon="tune"
           title="实例配置"
           :disable="task.busy || state.running"
@@ -152,7 +169,7 @@ async function save() {
           dense
           icon="sync"
           title="立即更新"
-          :disable="task.busy || state.running"
+          :disable="instance.builtin || task.busy || state.running"
           @click="perform(() => launch(instance.id, true))" /><q-btn
           flat
           round
@@ -232,7 +249,16 @@ async function save() {
           type="textarea"
           label="HXZ UP 客户端地址（每行一个）"
           rows="3"
-          class="q-my-md" /><q-expansion-item label="高级 JVM 参数"
+          class="q-my-md" /><q-input
+          v-model="config.serverAddress"
+          outlined
+          label="进入服务器的地址"
+          placeholder="s1.hxzmc.top 或 主机:端口"
+          class="q-mt-md" /><q-toggle
+          v-model="config.autoJoin"
+          label="启动后自动进入服务器"
+          :disable="!config.serverAddress" /><q-expansion-item
+          label="高级 JVM 参数"
           ><q-input
             v-model="jvm"
             outlined

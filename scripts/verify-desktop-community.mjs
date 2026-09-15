@@ -16,9 +16,9 @@ let app;try{
  await a.getByRole('link',{name:'通知公告',exact:true}).click();await a.getByRole('button',{name:'发布公告',exact:true}).click();await a.getByLabel('标题',{exact:true}).fill('桌面来源回归公告');await a.getByLabel('正文（纯文本）').fill('0.2.1 本地隔离测试');await a.getByRole('button',{name:'发布',exact:true}).click();await a.getByRole('heading',{name:'桌面来源回归公告'}).waitFor();
  await a.locator('.update-feed[data-group="survival"]').getByText('ONLY-survival',{exact:true}).waitFor();
  for(const id of ['survival','mod-1','mod-2']){await a.locator('.filter-tabs a[href="#/notices/'+id+'"]').count().then(async count=>{if(count)await a.locator('.filter-tabs a[href="#/notices/'+id+'"]').click();else await a.locator('.filter-tabs').getByRole('link',{name:id==='survival'?'原版生存群组':id==='mod-1'?'模组一服':'模组二服',exact:true}).click();});await a.locator('.update-feed').getByText('ONLY-'+id,{exact:true}).waitFor();assert.equal(await a.locator('.update-feed').count(),1);}
- await a.screenshot({path:path.join(root,'docs/screenshots/022-update-logs.png')});
+ await a.screenshot({path:path.join(root,'docs/screenshots/030-update-logs.png')});
  await a.getByRole('link',{name:'个性化',exact:true}).click();await a.getByRole('button',{name:'选择图片',exact:true}).click();await a.locator('.avatar-preview img').waitFor();await a.getByRole('button',{name:'保存头像',exact:true}).click();await a.getByText('头像已保存并同步社区',{exact:true}).waitFor();
- await a.screenshot({path:path.join(root,'docs/screenshots/022-avatar.png')});
+ await a.screenshot({path:path.join(root,'docs/screenshots/030-avatar.png')});
  for(const page of [a,b])await page.getByRole('link',{name:'聊天大厅',exact:true}).click();
  await a.getByPlaceholder('和大家聊聊…').fill('桌面聊天回归');await a.getByTitle('发送消息').click();await b.getByText('桌面聊天回归',{exact:true}).waitFor();await b.waitForFunction(()=>{const img=document.querySelector('.chat-message .player-avatar img');return img?.complete && img.naturalWidth>0;});
  for(const page of [a,b])await page.getByRole('button',{name:/旅人休息室/}).click();
@@ -27,7 +27,7 @@ let app;try{
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().sort((a,b)=>a.id-b.id)[0].showInactive());
  for(const theme of ['light','dark']) {
   await a.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
-  await a.screenshot({path:path.join(root,'docs/screenshots/022-community-'+theme+'.png')});
+  await a.screenshot({path:path.join(root,'docs/screenshots/030-community-'+theme+'.png')});
   const sizes=await a.locator('.voice-actions button').evaluateAll(nodes=>nodes.map(n=>({w:n.clientWidth,h:n.clientHeight})));
   assert.ok(sizes.every(s=>s.w>=44&&s.h>=56));
   assert.ok(await a.locator('.voice-capacity').evaluateAll(nodes=>nodes.every(n=>{const range=document.createRange();range.selectNodeContents(n.firstChild);const count=range.getBoundingClientRect(),capacity=n.querySelector('small').getBoundingClientRect();return Math.abs(count.top-capacity.top)<3 && capacity.left>=count.right;})), 'room occupancy stays on one line');
@@ -42,11 +42,11 @@ let app;try{
  await a.getByPlaceholder('搜索步骤、文件或日志').fill('');
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().sort((a,b)=>a.id-b.id)[0].webContents.send('fixture:event',{type:'task',busy:false,failed:true,phase:'安装未完成',failure:'libraries/test/0.jar: 下载校验失败'}));
  await a.locator('.task-steps .failed').waitFor();assert.match(await a.locator('.task-failure').innerText(),/下载来源/);
- await a.screenshot({path:path.join(root,'docs/screenshots/022-task-details.png')});
+ await a.screenshot({path:path.join(root,'docs/screenshots/030-task-details.png')});
  await a.getByTitle('收起任务详情').click();
  await a.evaluate(()=>{document.documentElement.dataset.theme='light';document.documentElement.style.setProperty('--ui-font-size','22px');});
  await app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().sort((a,b)=>a.id-b.id)[0].setSize(1024,680));
- await a.screenshot({path:path.join(root,'docs/screenshots/022-large-font.png')});
+ await a.screenshot({path:path.join(root,'docs/screenshots/030-large-font.png')});
  assert.ok(await a.locator('.brand').evaluate(el=>el.scrollWidth<=el.clientWidth));
  assert.ok(await a.locator('.launch-dock').evaluate(el=>el.scrollWidth<=el.clientWidth));
  assert.ok(await a.locator('.voice-capacity').evaluateAll(nodes=>nodes.every(n=>n.scrollWidth<=n.clientWidth)), 'room occupancy fits at large font size');
@@ -55,6 +55,6 @@ let app;try{
  await a.getByTitle('收起任务详情').click();
  await a.getByTitle('切换麦克风静音').click();await a.waitForFunction(()=>window.__peers.filter(pc=>pc.connectionState==='connected').every(pc=>pc.getSenders().filter(s=>s.track).every(s=>!s.track.enabled)));
  await a.getByTitle('离开语音').click();await a.waitForFunction(()=>window.__peers.every(pc=>pc.connectionState==='closed'));
- await a.getByRole('link',{name:'设置',exact:true}).click();const popup=a.locator('.q-toggle').first();assert.equal(await popup.getAttribute('aria-checked'),'true');await popup.click();await a.getByRole('button',{name:'保存设置',exact:true}).click();await a.waitForFunction(async()=>!(await window.launcher.invoke('state')).value.settings.hxzupPopup);await a.screenshot({path:path.join(root,'docs/screenshots/022-settings.png')});
+ await a.getByRole('link',{name:'设置',exact:true}).click();const popup=a.locator('.q-toggle').first();assert.equal(await popup.getAttribute('aria-checked'),'true');await popup.click();await a.getByRole('button',{name:'保存设置',exact:true}).click();await a.waitForFunction(async()=>!(await window.launcher.invoke('state')).value.settings.hxzupPopup);await a.screenshot({path:path.join(root,'docs/screenshots/030-settings.png')});
  console.log('PASS packaged file:// pages: authenticated online state, notices, chat, actual audio RTP, mute and leave; voice themes, brand, real progress events, failure preservation/search and large fonts');
 }finally{if(app)await app.close();await service.close();await new Promise(r=>updates.close(r));}

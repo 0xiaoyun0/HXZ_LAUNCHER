@@ -1,5 +1,11 @@
 import { reactive } from "vue";
-import { invoke, reload, state, saveSettings } from "./launcher";
+import {
+  invoke,
+  reload,
+  state,
+  saveSettings,
+  taskDetailsOpen
+} from "./launcher";
 export interface PackInfo {
   file: string;
   name: string;
@@ -43,9 +49,12 @@ export async function installPack() {
   if (!importing.pack) return;
   if (!state.settings.gameRoot && !(await chooseRoot())) return;
   importing.working = true;
+  const pack = importing.pack;
+  importing.pack = null;
+  taskDetailsOpen.value = true;
   try {
     await invoke("pack.install", {
-      file: importing.pack.file,
+      file: pack.file,
       name: importing.name,
       includeOptional: importing.optional
     });
@@ -53,5 +62,6 @@ export async function installPack() {
     await reload();
   } finally {
     importing.working = false;
+    await reload();
   }
 }

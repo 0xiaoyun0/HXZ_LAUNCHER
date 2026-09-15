@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import ModManager from "../components/ModManager.vue";
+import { computed, ref, watch } from "vue";
 import {
+  taskDetailsOpen,
   state,
   selectedInstance,
   notices,
@@ -12,7 +14,35 @@ import {
   invoke,
   reload
 } from "../lib/launcher";
-const search = ref("");
+const search = ref(""),
+  cover = ref(""),
+  modID = ref("");
+let coverGeneration = 0;
+watch(
+  () => state.settings.selectedInstance,
+  async id => {
+    const generation = ++coverGeneration;
+    cover.value = "";
+    if (!id || !window.launcher) return;
+    const image = await invoke<string>("instance.cover", { id }).catch(
+      () => ""
+    );
+    if (generation === coverGeneration) cover.value = image;
+  },
+  { immediate: true }
+);
+async function chooseCover(reset = false) {
+  const id = state.settings.selectedInstance;
+  if (!id) return;
+  const image = await invoke<string | null>("instance.cover", {
+    id,
+    choose: !reset,
+    reset
+  });
+  if (id === state.settings.selectedInstance && image !== null)
+    cover.value = image;
+}
+
 const instances = computed(() =>
   state.instances.filter(i =>
     i.name.toLowerCase().includes(search.value.toLowerCase())
@@ -28,10 +58,11 @@ async function chooseRoot() {
 }
 </script>
 <template>
-  <div class="desktop-home">
+  <ModManager :id="modID" @close="modID = ''" />
+  <div :class="['desktop-home', { 'simple-home': state.settings.simpleHome }]">
     <section class="world-list"
       ><header
-        ><strong>本地实例</strong
+        ><strong>游戏实例</strong
         ><router-link to="/instances" title="管理实例"
           ><q-icon name="add" size="20px" /></router-link
         ><q-btn
@@ -96,6 +127,24 @@ async function chooseRoot() {
           ><q-btn
             flat
             dense
+            icon="image"
+            label="头图"
+            :disable="!selectedInstance"
+            @click="perform(() => chooseCover())" /><q-btn
+            v-if="cover"
+            flat
+            dense
+            icon="restart_alt"
+            title="恢复默认头图"
+            @click="perform(() => chooseCover(true))" /><q-btn
+            flat
+            dense
+            icon="extension"
+            label="MOD"
+            :disable="!selectedInstance || selectedInstance.placeholder"
+            @click="modID = state.settings.selectedInstance" /><q-btn
+            flat
+            dense
             icon="folder_open"
             label="文件夹"
             :disable="!selectedInstance"
@@ -110,26 +159,34 @@ async function chooseRoot() {
             label="配置"
             to="/instances" /></div
       ></div>
-      <div class="world-preview"
-        ><div class="preview-art" aria-hidden="true"
+      <div class="world-preview" :class="{ 'custom-cover': !!cover }"
+        ><img
+          v-if="cover"
+          class="instance-cover"
+          :src="cover"
+          alt="实例头图"
+        /><div v-else class="preview-art" aria-hidden="true"
           ><div class="sun" /><div class="mountain mountain-back" /><div
             class="mountain mountain-front" /><div class="tower"
             ><i /><i /><i /></div></div
         ><div class="preview-caption"
           ><span>{{ selectedInstance?.loader || "MINECRAFT" }}</span
           ><h1>{{ selectedInstance?.name || "幻想镇" }}</h1
-          ><p>{{
+          ><p v-if="selectedInstance?.placeholder">整合包尚未发布</p
+          ><p v-else>{{
             selectedInstance
               ? "Minecraft " + selectedInstance.version
               : "未选择实例"
           }}</p></div
         ></div
       >
-      <div class="detail-body"
+      <div v-if="!state.settings.simpleHome" class="detail-body"
         ><div class="detail-tabs"
           ><span class="active">基本信息</span
           ><router-link to="/notices">服务器公告</router-link
-          ><router-link to="/logs">运行日志</router-link></div
+          ><button class="text-link" @click="taskDetailsOpen.value = true"
+            >任务与运行日志</button
+          ></div
         ><dl class="property-grid"
           ><div
             ><dt>游戏版本</dt
