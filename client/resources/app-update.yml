@@ -1,0 +1,3 @@
+# The HTTPS provider URL is supplied from the user's launcher settings.
+# electron-updater also reads this file to locate its download cache.
+updaterCacheDirName: hxzl-updater

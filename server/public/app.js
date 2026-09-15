@@ -1,0 +1,23 @@
+const $=id=>document.getElementById(id);let token=sessionStorage.getItem('hxz-admin')||'',current='overview';
+function message(text,error=false){$('message').hidden=false;$('message').textContent=text;$('message').className=error?'error':'';setTimeout(()=>$('message').hidden=true,6000);}
+async function api(url,method='GET',body){const r=await fetch(url,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined});const value=await r.json();if(!r.ok)throw Error(value.error||'操作失败');return value;}
+function row(container,heading,body,button,action){const el=document.createElement('div');el.className='row';const content=document.createElement('div'),title=document.createElement('strong'),p=document.createElement('p');title.textContent=heading;p.textContent=body;content.append(title,p);el.append(content);if(button){const b=document.createElement('button');b.textContent=button;b.className='danger';b.onclick=()=>run(action);el.append(b);}container.append(el);}
+async function run(fn){try{await fn();}catch(e){message(e.message,true);}}
+function tab(value){current=value;document.querySelectorAll('[data-view]').forEach(el=>el.hidden=el.dataset.view!==value);document.querySelectorAll('[data-tab]').forEach(el=>{el.classList.toggle('active',el.dataset.tab===value);if(el.dataset.tab===value)$('heading').textContent=el.textContent;});}
+async function refresh(){const [state,notices]=await Promise.all([api('/api/admin/overview'),api('/api/notices')]);$('online-count').textContent=state.online.length;$('voice-count').textContent=state.online.filter(p=>p.room).length;$('version').textContent=state.version;
+ for(const id of ['online-list','notice-list','message-list','ban-list'])$(id).replaceChildren();
+ for(const p of state.online)row($('online-list'),p.name,p.uid+(p.room?' · 语音 '+p.room:''),'封禁',async()=>{await api('/api/moderation','POST',{uid:p.uid,banned:true});await refresh();});
+ const groups={'survival':'原版生存群组','mod-1':'模组一服','mod-2':'模组二服'};
+ for(const n of notices)row($('notice-list'),n.title,(groups[n.groupId]||n.groupId)+' · '+new Date(n.updated).toLocaleString()+'\n'+n.body,'删除',async()=>{await api('/api/notices/'+n.id,'DELETE');await refresh();});
+ for(const m of state.messages)row($('message-list'),m.name+' · '+new Date(m.created).toLocaleString(),m.body,'删除',async()=>{await api('/api/admin/messages/delete','POST',{id:m.id});await refresh();});
+ for(const u of state.banned)row($('ban-list'),u.uid,'已封禁','解除封禁',async()=>{await api('/api/moderation','POST',{uid:u.uid,banned:false});await refresh();});
+ const form=$('settings-form');for(const [key,id] of [['hxz_survival','survival'],['hxz_mod1','mod-1'],['hxz_mod2','mod-2']])form.elements[key].value=state.hxzSources?.[id]||'';form.elements.adminIDs.value=state.adminIDs.join('\n');form.elements.turnUrl.value=state.turnUrl;$('turn-status').textContent=state.turnConfigured?'已配置 TURN 密钥':'尚未配置 TURN，公网语音可能无法直连';
+}
+async function enter(){await refresh();$('login').hidden=true;$('login').style.display='none';$('workspace').hidden=false;tab(current);}
+$('login-form').onsubmit=e=>{e.preventDefault();void run(async()=>{const data=Object.fromEntries(new FormData(e.target));const r=await api('/api/admin/login','POST',data);token=r.token;sessionStorage.setItem('hxz-admin',token);e.target.elements.password.value='';await enter();});};
+$('logout').onclick=()=>{sessionStorage.removeItem('hxz-admin');location.reload();};$('refresh').onclick=()=>run(refresh);document.querySelectorAll('[data-tab]').forEach(el=>el.onclick=()=>tab(el.dataset.tab));
+$('notice-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await api('/api/notices','POST',Object.fromEntries(new FormData(e.target)));e.target.elements.title.value='';e.target.elements.body.value='';await refresh();message('公告已发布');});};
+$('ban-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await api('/api/moderation','POST',{uid:e.target.elements.uid.value.trim(),banned:true});await refresh();});};
+$('settings-form').onsubmit=e=>{e.preventDefault();void run(async()=>{const data=Object.fromEntries(new FormData(e.target));data.hxzSources={'survival':data.hxz_survival,'mod-1':data.hxz_mod1,'mod-2':data.hxz_mod2};data.adminIDs=data.adminIDs.split(/\s+/).filter(Boolean);await api('/api/admin/settings','POST',data);e.target.elements.turnSecret.value='';message('配置已保存');});};
+$('password-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await api('/api/admin/password','POST',{password:e.target.elements.password.value});e.target.reset();message('密码已修改');});};
+if(token)void run(async()=>{try{await enter();}catch(e){sessionStorage.removeItem('hxz-admin');token='';throw e;}});

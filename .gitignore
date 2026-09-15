@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.quasar/
+.test/
+data/
+*.log
+.env
+.env.*
+!.env.example
+
+release/
+
+client/.installer-build/
