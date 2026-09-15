@@ -8,7 +8,7 @@ void test("GitHub update auto-downloads and silently installs only when idle and
   let installs = 0,
     downloads = 0,
     busy = true;
-  updater.setFeedURL = feed => assert.equal(feed.repo, "HXZ_LAUNCHER");
+  updater.setFeedURL = feed => assert.equal(feed.provider, "custom");
   updater.checkForUpdates = async () =>
     updater.emit("update-available", { version: "0.3.1" });
   updater.downloadUpdate = async () => {
@@ -24,7 +24,11 @@ void test("GitHub update auto-downloads and silently installs only when idle and
     app: { getVersion: () => "0.3.0", isPackaged: true },
     isBusy: () => busy,
     emit: () => {},
-    updater
+    updater,
+    discover: async () => ({
+      info: { version: "0.3.1" },
+      sources: [{ name: "fixture", prefix: "" }]
+    })
   });
   try {
     service.configure(true);
@@ -41,6 +45,45 @@ void test("GitHub update auto-downloads and silently installs only when idle and
     t.mock.timers.tick(1000);
     t.mock.timers.tick(16000);
     assert.equal(installs, 1);
+  } finally {
+    service.dispose();
+  }
+});
+
+void test("failed download switches source without changing signed release", async () => {
+  const updater = new EventEmitter(),
+    feeds = [];
+  const info = { version: "0.3.4" };
+  let downloads = 0;
+  updater.setFeedURL = feed => feeds.push(feed);
+  updater.checkForUpdates = async () => {
+    updater.emit("update-available", info);
+    return { cancellationToken: { cancel() {} } };
+  };
+  updater.downloadUpdate = async () => {
+    if (++downloads === 1) throw Error("Network down");
+    updater.emit("update-downloaded");
+  };
+  const service = createAppUpdate({
+    app: { getVersion: () => "0.3.3", isPackaged: true },
+    isBusy: () => false,
+    emit: () => {},
+    updater,
+    discover: async () => ({
+      info,
+      sources: [
+        { name: "direct", prefix: "" },
+        { name: "mirror", prefix: "https://ghproxy.net/" }
+      ]
+    })
+  });
+  try {
+    await service.check();
+    await service.download();
+    assert.equal(downloads, 2);
+    assert.equal(service.status().ready, true);
+    assert.equal(service.status().source, "mirror");
+    assert.ok(feeds.every(f => f.info === info));
   } finally {
     service.dispose();
   }

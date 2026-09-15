@@ -1,16 +1,35 @@
 import updaterPackage from "electron-updater";
 import { remoteJSON } from "./io.mjs";
+import { discoverRelease, RELEASE_ROOT } from "./update-sources.mjs";
+import { SignedReleaseProvider } from "./update-provider.mjs";
 export const REPOSITORY = {
   provider: "github",
   owner: "0xiaoyun0",
   repo: "HXZ_LAUNCHER"
 };
 export async function launcherReleases() {
-  const items = await remoteJSON(
-    "https://api.github.com/repos/0xiaoyun0/HXZ_LAUNCHER/releases?per_page=20",
-    { headers: { Accept: "application/vnd.github+json" } }
-  );
-  if (!Array.isArray(items)) throw Error("GitHub 更新日志格式错误");
+  let items;
+  try {
+    items = await remoteJSON(
+      "https://api.github.com/repos/0xiaoyun0/HXZ_LAUNCHER/releases?per_page=20",
+      {
+        headers: { Accept: "application/vnd.github+json" },
+        signal: AbortSignal.timeout(6000)
+      }
+    );
+    if (!Array.isArray(items)) throw Error("GitHub 更新日志格式错误");
+  } catch {
+    const { info } = await discoverRelease();
+    return [
+      {
+        version: info.version,
+        title: info.releaseName,
+        body: info.releaseNotes,
+        date: info.releaseDate,
+        url: RELEASE_ROOT + "/tag/v" + info.version
+      }
+    ];
+  }
   return items
     .filter(
       x => !x.draft && !x.prerelease && /^v?\d+\.\d+\.\d+$/.test(x.tag_name)
@@ -27,13 +46,31 @@ export function createAppUpdate({
   app,
   isBusy,
   emit,
-  updater = updaterPackage.autoUpdater
+  updater = updaterPackage.autoUpdater,
+  discover = discoverRelease,
+  stallTimeout = 45000
 }) {
   updater.autoDownload = false;
   updater.autoInstallOnAppQuit = false;
   updater.allowDowngrade = false;
   updater.allowPrerelease = false;
-  updater.setFeedURL(REPOSITORY);
+  updater.disableWebInstaller = true;
+  let release, cancellationToken, downloadTimer;
+  function armDownloadTimeout() {
+    clearTimeout(downloadTimer);
+    downloadTimer = setTimeout(() => cancellationToken?.cancel(), stallTimeout);
+    downloadTimer.unref?.();
+  }
+  async function selectSource(source) {
+    updater.setFeedURL({
+      provider: "custom",
+      updateProvider: SignedReleaseProvider,
+      info: release.info,
+      source
+    });
+    const result = await updater.checkForUpdates();
+    cancellationToken = result?.cancellationToken;
+  }
   let working = false,
     enabled = false,
     disposed = false,
@@ -60,8 +97,13 @@ export function createAppUpdate({
       available = false;
       update({ phase: "已是最新版本", available: false });
     },
-    "download-progress": p =>
-      update({ phase: "正在下载启动器更新", percent: Math.round(p.percent) }),
+    "download-progress": p => {
+      armDownloadTimeout();
+      update({
+        phase: "正在下载启动器更新 · " + state.source,
+        percent: Math.round(p.percent)
+      });
+    },
     "update-downloaded": () => {
       ready = true;
       installAt = 0;
@@ -75,8 +117,32 @@ export function createAppUpdate({
     if (working) throw Error("更新任务正在进行");
     working = true;
     try {
-      await updater.downloadUpdate();
-      return state;
+      for (const source of release.sources) {
+        if (disposed) throw Error("更新检查已关闭");
+        try {
+          update({
+            phase: "正在连接更新源 · " + source.name,
+            source: source.name,
+            percent: 0
+          });
+          await selectSource(source);
+          armDownloadTimeout();
+          await updater.downloadUpdate(cancellationToken);
+          return state;
+        } catch {
+          if (disposed) throw Error("更新检查已关闭");
+          update({
+            phase: source.name + " 暂不可用，正在切换更新源",
+            percent: 0
+          });
+        } finally {
+          clearTimeout(downloadTimer);
+        }
+      }
+      throw Error("所有更新源下载失败，稍后可重新尝试");
+    } catch (error) {
+      update({ phase: error.message });
+      throw error;
     } finally {
       working = false;
     }
@@ -86,8 +152,14 @@ export function createAppUpdate({
     if (working || ready) return state;
     working = true;
     try {
-      update({ phase: "正在检查 GitHub 更新" });
-      await updater.checkForUpdates();
+      update({ phase: "正在检查 GitHub 与备用更新源" });
+      release = await discover();
+      if (disposed) return state;
+      update({ source: release.sources[0].name });
+      await selectSource(release.sources[0]);
+    } catch (error) {
+      update({ phase: error.message });
+      throw error;
     } finally {
       working = false;
     }
@@ -139,6 +211,8 @@ export function createAppUpdate({
     },
     dispose() {
       disposed = true;
+      clearTimeout(downloadTimer);
+      cancellationToken?.cancel();
       clearInterval(idleTimer);
       clearInterval(checkTimer);
       for (const [name, fn] of Object.entries(handlers))

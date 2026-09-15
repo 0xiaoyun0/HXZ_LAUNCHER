@@ -4,6 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {createReadStream} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {spawn} from 'node:child_process';
+import {signUpdate} from './sign-update.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const version=JSON.parse(await fs.readFile(path.join(root,'client/package.json'),'utf8')).version;
 if(!/^\d+\.\d+\.\d+$/.test(version))throw Error('Invalid release version');
@@ -33,9 +34,13 @@ await fs.writeFile(path.join(serverApp,'使用说明.txt'),'幻想镇社区服�
 await fs.mkdir(path.join(serverApp,'docs'),{recursive:true});await fs.copyFile(path.join(root,'docs/部署与接入.md'),path.join(serverApp,'docs/部署与接入.md'));
 async function digest(file,algorithm,encoding='hex'){const h=createHash(algorithm);for await(const c of createReadStream(file))h.update(c);return h.digest(encoding);}
 const sha512=await digest(path.join(client,exe),'sha512','base64'),size=(await fs.stat(path.join(client,exe))).size;
+const changelog=await fs.readFile(path.join(root,'CHANGELOG.md'),'utf8');
+const notes=changelog.split('## '+version)[1]?.split(/\r?\n## /)[0]?.trim();
+if(!notes)throw Error('Missing release notes for '+version);
+await fs.writeFile(path.join(client,'latest.json'),await signUpdate({version,files:[{url:exe,sha512,size}],releaseDate:new Date().toISOString(),releaseNotes:notes}));
 await fs.writeFile(path.join(client,'latest.yml'),`version: ${version}\nfiles:\n  - url: ${JSON.stringify(exe)}\n    sha512: ${sha512}\n    size: ${size}\npath: ${JSON.stringify(exe)}\nsha512: ${sha512}\nreleaseDate: ${JSON.stringify(new Date().toISOString())}\n`);
 async function zip(dir,file){await new Promise((resolve,reject)=>{const child=spawn('tar.exe',['-a','-c','-f',file,'-C',dir,'.'],{stdio:'inherit',windowsHide:true,shell:false});child.on('error',reject);child.on('close',code=>code?reject(Error('ZIP failed '+code)):resolve());});}
 await Promise.all([zip(portable,path.join(client,'HXZ-Launcher-'+version+'-windows-x64-portable.zip')),zip(serverApp,path.join(server,'HXZ-Community-'+version+'-windows-x64.zip'))]);
-const checks=[];for(const folder of ['client','server'])for(const name of await fs.readdir(path.join(release,folder)))if(/\.(zip|exe|yml|blockmap)$/.test(name))checks.push((await digest(path.join(release,folder,name),'sha256'))+'  '+folder+'/'+name);
+const checks=[];for(const folder of ['client','server'])for(const name of await fs.readdir(path.join(release,folder)))if(/\.(zip|exe|yml|json|blockmap)$/.test(name))checks.push((await digest(path.join(release,folder,name),'sha256'))+'  '+folder+'/'+name);
 await fs.writeFile(path.join(release,'SHA256SUMS.txt'),checks.join('\n')+'\n');
 console.log('Separate client and server releases:',release);
