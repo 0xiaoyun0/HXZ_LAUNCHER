@@ -11,12 +11,18 @@ import {
   perform,
   saveSettings,
   instanceConfig,
+  orderedInstances,
   invoke,
   reload
 } from "../lib/launcher";
 const search = ref(""),
   cover = ref(""),
-  modID = ref("");
+  modID = ref(""),
+  builtinsOpen = ref(true),
+  coverEditorOpen = ref(false),
+  coverPositionX = ref(50),
+  coverPositionY = ref(50),
+  coverZoom = ref(1);
 let coverGeneration = 0;
 watch(
   () => state.settings.selectedInstance,
@@ -44,11 +50,48 @@ async function chooseCover(reset = false) {
 }
 
 const instances = computed(() =>
-  state.instances.filter(i =>
-    i.name.toLowerCase().includes(search.value.toLowerCase())
+  orderedInstances.value.filter(
+    i =>
+      i.name.toLowerCase().includes(search.value.toLowerCase()) &&
+      (builtinsOpen.value || !i.builtin)
   )
 );
 const config = computed(() => instanceConfig(state.settings.selectedInstance));
+async function toggleFavorite() {
+  if (!selectedInstance.value) return;
+  await saveSettings({
+    instance: {
+      id: selectedInstance.value.id,
+      ...instanceConfig(selectedInstance.value.id),
+      favorite: !instanceConfig(selectedInstance.value.id).favorite
+    }
+  });
+  await reload();
+}
+async function openFolder(kind: "screenshots" | "versions" | "saves") {
+  if (!selectedInstance.value) return;
+  await invoke("instance.folder", { id: selectedInstance.value.id, kind });
+}
+function editCoverPlacement() {
+  coverPositionX.value = config.value.coverPositionX;
+  coverPositionY.value = config.value.coverPositionY;
+  coverZoom.value = config.value.coverZoom;
+  coverEditorOpen.value = true;
+}
+async function saveCoverPlacement() {
+  if (!selectedInstance.value) return;
+  await saveSettings({
+    instance: {
+      id: selectedInstance.value.id,
+      ...instanceConfig(selectedInstance.value.id),
+      coverPositionX: coverPositionX.value,
+      coverPositionY: coverPositionY.value,
+      coverZoom: coverZoom.value
+    }
+  });
+  coverEditorOpen.value = false;
+  await reload();
+}
 async function chooseRoot() {
   const gameRoot = await invoke<string | null>("directory.choose");
   if (gameRoot) {
@@ -77,7 +120,21 @@ async function chooseRoot() {
         ><q-input v-model="search" outlined dense placeholder="搜索实例"
           ><template #prepend
             ><q-icon name="search" size="17px" /></template></q-input></div
-      ><div class="world-list-items"
+      ><div
+        v-if="state.instances.some(instance => instance.builtin)"
+        class="world-list-group-heading row items-center justify-between q-mt-sm q-mb-sm"
+        ><strong class="subtle">默认服务器</strong
+        ><q-btn
+          flat
+          dense
+          round
+          :icon="builtinsOpen ? 'expand_less' : 'expand_more'"
+          :title="builtinsOpen ? '收起默认服务器' : '展开默认服务器'"
+          @click="builtinsOpen = !builtinsOpen" /></div
+      ><TransitionGroup
+        name="instance-collapse"
+        tag="div"
+        class="world-list-items"
         ><button
           v-for="instance in instances"
           :key="instance.id"
@@ -104,7 +161,10 @@ async function chooseRoot() {
             v-if="instance.id === state.settings.selectedInstance"
             name="check"
             size="16px" /></button
-        ><div v-if="!instances.length" class="list-empty"
+        ><div
+          v-if="!instances.length"
+          key="instance-list-empty"
+          class="list-empty"
           ><q-icon name="folder_open" size="32px" /><p>{{
             search ? "没有匹配的实例" : "尚未添加游戏实例"
           }}</p
@@ -113,7 +173,7 @@ async function chooseRoot() {
             dense
             color="primary"
             label="选择游戏目录"
-            @click="perform(chooseRoot)" /></div></div
+            @click="perform(chooseRoot)" /></div></TransitionGroup
       ><footer
         ><q-icon name="folder_open" /><span :title="state.settings.gameRoot">{{
           state.settings.gameRoot || "未设置游戏目录"
@@ -131,12 +191,24 @@ async function chooseRoot() {
             label="头图"
             :disable="!selectedInstance"
             @click="perform(() => chooseCover())" /><q-btn
+            flat
+            dense
+            :icon="config.favorite ? 'star' : 'star_border'"
+            :label="config.favorite ? '已收藏' : '收藏'"
+            :disable="!selectedInstance"
+            @click="perform(toggleFavorite)" /><q-btn
             v-if="cover"
             flat
             dense
             icon="restart_alt"
             title="恢复默认头图"
             @click="perform(() => chooseCover(true))" /><q-btn
+            v-if="cover"
+            flat
+            dense
+            icon="crop"
+            label="裁剪"
+            @click="editCoverPlacement" /><q-btn
             flat
             dense
             icon="extension"
@@ -148,16 +220,32 @@ async function chooseRoot() {
             icon="folder_open"
             label="文件夹"
             :disable="!selectedInstance"
-            @click="
-              perform(() =>
-                invoke('instance.open', { id: state.settings.selectedInstance })
-              )
-            " /><q-btn
-            flat
-            dense
-            icon="tune"
-            label="配置"
-            to="/instances" /></div
+            ><q-menu
+              ><q-list dense
+                ><q-item
+                  clickable
+                  v-close-popup
+                  @click="perform(() => openFolder('screenshots'))"
+                  ><q-item-section avatar
+                    ><q-icon name="photo_library" /></q-item-section
+                  ><q-item-section>截图文件夹</q-item-section></q-item
+                ><q-item
+                  clickable
+                  v-close-popup
+                  @click="perform(() => openFolder('versions'))"
+                  ><q-item-section avatar
+                    ><q-icon name="folder_open" /></q-item-section
+                  ><q-item-section>版本文件夹</q-item-section></q-item
+                ><q-item
+                  clickable
+                  v-close-popup
+                  @click="perform(() => openFolder('saves'))"
+                  ><q-item-section avatar><q-icon name="save" /></q-item-section
+                  ><q-item-section>存档文件夹</q-item-section></q-item
+                ></q-list
+              ></q-menu
+            ></q-btn
+          ><q-btn flat dense icon="tune" label="配置" to="/instances" /></div
       ></div>
       <div class="world-preview" :class="{ 'custom-cover': !!cover }"
         ><img
@@ -165,6 +253,11 @@ async function chooseRoot() {
           class="instance-cover"
           :src="cover"
           alt="实例头图"
+          :style="{
+            objectPosition:
+              config.coverPositionX + '% ' + config.coverPositionY + '%',
+            transform: 'scale(' + config.coverZoom + ')'
+          }"
         /><div v-else class="preview-art" aria-hidden="true"
           ><div class="sun" /><div class="mountain mountain-back" /><div
             class="mountain mountain-front" /><div class="tower"
@@ -246,4 +339,44 @@ async function chooseRoot() {
       </div>
     </section>
   </div>
+  <q-dialog v-model="coverEditorOpen"
+    ><q-card class="dialog-card"
+      ><q-card-section
+        ><h2>调整头图裁剪</h2
+        ><div class="world-preview q-mb-md"
+          ><img
+            v-if="cover"
+            class="instance-cover"
+            :src="cover"
+            alt="头图预览"
+            :style="{
+              objectPosition: coverPositionX + '% ' + coverPositionY + '%',
+              transform: 'scale(' + coverZoom + ')'
+            }" /></div
+        ><label>水平位置 · {{ Math.round(coverPositionX) }}%</label
+        ><q-slider
+          v-model="coverPositionX"
+          :min="0"
+          :max="100"
+          :step="1"
+          label /><label>垂直位置 · {{ Math.round(coverPositionY) }}%</label
+        ><q-slider
+          v-model="coverPositionY"
+          :min="0"
+          :max="100"
+          :step="1"
+          label /><label>缩放 · {{ coverZoom.toFixed(2) }}×</label
+        ><q-slider
+          v-model="coverZoom"
+          :min="1"
+          :max="2"
+          :step="0.01"
+          label /></q-card-section
+      ><q-card-actions align="right"
+        ><q-btn flat label="取消" v-close-popup /><q-btn
+          unelevated
+          class="primary-button"
+          label="保存裁剪位置"
+          @click="perform(saveCoverPlacement)" /></q-card-actions></q-card
+  ></q-dialog>
 </template>

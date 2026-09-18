@@ -134,7 +134,7 @@ onMounted(() => {
       unelevated
       class="primary-button"
       icon="file_upload"
-      label="导入 .mrpack"
+      label="导入整合包"
       :disable="!desktop || task.busy || state.running"
       @click="perform(choosePack)"
   /></div>

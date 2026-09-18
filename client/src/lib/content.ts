@@ -40,6 +40,9 @@ export interface ForumReply {
   name: string;
   body: string;
   created: number;
+  parentId?: string | null;
+  likes: number;
+  liked: boolean;
 }
 export const blueprintCategories = [
   "生产与加工",

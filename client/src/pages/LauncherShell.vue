@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import PlayerAvatar from "../components/PlayerAvatar.vue";
-import { onMounted } from "vue";
+import { computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import {
   state,
@@ -28,6 +28,19 @@ const links = [
   { to: "/forum", icon: "article", label: "幻想镇论坛" },
   { to: "/notices", icon: "campaign", label: "通知公告" }
 ];
+const visibleLinks = computed(() =>
+  links.filter(link => !state.settings.hiddenLinks?.includes(link.to))
+);
+function columnVisible(name: "sidebar" | "workspace" | "dock") {
+  return name === "workspace" || state.settings.columns[name].visible;
+}
+function columnStyle(name: "sidebar" | "workspace") {
+  const column = state.settings.columns[name];
+  return {
+    ...(column.color ? { backgroundColor: column.color } : {}),
+    ...(column.opacity !== 1 ? { opacity: column.opacity } : {})
+  };
+}
 onMounted(() => {
   void perform(async () => {
     await reload();
@@ -39,16 +52,20 @@ onMounted(() => {
 <template>
   <div class="launcher"
     ><PackImport />
-    <aside class="sidebar">
+    <aside
+      v-show="columnVisible('sidebar')"
+      class="sidebar"
+      :style="columnStyle('sidebar')"
+    >
       <router-link to="/" class="brand"
         ><span class="brand-symbol">幻</span
         ><span class="brand-wordmark"
           ><strong>幻想镇</strong><small>FANTASY TOWN</small></span
         ></router-link
       >
-      <div class="nav-caption">游戏与社区</div>
+      <div class="nav-caption">{{ state.settings.columns.sidebar.label }}</div>
       <nav aria-label="主导航">
-        <template v-for="link in links" :key="link.to"
+        <template v-for="link in visibleLinks" :key="link.to"
           ><router-link
             :to="link.to"
             :class="[
@@ -87,10 +104,14 @@ onMounted(() => {
         /></router-link>
       </div>
     </aside>
-    <section class="workspace">
+    <section
+      v-show="columnVisible('workspace')"
+      class="workspace"
+      :style="columnStyle('workspace')"
+    >
       <header class="window-bar"
         ><div class="row items-center"
-          ><span class="window-label">HXZ LAUNCHER <b>0.4.0</b></span></div
+          ><span class="window-label">HXZ LAUNCHER <b>0.4.1</b></span></div
         ><div class="row items-center no-drag"
           ><q-btn
             v-if="appUpdate.available"

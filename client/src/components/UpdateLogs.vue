@@ -13,8 +13,7 @@ interface UpdateFeed {
 const route = useRoute(),
   feeds = ref<UpdateFeed[]>([]),
   loading = ref(false),
-  error = ref(""),
-  limit = ref(10);
+  error = ref("");
 const visible = computed(() =>
   groups.filter(g => !route.params.group || g.id === route.params.group)
 );
@@ -37,10 +36,6 @@ async function refresh() {
     if (current === generation) loading.value = false;
   }
 }
-watch(
-  () => route.params.group,
-  () => (limit.value = 10)
-);
 watch(
   () => state.settings.communityUrl,
   () => {
@@ -103,10 +98,7 @@ onUnmounted(() => {
               >此服还没有发布更新日志。</p
             >
             <q-expansion-item
-              v-for="(entry, i) in feed(group.id)?.entries.slice(
-                0,
-                route.params.group ? limit : 1
-              )"
+              v-for="(entry, i) in feed(group.id)?.entries || []"
               :key="group.id + ':' + entry.id"
               :default-opened="i === 0"
               :label="entry.version"
@@ -117,15 +109,6 @@ onUnmounted(() => {
                 entry.content || "此版本未填写更新说明。"
               }}</p>
             </q-expansion-item>
-            <q-btn
-              v-if="
-                route.params.group &&
-                (feed(group.id)?.entries.length || 0) > limit
-              "
-              flat
-              label="更多历史日志"
-              @click="limit += 10"
-            />
           </template>
           <footer
             ><small :title="feed(group.id)?.source"

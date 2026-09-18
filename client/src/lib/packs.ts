@@ -13,7 +13,9 @@ export interface PackInfo {
   minecraft: string;
   loader: string;
   loaderVersion: string;
-  fileCount: number;
+  format?: string;
+  files?: { path: string }[];
+  embedded?: { path: string }[];
   optionalFiles: string[];
   hxzup: boolean;
   updateUrls: string[];

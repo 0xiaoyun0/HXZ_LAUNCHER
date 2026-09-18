@@ -13,9 +13,19 @@ import {
   launch,
   invoke
 } from "../lib/launcher";
+function dockStyle() {
+  const column = state.settings.columns.dock;
+  return {
+    ...(column.color ? { backgroundColor: column.color } : {}),
+    ...(column.opacity !== 1 ? { opacity: column.opacity } : {})
+  };
+}
 </script>
 <template>
-  <div class="launch-dock"
+  <div
+    v-show="state.settings.columns.dock.visible"
+    class="launch-dock"
+    :style="dockStyle()"
     ><q-linear-progress
       v-if="task.busy"
       class="dock-progress"
@@ -28,10 +38,10 @@ import {
           task.busy
             ? task.phase + " · " + taskCount
             : selectedInstance
-              ? selectedInstance.version +
-                " · " +
-                instanceConfig(selectedInstance.id).memoryMB +
-                " MB"
+              ? selectedInstance.version + " · " + state.settings.memoryMode ===
+                "auto"
+                ? "自动内存"
+                : instanceConfig(selectedInstance.id).memoryMB + " MB"
               : "在实例列表中选择或添加游戏"
         }}</small></div
       ></div
@@ -40,7 +50,7 @@ import {
       dense
       class="dock-details"
       icon="expand_less"
-      label="任务详情"
+      :label="state.settings.columns.dock.label || '任务详情'"
       @click="taskDetailsOpen.value = true" />
     <router-link to="/accounts" class="dock-account"
       ><PlayerAvatar

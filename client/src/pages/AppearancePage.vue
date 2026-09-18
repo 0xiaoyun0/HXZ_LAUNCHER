@@ -39,10 +39,28 @@ const form = reactive({
   backgroundColor: state.settings.backgroundColor,
   backgroundImage: state.settings.backgroundImage,
   backgroundOpacity: state.settings.backgroundOpacity,
+  backgroundPositionX: state.settings.backgroundPositionX ?? 50,
+  backgroundPositionY: state.settings.backgroundPositionY ?? 50,
+  backgroundFit: state.settings.backgroundFit || "cover",
+  hiddenLinks: [...(state.settings.hiddenLinks || [])],
+  columns: {
+    sidebar: { ...state.settings.columns.sidebar },
+    workspace: { ...state.settings.columns.workspace },
+    dock: { ...state.settings.columns.dock }
+  },
   layout: state.settings.layout
 });
 async function save() {
-  await saveSettings({ ...form });
+  form.columns.workspace.visible = true;
+  await saveSettings({
+    ...form,
+    hiddenLinks: [...form.hiddenLinks],
+    columns: {
+      sidebar: { ...form.columns.sidebar },
+      workspace: { ...form.columns.workspace },
+      dock: { ...form.columns.dock }
+    }
+  });
 }
 async function background() {
   const image = await invoke<string | null>("background.choose");
@@ -50,12 +68,21 @@ async function background() {
 }
 async function reset() {
   Object.assign(form, {
-    theme: "dark",
+    theme: "light",
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
     backgroundImage: "",
     backgroundOpacity: 0.4,
+    backgroundPositionX: 50,
+    backgroundPositionY: 50,
+    backgroundFit: "cover",
+    hiddenLinks: [],
+    columns: {
+      sidebar: { visible: true, color: "", opacity: 1, label: "游戏与社区" },
+      workspace: { visible: true, color: "", opacity: 1, label: "主工作区" },
+      dock: { visible: true, color: "", opacity: 1, label: "任务详情" }
+    },
     layout: "standard"
   });
   await save();
@@ -177,9 +204,95 @@ async function reset() {
           :max="1"
           :step="0.01"
           label /></div></div></section
-  ><q-btn
-    outline
-    label="恢复默认外观"
-    @click="perform(reset, '已恢复默认外观')"
-  />
+  ><section class="panel settings-section"
+    ><h2>背景位置与裁剪</h2
+    ><p class="subtle"
+      >调整背景图的焦点和填充方式，让背景图在不同窗口中保持合适的构图。</p
+    ><div class="install-grid"
+      ><div
+        ><label>水平位置 · {{ Math.round(form.backgroundPositionX) }}%</label
+        ><q-slider
+          v-model="form.backgroundPositionX"
+          :min="0"
+          :max="100"
+          :step="1"
+          label /></div
+      ><div
+        ><label>垂直位置 · {{ Math.round(form.backgroundPositionY) }}%</label
+        ><q-slider
+          v-model="form.backgroundPositionY"
+          :min="0"
+          :max="100"
+          :step="1"
+          label /></div
+      ><q-select
+        v-model="form.backgroundFit"
+        outlined
+        emit-value
+        map-options
+        :options="[
+          { label: '覆盖裁剪', value: 'cover' },
+          { label: '完整显示', value: 'contain' },
+          { label: '拉伸填充', value: '100% 100%' }
+        ]"
+        label="背景填充方式" /><img
+        v-if="form.backgroundImage"
+        :src="form.backgroundImage"
+        class="background-preview"
+        alt="背景裁剪预览"
+        :style="
+          'object-position: ' +
+          form.backgroundPositionX +
+          '% ' +
+          form.backgroundPositionY +
+          '%; object-fit: ' +
+          (form.backgroundFit === '100% 100%' ? 'fill' : form.backgroundFit)
+        " /></div></section
+  ><section class="panel settings-section"
+    ><h2>栏目与内容</h2
+    ><p class="subtle"
+      >可隐藏不常用栏目，并分别调整三栏的颜色、透明度和名称。主工作区会始终保留，避免启动器失去主要内容。</p
+    ><div class="column-settings"
+      ><div
+        v-for="(column, name) in form.columns"
+        :key="name"
+        class="column-setting"
+        ><q-toggle
+          v-model="column.visible"
+          :disable="name === 'workspace'"
+          :label="column.label" /><q-input
+          v-model="column.label"
+          outlined
+          dense
+          label="栏目名称" /><label class="color-setting"
+          >颜色 <input v-model="column.color" type="color" /></label
+        ><div
+          ><label>透明度 · {{ Math.round(column.opacity * 100) }}%</label
+          ><q-slider
+            v-model="column.opacity"
+            :min="0.2"
+            :max="1"
+            :step="0.01"
+            label /></div></div></div
+    ><div class="content-form q-mt-md"
+      ><strong>隐藏导航栏目</strong
+      ><q-option-group
+        v-model="form.hiddenLinks"
+        type="checkbox"
+        :options="[
+          { label: '游戏实例', value: '/instances' },
+          { label: '下载与安装', value: '/downloads' },
+          { label: '机械动力蓝图库', value: '/blueprints' },
+          { label: '聊天大厅', value: '/chat' },
+          { label: '幻想镇论坛', value: '/forum' },
+          { label: '通知公告', value: '/notices' }
+        ]"
+        inline
+        class="hidden-links-options" /></div
+    ><div class="appearance-reset-actions"
+      ><q-btn
+        outline
+        label="恢复默认外观"
+        @click="perform(reset, '已恢复默认外观')" /></div
+  ></section>
 </template>

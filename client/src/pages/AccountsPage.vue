@@ -31,6 +31,11 @@ async function login() {
     password.value = "";
   }
 }
+function openSkin() {
+  return desktop
+    ? invoke("skin.open")
+    : Promise.resolve(window.open("https://skin.hxzmc.top", "_blank"));
+}
 async function select(id: string) {
   disconnect();
   await saveSettings({ selectedAccount: id });
@@ -55,8 +60,7 @@ async function profile(id: string, uuid: string) {
       outline
       icon="open_in_new"
       label="皮肤与角色管理"
-      :disable="!desktop"
-      @click="perform(() => invoke('skin.open'))"
+      @click="perform(openSkin)"
   /></div>
   <div class="account-grid"
     ><section class="panel"
@@ -88,7 +92,7 @@ async function profile(id: string, uuid: string) {
           label="登录并连接社区"
           :loading="loading"
           :disable="
-            !desktop || task.busy || state.running || !username || !password
+            task.busy || state.running || !username || !password
           " /></form
       ><p class="subtle q-mt-lg"
         ><q-icon name="lock" />

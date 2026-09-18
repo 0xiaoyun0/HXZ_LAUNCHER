@@ -11,7 +11,7 @@ export async function launcherReleases() {
   let items;
   try {
     items = await remoteJSON(
-      "https://api.github.com/repos/0xiaoyun0/HXZ_LAUNCHER/releases?per_page=20",
+      "https://api.github.com/repos/0xiaoyun0/HXZ_LAUNCHER/releases?per_page=100",
       {
         headers: { Accept: "application/vnd.github+json" },
         signal: AbortSignal.timeout(6000)
@@ -37,7 +37,7 @@ export async function launcherReleases() {
     .map(x => ({
       version: x.tag_name.replace(/^v/, ""),
       title: String(x.name || x.tag_name),
-      body: String(x.body || "暂无更新说明").slice(0, 30000),
+      body: String(x.body || "暂无更新说明"),
       date: x.published_at,
       url: x.html_url
     }));

@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, nextTick } from "vue";
 import type { QInput } from "quasar";
 import { useRoute, useRouter } from "vue-router";
 import PlayerAvatar from "../components/PlayerAvatar.vue";
+import EmojiPicker from "../components/EmojiPicker.vue";
 import { community, communityRequest } from "../lib/community";
 import { perform, errorMessage } from "../lib/launcher";
 import {
@@ -26,6 +27,7 @@ const detail = ref<ForumPost | null>(null),
   replyTotal = ref(0),
   replyPage = ref(1),
   reply = ref(""),
+  replyParent = ref<ForumReply | null>(null),
   composer = ref<QInput>(),
   sending = ref(false),
   createOpen = ref(false),
@@ -33,6 +35,33 @@ const detail = ref<ForumPost | null>(null),
   access = ref({ admin: false });
 const form = ref({ title: "", body: "", category: forumCategories[0] }),
   isDetail = computed(() => typeof route.params.id === "string");
+type ForumReplyRow = { item: ForumReply; depth: number };
+const replyRows = computed<ForumReplyRow[]>(() => {
+  const children = new Map<string, ForumReply[]>();
+  const ids = new Set(replies.value.map(item => item.id));
+  for (const item of replies.value) {
+    const parentId =
+      item.parentId && ids.has(item.parentId) ? item.parentId : "";
+    const list = children.get(parentId) || [];
+    list.push(item);
+    children.set(parentId, list);
+  }
+  const rows: ForumReplyRow[] = [];
+  const visited = new Set<string>();
+  function append(item: ForumReply, depth: number) {
+    if (visited.has(item.id)) return;
+    visited.add(item.id);
+    rows.push({ item, depth: Math.min(depth, 4) });
+    for (const child of children.get(item.id) || []) append(child, depth + 1);
+  }
+  for (const item of children.get("") || []) append(item, 0);
+  for (const item of replies.value) append(item, 0);
+  return rows;
+});
+function displayCount(value: unknown) {
+  const count = Number(value);
+  return Number.isFinite(count) ? count : 0;
+}
 async function load() {
   loading.value = true;
   error.value = "";
@@ -104,16 +133,35 @@ async function sendReply() {
   try {
     await communityRequest(
       "/api/forum/posts/" + detail.value.id + "/replies",
-      jsonRequest("POST", { body: reply.value }),
+      jsonRequest("POST", {
+        body: reply.value,
+        parentId: replyParent.value?.id || null
+      }),
       true
     );
     reply.value = "";
+    replyParent.value = null;
     replyPage.value = Math.ceil((replyTotal.value + 1) / 24);
     await loadDetail();
     void nextTick(() => composer.value?.focus());
   } finally {
     sending.value = false;
   }
+}
+function pickReply(value: string) {
+  reply.value += value;
+  composer.value?.focus();
+}
+function pickPost(value: string) {
+  form.value.body += value;
+}
+async function likeReply(item: ForumReply) {
+  const value = await communityRequest<ForumReply>(
+    "/api/forum/replies/" + item.id + "/like",
+    jsonRequest("PUT", { liked: !item.liked }),
+    true
+  );
+  Object.assign(item, value);
 }
 async function like() {
   if (!detail.value) return;
@@ -162,6 +210,7 @@ watch(
     detail.value = null;
     replyPage.value = 1;
     reply.value = "";
+    replyParent.value = null;
     if (isDetail.value) void loadDetail();
     else void load();
   },
@@ -207,8 +256,12 @@ onMounted(() => void permissions());
         outlined
         dense
         label="分类"
-        :display-value="category || '全部分类'"
-        :options="['', ...forumCategories]"
+        emit-value
+        map-options
+        :options="[
+          { label: '全部分类', value: '' },
+          ...forumCategories.map(value => ({ label: value, value }))
+        ]"
         @update:model-value="filter" /><q-btn
         outline
         icon="refresh"
@@ -242,8 +295,13 @@ onMounted(() => void permissions());
             >{{ post.name }} · {{ displayDate(post.updated) }}</small
           ></div
         ><div class="forum-counts"
-          ><span><q-icon name="chat_bubble_outline" /> {{ post.replies }}</span
-          ><span><q-icon name="favorite_border" /> {{ post.likes }}</span></div
+          ><span
+            ><q-icon name="chat_bubble_outline" />
+            {{ displayCount(post.replies) }}</span
+          ><span
+            ><q-icon name="favorite_border" />
+            {{ displayCount(post.likes) }}</span
+          ></div
         ></router-link
       ></div
     >
@@ -274,7 +332,7 @@ onMounted(() => void permissions());
         ><q-btn
           outline
           :icon="detail.liked ? 'favorite' : 'favorite_border'"
-          :label="'点赞 · ' + detail.likes"
+          :label="'点赞 · ' + displayCount(detail.likes)"
           :disable="!community.connected"
           @click="perform(like)"
         /><q-btn
@@ -315,20 +373,45 @@ onMounted(() => void permissions());
     ><section class="panel forum-replies"
       ><h2>回复 · {{ replyTotal }}</h2
       ><p v-if="!replies.length" class="subtle">暂无回复</p
-      ><article v-for="item in replies" :key="item.id" class="forum-reply"
-        ><PlayerAvatar :uid="item.uid" :name="item.name" /><div
+      ><article
+        v-for="row in replyRows"
+        :key="row.item.id"
+        :style="{
+          marginLeft: row.depth ? `${row.depth * 44}px` : undefined
+        }"
+        :class="['forum-reply', { 'forum-reply-child': row.depth > 0 }]"
+        ><PlayerAvatar :uid="row.item.uid" :name="row.item.name" /><div
           ><header
-            ><strong>{{ item.name }}</strong
-            ><time>{{ displayDate(item.created) }}</time></header
-          ><p class="content-body">{{ item.body }}</p
+            ><strong>{{ row.item.name }}</strong
+            ><time>{{ displayDate(row.item.created) }}</time></header
+          ><p class="content-body">{{ row.item.body }}</p
+          ><div class="content-actions"
+            ><q-btn
+              flat
+              dense
+              :icon="row.item.liked ? 'favorite' : 'favorite_border'"
+              :label="'点赞 · ' + displayCount(row.item.likes)"
+              :disable="!community.connected"
+              @click="perform(() => likeReply(row.item))" /><q-btn
+              flat
+              dense
+              label="回复"
+              :disable="
+                !community.connected || !!detail.locked || !!detail.hidden
+              "
+              @click="
+                replyParent = row.item;
+                void nextTick(() => composer?.focus());
+              " /></div
           ><q-btn
-            v-if="access.admin || item.uid === community.user?.uid"
+            v-if="access.admin || row.item.uid === community.user?.uid"
             flat
             dense
             color="negative"
             label="删除回复"
-            @click="perform(() => removeReply(item.id))" /></div></article
-      ><q-pagination
+            @click="perform(() => removeReply(row.item.id))" /></div
+      ></article>
+      <q-pagination
         v-if="replyTotal > 24"
         v-model="replyPage"
         :max="Math.ceil(replyTotal / 24)"
@@ -347,7 +430,11 @@ onMounted(() => void permissions());
           label="写下回复"
           maxlength="5000"
           :disable="sending" /><div class="content-actions"
-          ><q-btn
+          ><EmojiPicker @pick="pickReply" /><q-btn
+            v-if="replyParent"
+            flat
+            :label="'取消回复 @' + replyParent.name"
+            @click="replyParent = null" /><q-btn
             type="submit"
             class="primary-button"
             unelevated
@@ -387,7 +474,8 @@ onMounted(() => void permissions());
             type="textarea"
             label="正文"
             maxlength="12000"
-            :input-style="{ minHeight: '220px' }" /></div
+            :input-style="{ minHeight: '220px' }" /><EmojiPicker
+            @pick="pickPost" /></div
         ><div class="content-actions"
           ><q-btn
             flat

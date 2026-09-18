@@ -13,10 +13,39 @@ import {
 import { disconnect, connect } from "../lib/community";
 const hxzupPopup = ref(state.settings.hxzupPopup !== false);
 const simpleHome = ref(state.settings.simpleHome);
+const memoryMode = ref(state.settings.memoryMode || "auto");
+const defaultMemoryMB = ref(state.settings.defaultMemoryMB || 4096);
+const voiceMode = ref(state.settings.voiceMode || "open");
+const voiceKey = ref(state.settings.voiceKey || "KeyT");
+const voiceSounds = ref(state.settings.voiceSounds !== false);
+const capturingVoiceKey = ref(false);
 const downloadConcurrency = ref(state.settings.downloadConcurrency ?? 64);
 const automatic = ref(state.settings.autoCheckUpdates !== false);
 async function checkUpdate() {
   await invoke("app-update.check");
+}
+function voiceKeyName(code: string) {
+  if (code === "Space") return "空格键";
+  if (code === "Enter") return "回车键";
+  if (code === "Escape") return "Esc";
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  if (/^F\d+$/.test(code)) return code;
+  return code || "T";
+}
+function captureVoiceKey(event: KeyboardEvent) {
+  if (!capturingVoiceKey.value) return;
+  event.preventDefault();
+  if (event.code === "Escape") {
+    capturingVoiceKey.value = false;
+    return;
+  }
+  voiceKey.value = event.code;
+  capturingVoiceKey.value = false;
+}
+function startVoiceKeyCapture() {
+  capturingVoiceKey.value = true;
+  window.addEventListener("keydown", captureVoiceKey, { once: true });
 }
 const connection = ref(""),
   checking = ref(false),
@@ -69,7 +98,12 @@ async function save() {
     downloadConcurrency: downloadConcurrency.value,
     hxzupPopup: hxzupPopup.value,
     simpleHome: simpleHome.value,
-    autoCheckUpdates: automatic.value
+    autoCheckUpdates: automatic.value,
+    memoryMode: memoryMode.value,
+    defaultMemoryMB: Math.round(defaultMemoryMB.value),
+    voiceMode: voiceMode.value,
+    voiceKey: voiceKey.value,
+    voiceSounds: voiceSounds.value
   });
   disconnect();
   if (state.settings.selectedAccount) await connect();
@@ -90,7 +124,7 @@ async function root() {
       class="primary-button"
       label="保存设置"
       icon="check"
-      :disable="!desktop || task.busy || state.running"
+      :disable="task.busy || state.running"
       @click="perform(save, '设置已保存')"
   /></div>
   <section class="panel settings-section">
@@ -132,7 +166,30 @@ async function root() {
   ></section>
   <section class="panel settings-section"
     ><h2>游戏与 Java</h2
-    ><p class="subtle">内存、分辨率与更新地址在各实例的配置中单独保存。</p
+    ><p class="subtle">默认内存用于新实例；已有实例可在实例配置中单独调整。</p
+    ><div class="install-grid q-mb-md"
+      ><q-select
+        v-model="memoryMode"
+        outlined
+        emit-value
+        map-options
+        :options="[
+          { label: '自动分配（推荐）', value: 'auto' },
+          { label: '手动分配', value: 'manual' }
+        ]"
+        label="默认内存分配方式"
+      /><q-input
+        v-if="memoryMode === 'manual'"
+        v-model.number="defaultMemoryMB"
+        outlined
+        type="number"
+        label="默认内存（MB）"
+        :min="512"
+        :max="state.system.memoryMB"
+        hint="建议至少保留一半内存给系统"
+      /><div v-else class="subtle self-center"
+        >启动时根据当前剩余内存自动分配，单次启动会重新计算。</div
+      ></div
     ><div class="directory-bar"
       ><q-icon name="folder_open" /><span>{{
         state.settings.gameRoot || "尚未设置游戏目录"
@@ -193,6 +250,33 @@ async function root() {
       :disable="task.busy || state.running"
     />
   </section>
+  <section class="panel settings-section"
+    ><h2>语音聊天</h2
+    ><div class="install-grid"
+      ><q-select
+        v-model="voiceMode"
+        outlined
+        emit-value
+        map-options
+        :options="[
+          { label: '全程说话', value: 'open' },
+          { label: '按键说话', value: 'push-to-talk' }
+        ]"
+        label="麦克风模式" /><div v-if="voiceMode === 'push-to-talk'"
+        ><q-btn
+          outline
+          icon="keyboard"
+          :label="
+            capturingVoiceKey
+              ? '请按下新的按键（Esc 取消）'
+              : '按键说话：' + voiceKeyName(voiceKey)
+          "
+          @click="startVoiceKeyCapture"
+        /><p class="subtle q-mt-sm"
+          >默认使用 T 键，可更改为键盘上的任意按键。</p
+        ></div
+      ><q-toggle v-model="voiceSounds" label="播放语音频道进出提示音" /></div
+  ></section>
   <section class="panel settings-section"
     ><h2>社区服务</h2
     ><p class="subtle">聊天、语音和公告共用此地址；皮肤站与 HXZ UP 独立运行。</p

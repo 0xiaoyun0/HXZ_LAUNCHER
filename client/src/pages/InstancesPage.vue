@@ -11,9 +11,11 @@ import {
   saveSettings,
   launch,
   instanceConfig,
+  orderedInstances,
   type InstanceConfig
 } from "../lib/launcher";
-const modID = ref("");
+const modID = ref(""),
+  builtinsOpen = ref(true);
 const showCreate = ref(false),
   name = ref(""),
   updateUrl = ref(""),
@@ -65,6 +67,19 @@ async function save() {
   });
   editing.value = "";
 }
+async function toggleFavorite(id: string) {
+  const current = instanceConfig(id);
+  await saveSettings({
+    instance: { id, ...current, favorite: !current.favorite }
+  });
+  await reload();
+}
+async function openFolder(
+  id: string,
+  kind: "screenshots" | "versions" | "saves"
+) {
+  await invoke("instance.folder", { id, kind });
+}
 </script>
 <template>
   <ModManager :id="modID" @close="modID = ''" />
@@ -109,76 +124,146 @@ async function save() {
     <div class="instance-table-head"
       ><span>实例名称 / 版本</span><span>加载器</span><span>内存</span
       ><span>更新方式</span><span>操作</span></div
+    ><div
+      v-if="state.instances.some(instance => instance.builtin)"
+      class="instance-table-group-heading row items-center justify-between"
+      ><strong class="subtle">默认服务器</strong
+      ><q-btn
+        flat
+        dense
+        round
+        :icon="builtinsOpen ? 'expand_less' : 'expand_more'"
+        :title="builtinsOpen ? '收起默认服务器' : '展开默认服务器'"
+        @click="builtinsOpen = !builtinsOpen"
+    /></div>
+    <TransitionGroup
+      name="instance-collapse"
+      tag="div"
+      class="instance-table-rows"
     >
-    <div
-      v-for="instance in state.instances"
-      :key="instance.id"
-      :class="[
-        'instance-table-row',
-        { selected: state.settings.selectedInstance === instance.id }
-      ]"
-      @dblclick="
-        !task.busy &&
-        !state.running &&
-        perform(() => saveSettings({ selectedInstance: instance.id }))
-      "
-    >
-      <button
-        class="instance-name-cell"
-        :disabled="task.busy || state.running"
-        @click="perform(() => saveSettings({ selectedInstance: instance.id }))"
-        ><span class="world-icon"><q-icon name="extension" size="25px" /></span
-        ><span
-          ><strong>{{ instance.name }}</strong
-          ><small>{{ instance.error || instance.version }}</small></span
-        ><q-icon
-          v-if="state.settings.selectedInstance === instance.id"
-          name="check_circle"
-          color="primary"
-      /></button>
-      <span>{{ instance.loader || "待安装" }}</span
-      ><span>{{ instanceConfig(instance.id).memoryMB }} MB</span
-      ><span>{{
-        instanceConfig(instance.id).autoUpdate ? "启动前更新" : "手动"
-      }}</span>
-      <div class="row no-wrap"
-        ><q-btn
-          flat
-          round
-          dense
-          icon="extension"
-          title="MOD 管理"
-          :disable="instance.placeholder || !!instance.error"
-          @click="modID = instance.id" /><q-btn
-          flat
-          round
-          dense
-          icon="login"
-          title="启动并进入服务器"
-          :disable="instance.placeholder || task.busy || state.running"
-          @click="perform(() => launch(instance.id, false, true))" /><q-btn
-          flat
-          round
-          dense
-          icon="tune"
-          title="实例配置"
-          :disable="task.busy || state.running"
-          @click="edit(instance.id)" /><q-btn
-          flat
-          round
-          dense
-          icon="sync"
-          title="立即更新"
-          :disable="instance.builtin || task.busy || state.running"
-          @click="perform(() => launch(instance.id, true))" /><q-btn
-          flat
-          round
-          dense
-          icon="folder_open"
-          title="打开实例目录"
-          @click="perform(() => invoke('instance.open', { id: instance.id }))"
-      /></div>
-    </div>
+      <template
+        v-for="(instance, index) in orderedInstances"
+        :key="instance.id"
+      >
+        <div
+          v-if="builtinsOpen || !instance.builtin"
+          :class="[
+            'instance-table-row',
+            {
+              selected: state.settings.selectedInstance === instance.id,
+              'other-instance-start':
+                !instance.builtin &&
+                (index === 0 || orderedInstances[index - 1]?.builtin)
+            }
+          ]"
+          @dblclick="
+            !task.busy &&
+            !state.running &&
+            perform(() => saveSettings({ selectedInstance: instance.id }))
+          "
+        >
+          <button
+            class="instance-name-cell"
+            :disabled="task.busy || state.running"
+            @click="
+              perform(() => saveSettings({ selectedInstance: instance.id }))
+            "
+            ><span class="world-icon"
+              ><q-icon name="extension" size="25px" /></span
+            ><span
+              ><strong>{{ instance.name }}</strong
+              ><small>{{ instance.error || instance.version }}</small></span
+            ><q-icon
+              v-if="state.settings.selectedInstance === instance.id"
+              name="check_circle"
+              color="primary"
+          /></button>
+          <span>{{ instance.loader || "待安装" }}</span
+          ><span>{{ instanceConfig(instance.id).memoryMB }} MB</span
+          ><span>{{
+            instanceConfig(instance.id).autoUpdate ? "启动前更新" : "手动"
+          }}</span>
+          <div class="row no-wrap"
+            ><q-btn
+              flat
+              round
+              dense
+              icon="extension"
+              title="MOD 管理"
+              :disable="instance.placeholder || !!instance.error"
+              @click="modID = instance.id"
+            /><q-btn
+              flat
+              round
+              dense
+              icon="login"
+              title="启动并进入服务器"
+              :disable="instance.placeholder || task.busy || state.running"
+              @click="perform(() => launch(instance.id, false, true))"
+            /><q-btn
+              flat
+              round
+              dense
+              icon="tune"
+              title="实例配置"
+              :disable="task.busy || state.running"
+              @click="edit(instance.id)"
+            /><q-btn
+              flat
+              round
+              dense
+              icon="sync"
+              title="立即更新"
+              :disable="instance.builtin || task.busy || state.running"
+              @click="perform(() => launch(instance.id, true))"
+            /><q-btn
+              flat
+              round
+              dense
+              icon="folder_open"
+              title="打开实例目录"
+              @click="
+                perform(() => invoke('instance.open', { id: instance.id }))
+              "
+            /><q-btn
+              flat
+              round
+              dense
+              :icon="
+                instanceConfig(instance.id).favorite ? 'star' : 'star_border'
+              "
+              :title="
+                instanceConfig(instance.id).favorite ? '取消收藏' : '收藏实例'
+              "
+              @click="perform(() => toggleFavorite(instance.id))"
+            /><q-btn flat round dense icon="more_horiz" title="打开实例文件夹"
+              ><q-menu
+                ><q-list dense
+                  ><q-item
+                    clickable
+                    v-close-popup
+                    @click="
+                      perform(() => openFolder(instance.id, 'screenshots'))
+                    "
+                    ><q-item-section>截图文件夹</q-item-section></q-item
+                  ><q-item
+                    clickable
+                    v-close-popup
+                    @click="perform(() => openFolder(instance.id, 'versions'))"
+                    ><q-item-section>版本文件夹</q-item-section></q-item
+                  ><q-item
+                    clickable
+                    v-close-popup
+                    @click="perform(() => openFolder(instance.id, 'saves'))"
+                    ><q-item-section>存档文件夹</q-item-section></q-item
+                  ></q-list
+                ></q-menu
+              ></q-btn
+            ></div
+          >
+        </div>
+      </template>
+    </TransitionGroup>
   </div>
   <q-dialog v-model="showCreate"
     ><q-card class="dialog-card"

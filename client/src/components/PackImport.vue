@@ -29,9 +29,14 @@ function drop(event: DragEvent) {
   const files = Array.from(event.dataTransfer?.files || []);
   void perform(async () => {
     if (task.busy || state.running) throw Error("请先完成当前任务");
-    if (files.length !== 1 || !files[0]?.name.toLowerCase().endsWith(".mrpack"))
-      throw Error("请拖入一个 .mrpack 整合包");
-    const file = window.launcher?.filePath(files[0]);
+    const fileItem = files[0];
+    if (
+      files.length !== 1 ||
+      !fileItem ||
+      !/\.(mrpack|zip|modpack|pack|instance)$/i.test(fileItem.name)
+    )
+      throw Error("支持 .mrpack、CurseForge、Prism、MultiMC 和 ZIP 整合包");
+    const file = window.launcher?.filePath(fileItem);
     if (!file) throw Error("请使用桌面启动器导入");
     showPack(await invoke<PackInfo>("pack.inspect", { file }));
   });
@@ -52,7 +57,7 @@ onBeforeUnmount(() => {
 <template>
   <div v-if="dragging" class="pack-drop"
     ><q-icon name="download" size="56px" /><strong>松开以导入整合包</strong
-    ><span>.mrpack</span></div
+    ><span>.mrpack · CurseForge · Prism · MultiMC · ZIP</span></div
   >
   <q-dialog
     :model-value="!!importing.pack"
@@ -72,7 +77,14 @@ onBeforeUnmount(() => {
           ><span
             >{{ importing.pack.loader || "原版" }}
             {{ importing.pack.loaderVersion }}</span
-          ><span>{{ importing.pack.fileCount }} 个下载文件</span></div
+          ><span>{{ importing.pack.format || "Minecraft ZIP" }}</span
+          ><span
+            >{{
+              (importing.pack.files?.length || 0) +
+              (importing.pack.embedded?.length || 0)
+            }}
+            个文件</span
+          ></div
         ><q-input
           v-model="importing.name"
           outlined

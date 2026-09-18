@@ -4,6 +4,7 @@ export interface InstanceConfig {
   autoJoin: boolean;
   serverAddress: string;
   memoryMB: number;
+  favorite: boolean;
   width: number;
   height: number;
   isolated: boolean;
@@ -11,18 +12,30 @@ export interface InstanceConfig {
   fullscreen: boolean;
   updateUrls: string[];
   jvmArgs: string[];
+  coverPositionX: number;
+  coverPositionY: number;
+  coverZoom: number;
 }
 export interface Settings {
+  appearanceVersion: number;
   fontSize: number;
   accentColor: string;
   backgroundColor: string;
   backgroundImage: string;
   backgroundOpacity: number;
+  backgroundPositionX: number;
+  backgroundPositionY: number;
+  backgroundFit: string;
   layout: string;
   downloadMode: string;
   downloadConcurrency: number;
   updateFeed: string;
   autoCheckUpdates: boolean;
+  memoryMode: string;
+  defaultMemoryMB: number;
+  voiceMode: string;
+  voiceKey: string;
+  voiceSounds: boolean;
   hxzupPopup: boolean;
   simpleHome: boolean;
   gameRoot: string;
@@ -31,6 +44,22 @@ export interface Settings {
   selectedAccount: string;
   theme: string;
   communityUrl: string;
+  hiddenLinks: string[];
+  columns: {
+    sidebar: {
+      visible: boolean;
+      color: string;
+      opacity: number;
+      label: string;
+    };
+    workspace: {
+      visible: boolean;
+      color: string;
+      opacity: number;
+      label: string;
+    };
+    dock: { visible: boolean; color: string; opacity: number; label: string };
+  };
   instanceSettings: Record<string, InstanceConfig>;
 }
 export interface Account {
@@ -42,6 +71,11 @@ export interface Account {
   persistent: boolean;
   profiles: { id: string; name: string }[];
 }
+type StoredAccount = Account & {
+  accessToken: string;
+  clientToken: string;
+  avatars?: Record<string, string>;
+};
 export interface Instance {
   id: string;
   name: string;
@@ -66,7 +100,7 @@ interface State {
   accounts: Account[];
   instances: Instance[];
   persistentCredentials: boolean;
-  system: { memoryMB: number; platform: string };
+  system: { memoryMB: number; freeMemoryMB: number; platform: string };
   running: boolean;
 }
 export interface TaskStep {
@@ -120,32 +154,75 @@ export const groups = [
 ];
 export const state = reactive<State>({
   settings: {
+    appearanceVersion: 2,
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
     backgroundImage: "",
     backgroundOpacity: 0.4,
+    backgroundPositionX: 50,
+    backgroundPositionY: 50,
+    backgroundFit: "cover",
     layout: "standard",
     downloadMode: "domestic",
     downloadConcurrency: 64,
     updateFeed: "",
     autoCheckUpdates: true,
+    memoryMode: "auto",
+    defaultMemoryMB: 4096,
+    voiceMode: "open",
+    voiceKey: "KeyT",
+    voiceSounds: true,
     hxzupPopup: true,
     simpleHome: false,
     gameRoot: "",
     javaPath: "",
     selectedInstance: "",
     selectedAccount: "",
-    theme: localStorage.getItem("hxz-theme") || "dark",
+    theme: localStorage.getItem("hxz-theme") || "light",
     communityUrl: "https://qqbot.hxzmc.top",
+    hiddenLinks: [],
+    columns: {
+      sidebar: { visible: true, color: "", opacity: 1, label: "游戏与社区" },
+      workspace: { visible: true, color: "", opacity: 1, label: "主工作区" },
+      dock: { visible: true, color: "", opacity: 1, label: "任务详情" }
+    },
     instanceSettings: {}
   },
   accounts: [],
   instances: [],
   persistentCredentials: false,
-  system: { memoryMB: 8192, platform: "" },
+  system: { memoryMB: 8192, freeMemoryMB: 4096, platform: "" },
   running: false
 });
+const webAccountKey = "hxz-mobile-accounts-v1";
+let webAccounts: StoredAccount[] = [];
+try {
+  const raw = localStorage.getItem(webAccountKey);
+  if (raw) webAccounts = JSON.parse(raw) as StoredAccount[];
+} catch {
+  webAccounts = [];
+}
+function webAccountView(account: StoredAccount): Account {
+  const value: Account = {
+    id: account.id,
+    username: account.username,
+    name: account.name,
+    uuid: account.uuid,
+    persistent: false,
+    profiles: account.profiles
+  };
+  const avatar = account.avatars?.[account.uuid];
+  if (avatar !== undefined) value.avatar = avatar;
+  return value;
+}
+function syncWebAccounts() {
+  state.accounts = webAccounts.map(webAccountView);
+  try {
+    localStorage.setItem(webAccountKey, JSON.stringify(webAccounts));
+  } catch {}
+}
+syncWebAccounts();
 export const task = reactive({
   busy: false,
   phase: "准备好，出发吧",
@@ -180,7 +257,7 @@ export const taskCount = computed(() =>
 );
 export const appUpdate = reactive({
   phase: "尚未检查",
-  version: "0.3.3",
+  version: "0.4.1",
   available: false,
   ready: false,
   percent: 0
@@ -197,11 +274,184 @@ export const selectedInstance = computed(() =>
 export const selectedAccount = computed(() =>
   state.accounts.find(a => a.id === state.settings.selectedAccount)
 );
+export const orderedInstances = computed(() => {
+  const builtin = state.instances.filter(i => i.builtin);
+  const custom = state.instances
+    .filter(i => !i.builtin)
+    .sort((a, b) => {
+      const af = instanceConfig(a.id).favorite ? 1 : 0;
+      const bf = instanceConfig(b.id).favorite ? 1 : 0;
+      return bf - af || a.name.localeCompare(b.name, "zh-CN");
+    });
+  return [...builtin, ...custom];
+});
+async function webJSON(url: string, init: RequestInit = {}) {
+  const response = await fetch(url, {
+    ...init,
+    signal: init.signal || AbortSignal.timeout(30000)
+  });
+  const value = (await response.json()) as Record<string, unknown>;
+  if (!response.ok)
+    throw Error(typeof value.error === "string" ? value.error : "请求未完成");
+  return value;
+}
+async function webInvoke<T>(action: string, input: any): Promise<T> {
+  if (action === "state") {
+    syncWebAccounts();
+    return {
+      ...state,
+      persistentCredentials: false,
+      system: { ...state.system, platform: "android" }
+    } as T;
+  }
+  if (action === "settings.save") {
+    if (input.instance) {
+      const { id, ...config } = input.instance;
+      state.settings.instanceSettings[id] = {
+        ...instanceConfig(id),
+        ...config
+      };
+    } else state.settings = { ...state.settings, ...input };
+    try {
+      localStorage.setItem(
+        "hxz-mobile-settings-v1",
+        JSON.stringify(state.settings)
+      );
+    } catch {}
+    return state.settings as T;
+  }
+  if (action === "account.login") {
+    const response = await webJSON(
+      "https://skin.hxzmc.top/api/yggdrasil/authserver/authenticate",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent: { name: "Minecraft", version: 1 },
+          username: input.username,
+          password: input.password,
+          clientToken: crypto.randomUUID(),
+          requestUser: true
+        })
+      }
+    );
+    const profile = (response.selectedProfile || {}) as {
+      id?: string;
+      name?: string;
+    };
+    const account: StoredAccount = {
+      id: crypto.randomUUID(),
+      username: input.username,
+      name: profile.name || "",
+      uuid: profile.id || "",
+      persistent: false,
+      profiles: (response.availableProfiles || []) as {
+        id: string;
+        name: string;
+      }[],
+      accessToken:
+        typeof response.accessToken === "string" ? response.accessToken : "",
+      clientToken:
+        typeof response.clientToken === "string" ? response.clientToken : "",
+      avatars: {}
+    };
+    if (!account.accessToken || !account.uuid)
+      throw Error("皮肤站未返回有效角色");
+    webAccounts = [
+      ...webAccounts.filter(a => a.username !== account.username),
+      account
+    ];
+    state.settings.selectedAccount = account.id;
+    syncWebAccounts();
+    return webAccountView(account) as T;
+  }
+  if (action === "account.remove") {
+    webAccounts = webAccounts.filter(account => account.id !== input.id);
+    if (state.settings.selectedAccount === input.id)
+      state.settings.selectedAccount = webAccounts[0]?.id || "";
+    syncWebAccounts();
+    return { ok: true } as T;
+  }
+  if (action === "account.profile") {
+    const account = webAccounts.find(item => item.id === input.id);
+    const profile = account?.profiles.find(item => item.id === input.uuid);
+    if (!account || !profile) throw Error("角色不存在");
+    const response = await webJSON(
+      "https://skin.hxzmc.top/api/yggdrasil/authserver/refresh",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accessToken: account.accessToken,
+          clientToken: account.clientToken,
+          selectedProfile: profile,
+          requestUser: true
+        })
+      }
+    );
+    const selected = (response.selectedProfile || profile) as {
+      id?: string;
+      name?: string;
+    };
+    Object.assign(account, {
+      accessToken:
+        typeof response.accessToken === "string"
+          ? response.accessToken
+          : account.accessToken,
+      clientToken:
+        typeof response.clientToken === "string"
+          ? response.clientToken
+          : account.clientToken,
+      uuid: selected.id || profile.id,
+      name: selected.name || profile.name
+    });
+    syncWebAccounts();
+    return webAccountView(account) as T;
+  }
+  if (action === "community.connect") {
+    const account = webAccounts.find(
+      item => item.id === state.settings.selectedAccount
+    );
+    if (!account) throw Error("请先登录皮肤站并选择游戏角色");
+    const base = state.settings.communityUrl.replace(/\/$/, "");
+    const response = await webJSON(base + "/api/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        accessToken: account.accessToken,
+        clientToken: account.clientToken
+      })
+    });
+    return {
+      token: String(response.token),
+      base,
+      user: response.user
+    } as T;
+  }
+  if (action === "avatar.save") {
+    const account = webAccounts.find(item => item.id === input.id);
+    if (!account) throw Error("账号不存在");
+    account.avatars ||= {};
+    account.avatars[account.uuid] = input.avatar || "";
+    syncWebAccounts();
+    return { synced: false } as T;
+  }
+  if (action === "skin.open") {
+    window.open("https://skin.hxzmc.top", "_blank");
+    return { ok: true } as T;
+  }
+  if (action === "notices.list") {
+    return (await webJSON(
+      state.settings.communityUrl.replace(/\/$/, "") + "/api/notices"
+    )) as T;
+  }
+  throw Error("此功能需要桌面版");
+}
 export async function invoke<T = unknown>(
   action: string,
   input: unknown = {}
 ): Promise<T> {
-  if (!window.launcher) throw Error("请在桌面启动器中使用此功能");
+  if (!window.launcher) return webInvoke<T>(action, input);
   const result = await window.launcher.invoke(action, input);
   if (!result.ok) throw Error(result.error || "操作未完成");
   return result.value as T;
@@ -229,6 +479,13 @@ export async function perform<T>(
 }
 export async function reload() {
   if (desktop) Object.assign(state, await invoke<State>("state"));
+  else {
+    try {
+      const raw = localStorage.getItem("hxz-mobile-settings-v1");
+      if (raw) state.settings = { ...state.settings, ...JSON.parse(raw) };
+    } catch {}
+    syncWebAccounts();
+  }
   applyTheme();
 }
 export function applyTheme() {
@@ -236,6 +493,7 @@ export function applyTheme() {
   localStorage.setItem("hxz-theme", state.settings.theme);
   const root = document.documentElement,
     cfg = state.settings;
+  if (cfg.columns?.workspace) cfg.columns.workspace.visible = true;
   root.dataset.background = cfg.backgroundImage ? "custom" : "default";
   root.dataset.layout = cfg.layout || "standard";
   root.style.setProperty("--ui-font-size", (cfg.fontSize || 15) + "px");
@@ -262,11 +520,65 @@ export function applyTheme() {
     "--background-opacity",
     String(cfg.backgroundOpacity ?? 0.4)
   );
+  root.style.setProperty(
+    "--background-position",
+    `${Number(cfg.backgroundPositionX ?? 50)}% ${Number(cfg.backgroundPositionY ?? 50)}%`
+  );
+  root.style.setProperty("--background-fit", cfg.backgroundFit || "cover");
+  for (const [name, column] of Object.entries(cfg.columns || {})) {
+    const fallback =
+      name === "sidebar"
+        ? "var(--sidebar)"
+        : name === "workspace"
+          ? "var(--panel)"
+          : "var(--sidebar)";
+    root.style.setProperty(`--${name}-color`, column.color || fallback);
+    root.style.setProperty(`--${name}-opacity`, String(column.opacity ?? 1));
+  }
+  root.dataset.sidebarCustom =
+    cfg.columns?.sidebar?.color ||
+    (cfg.columns?.sidebar?.opacity != null && cfg.columns.sidebar.opacity !== 1)
+      ? "true"
+      : "false";
+  root.dataset.workspaceCustom =
+    cfg.columns?.workspace?.color ||
+    (cfg.columns?.workspace?.opacity != null &&
+      cfg.columns.workspace.opacity !== 1)
+      ? "true"
+      : "false";
+  root.dataset.dockCustom =
+    cfg.columns?.dock?.color ||
+    (cfg.columns?.dock?.opacity != null && cfg.columns.dock.opacity !== 1)
+      ? "true"
+      : "false";
+  root.dataset.sidebarHidden =
+    cfg.columns?.sidebar?.visible === false ? "true" : "false";
+  root.dataset.workspaceHidden =
+    cfg.columns?.workspace?.visible === false ? "true" : "false";
+  root.dataset.dockHidden =
+    cfg.columns?.dock?.visible === false ? "true" : "false";
 }
 export async function saveSettings(
   input: Partial<Settings> | { instance: InstanceConfig & { id: string } }
 ) {
-  state.settings = await invoke<Settings>("settings.save", input);
+  if ("instance" in input) {
+    state.settings = await invoke<Settings>("settings.save", input);
+  } else {
+    const columns = input.columns
+      ? {
+          ...input.columns,
+          workspace: {
+            ...state.settings.columns.workspace,
+            ...input.columns.workspace,
+            visible: true
+          }
+        }
+      : undefined;
+    state.settings = await invoke<Settings>("settings.save", {
+      ...input,
+      ...(columns ? { columns } : {})
+    });
+  }
   applyTheme();
 }
 export async function toggleTheme() {
@@ -279,7 +591,8 @@ export async function toggleTheme() {
 }
 export function instanceConfig(id: string): InstanceConfig {
   return {
-    memoryMB: 4096,
+    memoryMB: state.settings.defaultMemoryMB || 4096,
+    favorite: false,
     width: 1280,
     height: 720,
     isolated: true,
@@ -289,6 +602,9 @@ export function instanceConfig(id: string): InstanceConfig {
     fullscreen: false,
     updateUrls: [],
     jvmArgs: [],
+    coverPositionX: 50,
+    coverPositionY: 50,
+    coverZoom: 1,
     ...state.settings.instanceSettings[id]
   };
 }

@@ -40,13 +40,17 @@ interface Packet {
     description?: RTCSessionDescriptionInit;
     candidate?: RTCIceCandidateInit;
   };
+  action?: "join" | "leave";
+  room?: string;
+  voiceUser?: { id: string; uid: string; name: string };
 }
 export const chatView = reactive({
   draft: "",
   scrollTop: 0,
   atBottom: true,
   device: "",
-  devices: [] as MediaDeviceInfo[]
+  devices: [] as MediaDeviceInfo[],
+  voiceTalking: false
 });
 export const community = reactive({
   status: "未连接",
@@ -63,7 +67,8 @@ export const community = reactive({
   voiceError: "",
   peers: 0,
   roomLimit: 20,
-  voiceTransport: ""
+  voiceTransport: "",
+  voiceTalking: false
 });
 let socket: WebSocket | null = null,
   credentials: Session | null = null,
@@ -76,6 +81,37 @@ let generation = 0,
   heartbeat: ReturnType<typeof setInterval> | undefined,
   wanted = false,
   refreshSession = false;
+let talking = false,
+  audioContext: AudioContext | null = null;
+
+function voiceKeyMatches(event: KeyboardEvent) {
+  const key = state.settings.voiceKey || "KeyT";
+  return event.code === key || event.key === key;
+}
+function canTransmit() {
+  return state.settings.voiceMode !== "push-to-talk" || talking;
+}
+function playVoiceTone(action: "join" | "leave") {
+  if (!state.settings.voiceSounds) return;
+  try {
+    audioContext ||= new AudioContext();
+    const now = audioContext.currentTime;
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(action === "join" ? 660 : 440, now);
+    oscillator.frequency.linearRampToValueAtTime(
+      action === "join" ? 880 : 330,
+      now + 0.1
+    );
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.08, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
+    oscillator.connect(gain).connect(audioContext.destination);
+    oscillator.start(now);
+    oscillator.stop(now + 0.18);
+  } catch {}
+}
 
 function send(value: unknown) {
   if (!socket || socket.readyState !== WebSocket.OPEN || !community.connected)
@@ -104,6 +140,9 @@ function voiceCleanup() {
   community.peers = 0;
   community.muted = false;
   community.deafened = false;
+  talking = false;
+  community.voiceTalking = false;
+  chatView.voiceTalking = false;
 }
 export function disconnect() {
   wanted = false;
@@ -207,6 +246,16 @@ export async function connect() {
       } else if (packet.type === "presence") {
         community.users = packet.users || [];
         syncPeers();
+      } else if (
+        packet.type === "voice-event" &&
+        packet.action &&
+        packet.voiceUser
+      ) {
+        if (
+          packet.voiceUser.id === community.id ||
+          packet.room === community.room
+        )
+          playVoiceTone(packet.action);
       } else if (packet.type === "avatar-changed") {
         for (const member of community.users)
           if (member.uid === packet.uid)
@@ -276,7 +325,7 @@ export function sendChat(body: string) {
 export async function joinVoice(room: string, deviceId = "") {
   if (!credentials || !community.connected) throw Error("请先连接社区");
   if (community.voiceTransport !== "ws-opus-v1")
-    throw Error("社区服务端尚未升级到 0.4.0，暂不支持语音转发");
+    throw Error("社区服务端尚未升级到 0.4.1，暂不支持语音转发");
   leaveVoice();
   community.voiceError = "";
   const attempt = voiceGeneration;
@@ -300,6 +349,7 @@ export async function joinVoice(room: string, deviceId = "") {
         socket?.readyState === WebSocket.OPEN &&
         community.room &&
         !community.muted &&
+        canTransmit() &&
         socket.bufferedAmount < 32768
       )
         socket.send(bytes);
@@ -340,6 +390,22 @@ export function toggleDeafen() {
   if (community.connected)
     send({ type: "voice-deafen", deafened: community.deafened });
 }
+function handleTalkKey(event: KeyboardEvent, active: boolean) {
+  if (state.settings.voiceMode !== "push-to-talk" || !voiceKeyMatches(event))
+    return;
+  if (active && event.repeat) return;
+  event.preventDefault();
+  talking = active;
+  community.voiceTalking = active;
+  chatView.voiceTalking = active;
+}
+window.addEventListener("keydown", event => handleTalkKey(event, true));
+window.addEventListener("keyup", event => handleTalkKey(event, false));
+window.addEventListener("blur", () => {
+  talking = false;
+  community.voiceTalking = false;
+  chatView.voiceTalking = false;
+});
 window.addEventListener("online", () => {
   if (wanted && !community.connected && !community.connecting) {
     retries = 0;
@@ -370,7 +436,7 @@ export async function communityRequest<T>(
       path.split("?")[0]!
     )
   )
-    throw Error("社区服务端尚未升级到 0.4.0，请联系管理员更新社区服务");
+    throw Error("社区服务端尚未升级到 0.4.1，请联系管理员更新社区服务");
   const value = await response.json();
   if (!response.ok) throw Error(value.error || "社区请求未完成");
   return value as T;

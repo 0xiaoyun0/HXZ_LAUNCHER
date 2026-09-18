@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import PlayerAvatar from "../components/PlayerAvatar.vue";
+import EmojiPicker from "../components/EmojiPicker.vue";
 import { ref, toRef, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import type { QInput } from "quasar";
 import {
   groups,
   perform,
   selectedAccount,
-  errorMessage
+  errorMessage,
+  state
 } from "../lib/launcher";
 import {
   community,
@@ -25,6 +27,14 @@ const composer = ref<QInput>(),
   devices = toRef(chatView, "devices"),
   joining = ref(false);
 const rooms = [{ id: "lobby", name: "旅人休息室" }, ...groups];
+function voiceKeyLabel() {
+  const code = state.settings.voiceKey || "KeyT";
+  if (code === "Space") return "空格键";
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  if (/^F\d+$/.test(code)) return code;
+  return code;
+}
 function submit() {
   sendChat(chatView.draft);
   chatView.draft = "";
@@ -33,6 +43,10 @@ function submit() {
     scrollLatest();
     composer.value?.focus();
   });
+}
+function pick(value: string) {
+  chatView.draft += value;
+  composer.value?.focus();
 }
 function rememberScroll() {
   const el = history.value;
@@ -137,7 +151,7 @@ watch(
           placeholder="和大家聊聊…"
           :disable="!community.connected"
           maxlength="1000"
-          class="col" /><q-btn
+          class="col" /><EmojiPicker @pick="pick" /><q-btn
           unelevated
           class="primary-button"
           type="submit"
@@ -209,6 +223,20 @@ watch(
               joining ? "正在连接" : "已加入语音"
             }}</strong
             ><span>{{ community.peers }} 位同伴</span></div
+          >
+          <div
+            v-if="state.settings.voiceMode === 'push-to-talk'"
+            :class="['voice-ptt-status', { active: community.voiceTalking }]"
+            role="status"
+            aria-live="polite"
+            ><q-icon
+              :name="community.voiceTalking ? 'mic' : 'keyboard'"
+              size="17px"
+            /><span>{{
+              community.voiceTalking
+                ? "正在说话 · 松开 " + voiceKeyLabel() + " 停止"
+                : "按住 " + voiceKeyLabel() + " 说话"
+            }}</span></div
           >
           <div class="voice-actions">
             <button

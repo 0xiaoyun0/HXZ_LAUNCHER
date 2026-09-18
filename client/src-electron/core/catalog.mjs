@@ -115,3 +115,26 @@ export async function packVersions(id) {
   if (!/^[\w-]{1,100}$/.test(id)) throw Error("无效项目");
   return remoteJSON("https://api.modrinth.com/v2/project/" + id + "/version");
 }
+export async function searchMods(
+  query,
+  offset = 0,
+  minecraft = "",
+  loader = ""
+) {
+  const facets = [["project_type:mod"]];
+  if (minecraft) facets.push(["versions:" + String(minecraft).slice(0, 40)]);
+  if (loader && loader !== "原版")
+    facets.push(["categories:" + String(loader).slice(0, 30)]);
+  return remoteJSON(
+    "https://api.modrinth.com/v2/search?facets=" +
+      encodeURIComponent(JSON.stringify(facets)) +
+      "&query=" +
+      encodeURIComponent(String(query || "").slice(0, 100)) +
+      "&limit=20&offset=" +
+      Math.max(0, Math.min(Number(offset) || 0, 10000))
+  );
+}
+export async function modVersions(id) {
+  if (!/^[\w-]{1,100}$/.test(id)) throw Error("无效模组项目");
+  return remoteJSON("https://api.modrinth.com/v2/project/" + id + "/version");
+}

@@ -39,6 +39,7 @@ import { inspectPack, extractPack } from "./packs.mjs";
 import * as catalog from "./catalog.mjs";
 import { setDownloadMode } from "./sources.mjs";
 const SKIN = "https://skin.hxzmc.top/api/yggdrasil";
+const APPEARANCE_VERSION = 2;
 export async function createServices({
   data,
   resources,
@@ -54,6 +55,7 @@ export async function createServices({
   const configFile = path.join(data, "settings.json"),
     accountFile = path.join(data, "accounts.bin");
   let settings = {
+    appearanceVersion: APPEARANCE_VERSION,
     gameRoot: "",
     javaPath: "",
     selectedInstance: "",
@@ -64,18 +66,85 @@ export async function createServices({
     backgroundColor: "",
     backgroundImage: "",
     backgroundOpacity: 0.4,
+    backgroundPositionX: 50,
+    backgroundPositionY: 50,
+    backgroundFit: "cover",
     layout: "standard",
     downloadMode: "domestic",
     downloadConcurrency: 64,
     updateFeed: "",
     autoCheckUpdates: true,
+    memoryMode: "auto",
+    defaultMemoryMB: 4096,
+    voiceMode: "open",
+    voiceKey: "KeyT",
+    voiceSounds: true,
     hxzupPopup: true,
     simpleHome: false,
     communityUrl: "https://qqbot.hxzmc.top",
+    hiddenLinks: [],
+    columns: {
+      sidebar: { visible: true, color: "", opacity: 1, label: "游戏与社区" },
+      workspace: { visible: true, color: "", opacity: 1, label: "主工作区" },
+      dock: { visible: true, color: "", opacity: 1, label: "任务详情" }
+    },
     instanceSettings: {}
   };
   if (await exists(configFile))
     settings = { ...settings, ...(await json(configFile)) };
+  if (settings.appearanceVersion !== APPEARANCE_VERSION) {
+    settings = {
+      ...settings,
+      appearanceVersion: APPEARANCE_VERSION,
+      theme: "dark",
+      fontSize: 15,
+      accentColor: "#a9ce80",
+      backgroundColor: "",
+      backgroundImage: "",
+      backgroundOpacity: 0.4,
+      backgroundPositionX: 50,
+      backgroundPositionY: 50,
+      backgroundFit: "cover",
+      layout: "standard",
+      hiddenLinks: [],
+      columns: {
+        sidebar: { visible: true, color: "", opacity: 1, label: "游戏与社区" },
+        workspace: { visible: true, color: "", opacity: 1, label: "主工作区" },
+        dock: { visible: true, color: "", opacity: 1, label: "任务详情" }
+      }
+    };
+    await writeJSON(configFile, settings);
+  }
+  settings.hiddenLinks = Array.isArray(settings.hiddenLinks)
+    ? settings.hiddenLinks.filter(
+        value =>
+          value !== "/" && value !== "/settings" && value !== "/appearance"
+      )
+    : [];
+  settings.columns = {
+    sidebar: {
+      visible: true,
+      color: "",
+      opacity: 1,
+      label: "游戏与社区",
+      ...(settings.columns?.sidebar || {})
+    },
+    workspace: {
+      visible: true,
+      color: "",
+      opacity: 1,
+      label: "主工作区",
+      ...(settings.columns?.workspace || {})
+    },
+    dock: {
+      visible: true,
+      color: "",
+      opacity: 1,
+      label: "任务详情",
+      ...(settings.columns?.dock || {})
+    }
+  };
+  settings.columns.workspace.visible = true;
   settings.downloadConcurrency = normalizeDownloadConcurrency(
     settings.downloadConcurrency
   );
@@ -232,6 +301,15 @@ export async function createServices({
   }
   function busy() {
     if (task || running) throw Error("请等待当前任务完成或先停止游戏");
+  }
+  function memoryFor(cfg) {
+    if (settings.memoryMode !== "auto") return cfg.memoryMB;
+    const total = Math.floor(os.totalmem() / 1048576);
+    const free = Math.floor(os.freemem() / 1048576);
+    return Math.max(
+      1024,
+      Math.min(131072, Math.floor(Math.min(total * 0.75, free * 0.5)))
+    );
   }
   let previousPhase = "";
   function phase(value) {
@@ -442,7 +520,7 @@ export async function createServices({
     emit({ type: "logs-reset" });
     try {
       const cfg = {
-        memoryMB: 4096,
+        memoryMB: settings.defaultMemoryMB,
         width: 1280,
         height: 720,
         isolated: true,
@@ -451,6 +529,7 @@ export async function createServices({
         serverAddress: preset?.address || "",
         ...settings.instanceSettings[id]
       };
+      cfg.memoryMB = memoryFor(cfg);
       if (joinServer) {
         if (!cfg.serverAddress) throw Error("请先在实例配置中填写服务器地址");
         cfg.autoJoin = true;
@@ -675,12 +754,16 @@ export async function createServices({
             await fs.copyFile(path.join(resources, "hxzup", name), target);
         }
       settings.instanceSettings[id] = {
-        memoryMB: 4096,
+        memoryMB: settings.defaultMemoryMB,
+        favorite: false,
         width: 1280,
         height: 720,
         isolated: true,
         fullscreen: false,
         jvmArgs: [],
+        coverPositionX: 50,
+        coverPositionY: 50,
+        coverZoom: 1,
         autoUpdate: update.hxzup,
         updateUrls: update.updateUrls,
         ...settings.instanceSettings[id]
@@ -722,7 +805,11 @@ export async function createServices({
   }
   async function packView(file) {
     const pack = await inspectPack(file);
-    return { ...pack, files: undefined, fileCount: pack.files.length };
+    return {
+      ...pack,
+      files: undefined,
+      fileCount: pack.files.length + (pack.overrideCount || 0)
+    };
   }
   const actions = {
     async "catalog.versions"() {
@@ -770,7 +857,13 @@ export async function createServices({
     async "pack.choose"() {
       const r = await dialog.showOpenDialog(window(), {
         properties: ["openFile"],
-        filters: [{ name: "Modrinth 整合包", extensions: ["mrpack"] }]
+        filters: [
+          {
+            name: "Minecraft 整合包",
+            extensions: ["mrpack", "zip", "modpack", "pack", "instance"]
+          },
+          { name: "所有文件", extensions: ["*"] }
+        ]
       });
       return r.canceled ? null : packView(r.filePaths[0]);
     },
@@ -895,6 +988,7 @@ export async function createServices({
         persistentCredentials: persistent,
         system: {
           memoryMB: Math.floor(os.totalmem() / 1048576),
+          freeMemoryMB: Math.floor(os.freemem() / 1048576),
           platform: process.platform
         },
         running: !!running
@@ -912,6 +1006,9 @@ export async function createServices({
               "backgroundColor",
               "backgroundImage",
               "backgroundOpacity",
+              "backgroundPositionX",
+              "backgroundPositionY",
+              "backgroundFit",
               "layout"
             ].includes(k)
         )
@@ -949,6 +1046,11 @@ export async function createServices({
           0,
           Math.min(1, Number(input.backgroundOpacity) || 0)
         );
+      for (const key of ["backgroundPositionX", "backgroundPositionY"])
+        if (input[key] != null)
+          settings[key] = Math.max(0, Math.min(100, Number(input[key]) || 0));
+      if (["cover", "contain", "100% 100%"].includes(input.backgroundFit))
+        settings.backgroundFit = input.backgroundFit;
       if (["standard", "compact", "wide"].includes(input.layout))
         settings.layout = input.layout;
       if (input.downloadConcurrency != null)
@@ -968,6 +1070,70 @@ export async function createServices({
       if (input.simpleHome != null) settings.simpleHome = !!input.simpleHome;
       if (input.autoCheckUpdates != null)
         settings.autoCheckUpdates = !!input.autoCheckUpdates;
+      if (input.memoryMode != null) {
+        if (!["auto", "manual"].includes(input.memoryMode))
+          throw Error("内存分配方式无效");
+        settings.memoryMode = input.memoryMode;
+      }
+      if (input.defaultMemoryMB != null) {
+        if (
+          !Number.isInteger(input.defaultMemoryMB) ||
+          input.defaultMemoryMB < 512 ||
+          input.defaultMemoryMB > 131072
+        )
+          throw Error("默认内存范围为 512–131072 MB");
+        settings.defaultMemoryMB = input.defaultMemoryMB;
+      }
+      if (input.voiceMode != null) {
+        if (!["open", "push-to-talk"].includes(input.voiceMode))
+          throw Error("语音麦克风模式无效");
+        settings.voiceMode = input.voiceMode;
+      }
+      if (input.voiceKey != null) {
+        if (
+          typeof input.voiceKey !== "string" ||
+          !/^[A-Za-z][A-Za-z0-9+_:-]{0,63}$/.test(input.voiceKey)
+        )
+          throw Error("语音按键无效");
+        settings.voiceKey = input.voiceKey;
+      }
+      if (input.voiceSounds != null) settings.voiceSounds = !!input.voiceSounds;
+      if (input.hiddenLinks != null) {
+        if (
+          !Array.isArray(input.hiddenLinks) ||
+          input.hiddenLinks.length > 20 ||
+          input.hiddenLinks.some(
+            value => typeof value !== "string" || value.length > 80
+          )
+        )
+          throw Error("隐藏栏目设置无效");
+        settings.hiddenLinks = [...new Set(input.hiddenLinks)].filter(
+          value =>
+            value !== "/" && value !== "/settings" && value !== "/appearance"
+        );
+      }
+      if (input.columns != null) {
+        if (typeof input.columns !== "object" || Array.isArray(input.columns))
+          throw Error("栏目设置无效");
+        for (const name of ["sidebar", "workspace", "dock"]) {
+          const value = input.columns[name];
+          if (value == null) continue;
+          if (
+            typeof value.visible !== "boolean" ||
+            typeof value.label !== "string" ||
+            value.label.length > 80 ||
+            (value.color && !/^#[a-f0-9]{6}$/i.test(value.color))
+          )
+            throw Error("栏目设置无效");
+          settings.columns[name] = {
+            visible: value.visible,
+            color: value.color || "",
+            opacity: Math.max(0, Math.min(1, Number(value.opacity) || 0)),
+            label: value.label
+          };
+        }
+        settings.columns.workspace.visible = true;
+      }
       if (input.updateFeed != null)
         settings.updateFeed = input.updateFeed
           ? endpoint(input.updateFeed)
@@ -1016,13 +1182,32 @@ export async function createServices({
           autoJoin: !!v.autoJoin,
           serverAddress: serverAddress(v.serverAddress || ""),
           memoryMB: v.memoryMB,
+          favorite: !!v.favorite,
           width: v.width,
           height: v.height,
           isolated: !!v.isolated,
           autoUpdate: !!v.autoUpdate,
           fullscreen: !!v.fullscreen,
           updateUrls: v.updateUrls,
-          jvmArgs: v.jvmArgs || []
+          jvmArgs: v.jvmArgs || [],
+          coverPositionX: Math.max(
+            0,
+            Math.min(
+              100,
+              Number.isFinite(v.coverPositionX) ? v.coverPositionX : 50
+            )
+          ),
+          coverPositionY: Math.max(
+            0,
+            Math.min(
+              100,
+              Number.isFinite(v.coverPositionY) ? v.coverPositionY : 50
+            )
+          ),
+          coverZoom: Math.max(
+            1,
+            Math.min(2, Number.isFinite(v.coverZoom) ? v.coverZoom : 1)
+          )
         };
       }
       await writeJSON(configFile, settings);
@@ -1060,17 +1245,55 @@ export async function createServices({
         throw Error("新建实例需要一个已配置游戏版本的 HXZ UP 地址");
       await fs.mkdir(path.join(dir, "updater"), { recursive: true });
       settings.instanceSettings[input.name] = {
-        memoryMB: 4096,
+        memoryMB: settings.defaultMemoryMB,
+        favorite: false,
         width: 1280,
         height: 720,
         isolated: true,
         autoUpdate: true,
-        updateUrls: [endpoint(input.updateUrl)]
+        updateUrls: [endpoint(input.updateUrl)],
+        coverPositionX: 50,
+        coverPositionY: 50,
+        coverZoom: 1
       };
       settings.selectedInstance = input.name;
       await writeJSON(configFile, settings);
       await launch(input.name, true);
       return { ok: true };
+    },
+    async "mods.search"(input) {
+      return catalog.searchMods(
+        input.query,
+        input.offset,
+        input.minecraft,
+        input.loader
+      );
+    },
+    async "mods.download"(input) {
+      busy();
+      if (
+        typeof input.project !== "string" ||
+        !/^[\w-]{1,100}$/.test(input.project)
+      )
+        throw Error("无效模组项目");
+      const versions = await catalog.modVersions(input.project),
+        version = versions.find(v => v.id === input.version) || versions[0],
+        file = version?.files?.find(v => v.primary) || version?.files?.[0];
+      if (!file?.url || !/\.jar$/i.test(file.filename || ""))
+        throw Error("未找到可下载的模组文件");
+      const dir = await modDirectory(settings, input.instance),
+        filename = path.basename(file.filename).replace(/[\\/:*?"<>|]/g, "_");
+      if (!/^[-\w .]+\.jar$/i.test(filename)) throw Error("模组文件名无效");
+      const target = modFile(dir, filename);
+      await noLinks(target);
+      await fs.mkdir(dir, { recursive: true });
+      await download(file.url, target, {
+        sha1: file.hashes?.sha1,
+        sha512: file.hashes?.sha512,
+        size: file.size,
+        maxSize: 256 * 1024 * 1024
+      });
+      return { ok: true, file: filename };
     },
     async "mods.list"(input) {
       return listMods(await modDirectory(settings, input.id));
@@ -1158,6 +1381,28 @@ export async function createServices({
     async "instance.open"(input) {
       const dir = inside(settings.gameRoot, "versions/" + input.id);
       await noLinks(dir);
+      return shell.openPath(dir);
+    },
+    async "instance.folder"(input) {
+      if (
+        typeof input.id !== "string" ||
+        !input.id ||
+        /[\\/:]/.test(input.id) ||
+        !["screenshots", "versions", "saves"].includes(input.kind)
+      )
+        throw Error("实例文件夹无效");
+      if (!settings.gameRoot) throw Error("请先选择游戏目录");
+      const versionDir = inside(settings.gameRoot, "versions/" + input.id),
+        cfg = settings.instanceSettings[input.id] || {},
+        dir =
+          input.kind === "versions"
+            ? versionDir
+            : path.join(
+                cfg.isolated === false ? settings.gameRoot : versionDir,
+                input.kind
+              );
+      await noLinks(dir);
+      await fs.mkdir(dir, { recursive: true });
       return shell.openPath(dir);
     },
     async "account.login"(input) {
@@ -1425,6 +1670,7 @@ export async function createServices({
         "mods.add",
         "mods.toggle",
         "mods.remove",
+        "mods.download",
         "install.resume",
         "install.discard",
         "game.install",

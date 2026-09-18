@@ -23,11 +23,30 @@ const items = ref<Blueprint[]>([]),
   scope = ref("public");
 const loading = ref(false),
   error = ref(""),
+  versionOptions = ref({ minecraft: [] as string[], create: [] as string[] }),
   detail = ref<Blueprint | null>(null),
   uploadOpen = ref(false),
   uploading = ref(false),
   file = ref<File | null>(null),
   cover = ref<File | null>(null);
+const minecraftVersions = computed(() => {
+  const values = [
+    ...versionOptions.value.minecraft,
+    ...items.value.map(item => item.mc).filter(Boolean)
+  ];
+  return [...new Set(values)].sort((a, b) =>
+    b.localeCompare(a, undefined, { numeric: true })
+  );
+});
+const createVersions = computed(() => {
+  const values = [
+    ...versionOptions.value.create,
+    ...items.value.map(item => item.create_version).filter(Boolean)
+  ];
+  return [...new Set(values)].sort((a, b) =>
+    b.localeCompare(a, undefined, { numeric: true })
+  );
+});
 const access = ref({ admin: false, reviewer: false }),
   reason = ref(""),
   submitting = ref(false);
@@ -82,6 +101,16 @@ async function permissions() {
     access.value = await communityRequest("/api/content/access");
   } catch {
     access.value = { admin: false, reviewer: false };
+  }
+}
+async function loadVersions() {
+  try {
+    versionOptions.value = await communityRequest<{
+      minecraft: string[];
+      create: string[];
+    }>("/api/blueprints/versions");
+  } catch {
+    versionOptions.value = { minecraft: [], create: [] };
   }
 }
 async function openDetail(id: string) {
@@ -189,6 +218,7 @@ watch(
 onMounted(() => {
   void load();
   void permissions();
+  void loadVersions();
 });
 </script>
 <template>
@@ -215,25 +245,41 @@ onMounted(() => {
       v-model="category"
       outlined
       dense
-      :options="['', ...blueprintCategories]"
+      emit-value
+      map-options
+      :options="[
+        { label: '全部分类', value: '' },
+        ...blueprintCategories.map(value => ({ label: value, value }))
+      ]"
       label="分类"
-      :display-value="category || '全部分类'"
       @update:model-value="filter"
     />
-    <q-input
+    <q-select
       v-model="mc"
       outlined
       dense
-      label="游戏版本"
-      placeholder="全部"
-      @keyup.enter="filter"
+      emit-value
+      map-options
+      :options="[
+        { label: '全部版本', value: '' },
+        ...minecraftVersions.map(value => ({ label: value, value }))
+      ]"
+      label="游戏版本（可选）"
+      @update:model-value="filter"
     />
     <q-select
       v-model="loader"
       outlined
       dense
-      :options="['', 'neoforge', 'forge', 'fabric', 'quilt', '通用']"
-      :display-value="loader || '全部加载器'"
+      emit-value
+      map-options
+      :options="[
+        { label: '全部加载器', value: '' },
+        ...['neoforge', 'forge', 'fabric', 'quilt', '通用'].map(value => ({
+          label: value,
+          value
+        }))
+      ]"
       label="加载器"
       @update:model-value="filter"
     />
@@ -446,12 +492,18 @@ onMounted(() => {
                 '通用'
               ]" /></div
           ><div class="content-form-row"
-            ><q-input
+            ><q-select
               v-model="form.mc"
               outlined
-              label="Minecraft 版本" /><q-input
+              emit-value
+              map-options
+              :options="minecraftVersions"
+              label="Minecraft 版本" /><q-select
               v-model="form.create_version"
               outlined
+              emit-value
+              map-options
+              :options="createVersions"
               label="机械动力版本"
               placeholder="例如 6.0.6" /></div
           ><q-input
