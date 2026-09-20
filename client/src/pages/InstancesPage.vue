@@ -13,6 +13,8 @@ import {
   instanceConfig,
   instanceMemoryLabel,
   orderedInstances,
+  toggleInstanceFavorite,
+  favoritePending,
   type InstanceConfig
 } from "../lib/launcher";
 const modID = ref(""),
@@ -69,11 +71,7 @@ async function save() {
   editing.value = "";
 }
 async function toggleFavorite(id: string) {
-  const current = instanceConfig(id);
-  await saveSettings({
-    instance: { id, ...current, favorite: !current.favorite }
-  });
-  await reload();
+  await toggleInstanceFavorite(id);
 }
 async function openFolder(
   id: string,
@@ -184,7 +182,7 @@ async function openFolder(
           ><span>{{
             instanceConfig(instance.id).autoUpdate ? "启动前更新" : "手动"
           }}</span>
-          <div class="row no-wrap"
+          <div class="row no-wrap instance-actions"
             ><q-btn
               flat
               round
@@ -236,6 +234,7 @@ async function openFolder(
               :title="
                 instanceConfig(instance.id).favorite ? '取消收藏' : '收藏实例'
               "
+              :loading="!!favoritePending[instance.id]"
               @click="perform(() => toggleFavorite(instance.id))"
             /><q-btn flat round dense icon="more_horiz" title="打开实例文件夹"
               ><q-menu
@@ -377,3 +376,15 @@ async function openFolder(
           @click="perform(save, '配置已保存')" /></q-card-actions></q-card
   ></q-dialog>
 </template>
+<style scoped>
+.instance-table-row > .instance-actions {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  min-width: 0;
+}
+.instance-table-row > .instance-actions > .q-btn {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+</style>

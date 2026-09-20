@@ -614,6 +614,19 @@ export function instanceConfig(id: string): InstanceConfig {
     coverZoom:Math.max(1,Math.min(2,Number(state.settings.instanceSettings[id]?.coverZoom)||1))
   };
 }
+export const favoritePending = reactive<Record<string, boolean>>({});
+export async function toggleInstanceFavorite(id: string) {
+  if (!id || favoritePending[id]) return;
+  favoritePending[id] = true;
+  try {
+    const favorite = !instanceConfig(id).favorite;
+    if (desktop) await invoke("instance.favorite", { id, favorite });
+    state.settings.instanceSettings[id] = { ...instanceConfig(id), favorite };
+    if (!desktop) localStorage.setItem("hxz-mobile-settings-v1", JSON.stringify(state.settings));
+  } finally {
+    delete favoritePending[id];
+  }
+}
 export function instanceMemoryLabel(id: string): string {
   const config = instanceConfig(id);
   const mode =

@@ -38,6 +38,10 @@ test("ARCANA uses separate player progress, enforces final reveal and persists; 
   assert.deepEqual(initial.cards, []);
   assert.ok(!JSON.stringify(initial).includes(config.accessCode));
   await api("/api/arcana/unlock", "POST", { code: config.accessCode });
+  assert.deepEqual(config.cards.map(c=>c.unlockAt),['2026-10-01','2026-11-01','2026-12-01','2027-01-01','2027-02-01','2027-03-01','2027-04-01'].map(d=>d+'T00:00:00+08:00'));
+  // The fixture opens the schedule explicitly; production keeps monthly gating.
+  for(const card of config.cards)card.unlockAt='2000-01-01T00:00:00+08:00';
+  assert.equal((await api('/api/admin/arcana','PUT',config)).status,200);
   for (const card of [...config.cards.slice(1), config.cards[0]])
     assert.equal(
       (await api("/api/arcana/card-unlock", "POST", { code: card.unlockCode })).status,
@@ -53,6 +57,11 @@ test("ARCANA uses separate player progress, enforces final reveal and persists; 
   assert.equal(view.cards.length, 8);
   assert.equal(view.center.dialogue, undefined);
   assert.ok(!JSON.stringify(view).includes("unlockCode"));
+  assert.equal(config.center.unlockAt, '2027-05-01T00:00:00+08:00');
+  assert.equal(view.cards.find(c=>c.id==='lovers').state, 'locked');
+  assert.equal((await api('/api/arcana/card-unlock','POST',{code:config.center.unlockCode})).status,423);
+  config.center.unlockAt='2000-01-01T00:00:00+08:00';
+  assert.equal((await api('/api/admin/arcana','PUT',config)).status,200);
   assert.equal(
     (await api("/api/arcana/card-unlock", "POST", { code: config.center.unlockCode })).status,
     200,

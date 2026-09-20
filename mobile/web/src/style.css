@@ -62,3 +62,6 @@ button{position:relative}.tap-feedback{position:absolute;inset:0;border-radius:i
 
 /* 0.4.3: explicit grid placement prevents busy indicators shifting navigation. */
 .bottom-nav{grid-row:4;min-height:0}.busy-line{position:fixed;grid-area:auto}.workspace{overflow:hidden;min-height:0}.device-label{display:block;font-size:.7rem;color:var(--muted);margin-top:3px}.role-choice,.bottom-nav button.active .icon,.post-card,.reply-card,.blueprint-card,.notice-card,.voice-session,.voice-room.selected>.icon,.message:last-child,.emoji-tray:not(.inline),.update-ready{animation:none}.overlay-enter-active,.overlay-leave-active,.overlay-enter-active>.sheet,.overlay-enter-active>.confirm-dialog,.overlay-leave-active>.sheet,.overlay-leave-active>.confirm-dialog{transition-duration:160ms}.overlay-enter-from>.sheet,.overlay-leave-to>.sheet{transform:translateY(12px)}@media(min-width:760px){.bottom-nav{grid-row:2/4}}
+/* Comment surfaces remain white, with matching readable foreground colors. */
+.reply-card, .reply-compose.card { --surface:#fff; --text:#26362c; --muted:#69756c; --line:#dce2d9; --soft:#fff; color:#26362c; background:#fff; }
+.reply-compose textarea { background:#fff; color:#26362c; }

@@ -28,6 +28,22 @@ test('crash report includes current game evidence and redacts credentials',async
   const exported=diagnosticText(result);assert.doesNotMatch(exported,/private-token|url-token|bearer-token/);assert.match(exported,/OutOfMemoryError/);
  }finally{await fs.rm(root,{recursive:true,force:true})}
 });
+test('favorite can be removed independently of legacy instance settings and survives reload',async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-favorite-'));
+ let service;
+ const previous={favorite:true,memoryMB:256,width:480,height:320,autoUpdate:true,updateUrls:['old invalid address'],coverPositionX:24};
+ try{
+  await fs.writeFile(path.join(root,'settings.json'),JSON.stringify({instanceSettings:{fixture:previous}}));
+  const options={data:root,resources:root,safeStorage:{isEncryptionAvailable:()=>false},emit:()=>{}};
+  service=await createServices(options);
+  await service.invoke('instance.favorite',{id:'fixture',favorite:false});
+  assert.deepEqual(JSON.parse(await fs.readFile(path.join(root,'settings.json'),'utf8')).instanceSettings.fixture,{...previous,favorite:false});
+  service.dispose();service=await createServices(options);
+  assert.equal((await service.invoke('state')).settings.instanceSettings.fixture.favorite,false);
+  await service.invoke('instance.favorite',{id:'fixture',favorite:true});
+  assert.equal(JSON.parse(await fs.readFile(path.join(root,'settings.json'),'utf8')).instanceSettings.fixture.favorite,true);
+ }finally{service?.dispose();await fs.rm(root,{recursive:true,force:true})}
+});
 test('signed update cannot install another architecture',()=>{
  const keys=generateKeyPairSync('ed25519');const raw=Buffer.from(JSON.stringify({version:'0.4.3',files:[{url:'HXZ-Launcher-0.4.3-ia32.exe',sha512:Buffer.alloc(64).toString('base64'),size:123}],releaseDate:new Date().toISOString(),releaseNotes:'fix'}));
  const envelope={payload:raw.toString('base64'),signature:sign(null,raw,keys.privateKey).toString('base64')};

@@ -128,7 +128,7 @@ async function create() {
   }
 }
 async function sendReply() {
-  if (!detail.value) return;
+  if (!detail.value || sending.value || !reply.value.trim()) return;
   sending.value = true;
   try {
     await communityRequest(
@@ -143,10 +143,21 @@ async function sendReply() {
     replyPage.value = Math.ceil((replyTotal.value + 1) / 24);
     replyParent.value = null;
     await loadDetail();
-    void nextTick(() => composer.value?.focus());
   } finally {
     sending.value = false;
+    await nextTick();
+    composer.value?.focus();
   }
+}
+async function selectReply(item: ForumReply) {
+  if (sending.value) return;
+  replyParent.value = item;
+  await nextTick();
+  composer.value?.$el.scrollIntoView({ block: "center", behavior: "smooth" });
+  composer.value?.focus();
+}
+function parentName(item: ForumReply) {
+  return replies.value.find(parent => parent.id === item.parentId)?.name || "原评论";
 }
 function pickReply(value: string) {
   reply.value += value;
@@ -384,7 +395,8 @@ onMounted(() => void permissions());
           ><header
             ><strong>{{ row.item.name }}</strong
             ><time>{{ displayDate(row.item.created) }}</time></header
-          ><p class="content-body">{{ row.item.body }}</p
+          ><p v-if="row.item.parentId" class="forum-reply-context">回复 @{{ parentName(row.item) }}</p>
+          <p class="content-body">{{ row.item.body }}</p
           ><div class="content-actions"
             ><q-btn
               flat
@@ -397,12 +409,9 @@ onMounted(() => void permissions());
               dense
               label="回复"
               :disable="
-                !community.connected || !!detail.locked || !!detail.hidden
+                sending || !community.connected || !!detail.locked || !!detail.hidden
               "
-              @click="
-                replyParent = row.item;
-                void nextTick(() => composer?.focus());
-              " /></div
+              @click="selectReply(row.item)" /></div
           ><q-btn
             v-if="access.admin || row.item.uid === community.user?.uid"
             flat
@@ -422,19 +431,18 @@ onMounted(() => void permissions());
         v-if="community.connected && !detail.locked && !detail.hidden"
         class="forum-reply-form"
         @submit.prevent="perform(sendReply)"
-        ><q-input
+        ><div v-if="replyParent" class="forum-reply-target">
+          <div><strong>回复 @{{ replyParent.name }}</strong><p>{{ replyParent.body }}</p></div>
+          <q-btn flat round dense icon="close" title="取消指定回复" :disable="sending" @click="replyParent = null" />
+        </div><q-input
           ref="composer"
           v-model="reply"
           outlined
           type="textarea"
-          label="写下回复"
+          :label="replyParent ? '回复这条评论' : '写下回复'"
           maxlength="5000"
           :disable="sending" /><div class="content-actions"
           ><EmojiPicker @pick="pickReply" /><q-btn
-            v-if="replyParent"
-            flat
-            :label="'取消回复 @' + replyParent.name"
-            @click="replyParent = null" /><q-btn
             type="submit"
             class="primary-button"
             unelevated
@@ -489,3 +497,20 @@ onMounted(() => void permissions());
             :loading="creating" /></div></form></div
   ></q-dialog>
 </template>
+<style scoped>
+.forum-replies {
+  --text: #26362c;
+  --muted: #69756c;
+  --border: #dce2d9;
+  --panel: #fff;
+  --panel-hover: #fff;
+  background: #fff;
+  color: var(--text);
+}
+.forum-reply-child, .forum-reply-form { background: #fff; }
+.forum-reply-context { margin: 8px 0 0; color: var(--muted); font-size: .9em; }
+.forum-reply-target { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.forum-reply-target > div { flex: 1; min-width: 0; }
+.forum-reply-target p { margin: 5px 0 0; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.forum-reply-form :deep(.q-field__control) { background: #fff; }
+</style>

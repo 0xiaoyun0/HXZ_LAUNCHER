@@ -14,6 +14,8 @@ import {
   instanceConfig,
   instanceMemoryLabel,
   orderedInstances,
+  toggleInstanceFavorite,
+  favoritePending,
   invoke,
   reload
 } from "../lib/launcher";
@@ -62,14 +64,7 @@ const instances = computed(() =>
 const config = computed(() => instanceConfig(state.settings.selectedInstance));
 async function toggleFavorite() {
   if (!selectedInstance.value) return;
-  await saveSettings({
-    instance: {
-      id: selectedInstance.value.id,
-      ...instanceConfig(selectedInstance.value.id),
-      favorite: !instanceConfig(selectedInstance.value.id).favorite
-    }
-  });
-  await reload();
+  await toggleInstanceFavorite(selectedInstance.value.id);
 }
 async function openFolder(kind: "screenshots" | "versions" | "saves") {
   if (!selectedInstance.value) return;
@@ -190,7 +185,8 @@ async function chooseRoot() {
             flat
             dense
             :icon="config.favorite ? 'star' : 'star_border'"
-            :label="config.favorite ? '已收藏' : '收藏'"
+            :label="config.favorite ? '取消收藏' : '收藏'"
+            :loading="!!favoritePending[state.settings.selectedInstance]"
             :disable="!selectedInstance"
             @click="perform(toggleFavorite)" /><q-btn
             v-if="cover"

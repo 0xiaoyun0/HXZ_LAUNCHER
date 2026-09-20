@@ -7,6 +7,7 @@
     "english": "THE LOVERS",
     "signal": "SOMEWHERE ELSE",
     "unlockCode": "LOVERS-AGAIN",
+    "unlockAt": "2027-05-01T00:00:00+08:00",
     "activity": "最终活动",
     "detail": {
       "eyebrow": "08 / THE LOVERS",
@@ -63,7 +64,7 @@
       "name": "月亮",
       "unlockCode": "MOON-HIDE",
       "activity": "躲猫猫",
-      "unlockAt": "2026-09-17T09:19:00+08:00",
+      "unlockAt": "2026-10-01T00:00:00+08:00",
       "art": "/assets/moon-gpt.png",
       "detail": {
         "eyebrow": "01 / THE MOON",
@@ -83,7 +84,7 @@
       "name": "皇帝",
       "unlockCode": "EMPEROR-BUILD",
       "activity": "建筑大赛",
-      "unlockAt": "2026-09-17T09:20:00+08:00",
+      "unlockAt": "2026-11-01T00:00:00+08:00",
       "art": "/assets/emperor-gpt.png",
       "detail": {
         "eyebrow": "02 / THE EMPEROR",
@@ -104,7 +105,7 @@
       "name": "战车",
       "unlockCode": "CHARIOT-RUN",
       "activity": "跑酷竞速",
-      "unlockAt": "2026-09-17T09:21:00+08:00",
+      "unlockAt": "2026-12-01T00:00:00+08:00",
       "art": "/assets/chariot-gpt.png",
       "detail": {
         "eyebrow": "03 / THE CHARIOT",
@@ -125,7 +126,7 @@
       "name": "力量",
       "unlockCode": "STRENGTH-STAY",
       "activity": "生存挑战",
-      "unlockAt": "2026-09-17T09:22:00+08:00",
+      "unlockAt": "2027-01-01T00:00:00+08:00",
       "art": "/assets/strength-gpt.png",
       "detail": {
         "eyebrow": "04 / STRENGTH",
@@ -146,7 +147,7 @@
       "name": "魔术师",
       "unlockCode": "MAGICIAN-MAKE",
       "activity": "红石挑战",
-      "unlockAt": "2026-09-17T09:23:00+08:00",
+      "unlockAt": "2027-02-01T00:00:00+08:00",
       "art": "/assets/magician-gpt.png",
       "detail": {
         "eyebrow": "05 / THE MAGICIAN",
@@ -168,7 +169,7 @@
       "name": "隐者",
       "unlockCode": "HERMIT-LIGHT",
       "activity": "遗迹探索",
-      "unlockAt": "2026-09-17T09:24:00+08:00",
+      "unlockAt": "2027-03-01T00:00:00+08:00",
       "art": "/assets/hermit-gpt.png",
       "detail": {
         "eyebrow": "06 / THE HERMIT",
@@ -190,7 +191,7 @@
       "name": "正义",
       "unlockCode": "JUSTICE-TRUTH",
       "activity": "终局竞技",
-      "unlockAt": "2026-09-17T09:25:00+08:00",
+      "unlockAt": "2027-04-01T00:00:00+08:00",
       "art": "/assets/justice-gpt.png",
       "detail": {
         "eyebrow": "07 / JUSTICE",

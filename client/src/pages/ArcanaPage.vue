@@ -1,46 +1,187 @@
 <script setup lang="ts">
-import {ref,computed,watch,onBeforeUnmount,onMounted} from 'vue';
-import {community,communityRequest,communityAsset,connect} from '../lib/community';
-import {state,saveSettings,perform} from '../lib/launcher';
-type Dialogue={speaker:string;text:string};
-type Card={id:string;state:string;name?:string;art?:string;activity?:string;detail?:{eyebrow:string;title:string;line:string};dialogue?:Dialogue[]};
-type Activity={entered:boolean;title:string;subtitle:string;cards:Card[];center:{dialogue?:Dialogue[];line?:string};storyCompleted:boolean;finalRevealReady:boolean};
-const activity=ref<Activity>(),selected=ref<Card>(),code=ref(''),busy=ref(false),error=ref(''),art=ref<Record<string,string>>({}),finale=ref(false);
-let controller=new AbortController(),generation=0;
-const identity=computed(()=>`${state.settings.communityUrl}:${community.user?.uid||''}:${community.connected}`);
-const lit=computed(()=>activity.value?.cards.filter(c=>c.state==='available').length||0);
-const title=computed(()=>finale.value?'同一张地图':selected.value?.detail?.title||selected.value?.name);
-async function load(){
- const current=++generation;controller.abort();controller=new AbortController();
- for(const url of Object.values(art.value))URL.revokeObjectURL(url);art.value={};selected.value=undefined;finale.value=false;activity.value=undefined;
- if(!community.connected)return;
- busy.value=true;error.value='';
- try{const data=await communityRequest('/api/arcana/public',{signal:controller.signal},true) as Activity;if(current!==generation)return;activity.value=data;
- await Promise.all(data.cards.filter(c=>c.state==='available'&&/^\/assets\/[\w-]+\.(png|svg)$/.test(c.art||'')).map(async c=>{try{const blob=await communityAsset('/api/arcana/art/'+c.art!.slice(8),controller.signal);if(current===generation)art.value[c.id]=URL.createObjectURL(blob);}catch{}}));
- }catch(e){if(current===generation)error.value=e instanceof Error?e.message:String(e);}finally{if(current===generation)busy.value=false;}
+import { ref, computed, onMounted, onBeforeUnmount, watch } from "vue";
+import {
+  community,
+  communityRequest,
+  communityAsset,
+  connect
+} from "../lib/community";
+import { state, saveSettings, perform } from "../lib/launcher";
+const frame = ref<HTMLIFrameElement>();
+const source = new URL("arcana/index.html", document.baseURI).href;
+const identity = computed(
+  () => `${state.settings.communityUrl}:${community.user?.uid || ""}`
+);
+const generation = ref(0);
+let abort = new AbortController();
+const assets = new Map<string, Promise<string>>();
+const urls = new Set<string>();
+let pending = 0;
+function reset() {
+  abort.abort();
+  abort = new AbortController();
+  for (const url of urls) URL.revokeObjectURL(url);
+  urls.clear();
+  assets.clear();
+  generation.value++;
 }
-async function action(path:string,body:object){if(busy.value)return;busy.value=true;error.value='';try{await communityRequest('/api/arcana/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),signal:controller.signal},true);code.value='';await load();}catch(e){error.value=e instanceof Error?e.message:String(e);}finally{busy.value=false;}}
-async function finishReading(){if(!selected.value)return;if(selected.value.id==='lovers'&&!finale.value){finale.value=true;return;}await action(finale.value?'story-complete':'card-read',finale.value?{}:{cardId:selected.value.id});}
-watch(identity,load,{immediate:true});
-onMounted(()=>{if(!state.settings.linkingDiscovered)void perform(()=>saveSettings({linkingDiscovered:true,showLinking:true}));});
-onBeforeUnmount(()=>{generation++;controller.abort();for(const url of Object.values(art.value))URL.revokeObjectURL(url);});
+watch(identity, reset);
+watch(() => community.connected, reset);
+async function receive(event: MessageEvent) {
+  const sender = frame.value?.contentWindow,
+    data = event.data;
+  if (
+    !sender ||
+    event.source !== sender ||
+    data?.type !== "arcana-request" ||
+    !Number.isSafeInteger(data.id)
+  )
+    return;
+  const current = generation.value,
+    signal = abort.signal;
+  if (pending >= 16) {
+    sender.postMessage(
+      { type: "arcana-response", id: data.id, error: "请求过多，请稍后重试" },
+      "*"
+    );
+    return;
+  }
+  pending++;
+  try {
+    let value: unknown;
+    if (
+      data.path === "/asset" &&
+      typeof data.asset === "string" &&
+      /^\/assets\/[\w-]+\.(png|svg)$/.test(data.asset)
+    ) {
+      const path = "/api/arcana/art/" + data.asset.slice(8);
+      if (!assets.has(path)) {
+        if (assets.size >= 16) throw Error("活动图片数量超出限制");
+        const promise = communityAsset(path, signal)
+          .then(blob => {
+            if (signal.aborted) throw Error("活动已关闭");
+            const url = URL.createObjectURL(blob);
+            urls.add(url);
+            return url;
+          })
+          .catch(error => {
+            assets.delete(path);
+            throw error;
+          });
+        assets.set(path, promise);
+      }
+      value = await assets.get(path);
+    } else {
+      if (
+        ![
+          "/api/public",
+          "/api/unlock",
+          "/api/card-unlock",
+          "/api/card-read",
+          "/api/story-complete"
+        ].includes(data.path)
+      )
+        throw Error("无效活动请求");
+      const isRead = data.path === "/api/public";
+      const body = data.body ?? {};
+      if (typeof body !== "object" || JSON.stringify(body).length > 1024)
+        throw Error("活动请求过大");
+      value = await communityRequest(
+        data.path.replace("/api/", "/api/arcana/"),
+        {
+          method: isRead ? "GET" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: isRead ? null : JSON.stringify(body),
+          signal: AbortSignal.any([signal, AbortSignal.timeout(30000)])
+        },
+        true
+      );
+    }
+    if (current === generation.value)
+      sender.postMessage({ type: "arcana-response", id: data.id, value }, "*");
+  } catch (error) {
+    if (current === generation.value)
+      sender.postMessage(
+        {
+          type: "arcana-response",
+          id: data.id,
+          error: error instanceof Error ? error.message : String(error)
+        },
+        "*"
+      );
+  } finally {
+    pending--;
+  }
+}
+onMounted(() => {window.addEventListener("message", receive);if(!state.settings.linkingDiscovered)void perform(()=>saveSettings({linkingDiscovered:true,showLinking:true}));});
+onBeforeUnmount(() => {
+  window.removeEventListener("message", receive);
+  reset();
+});
 </script>
 <template>
-<section class="linking-page">
- <header class="linking-header"><div><small>LINKING</small><h1>{{activity?.title||'同一张地图'}}</h1><p>{{activity?.subtitle||'一个周目，七次相遇'}}</p></div><q-btn flat round icon="refresh" aria-label="刷新活动" :loading="busy" @click="load"/></header>
- <p v-if="error" class="linking-error" role="alert">{{error}}</p>
- <div v-if="!community.connected" class="linking-entry"><q-icon name="auto_awesome" size="44px"/><h2>连接之后，故事继续</h2><q-btn outline label="连接社区" :loading="community.connecting" @click="connect()"/><p>{{community.error}}</p></div>
- <form v-else-if="!activity?.entered" class="linking-entry" @submit.prevent="action('unlock',{code})"><q-icon name="auto_awesome" size="46px"/><h2>每次相遇，都有回响</h2><q-input v-model="code" outlined label="入口代码" maxlength="100" :disable="busy"/><q-btn type="submit" unelevated class="primary-button" label="进入牌库" :loading="busy" :disable="!code.trim()"/></form>
- <div v-else class="linking-body">
-  <aside class="linking-library"><div class="linking-progress"><strong>记忆牌库</strong><span>{{lit}} / {{activity.finalRevealReady?8:7}}</span></div>
-   <div class="linking-cards"><button v-for="(card,index) in activity.cards" :key="card.id" :class="['linking-card',{chosen:selected?.id===card.id,lit:card.state==='available'}]" :disabled="card.state!=='available'" @click="selected=card;finale=false"><img v-if="art[card.id]" :src="art[card.id]" alt="" draggable="false"/><span v-else class="card-mark">✧</span><span class="card-caption"><small>{{String(index+1).padStart(2,'0')}}</small><strong>{{card.name||'未点亮'}}</strong></span></button></div>
-   <form class="linking-unlock" @submit.prevent="action('card-unlock',{code})"><q-input v-model="code" outlined dense label="卡牌代码" maxlength="100"/><q-btn type="submit" icon="key" aria-label="点亮卡牌" :loading="busy" :disable="!code.trim()"/></form>
-   <p v-if="activity.storyCompleted" class="linking-complete">✦ 恋人牌已加入牌库</p>
-  </aside>
-  <article class="linking-reader"><template v-if="selected"><header><small>{{selected.detail?.eyebrow||selected.activity}}</small><h2>{{title}}</h2></header><div class="linking-story"><p class="story-intro">{{finale?activity.center.line:selected.detail?.line}}</p><div v-for="(line,index) in (finale?activity.center.dialogue:selected.dialogue)||[]" :key="index" class="dialogue-line"><strong>{{line.speaker}}</strong><p>{{line.text}}</p></div></div><footer><q-btn unelevated class="primary-button" :label="finale?'完成归档':selected.id==='lovers'?'阅读最终篇章':'读完了'" :loading="busy" @click="finishReading"/></footer></template><div v-else class="linking-welcome"><q-icon name="auto_stories" size="42px"/><h2>选择一张已点亮的牌</h2><p>故事会在这里展开</p></div></article>
- </div>
-</section>
+  <section class="signal-page">
+    <q-btn
+      class="signal-close"
+      flat
+      round
+      icon="close"
+      aria-label="返回设置"
+      to="/settings"
+    />
+    <iframe
+      v-if="community.connected && community.user"
+      :key="generation"
+      ref="frame"
+      :src="source"
+      title="ARCANA"
+      sandbox="allow-scripts allow-same-origin allow-forms"
+    />
+    <div v-else class="signal-offline"
+      ><q-icon name="vpn_key" size="32px" /><p>连接社区后继续</p
+      ><q-btn
+        outline
+        label="连接社区"
+        :loading="community.connecting"
+        @click="connect()"
+      /><p v-if="community.error">{{ community.error }}</p></div
+    >
+  </section>
 </template>
 <style scoped>
-.linking-page{height:100%;min-height:0;display:flex;flex-direction:column;background:radial-gradient(ellipse at 85% 0,#35334366,transparent 60%),#151822;color:#ebe6dc;border:1px solid #ffffff14;border-radius:14px;overflow:hidden;overscroll-behavior:none}.linking-header{display:flex;align-items:center;justify-content:space-between;padding:22px 26px;border-bottom:1px solid #ffffff14;flex:none}.linking-header small{letter-spacing:.3em;color:#b8a987;font-size:11px}.linking-header h1{font-size:25px;margin:4px 0}.linking-header p{margin:0;color:#aaa5a2;font-size:13px}.linking-error{color:#f5b7af;padding:10px 24px;margin:0}.linking-body{display:grid;grid-template-columns:minmax(275px,42%) minmax(0,1fr);flex:1;min-height:0}.linking-library{padding:18px;display:flex;flex-direction:column;gap:14px;border-right:1px solid #ffffff14;min-height:0}.linking-progress{display:flex;justify-content:space-between;color:#b8a987;font-size:13px}.linking-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-template-rows:repeat(2,minmax(0,1fr));gap:9px;flex:1;min-height:0}.linking-card{position:relative;min-height:0;border:1px solid #ffffff22;border-radius:10px;overflow:hidden;padding:0;background:#212431;color:#dfd6bf;cursor:pointer}.linking-card:disabled{cursor:default;opacity:.65}.linking-card.chosen{border-color:#d5bd7f;box-shadow:0 0 0 2px #d5bd7f33}.linking-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.card-mark{display:grid;place-items:center;height:100%;font-size:30px;color:#a29374}.card-caption{position:absolute;inset:auto 0 0;padding:20px 7px 9px;display:flex;flex-direction:column;background:linear-gradient(transparent,#111722ee);font-size:13px}.card-caption small{font-size:10px;color:#c7b890}.linking-unlock{display:flex;gap:7px;flex:none}.linking-unlock .q-field{flex:1;min-width:0}.linking-page :deep(.q-field__native),.linking-page :deep(.q-field__label){color:#ddd9ce}.linking-page :deep(.q-field__control:before){border-color:#ffffff33}.linking-reader{display:flex;flex-direction:column;min-height:0;padding:24px}.linking-reader header{flex:none;border-bottom:1px solid #ffffff14;padding-bottom:16px}.linking-reader header small{color:#b8a987;font-size:12px}.linking-reader h2{font-size:23px;margin:8px 0 0}.linking-story{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:16px 6px 16px 0;scrollbar-width:thin}.story-intro{color:#c9baa0;white-space:pre-wrap;line-height:1.9}.dialogue-line{margin:16px 0}.dialogue-line strong{font-size:12px;color:#b8a987}.dialogue-line p{white-space:pre-wrap;line-height:1.8;margin:7px 0}.linking-reader footer{flex:none;padding-top:12px}.linking-entry,.linking-welcome{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;min-height:0}.linking-entry .q-field{width:min(340px,80%)}.linking-entry h2,.linking-welcome h2{font-size:20px}.linking-welcome p{color:#aaa5a2}.linking-complete{font-size:13px;color:#d5bd7f;margin:0}@media(max-height:750px){.linking-header{padding:12px 22px}.linking-header h1{font-size:21px}.linking-library,.linking-reader{padding:14px}.linking-cards{gap:6px}}
+.signal-page {
+  position: relative;
+  min-height: 0;
+  flex: 1;
+  height: 100%;
+  background: #080a12;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.signal-page iframe {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  inset: 0;
+  border: 0;
+  display: block;
+}
+.signal-close {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  z-index: 2;
+  color: #d6d4e2;
+  background: #181b2acc;
+}
+.signal-offline {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  color: #d6d4e2;
+  padding: 30px;
+}
 </style>

@@ -78,6 +78,7 @@ export function createArcana({ data, db, auth, admin, body, send, limit }) {
       activity: text(c.activity || "", 100),
       art: art(c.art),
       unlockCode: code(c.unlockCode),
+      unlockAt: c.unlockAt ?? defaults.center.unlockAt ?? "",
       detail: {
         eyebrow: text(c.detail?.eyebrow || "", 100),
         title: text(c.detail?.title || c.name, 100),
@@ -87,6 +88,7 @@ export function createArcana({ data, db, auth, admin, body, send, limit }) {
       dialogue: lines(c.dialogue || []),
     };
     if (seen.has(center.unlockCode)) fail("最终牌代码不能与其他牌重复");
+    if (center.unlockAt && !Number.isFinite(Date.parse(center.unlockAt))) fail("最终牌开放时间无效");
     return {
       enabled: input.enabled !== false,
       title: text(input.title, 100),
@@ -151,7 +153,8 @@ export function createArcana({ data, db, auth, admin, body, send, limit }) {
     });
     if (ready(state)) {
       const c = config.center,
-        lit = state.cards.includes("lovers");
+        timeLocked = c.unlockAt && Date.now() < Date.parse(c.unlockAt),
+        lit = state.cards.includes("lovers") && !timeLocked;
       result.cards.push(
         lit
           ? {
@@ -164,7 +167,7 @@ export function createArcana({ data, db, auth, admin, body, send, limit }) {
               detail: c.detail,
               dialogue: c.cardDialogue,
             }
-          : { id: "lovers", slot: "lovers", state: "unlit", art: "assets/card-back.svg" },
+          : { id: "lovers", slot: "lovers", state: timeLocked ? "locked" : "unlit", unlockAt: c.unlockAt, art: "assets/card-back.svg" },
       );
       if (lit) {
         const { unlockCode, ...visible } = c;
@@ -209,6 +212,7 @@ export function createArcana({ data, db, auth, admin, body, send, limit }) {
           (!card.unlockAt || Date.now() >= Date.parse(card.unlockAt))
         : ["lovers-world-gpt.png", basename(config.center.art)].includes(name) &&
           state.cards.includes("lovers") &&
+          (!config.center.unlockAt || Date.now() >= Date.parse(config.center.unlockAt)) &&
           ready(state);
       if (!allowed) fail("卡面尚未解锁", 403);
       res.writeHead(200, {
@@ -242,6 +246,7 @@ export function createArcana({ data, db, auth, admin, body, send, limit }) {
         lovers = submitted === config.center.unlockCode;
       if (!card && !lovers) fail("卡牌代码不正确", 401);
       if (lovers && !ready(current)) fail("请先点亮七张牌并读完最后点亮的卡牌", 423);
+      if (lovers && config.center.unlockAt && Date.now() < Date.parse(config.center.unlockAt)) fail("尚未到恋人牌开放时间", 423);
       if (card?.unlockAt && Date.now() < Date.parse(card.unlockAt)) fail("尚未到卡牌开放时间", 423);
       const id = lovers ? "lovers" : card.id;
       if (!current.cards.includes(id)) {
@@ -253,6 +258,7 @@ export function createArcana({ data, db, auth, admin, body, send, limit }) {
       return true;
     } else if (p === "/api/arcana/story-complete") {
       if (!ready(current) || !current.cards.includes("lovers")) fail("尚未完成最终卡牌解锁", 409);
+      if (config.center.unlockAt && Date.now() < Date.parse(config.center.unlockAt)) fail("尚未到恋人牌开放时间", 423);
       current.storyCompleted = true;
     } else fail("活动接口不存在", 404);
     save(user.uid, current);

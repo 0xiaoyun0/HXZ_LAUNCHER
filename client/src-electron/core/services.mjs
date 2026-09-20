@@ -1214,6 +1214,14 @@ export async function createServices({
       await writeJSON(configFile, settings);
       return settings;
     },
+    async "instance.favorite"(input) {
+      const { id, favorite } = input;
+      if (typeof id !== "string" || !id || /[\\/:]/.test(id) || typeof favorite !== "boolean")
+        throw Error("无效的实例收藏设置");
+      settings.instanceSettings[id] = { ...settings.instanceSettings[id], favorite };
+      await writeJSON(configFile, settings);
+      return { favorite };
+    },
     async "instance.cover-placement"(input) {
       if(typeof input.id!=="string"||!input.id||/[\\/:]/.test(input.id))throw Error("无效实例");
       if(![input.x,input.y,input.zoom].every(Number.isFinite))throw Error("头图位置无效");

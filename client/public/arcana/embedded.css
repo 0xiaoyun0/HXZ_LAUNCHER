@@ -1,0 +1,29 @@
+/* Launcher containment only. Keep the original artwork, transitions and story UI. */
+html, body { width:100%; height:100%; min-height:0; overflow:hidden; overscroll-behavior:none; }
+body { -webkit-app-region:no-drag; }
+[hidden] { display:none !important; }
+.site-shell { height:100%; min-height:0; padding:18px clamp(22px,5vw,80px); overflow:hidden; }
+main { position:relative; height:100%; min-height:0; }
+.view { position:absolute; inset:0; min-height:0; height:100%; overflow:hidden; }
+.gate-view { padding-block:0; grid-template-rows:1fr; }
+.gate-view .access-status { position:absolute; top:calc(50% + 30px); left:0; right:0; text-align:center; }
+.archive-view { display:flex; flex-direction:column; justify-content:center; padding:12px 0; }
+.table-frame { flex:none; padding:clamp(8px,3vh,24px) 0 18px; }
+.card-viewport { overscroll-behavior:contain; touch-action:pan-x; }
+.card-table > .arcana-card, .card-table > .card-slot { flex-basis:min(clamp(160px,15vw,220px),calc((100vh - 240px)*.71)); }
+.archive-view.is-finale-ready .center-reveal,
+.archive-view.is-finale-ready.is-lovers-locked .center-reveal { min-height:0; flex:1; }
+.archive-view.is-finale-ready .center-reveal .center-card { width:min(320px,64vw,calc((100vh - 190px)*.71)); flex-shrink:0; }
+.detail-view { padding:14px 3vw; }
+.detail-layout { height:calc(100% - 40px); min-height:0; gap:clamp(30px,6vw,90px); }
+.detail-image-wrap { width:min(100%,360px,calc((100vh - 145px)*.71)); }
+.detail-copy { max-height:100%; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+.story-view { background-attachment:scroll; }
+.story-shell { height:100%; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-width:thin; }
+@media(max-width:760px) {
+  .detail-layout { grid-template-columns:minmax(140px,1fr) minmax(180px,1fr); gap:24px; }
+  .detail-copy { text-align:left; }
+}
+@supports not (color:color-mix(in srgb,black,white)) {
+  .arcana-card.is-lit,.arcana-card.is-selected,.arcana-card:hover { border-color:var(--card-accent); box-shadow:0 0 24px #aa8bff22; }
+}

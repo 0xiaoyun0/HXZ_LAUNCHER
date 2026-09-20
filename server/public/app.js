@@ -54,7 +54,7 @@ async function loadArcana(){
  for(const card of [...arcanaConfig.cards,arcanaConfig.center]){
   const box=document.createElement('details'),heading=document.createElement('summary');heading.textContent=card.name;box.append(heading);root.append(box);
   for(const [key,label] of [['name','牌名'],['activity','对应活动'],['unlockCode','点亮代码']])arcanaField(box,label,card[key],v=>card[key]=v);
-  if(card.id)arcanaField(box,'开放时间',card.unlockAt,v=>card.unlockAt=v);
+  arcanaField(box,'开放时间',card.unlockAt,v=>card.unlockAt=v);
   for(const [key,label] of [['eyebrow','章节标识'],['title','详情标题'],['line','章节描述']])arcanaField(box,label,card.detail[key],v=>card.detail[key]=v,{large:key==='line'});
   arcanaField(box,card.id?'对话（JSON）':'最终长剧情（JSON）',card.dialogue,v=>card.dialogue=v,{large:true,lines:true});
   if(!card.id){arcanaField(box,'卡牌短对话（JSON）',card.cardDialogue,v=>card.cardDialogue=v,{large:true,lines:true});for(const key of ['english','signal','line'])arcanaField(box,key,card[key],v=>card[key]=v);}
