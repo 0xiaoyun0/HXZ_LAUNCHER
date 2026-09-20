@@ -22,6 +22,7 @@ public final class CommunityApp extends Application {
     final OkHttpClient sockets = http.newBuilder().callTimeout(0,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build();
     WeakReference<MainActivity> activity = new WeakReference<>(null);
     Vault vault;
+    AppUpdater updater;
     volatile JSONObject credentials = new JSONObject(), user = new JSONObject();
     volatile String base, token = "", connection = "未登录", selfId = "", room = "";
     volatile boolean connected, foreground, muted, deafened, ptt, pressing;
@@ -41,7 +42,7 @@ public final class CommunityApp extends Application {
         }
     }};
     @Override public void onCreate() {
-        super.onCreate(); vault = new Vault(this);
+        super.onCreate(); vault = new Vault(this);updater=new AppUpdater(this);
         base = getSharedPreferences("settings",0).getString("server","https://qqbot.hxzmc.top");
         try { credentials = vault.read(); } catch(Exception e) { vault.clear(); }
     }

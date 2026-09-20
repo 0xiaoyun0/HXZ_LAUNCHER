@@ -74,7 +74,7 @@ public final class MainActivity extends Activity {
     static WebResourceResponse response(int status,String mime,byte[] bytes){return new WebResourceResponse(mime,"UTF-8",status,status==200?"OK":"Blocked",Collections.singletonMap("Cache-Control","no-store"),new ByteArrayInputStream(bytes));}
     void emit(String name,Object data){String args=new JSONArray().put(name).put(data).toString();runOnUiThread(()->{if(web!=null)web.evaluateJavascript("window.HXZEvent && window.HXZEvent.apply(null,"+args+")",null);});}
     private void result(String id,Object data,String error){emit("result",CommunityApp.obj("id",id,"data",data==null?JSONObject.NULL:data,"error",error==null?JSONObject.NULL:error));}
-    @Override protected void onResume(){super.onResume();app.foreground=true;app.activity=new java.lang.ref.WeakReference<>(this);app.connect();app.changed();}
+    @Override protected void onResume(){super.onResume();app.foreground=true;app.activity=new java.lang.ref.WeakReference<>(this);app.connect();app.changed();app.updater.foreground();}
     @Override public void onConfigurationChanged(android.content.res.Configuration config){super.onConfigurationChanged(config);app.changed();}
     @Override protected void onPause(){super.onPause();app.pressing=false;if(app.ptt)app.voiceSettings(CommunityApp.obj("pressing",false));}
     @Override protected void onStop(){super.onStop();app.foreground=false;app.main.postDelayed(()->{if(!app.foreground&&app.room.isEmpty()&&app.recoveryRoom.isEmpty()){app.disconnect(false);app.connection="已暂停";app.changed();}},1500);}
@@ -157,6 +157,7 @@ public final class MainActivity extends Activity {
             if(raw.length()>1024*1024)return;
             try{
                 JSONObject call=new JSONObject(raw);String id=call.getString("id"),op=call.getString("op");JSONObject input=call.optJSONObject("input");if(input==null)input=new JSONObject();final JSONObject value=input;
+                if(op.equals("appUpdate")){try{String action=value.optString("action","state");Object output;switch(action){case "check":output=app.updater.check();break;case "download":output=app.updater.download();break;case "cancel":output=app.updater.cancel();break;case "install":output=app.updater.install();break;case "settings":output=app.updater.settings(value);break;default:output=app.updater.state();}result(id,output,null);}catch(Exception e){result(id,null,CommunityApp.reason(e));}return;}
                 if(op.equals("voiceJoin")){runOnUiThread(()->beginVoice(id,value.optString("room")));return;}
                 // Privacy controls must not wait behind uploads or account HTTP calls.
                 if(op.equals("voiceSettings")||op.equals("voiceLeave")||op.equals("speaker")){

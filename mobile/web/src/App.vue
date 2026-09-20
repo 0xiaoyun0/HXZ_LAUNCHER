@@ -3,6 +3,8 @@ import {ref,reactive,computed,watch,nextTick,onMounted,onUnmounted} from 'vue';
 import Icon from './Icon.vue';
 import VoicePage from './VoicePage.vue';
 import AppSelect from './AppSelect.vue';
+import ChoiceRows from './ChoiceRows.vue';
+import UpdateCard from './UpdateCard.vue';
 import AppOverlay from './AppOverlay.vue';
 import {closeTopOverlay,overlayCount} from './overlays.js';
 import {state,native,api,on,avatar,groups,rooms,date} from './native.js';
@@ -10,6 +12,9 @@ import {state,native,api,on,avatar,groups,rooms,date} from './native.js';
 const tabs=[{id:'chat',name:'聊天',icon:'chat'},{id:'voice',name:'语音',icon:'headphones'},{id:'forum',name:'论坛',icon:'forum'},{id:'blueprint',name:'蓝图',icon:'blueprint'},{id:'notice',name:'公告',icon:'notice'},{id:'me',name:'我的',icon:'user'}];
 const tab=ref('chat'), sheet=ref(''), busy=ref(false), toast=ref(''), error=ref('');let toastTimer;
 const settings=reactive(readSettings());
+const appUpdate=ref({currentVersion:'0.4.2',currentBuild:40204,autoCheck:true,autoDownload:true,phase:'idle'});
+async function updateAction(action,values={}){try{appUpdate.value=await native('appUpdate',{action,...values});}catch(e){error.value=e.message;}}
+
 function readSettings(){
   const defaults={theme:'system',font:15,accent:'#58734b',ptt:false,animations:true,layoutRevision:2};
   try{
@@ -24,6 +29,7 @@ watch([()=>settings.theme,()=>settings.font,()=>settings.accent,()=>settings.ptt
 const notify=message=>{toast.value=message;clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.value='',4000);};
 async function run(fn){if(busy.value)return;busy.value=true;error.value='';try{return await fn();}catch(e){if(e.message!=='已取消')error.value=e.message;}finally{busy.value=false;}}
 const unsubs=[on('error',message=>error.value=message),on('back',()=>{if(closeTopOverlay())return;if(detail.value)detail.value=null;else if(blueprint.value)blueprint.value=null;else if(tab.value!=='chat')tab.value='chat';else native('background').catch(()=>{});})];
+unsubs.push(on('appUpdate',value=>{const previous=appUpdate.value.phase;appUpdate.value=value;if(value.phase==='ready'&&previous!=='ready')notify('社区新版已下载，在“我的”中安装');}));
 unsubs.push(on('state',value=>{if(typeof value.systemDark==='boolean')systemDark.value=value.systemDark;}));
 const roomName=computed(()=>rooms.find(r=>r.id===(state.room||state.recoveringRoom))?.name||''),members=id=>state.users.filter(u=>u.room===id);
 const access=reactive({admin:false,reviewer:false,forumCategories:['交流讨论','游戏求助','作品分享','建议反馈'],blueprintCategories:['生产与加工','仓储与物流','动力与传动','列车与交通','建筑与装饰','其他']});
@@ -31,11 +37,13 @@ async function loadAccess(){Object.assign(access,await api('/api/content/access'
 function navigate(id){tab.value=id;sheet.value='';detail.value=null;blueprint.value=null;error.value='';}
 watch(tab,()=>{if(tab.value==='chat')nextTick(scrollBottom);if(tab.value==='forum')run(loadPosts);if(tab.value==='blueprint')run(loadBlueprints);if(tab.value==='notice')run(loadNotices);});
 const workspace=ref();let pageAnimation;
-watch(()=>settings.animations,value=>{document.documentElement.dataset.motion=value?'on':'off';localStorage.setItem('hxz-mobile-settings',JSON.stringify(settings));if(!value)pageAnimation?.cancel();},{immediate:true});
-watch(tab,async()=>{
+watch(()=>settings.animations,value=>{document.documentElement.dataset.motion=value?'on':'off';localStorage.setItem('hxz-mobile-settings',JSON.stringify(settings));if(!value){pageAnimation?.cancel();workspace.value?.getAnimations({subtree:true}).forEach(a=>a.cancel());}},{immediate:true});
+watch(tab,async(next,previous)=>{
   pageAnimation?.cancel();await nextTick();
   if(settings.animations&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&workspace.value?.animate){
-    pageAnimation=workspace.value.animate([{opacity:.35,transform:'translateY(6px)'},{opacity:1,transform:'translateY(0)'}],{duration:180,easing:'cubic-bezier(.2,.8,.2,1)'});
+    const direction=tabs.findIndex(t=>t.id===next)>=tabs.findIndex(t=>t.id===previous)?1:-1;
+    pageAnimation=workspace.value.animate([{opacity:.15,transform:'translateX('+direction*22+'px)'},{opacity:1,transform:'translateX(0)'}],{duration:360,easing:'cubic-bezier(.16,1,.3,1)'});
+    [...workspace.value.querySelectorAll('.card,.voice-room,.settings-group,.profile-card')].filter(e=>e.getClientRects().length).slice(0,10).forEach((el,i)=>el.animate([{opacity:0,transform:'translateY(16px)'},{opacity:1,transform:'translateY(0)'}],{duration:420,delay:i*32,fill:'backwards',easing:'cubic-bezier(.16,1,.3,1)'}));
   }
 });
 function invalidField(event){
@@ -112,9 +120,14 @@ function secret(){const now=Date.now();taps=now-tapAt<1200?taps+1:1;tapAt=now;if
 async function unlockArcana(){await run(async()=>{await api('/api/arcana/'+(arcana.value.entered?'card-unlock':'unlock'),'POST',{code:arcanaCode.value});arcanaCode.value='';arcana.value=await api('/api/arcana/public');});}
 async function readCard(){await run(async()=>{if(arcanaCard.value.id==='lovers')await api('/api/arcana/story-complete','POST',{});else await api('/api/arcana/card-read','POST',{cardId:arcanaCard.value.id});arcanaCard.value=null;arcana.value=await api('/api/arcana/public');});}
 const storyText=value=>typeof value==='string'?value:Array.isArray(value)?value.map(v=>typeof v==='string'?v:Object.values(v).filter(x=>typeof x==='string').join('：')).join('\n\n'):value?Object.values(value).filter(v=>typeof v==='string').join('\n\n'):'';
+function touchFeedback(event){
+ if(!settings.animations||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+ const button=event.target.closest('button');if(!button||button.disabled)return;
+ button.querySelector('.tap-feedback')?.remove();const wave=document.createElement('span');wave.className='tap-feedback';wave.setAttribute('aria-hidden','true');button.appendChild(wave);setTimeout(()=>wave.remove(),650);
+}
 let noticeTimer;
-onMounted(async()=>{if(window.HXZNative){await run(async()=>{Object.assign(state,await native('state'));if(typeof state.systemDark==='boolean')systemDark.value=state.systemDark;await native('appearance',{dark:dark.value});await loadAccess();});}document.addEventListener('visibilitychange',()=>{if(document.hidden)release();});window.addEventListener('blur',release);noticeTimer=setInterval(()=>{if(tab.value==='notice'&&!document.hidden&&!busy.value)run(loadNotices);},60000);});
-onUnmounted(()=>{unsubs.forEach(f=>f());clearTimeout(toastTimer);clearInterval(noticeTimer);window.removeEventListener('blur',release);});
+onMounted(async()=>{document.addEventListener('pointerdown',touchFeedback);if(window.HXZNative){updateAction('state');await run(async()=>{Object.assign(state,await native('state'));if(typeof state.systemDark==='boolean')systemDark.value=state.systemDark;await native('appearance',{dark:dark.value});await loadAccess();});}document.addEventListener('visibilitychange',()=>{if(document.hidden)release();});window.addEventListener('blur',release);noticeTimer=setInterval(()=>{if(tab.value==='notice'&&!document.hidden&&!busy.value)run(loadNotices);},60000);});
+onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageAnimation?.cancel();unsubs.forEach(f=>f());clearTimeout(toastTimer);clearInterval(noticeTimer);window.removeEventListener('blur',release);});
 </script>
 
 <template>
@@ -123,7 +136,7 @@ onUnmounted(()=>{unsubs.forEach(f=>f());clearTimeout(toastTimer);clearInterval(n
     <div class="brand-mark" aria-hidden="true">幻</div><div class="header-title"><strong>幻想镇</strong><span>{{tabs.find(t=>t.id===tab)?.name}}</span></div>
     <button v-if="(state.room||state.recoveringRoom)&&tab!=='voice'" class="header-call icon-button" :aria-label="'返回语音：'+roomName" @click="navigate('voice')"><Icon :name="state.muted?'mute':'headphones'"/><i class="status-dot"/></button>
     <button class="connection" :class="{online:state.connected}" @click="sheet=state.hasAccount?'connection':'login'"><i/>{{state.connected?'在线':state.hasAccount?'连接':'登录'}}</button>
-    <button class="avatar small" aria-label="我的账号" @click="navigate('me')"><img v-if="selectedAvatar" :src="selectedAvatar" alt="头像"><span v-else>{{(state.user.name||'旅').slice(0,1)}}</span></button>
+    <button v-if="appUpdate.phase==='ready'" class="icon-button update-ready" aria-label="安装社区更新" @click="navigate('me')"><Icon name="download"/></button><button class="avatar small" aria-label="我的账号" @click="navigate('me')"><img v-if="selectedAvatar" :src="selectedAvatar" alt="头像"><span v-else>{{(state.user.name||'旅').slice(0,1)}}</span></button>
   </header>
   <div v-if="error" class="error-banner" role="alert"><span>{{error}}</span><button class="icon-button" aria-label="关闭错误" @click="error=''"><Icon name="close"/></button></div>
   <div v-if="busy" class="busy-line" role="status" aria-label="正在处理"/>
@@ -185,9 +198,9 @@ onUnmounted(()=>{unsubs.forEach(f=>f());clearTimeout(toastTimer);clearInterval(n
 
     <section v-if="tab==='me'" class="content-page account-page"><div class="profile-card"><button class="avatar hero" :disabled="!state.connected" aria-label="更改头像" @click="setAvatar"><img v-if="selectedAvatar" :src="selectedAvatar" alt="我的头像"><span v-else>{{(state.user.name||'旅').slice(0,1)}}</span><i><Icon name="image"/></i></button><h1>{{state.user.name||state.selectedProfile?.name||'未登录'}}</h1><p>{{state.connected?'幻想镇皮肤站账号':state.connection}}</p><button v-if="!state.hasAccount" class="primary" @click="sheet='login'">登录皮肤站</button><button v-else class="soft-button" @click="sheet='profiles'">切换角色</button></div>
       <div class="settings-group"><button class="settings-row" @click="sheet='connection'"><Icon name="settings"/><span>社区连接<small>{{state.server}}</small></span><Icon name="chevron"/></button><button class="settings-row" @click="run(()=>native('openSkin'))"><Icon name="user"/><span>皮肤站账号管理<small>皮肤、资料与账号安全</small></span><Icon name="chevron"/></button><button class="settings-row" :disabled="!state.connected" @click="setAvatar"><Icon name="image"/><span>更换社区头像<small>相册选择，居中裁剪</small></span><Icon name="chevron"/></button></div>
-      <h2 class="section-title">外观</h2><div class="card form-stack"><label>主题<AppSelect v-model="settings.theme" label="主题" :options="[{value:'system',label:'跟随系统'},{value:'light',label:'浅色'},{value:'dark',label:'深色'}]"/></label><label>文字大小 <span>{{settings.font}} px</span><input v-model.number="settings.font" type="range" min="14" max="22" step="1" aria-label="文字大小"></label><div class="color-row"><span>强调色</span><button v-for="color in ['#58734b','#407d8b','#626cc1','#9f6178','#a17137']" :key="color" :aria-label="'强调色 '+color" :aria-pressed="settings.accent===color" :style="{background:color}" @click="settings.accent=color"><Icon v-if="settings.accent===color" name="check"/></button></div></div>
-      <div class="card form-stack"><label>界面动效<AppSelect v-model="settings.animations" label="界面动效" :options="[{value:true,label:'开启'},{value:false,label:'关闭'}]"/></label></div><h2 class="section-title">语音</h2><div class="card form-stack"><label>说话方式<AppSelect v-model="settings.ptt" label="说话方式" :options="[{value:false,label:'自由说话'},{value:true,label:'按住说话'}]" @change="value=>voiceChange({ptt:value,pressing:false})"/></label><p class="muted">按住说话时，在通话面板按住麦克风按钮。离开应用会自动停止发言。</p></div>
-      <div class="settings-group"><button class="settings-row" @click="secret"><span>幻想镇社区<small>Android · 0.4.2 · Android 10 及以上</small></span><span class="tag">0.4.2</span></button><button v-if="state.hasAccount" class="settings-row danger-text" @click="confirm('退出登录并离开语音？',logout)"><Icon name="logout"/><span>退出登录</span></button></div>
+      <h2 class="section-title">外观</h2><div class="card form-stack"><label>主题<AppSelect v-model="settings.theme" label="主题" :options="[{value:'system',label:'跟随系统',icon:'settings',description:'随手机外观自动切换'},{value:'light',label:'浅色',icon:'sun',description:'明亮清晰的浅色界面'},{value:'dark',label:'深色',icon:'moon',description:'柔和舒适的深色界面'}]"/></label><label>文字大小 <span>{{settings.font}} px</span><input v-model.number="settings.font" type="range" min="14" max="22" step="1" aria-label="文字大小"></label><div class="color-row"><span>强调色</span><button v-for="color in ['#58734b','#407d8b','#626cc1','#9f6178','#a17137']" :key="color" :aria-label="'强调色 '+color" :aria-pressed="settings.accent===color" :style="{background:color}" @click="settings.accent=color"><Icon v-if="settings.accent===color" name="check"/></button></div></div>
+      <div class="card form-stack"><label>界面动效<AppSelect v-model="settings.animations" label="界面动效" :options="[{value:true,label:'开启'},{value:false,label:'关闭'}]"/></label></div><h2 class="section-title">语音</h2><div class="card form-stack"><label>说话方式<AppSelect v-model="settings.ptt" label="说话方式" :options="[{value:false,label:'自由说话',icon:'mic',description:'进入频道后持续传送语音'},{value:true,label:'按住说话',icon:'mute',description:'仅按住语音页按钮时传送语音'}]" @change="value=>voiceChange({ptt:value,pressing:false})"/></label><p class="muted">按住说话时，在通话面板按住麦克风按钮。离开应用会自动停止发言。</p></div>
+      <UpdateCard :state="appUpdate" @action="updateAction"/><div class="settings-group"><button class="settings-row" @click="secret"><span>幻想镇社区<small>Android · 0.4.2（40204） · Android 10 及以上</small></span><span class="tag">0.4.2</span></button><button v-if="state.hasAccount" class="settings-row danger-text" @click="confirm('退出登录并离开语音？',logout)"><Icon name="logout"/><span>退出登录</span></button></div>
     </section>
   </main>
 
@@ -196,7 +209,7 @@ onUnmounted(()=>{unsubs.forEach(f=>f());clearTimeout(toastTimer);clearInterval(n
   <AppOverlay :open="!!sheet" label="社区面板" @close="sheet=''"><section class="sheet" @invalid.capture.prevent="invalidField" :class="{'full-sheet':['newPost','newBlueprint','newNotice','arcana'].includes(sheet)}"><div class="sheet-handle"/><header class="sheet-header"><h2>{{({login:'登录社区',profiles:'选择角色',connection:'社区连接',members:'在线成员',newPost:'发布帖子',newBlueprint:'上传蓝图',filters:'筛选蓝图',newNotice:'发布公告',arcana:'星之回廊'})[sheet]}}</h2><button class="icon-button" aria-label="关闭面板" @click="sheet=''"><Icon name="close"/></button></header><div class="sheet-body">
     <p v-if="error" class="error-note sheet-error" role="alert">{{error}}</p>
     <form v-if="sheet==='login'" class="form-stack" @submit.prevent="login"><p class="muted">使用幻想镇皮肤站账号登录</p><label>邮箱或用户名<input v-model="username" autocomplete="username" autocapitalize="off" required></label><label>密码<input v-model="password" type="password" autocomplete="current-password" required></label><button class="primary full-width" :disabled="busy">{{busy?'正在登录…':'登录'}}</button><button class="text-button" type="button" @click="run(()=>native('openSkin'))">注册账号 / 管理皮肤站</button></form>
-    <div v-if="sheet==='profiles'" class="form-stack"><p v-if="!state.profiles.length" class="muted">账号还没有角色，请先在皮肤站创建。</p><button v-for="p in state.profiles" :key="p.id" class="settings-row" @click="profile(p.id)"><span class="avatar">{{p.name.slice(0,1)}}</span><span>{{p.name}}</span><Icon v-if="state.selectedProfile?.id===p.id" name="check"/></button><button class="soft-button" @click="sheet='login'">登录其他账号</button></div>
+    <div v-if="sheet==='profiles'" class="form-stack"><p v-if="!state.profiles.length" class="muted">账号还没有角色，请先在皮肤站创建。</p><ChoiceRows :items="state.profiles.map(p=>({value:p.id,label:p.name}))" :value="state.selectedProfile?.id" label="选择角色" @choose="profile"/><button class="soft-button" @click="sheet='login'">登录其他账号</button></div>
     <form v-if="sheet==='connection'" class="form-stack" @submit.prevent="run(async()=>{Object.assign(state,await native('server',{url:server}));sheet='';notify('社区地址已保存')})"><div class="connection-summary"><i class="status-dot" :class="{offline:!state.connected}"/>{{state.connection}}</div><label>社区服务地址<input v-model="server" type="url" placeholder="https://qqbot.hxzmc.top" autocapitalize="off" required></label><button class="primary" :disabled="busy">保存并连接</button><button type="button" class="soft-button" @click="run(()=>native('reconnect'))">重新连接</button><p class="muted">社区服务端 0.4.2。连接地址同时用于聊天和语音，无需额外端口。</p></form>
     <div v-if="sheet==='members'" class="member-list"><p v-if="!state.users.length" class="empty-note">暂时没有在线成员</p><div v-for="u in state.users" :key="u.id" class="member"><span class="avatar"><img v-if="avatar(u.uid,u.avatarVersion)" :src="avatar(u.uid,u.avatarVersion)" alt=""><span v-else>{{u.name.slice(0,1)}}</span></span><strong>{{u.name}}</strong><small>{{rooms.find(r=>r.id===u.room)?.name||'在线'}}</small></div></div>
     <form v-if="sheet==='newPost'" class="form-stack" @submit.prevent="publishPost"><label>分类<AppSelect v-model="postForm.category" label="帖子分类" :options="access.forumCategories"/></label><label>标题<input v-model="postForm.title" maxlength="100" placeholder="给话题起个名字" required></label><label>正文<textarea v-model="postForm.body" maxlength="12000" rows="10" placeholder="分享你的想法…" required/></label><div class="emoji-tray inline"><button v-for="e in emojis" :key="e" type="button" @click="postForm.body+=e">{{e}}</button></div><button class="primary" :disabled="busy">发布帖子</button></form>
