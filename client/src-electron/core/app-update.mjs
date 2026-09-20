@@ -1,6 +1,6 @@
 import updaterPackage from "electron-updater";
 import { remoteJSON } from "./io.mjs";
-import { discoverRelease, RELEASE_ROOT } from "./update-sources.mjs";
+import { discoverRelease, RELEASE_ROOT, compareVersions } from "./update-sources.mjs";
 import { SignedReleaseProvider } from "./update-provider.mjs";
 export const REPOSITORY = {
   provider: "github",
@@ -63,12 +63,15 @@ export function createAppUpdate({
   discover = discoverRelease,
   stallTimeout = 45000
 }) {
+  // Avoid writing to a closed parent console pipe (EPIPE) in packaged apps.
+  updater.logger = Object.fromEntries(['info','warn','error','debug'].map(level=>[level,(...values)=>emit({type:'logs',lines:['[启动器更新] '+values.map(String).join(' ').slice(0,2000)]})]));
   updater.autoDownload = false;
   updater.autoInstallOnAppQuit = false;
   updater.allowDowngrade = false;
   updater.allowPrerelease = false;
   updater.disableWebInstaller = true;
   let release, cancellationToken, downloadTimer;
+  updater.disableDifferentialDownload = true;
   function armDownloadTimeout() {
     clearTimeout(downloadTimer);
     downloadTimer = setTimeout(() => cancellationToken?.cancel(), stallTimeout);
@@ -114,7 +117,7 @@ export function createAppUpdate({
       armDownloadTimeout();
       update({
         phase: "正在下载启动器更新 · " + state.source,
-        percent: Math.round(p.percent)
+        percent: Math.round(p.percent), received:p.transferred, total:p.total
       });
     },
     "update-downloaded": () => {
@@ -122,7 +125,7 @@ export function createAppUpdate({
       installAt = 0;
       update({ phase: "更新已就绪", ready: true, percent: 100 });
     },
-    error: () => update({ phase: "暂时无法获取更新，稍后会自动重试" })
+    error: error => update({ phase: "更新源连接失败，正在重试", error: String(error?.message||error).slice(0,400) })
   };
   for (const [name, fn] of Object.entries(handlers)) updater.on(name, fn);
   async function download() {
@@ -130,7 +133,9 @@ export function createAppUpdate({
     if (working) throw Error("更新任务正在进行");
     working = true;
     try {
-      for (const source of release.sources) {
+      for (let attempt=0;attempt<release.sources.length*2;attempt++) {
+        const source=release.sources[attempt%release.sources.length];
+        if(attempt===release.sources.length)await new Promise(resolve=>setTimeout(resolve,1500));
         if (disposed) throw Error("更新检查已关闭");
         try {
           update({
@@ -166,7 +171,8 @@ export function createAppUpdate({
     working = true;
     try {
       update({ phase: "正在检查 GitHub 与备用更新源" });
-      release = await discover();
+      const found = await discover();
+      if(!release || compareVersions(found.info.version,release.info.version)>=0)release=found;
       if (disposed) return state;
       update({ source: release.sources[0].name });
       await selectSource(release.sources[0]);

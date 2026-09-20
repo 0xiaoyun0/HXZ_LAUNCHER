@@ -2,6 +2,7 @@
 import InstallRecovery from "./InstallRecovery.vue";
 import { computed, ref, onMounted, onUnmounted } from "vue";
 import {
+  crashState,
   task,
   taskCount,
   taskDetailsOpen,
@@ -54,7 +55,7 @@ const hint = computed(() => {
           ><small>当前任务</small><h2>{{ task.phase }}</h2></div
         ><q-btn flat round icon="close" title="收起任务详情" v-close-popup
       /></header>
-      <InstallRecovery />
+      <InstallRecovery /><q-btn flat icon="troubleshoot" label="游戏异常排查" @click="perform(async()=>{const report=await invoke('diagnostics.current');if(report){crashState.report=report;crashState.open=true;}})"/>
       <q-linear-progress
         :indeterminate="task.busy && !task.total"
         :value="task.total ? Math.min(1, task.completed / task.total) : 0"
@@ -145,7 +146,7 @@ const hint = computed(() => {
         </div>
       </div>
       <footer
-        ><span class="subtle">保留最近 120 个步骤、1000 行日志</span
+        ><span class="subtle">保留最近 120 个步骤、5000 行日志</span
         ><q-btn
           flat
           icon="download"

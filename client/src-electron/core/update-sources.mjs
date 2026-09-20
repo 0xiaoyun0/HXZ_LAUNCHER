@@ -3,12 +3,7 @@ import { UPDATE_PUBLIC_KEY } from "./update-public-key.mjs";
 
 export const RELEASE_ROOT =
   "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases";
-export const UPDATE_SOURCES = Object.freeze([
-  { name: "GitHub", prefix: "" },
-  { name: "GHProxy", prefix: "https://ghproxy.net/" },
-  { name: "GHFast", prefix: "https://ghfast.top/" },
-  { name: "GH-Proxy", prefix: "https://gh-proxy.com/" }
-]);
+export const UPDATE_SOURCES = Object.freeze([{name:"GH-Proxy",prefix:"https://gh-proxy.com/"},{name:"GHProxy",prefix:"https://ghproxy.net/"},{name:"GHFast",prefix:"https://ghfast.top/"},{name:"GitHub",prefix:""}]);
 const LIMIT = 256 * 1024;
 export function compareVersions(a, b) {
   const left = a.split(".").map(Number),
@@ -17,7 +12,7 @@ export function compareVersions(a, b) {
     if (left[i] !== right[i]) return left[i] - right[i];
   return 0;
 }
-export function verifyRelease(envelope, publicKey = UPDATE_PUBLIC_KEY) {
+export function verifyRelease(envelope, publicKey = UPDATE_PUBLIC_KEY, arch = process.arch) {
   if (
     typeof envelope?.payload !== "string" ||
     envelope.payload.length > LIMIT ||
@@ -37,7 +32,7 @@ export function verifyRelease(envelope, publicKey = UPDATE_PUBLIC_KEY) {
       info.version
     ) ||
     info.files?.length !== 1 ||
-    file?.url !== `HXZ-Launcher-${info.version}-x64.exe` ||
+    file?.url !== `HXZ-Launcher-${info.version}-${arch==='ia32'?'ia32':'x64'}.exe` ||
     !/^[A-Za-z0-9+/]{86}==$/.test(file.sha512) ||
     !Number.isSafeInteger(file.size) ||
     file.size <= 0 ||
@@ -88,7 +83,7 @@ export async function discoverRelease({
       source,
       info: verifyRelease(
         await fetchUpdateJSON(
-          source.prefix + RELEASE_ROOT + "/latest/download/latest.json",
+          source.prefix + RELEASE_ROOT + "/latest/download/"+(process.arch==='ia32'?'latest-ia32.json':'latest.json')+"?t="+Date.now(),
           { fetcher, timeout }
         ),
         publicKey

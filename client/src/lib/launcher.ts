@@ -18,6 +18,8 @@ export interface InstanceConfig {
   coverZoom: number;
 }
 export interface Settings {
+  linkingDiscovered?: boolean;
+  showLinking?: boolean;
   appearanceVersion: number;
   fontSize: number;
   accentColor: string;
@@ -113,7 +115,9 @@ export interface TaskStep {
   total: number;
   unit: string;
 }
+export const crashState=reactive<{open:boolean;report:any}>({open:false,report:null});
 interface Event {
+  report?: any;
   unit?: string;
   received?: number;
   activeFiles?: string[];
@@ -604,10 +608,10 @@ export function instanceConfig(id: string): InstanceConfig {
     fullscreen: false,
     updateUrls: [],
     jvmArgs: [],
-    coverPositionX: 50,
-    coverPositionY: 50,
-    coverZoom: 1,
-    ...state.settings.instanceSettings[id]
+    ...state.settings.instanceSettings[id],
+    coverPositionX:Math.max(0,Math.min(100,Number(state.settings.instanceSettings[id]?.coverPositionX ?? 50)||0)),
+    coverPositionY:Math.max(0,Math.min(100,Number(state.settings.instanceSettings[id]?.coverPositionY ?? 50)||0)),
+    coverZoom:Math.max(1,Math.min(2,Number(state.settings.instanceSettings[id]?.coverZoom)||1))
   };
 }
 export function instanceMemoryLabel(id: string): string {
@@ -657,12 +661,12 @@ window.launcher?.subscribe(event => {
   if (event.type === "logs" && event.lines) {
     task.lastLogAt = Date.now();
     logs.push(...event.lines);
-    if (logs.length > 1000) logs.splice(0, logs.length - 1000);
+    if (logs.length > 5000) logs.splice(0, logs.length - 5000);
   }
   if (event.type === "log" && event.line) {
     task.lastLogAt = Date.now();
     logs.push(event.line);
-    if (logs.length > 1000) logs.splice(0, logs.length - 1000);
+    if (logs.length > 5000) logs.splice(0, logs.length - 5000);
   }
   if (event.type === "logs-reset") {
     logs.splice(0);
@@ -680,6 +684,7 @@ window.launcher?.subscribe(event => {
       completed: 0
     });
   }
+  if (event.type === "game-crash") {crashState.report=event.report;crashState.open=true;}
   if (event.type === "task") {
     const now = Date.now(),
       previous = task.steps.at(-1);

@@ -1,6 +1,6 @@
 {
   "name": "hxzl",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "private": true,
   "description": "幻想镇游戏与社区启动器",
   "keywords": [
@@ -22,7 +22,8 @@
     "typecheck": "vue-tsc --noEmit",
     "postinstall": "quasar prepare --silent",
     "dev:desktop": "quasar dev -m electron",
-    "build:desktop": "node scripts/build-installer.cjs && node scripts/ensure-electron.cjs && quasar build -m electron --skip-pkg && node scripts/package-desktop.cjs"
+    "build:desktop": "node scripts/build-installer.cjs && node scripts/ensure-electron.cjs && quasar build -m electron --skip-pkg && node scripts/package-desktop.cjs",
+    "build:legacy": "node scripts/ensure-legacy.cjs && node scripts/package-legacy.cjs"
   },
   "dependencies": {
     "@quasar/extras": "^2.0.4",

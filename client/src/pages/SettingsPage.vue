@@ -3,6 +3,8 @@ import { ref, watch, onBeforeUnmount, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { secretSequence } from "../lib/secret-sequence";
 const router = useRouter();
+let secretTaps=0, secretAt=0;
+function secretClick(){const now=Date.now();secretTaps=now-secretAt<1500?secretTaps+1:1;secretAt=now;if(secretTaps>=7){secretTaps=0;void router.push("/signal");}}
 const secretKey = secretSequence(() => {
   void router.push("/signal");
 });
@@ -133,8 +135,9 @@ async function root() {
 }
 </script>
 <template>
+  <section v-if="state.settings.linkingDiscovered" class="panel q-mb-md"><q-toggle :model-value="!!state.settings.showLinking" label="在左侧显示 Linking" @update:model-value="value=>perform(()=>saveSettings({showLinking:!!value}))"/><q-btn flat label="打开 Linking" to="/signal"/></section>
   <div class="page-heading"
-    ><div><h1>启动器设置</h1></div
+    ><div><h1 @click="secretClick">启动器设置</h1></div
     ><q-btn
       unelevated
       class="primary-button"

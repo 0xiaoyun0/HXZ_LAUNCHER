@@ -18,6 +18,9 @@ import java.util.concurrent.atomic.*;
 /** GameInstaller bounds file concurrency; each file uses one source at a time. */
 final class Network {
     final int timeout,retries;
+    private final ConcurrentHashMap<String,Long> unhealthy=new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String,Long> latency=new ConcurrentHashMap<>();
+    private static String host(String url){try{return new URL(url).getHost();}catch(Exception e){return url;}}
     final AtomicLong received=new AtomicLong();
     private final AtomicLong verified=new AtomicLong();
     private final Set<RaceState> transfers=ConcurrentHashMap.newKeySet();
@@ -26,7 +29,7 @@ final class Network {
     int activeFiles(){return transfers.size();}
     Network(int seconds,int retries){this(seconds,retries,8);}
     Network(int seconds,int retries,int concurrency){
-        this.timeout=seconds*1000;this.retries=retries;
+        this.timeout=seconds*1000;this.retries=retries;System.setProperty("http.maxConnections",String.valueOf(Math.max(16,concurrency)));
     }
     private static final class RaceState {
         final AtomicLong bytes=new AtomicLong();
@@ -137,6 +140,9 @@ final class Network {
     }
     private Path race(List<String> urls,Path directory,String sha1,long expected,String label,String requiredArray)throws IOException,InterruptedException{
         List<String> unique=new ArrayList<>(new LinkedHashSet<>(urls));if(unique.isEmpty())throw new IOException("没有下载地址");if(unique.size()>12)throw new IOException("单文件下载源超过 12 个");
+        Map<String,Long> weights=new HashMap<>();long now=System.currentTimeMillis();
+        for(String u:unique)weights.put(u,(unhealthy.getOrDefault(host(u),0L)>now?1000000L:0L)+latency.getOrDefault(host(u),300L));
+        unique.sort(Comparator.comparingLong(weights::get));
         RaceState state=new RaceState();state.label=label;transfers.add(state);
         int[] attempts=new int[unique.size()];long[] readyAt=new long[unique.size()];
         String[] errors=new String[unique.size()];
@@ -148,10 +154,13 @@ final class Network {
                     String url=unique.get(i);int attempt=attempts[i]++;
                     state.bytes.set(0);
                     try{
-                        Path file=downloadSource(url,directory,sha1,expected,requiredArray,state);
+                        long started=System.nanoTime();Path file=downloadSource(url,directory,sha1,expected,requiredArray,state);
+                        latency.put(host(url),Math.min(30000,(System.nanoTime()-started)/1000000));unhealthy.remove(host(url));
                         verified.addAndGet(Files.size(file));return file;
                     }catch(IOException failure){
                         checkCancelled();errors[i]=url+" → "+failure.getMessage();
+                        if(!(failure instanceof HttpFailure)||((HttpFailure)failure).status==429||((HttpFailure)failure).status>=500)unhealthy.put(host(url),System.currentTimeMillis()+15000);
+                        System.err.println("[下载换源] "+label+" · "+host(url)+" · "+failure.getClass().getSimpleName()+" · 尝试 "+(attempt+1));
                         long delay=retryDelay(failure,attempt);
                         if(delay<0)attempts[i]=retries+1;
                         else readyAt[i]=System.currentTimeMillis()+delay;
@@ -182,7 +191,7 @@ final class Network {
             if(requiredArray!=null)validateJson(temp,requiredArray);
             keep=true;return temp;
         }finally{
-            try{if(c!=null)c.disconnect();}finally{if(!keep)Files.deleteIfExists(temp);}
+            try{if(c!=null&&!keep)c.disconnect();}finally{if(!keep)Files.deleteIfExists(temp);}
         }
     }
 }

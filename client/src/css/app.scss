@@ -2442,7 +2442,9 @@ a:focus-visible {
   border-radius: 10px;
 }
 .voice-panel .voice-room.selected {
+  background: var(--accent);
   background: color-mix(in srgb, var(--accent) 13%, var(--panel));
+  border-color: var(--accent);
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   box-shadow: inset 3px 0 var(--accent);
   color: var(--text);
@@ -2720,6 +2722,7 @@ a:focus-visible {
   height: 40px;
   border: 1.5px solid color-mix(in srgb, var(--accent) 65%, var(--text));
   border-radius: 8px;
+  color: var(--accent);
   color: color-mix(in srgb, var(--accent) 55%, var(--text));
   font-size: 27px;
   line-height: 1;
@@ -2948,12 +2951,14 @@ a:focus-visible {
 :root[data-background="custom"] .window-bar,
 :root[data-background="custom"] .launch-dock,
 :root[data-background="custom"] .status-bar {
+  background: var(--sidebar);
   background: color-mix(in srgb, var(--sidebar) 78%, transparent);
 }
 :root[data-background="custom"] .panel,
 :root[data-background="custom"] .world-list,
 :root[data-background="custom"] .world-detail,
 :root[data-background="custom"] .chat-messages {
+  background: var(--panel);
   background: color-mix(in srgb, var(--panel) 76%, transparent);
 }
 .status-task,
@@ -4375,6 +4380,8 @@ a:focus-visible {
 
 .voice-ptt-status.active {
   border-color: var(--accent);
+  background: var(--accent);
   background: color-mix(in srgb, var(--accent) 16%, var(--panel));
   color: var(--text);
 }
+.page-area.linking-area{overflow:hidden;padding:14px;min-height:0;display:flex;flex-direction:column}.device-label{display:block;font-size:11px;color:var(--muted);margin-top:3px}

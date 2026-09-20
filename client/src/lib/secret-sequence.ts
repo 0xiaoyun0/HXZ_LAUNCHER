@@ -29,9 +29,9 @@ export function secretSequence(open: () => void) {
     if (Date.now() - last > 2500) index = 0;
     last = Date.now();
     index =
-      event.code === sequence[index]
+      (event.code === sequence[index] || ({KeyW:"ArrowUp",KeyS:"ArrowDown",KeyA:"ArrowLeft",KeyD:"ArrowRight"} as Record<string,string>)[event.code] === sequence[index])
         ? index + 1
-        : event.code === sequence[0]
+        : (event.code === sequence[0] || event.code === "KeyW")
           ? 1
           : 0;
     if (index) event.preventDefault();

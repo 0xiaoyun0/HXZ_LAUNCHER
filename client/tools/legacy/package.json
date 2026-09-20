@@ -1,0 +1,5 @@
+{
+  "name": "hxz-legacy-build-tools",
+  "private": true,
+  "dependencies": {"esbuild": "0.25.12", "undici": "5.29.0"}
+}

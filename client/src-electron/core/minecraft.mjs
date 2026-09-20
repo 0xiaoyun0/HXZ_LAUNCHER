@@ -456,7 +456,8 @@ export async function prepareLaunch({
   }
   const memory = Math.min(
     Math.max(Number(settings.memoryMB) || 4096, 512),
-    Math.floor((os.totalmem() / 1048576) * 0.85)
+    Math.floor((os.totalmem() / 1048576) * 0.85),
+    process.arch === "ia32" ? 1280 : 131072
   );
   jvm.unshift(
     "-Xmx" + memory + "M",

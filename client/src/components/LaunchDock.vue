@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import {surfaceColor} from "../lib/surface";
 import PlayerAvatar from "./PlayerAvatar.vue";
 import TaskDetails from "./TaskDetails.vue";
 import {
@@ -16,7 +17,7 @@ import {
 function dockStyle() {
   const column = state.settings.columns.dock;
   return {
-    backgroundColor: `color-mix(in srgb, ${column.color || "var(--panel)"} ${column.opacity * 100}%, transparent)`
+    backgroundColor: surfaceColor(column.color || "var(--panel)", column.opacity)
   };
 }
 </script>

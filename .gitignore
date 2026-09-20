@@ -11,3 +11,6 @@ data/
 release/
 
 client/.installer-build/
+client/tools/legacy/electron/
+client/tools/legacy/*.zip
+client/tools/legacy/*.part

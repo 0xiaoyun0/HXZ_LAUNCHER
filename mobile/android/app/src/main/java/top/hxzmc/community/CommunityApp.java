@@ -55,7 +55,7 @@ public final class CommunityApp extends Application {
         JSONObject selected = credentials.optJSONObject("selectedProfile");
         return obj("server",base,"user",user,"profiles",profiles==null?new JSONArray():profiles,"selectedProfile",selected==null?JSONObject.NULL:selected,
             "hasAccount",credentials.has("accessToken"),"connected",connected,"connection",connection,"users",users,"messages",messages,
-            "room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.4.2",
+            "room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.4.3",
             "systemDark",(getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)==android.content.res.Configuration.UI_MODE_NIGHT_YES);
     }
     void event(String name, Object value) { MainActivity a=activity.get(); if(a!=null)a.emit(name,value); }
@@ -105,6 +105,7 @@ public final class CommunityApp extends Application {
         disconnect(true);
         JSONObject next=(JSONObject)request(SKIN+"/authserver/authenticate","POST",obj("agent",obj("name","Minecraft","version",1),"username",input.getString("username"),"password",input.getString("password"),"clientToken",UUID.randomUUID().toString(),"requestUser",true),"");
         credentials=new JSONObject(); saveCredentials(next); token=""; expires=0;
+        long websiteTicket=SkinSession.reset();String websiteUser=input.getString("username"),websitePassword=input.getString("password");jobs.execute(()->SkinSession.login(websiteTicket,websiteUser,websitePassword));
         JSONArray profiles=credentials.optJSONArray("availableProfiles");
         if(credentials.optJSONObject("selectedProfile")==null && profiles!=null && profiles.length()==1) selectProfile(profiles.getJSONObject(0).getString("id"));
         main.post(this::connect); return state();
@@ -135,7 +136,7 @@ public final class CommunityApp extends Application {
         return request(url,method,input.optJSONObject("body"),auth);
     }}
     void logout() { synchronized(authLock) {
-        disconnect(true); vault.clear(); credentials=new JSONObject(); token=""; expires=0; user=new JSONObject(); users=new JSONArray(); messages=new JSONArray(); connection="未登录"; changed();
+        disconnect(true); SkinSession.reset(); vault.clear(); credentials=new JSONObject(); token=""; expires=0; user=new JSONObject(); users=new JSONArray(); messages=new JSONArray(); connection="未登录"; changed();
     }}
     void setServer(String value) throws Exception { synchronized(authLock) {
         String next=validBase(value); disconnect(true); base=next; token=""; expires=0; user=new JSONObject(); messages=new JSONArray(); users=new JSONArray();
@@ -150,7 +151,7 @@ public final class CommunityApp extends Application {
                 String auth=session();
                 synchronized(this){if(ticket!=generation)return;}
                 WebSocket ws=sockets.newWebSocket(new Request.Builder().url(base.replaceFirst("https:","wss:")+"/ws").build(),new WebSocketListener(){
-                    @Override public void onOpen(WebSocket ws,Response response){ if(ticket!=generation){ws.cancel();return;} ws.send(obj("type","auth","token",auth).toString()); }
+                    @Override public void onOpen(WebSocket ws,Response response){ if(ticket!=generation){ws.cancel();return;} ws.send(obj("type","auth","token",auth,"platform","android").toString()); }
                     @Override public void onMessage(WebSocket ws,String text){ if(ticket!=generation)return; try {receive(new JSONObject(text));}catch(Exception ignored){} }
                     @Override public void onMessage(WebSocket ws,ByteString bytes){if(ticket==generation && audio!=null && !deafened)audio.receive(bytes.toByteArray());}
                     @Override public void onClosing(WebSocket ws,int code,String reason){ws.close(code,reason);}

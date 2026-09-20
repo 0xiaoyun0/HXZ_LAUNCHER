@@ -9,6 +9,8 @@ import {
   session
 } from "electron";
 import path from "node:path";
+import {fileURLToPath} from "node:url";
+import {createSkinPanel} from "./skin-panel";
 import { mkdirSync } from "node:fs";
 import {
   registerQuasarRuntime,
@@ -20,38 +22,11 @@ import { createServices } from "./core/services.mjs";
 let appUpdate: ReturnType<typeof createAppUpdate>;
 let main: BrowserWindow | null = null;
 let services: Awaited<ReturnType<typeof createServices>>;
-const skinWindows = new Map<string, BrowserWindow>();
-const skinOrigin = "https://skin.hxzmc.top";
+const skinPanel=createSkinPanel(()=>main);
 if (process.env.HXZ_LA_HOME) {
   const profile = path.resolve(process.env.HXZ_LA_HOME);
   mkdirSync(profile, { recursive: true });
   app.setPath("userData", profile);
-}
-function openSkin(account: string) {
-  const previous = skinWindows.get(account);
-  if (previous && !previous.isDestroyed()) {
-    previous.focus();
-    return;
-  }
-  const win = new BrowserWindow({
-    width: 1060,
-    height: 780,
-    autoHideMenuBar: true,
-    title: "幻想镇皮肤站",
-    webPreferences: {
-      partition: "persist:skin-" + account.replace(/[^a-zA-Z0-9-]/g, ""),
-      sandbox: true,
-      contextIsolation: true,
-      nodeIntegration: false
-    }
-  });
-  skinWindows.set(account, win);
-  win.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  win.webContents.on("will-navigate", (event, url) => {
-    if (new URL(url).origin !== skinOrigin) event.preventDefault();
-  });
-  win.on("closed", () => skinWindows.delete(account));
-  void win.loadURL(skinOrigin + "/user");
 }
 async function createWindow() {
   main = new BrowserWindow({
@@ -65,7 +40,7 @@ async function createWindow() {
     autoHideMenuBar: true,
     show: false,
     webPreferences: {
-      preload: path.join(import.meta.dirname, "electron-preload.cjs"),
+      preload: path.join(path.dirname(fileURLToPath(import.meta.url)), "electron-preload.cjs"),
       contextIsolation: true,
       sandbox: true,
       nodeIntegration: false,
@@ -86,7 +61,7 @@ async function createWindow() {
     main = null;
     services?.dispose();
     appUpdate?.dispose();
-    for (const child of skinWindows.values()) child.close();
+    skinPanel.dispose();
   });
   services = await createServices({
     data: app.getPath("userData"),
@@ -98,7 +73,8 @@ async function createWindow() {
     dialog,
     shell,
     window: () => win,
-    openSkin,
+    openSkin:()=>{},
+    skinPanel,
     emit: value => {
       if (!win.isDestroyed()) win.webContents.send("hxz:event", value);
     }

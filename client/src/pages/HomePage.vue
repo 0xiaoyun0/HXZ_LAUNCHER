@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import CoverImage from "../components/CoverImage.vue";
 import ModManager from "../components/ModManager.vue";
 import { computed, ref, watch } from "vue";
 import {
@@ -25,6 +26,7 @@ const search = ref(""),
   coverPositionY = ref(50),
   coverZoom = ref(1);
 let coverGeneration = 0;
+const editingCoverId=ref("");
 watch(
   () => state.settings.selectedInstance,
   async id => {
@@ -74,6 +76,7 @@ async function openFolder(kind: "screenshots" | "versions" | "saves") {
   await invoke("instance.folder", { id: selectedInstance.value.id, kind });
 }
 function editCoverPlacement() {
+  editingCoverId.value=state.settings.selectedInstance;
   coverPositionX.value = config.value.coverPositionX;
   coverPositionY.value = config.value.coverPositionY;
   coverZoom.value = config.value.coverZoom;
@@ -81,15 +84,7 @@ function editCoverPlacement() {
 }
 async function saveCoverPlacement() {
   if (!selectedInstance.value) return;
-  await saveSettings({
-    instance: {
-      id: selectedInstance.value.id,
-      ...instanceConfig(selectedInstance.value.id),
-      coverPositionX: coverPositionX.value,
-      coverPositionY: coverPositionY.value,
-      coverZoom: coverZoom.value
-    }
-  });
+  await invoke("instance.cover-placement", {id:editingCoverId.value,x:coverPositionX.value,y:coverPositionY.value,zoom:coverZoom.value});
   coverEditorOpen.value = false;
   await reload();
 }
@@ -249,17 +244,7 @@ async function chooseRoot() {
           ><q-btn flat dense icon="tune" label="配置" to="/instances" /></div
       ></div>
       <div class="world-preview" :class="{ 'custom-cover': !!cover }"
-        ><img
-          v-if="cover"
-          class="instance-cover"
-          :src="cover"
-          alt="实例头图"
-          :style="{
-            objectPosition:
-              config.coverPositionX + '% ' + config.coverPositionY + '%',
-            transform: 'scale(' + config.coverZoom + ')'
-          }"
-        /><div v-else class="preview-art" aria-hidden="true"
+        ><CoverImage v-if="cover" :src="cover" :x="config.coverPositionX" :y="config.coverPositionY" :zoom="config.coverZoom"/><div v-else class="preview-art" aria-hidden="true"
           ><div class="sun" /><div class="mountain mountain-back" /><div
             class="mountain mountain-front" /><div class="tower"
             ><i /><i /><i /></div></div
@@ -350,15 +335,7 @@ async function chooseRoot() {
       ><q-card-section
         ><h2>调整头图裁剪</h2
         ><div class="world-preview q-mb-md"
-          ><img
-            v-if="cover"
-            class="instance-cover"
-            :src="cover"
-            alt="头图预览"
-            :style="{
-              objectPosition: coverPositionX + '% ' + coverPositionY + '%',
-              transform: 'scale(' + coverZoom + ')'
-            }" /></div
+          ><CoverImage v-if="cover" :src="cover" :x="coverPositionX" :y="coverPositionY" :zoom="coverZoom" editable @move="(x,y)=>{coverPositionX=x;coverPositionY=y}"/></div
         ><label>水平位置 · {{ Math.round(coverPositionX) }}%</label
         ><q-slider
           v-model="coverPositionX"

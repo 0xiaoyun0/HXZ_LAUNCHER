@@ -7,6 +7,7 @@ export function createServices(options: {
   shell: typeof import("electron").shell;
   window: () => import("electron").BrowserWindow;
   emit: (value: unknown) => void;
+  skinPanel?: any;
   openSkin: (account: string) => void;
 }): Promise<{
   invoke(action: string, input?: unknown): Promise<unknown>;

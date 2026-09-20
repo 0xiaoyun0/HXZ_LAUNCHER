@@ -2,6 +2,8 @@ import { reactive, watch } from "vue";
 import { createRelayVoice } from "./voice-relay.mjs";
 import { invoke, errorMessage, loadNotices, state } from "./launcher";
 export interface Member {
+  platform?: string;
+  devices?: string[];
   id: string;
   uid: string;
   avatarVersion?: string;
@@ -213,7 +215,7 @@ export async function connect() {
         ws.close();
         return;
       }
-      ws.send(JSON.stringify({ type: "auth", token: session.token }));
+      ws.send(JSON.stringify({ type: "auth", token: session.token, platform: "desktop" }));
     };
     ws.onmessage = event => {
       if (attempt !== generation) return;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SkinPanel from "../components/SkinPanel.vue";
 import PlayerAvatar from "../components/PlayerAvatar.vue";
 import { ref } from "vue";
 import {
@@ -11,6 +12,7 @@ import {
   saveSettings
 } from "../lib/launcher";
 import { community, disconnect, connect } from "../lib/community";
+const managerOpen=ref(false);
 const username = ref(""),
   password = ref(""),
   loading = ref(false),
@@ -31,11 +33,7 @@ async function login() {
     password.value = "";
   }
 }
-function openSkin() {
-  return desktop
-    ? invoke("skin.open")
-    : Promise.resolve(window.open("https://skin.hxzmc.top", "_blank"));
-}
+function openSkin(){managerOpen.value=!managerOpen.value;return Promise.resolve();}
 async function select(id: string) {
   disconnect();
   await saveSettings({ selectedAccount: id });
@@ -58,11 +56,11 @@ async function profile(id: string, uuid: string) {
     ><div><h1>皮肤站账号</h1></div
     ><q-btn
       outline
-      icon="open_in_new"
-      label="皮肤与角色管理"
+      icon="manage_accounts"
+      :label="managerOpen ? '返回启动器账号' : '皮肤与角色管理'"
       @click="perform(openSkin)"
   /></div>
-  <div class="account-grid"
+  <SkinPanel v-if="managerOpen"/><div v-else class="account-grid"
     ><section class="panel"
       ><div class="section-title"
         ><h2>登录幻想镇</h2><q-icon name="shield" size="25px" /></div
@@ -102,7 +100,7 @@ async function profile(id: string, uuid: string) {
             : "当前环境仅保留本次会话，关闭后需重新登录。"
         }}</p
       ><div class="info-note"
-        >网页账号管理使用独立的皮肤站会话。首次打开需要登录网页，之后自动保留该账号的网页登录状态。</div
+        >登录时同步建立皮肤站管理会话，可直接在启动器内管理。已有账号或网站要求验证码时，在内嵌页面完成一次验证，之后保留该账号的会话。</div
       ></section
     >
     <section class="panel"

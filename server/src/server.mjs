@@ -53,7 +53,7 @@ export function createCommunity(options={}) {
   function broadcast(value,filter=()=>true) {for(const [ws,c] of clients)if(filter(c))packet(ws,value);}
   function avatarVersion(uid){return db.prepare("SELECT version FROM profiles WHERE uid=?").get(uid)?.version||"";}
   function voiceEvent(c,action,room=c?.room){if(room)broadcast({type:'voice-event',action,room,voiceUser:{id:c.id,uid:c.user.uid,name:c.user.name}},member=>member.room===room||member.id===c.id);}
-  function presence(){broadcast({type:'presence',users:[...clients.values()].map(c=>({id:c.id,uid:c.user.uid,name:c.user.name,avatarVersion:avatarVersion(c.user.uid),room:c.room,muted:c.muted}))});}
+  function presence(){const devices=new Map();for(const c of clients.values()){if(!devices.has(c.user.uid))devices.set(c.user.uid,new Set());devices.get(c.user.uid).add(c.platform);}broadcast({type:'presence',users:[...clients.values()].map(c=>({id:c.id,uid:c.user.uid,name:c.user.name,avatarVersion:avatarVersion(c.user.uid),room:c.room,muted:c.muted,platform:c.platform,devices:[...devices.get(c.user.uid)]}))});}
   async function exchange(input) {
     let response;
     if(options.exchange)response=await options.exchange(input);
@@ -121,7 +121,7 @@ export function createCommunity(options={}) {
       if(isBinary){relayVoice(ws,raw,clients);return;}
       const message=JSON.parse(raw.toString());let c=clients.get(ws);
       if(!c){if(message.type!=='auth')throw Error('请先登录');const user=verify(message.token);content.recordMember(user);if([...clients.values()].filter(x=>x.user.uid===user.uid).length>=2)throw Error('此账号已打开过多连接');
-        c={id:randomUUID(),user,room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',heartbeatInterval:15000,voiceTransport:'ws-opus-v1',roomLimit,id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
+        c={id:randomUUID(),user,platform:message.platform==='android'?'android':'desktop',room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',heartbeatInterval:15000,voiceTransport:'ws-opus-v1',roomLimit,id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
       verify(c.token);limit('client:'+c.id,120,10000);
       if(message.type==='ping'){ws.alive=true;packet(ws,{type:'pong'});}
       else if(message.type==='chat'){limit('chat:'+c.user.uid,8,10000);const value=text(message.body,1000);const created=Date.now();const inserted=db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)').run('lobby',c.user.uid,c.user.name,value,created);

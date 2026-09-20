@@ -1,3 +1,4 @@
+import {crashReport,diagnosticText,redactDiagnostic} from "./diagnostics.mjs";
 import { instanceTarget, modPlan } from "./mod-plan.mjs";
 import {
   normalizeDownloadConcurrency,
@@ -50,7 +51,8 @@ export async function createServices({
   shell,
   window,
   emit,
-  openSkin
+  openSkin,
+  skinPanel
 }) {
   await fs.mkdir(data, { recursive: true });
   const configFile = path.join(data, "settings.json"),
@@ -146,6 +148,7 @@ export async function createServices({
     task = null,
     logs = [],
     community = null;
+  let lastCrash=null, stoppedByUser=false;
   const secrets = new Set(
     accounts.flatMap(a => [a.accessToken, a.clientToken]).filter(Boolean)
   );
@@ -166,15 +169,16 @@ export async function createServices({
   }
   function log(line) {
     rememberSecrets();
+    line=redactDiagnostic(String(line),[...secrets]);
     for (const value of secrets) line = line.replaceAll(value, "[凭据已隐藏]");
     line = line.replace(/(--accessToken\s+)[^\s]+/g, "$1[已隐藏]");
     for (const part of line.split(/\r?\n/)) {
       if (!part) continue;
-      const value = part.slice(0, 3000);
+      const value = part.slice(0, 12000);
       logs.push(value);
       pendingLogs.push(value);
     }
-    if (logs.length > 1000) logs.splice(0, logs.length - 1000);
+    if (logs.length > 5000) logs.splice(0, logs.length - 5000);
     if (pendingLogs.length > 500)
       pendingLogs.splice(0, pendingLogs.length - 500);
     if (!logTimer) logTimer = setTimeout(flushLogs, 100);
@@ -296,8 +300,9 @@ export async function createServices({
       Math.min(131072, Math.floor(Math.min(total * 0.75, free * 0.5)))
     );
   }
-  let previousPhase = "";
+  let previousPhase = "", lastDetailLog=0;
   function phase(value) {
+    if(value.busy && value.total && Date.now()-lastDetailLog>2000){lastDetailLog=Date.now();log(`[进度] ${value.phase||previousPhase} · ${value.completed||0}/${value.total} · 已接收 ${value.received||0} bytes`);for(const file of (value.activeFiles||[]).slice(0,4))log("[正在处理] "+file);}
     if (value.phase && value.phase !== previousPhase) {
       previousPhase = value.phase;
       log("[" + new Date().toLocaleTimeString() + "] " + value.phase);
@@ -346,6 +351,7 @@ export async function createServices({
         windowsHide: true,
         shell: false
       });
+      log("[进程] "+path.basename(command)+" · 工作目录: "+cwd);
       let finished = false;
       const abort = () => {
         if (process.platform === "win32" && child.pid) {
@@ -567,14 +573,17 @@ export async function createServices({
       });
       if (controller.signal.aborted) throw Error("任务已取消");
       phase({ phase: "正在启动游戏", busy: true });
+      const gameStarted=Date.now(),gameLogs=[];stoppedByUser=false;lastCrash=null;
+      const capture=line=>{gameLogs.push(redactDiagnostic(line,[...secrets]));if(gameLogs.length>5000)gameLogs.splice(0,gameLogs.length-5000);return false;};
+      log("[启动] 实例: "+id+" · 目录: "+command.cwd+" · Java: "+command.command+" · 内存: "+cfg.memoryMB+" MB");
       const child = spawn(command.command, command.args, {
         cwd: command.cwd,
         windowsHide: true,
         shell: false
       });
       running = child;
-      attachLog(child.stdout);
-      attachLog(child.stderr);
+      attachLog(child.stdout,capture);
+      attachLog(child.stderr,capture);
       child.on("error", error => {
         log("游戏启动失败: " + error.message);
         running = null;
@@ -585,7 +594,7 @@ export async function createServices({
           error: error.message
         });
       });
-      child.on("exit", code => {
+      child.on("close", (code, exitSignal) => {
         running = null;
         phase({
           phase: code === 0 ? "游戏已结束" : "游戏进程已退出",
@@ -598,7 +607,8 @@ export async function createServices({
               : "",
           exitCode: code
         });
-        log("游戏退出代码: " + code);
+        log("游戏退出代码: " + code + " · 信号: " + (exitSignal||"无"));
+        if(!stoppedByUser && (code!==0 || exitSignal)) void crashReport({cwd:command.cwd,id,started:gameStarted,code,signal:exitSignal,logs:gameLogs,secrets:[...secrets],java:command.command}).then(report=>{lastCrash=report;emit({type:"game-crash",report});}).catch(error=>log("诊断报告读取失败: "+error.message));
         if (code != null && code >>> 0 === 0xc0000005) {
           const message =
             "Java 本机运行库异常退出 (0xC0000005)。请在设置中切换同版本的其他 Java（例如 Zulu / Temurin），并查看游戏崩溃日志。";
@@ -994,6 +1004,8 @@ export async function createServices({
               "backgroundPositionX",
               "backgroundPositionY",
               "backgroundFit",
+              "linkingDiscovered",
+              "showLinking",
               "layout"
             ].includes(k)
         )
@@ -1143,6 +1155,7 @@ export async function createServices({
       for (const name of ["selectedInstance", "selectedAccount", "theme"])
         if (typeof input[name] === "string" && input[name].length < 300)
           settings[name] = input[name];
+      for (const key of ["linkingDiscovered", "showLinking"]) if (typeof input[key] === "boolean") settings[key] = input[key];
       if (input.instance) {
         const { id, ...v } = input.instance;
         if (typeof id !== "string" || !id || /[\\/:]/.test(id))
@@ -1200,6 +1213,12 @@ export async function createServices({
       }
       await writeJSON(configFile, settings);
       return settings;
+    },
+    async "instance.cover-placement"(input) {
+      if(typeof input.id!=="string"||!input.id||/[\\/:]/.test(input.id))throw Error("无效实例");
+      if(![input.x,input.y,input.zoom].every(Number.isFinite))throw Error("头图位置无效");
+      settings.instanceSettings[input.id]={...settings.instanceSettings[input.id],coverPositionX:Math.max(0,Math.min(100,input.x)),coverPositionY:Math.max(0,Math.min(100,input.y)),coverZoom:Math.max(1,Math.min(2,input.zoom))};
+      await writeJSON(configFile,settings);return {ok:true};
     },
     async "directory.choose"() {
       const r = await dialog.showOpenDialog(window(), {
@@ -1471,6 +1490,7 @@ export async function createServices({
         name: response.selectedProfile?.name || "",
         uuid: response.selectedProfile?.id || ""
       };
+      if(skinPanel)try{await skinPanel.login(a.id,input.username,input.password);}catch{log("[皮肤站] 内嵌会话需要在账号管理中完成网站验证");}
       accounts.push(a);
       settings.selectedAccount = a.id;
       community = null;
@@ -1509,6 +1529,7 @@ export async function createServices({
             clientToken: a.clientToken
           });
         } catch {}
+      await skinPanel?.remove(input.id);
       accounts = accounts.filter(a => a.id !== input.id);
       if (settings.selectedAccount === input.id)
         settings.selectedAccount = accounts[0]?.id || "";
@@ -1517,6 +1538,8 @@ export async function createServices({
       await writeJSON(configFile, settings);
       return { ok: true };
     },
+    async "skin.bounds"(input){skinPanel?.bounds(settings.selectedAccount||"default",input);return {ok:true};},
+    async "skin.hide"(){skinPanel?.hide();return {ok:true};},
     async "skin.open"() {
       return openSkin(settings.selectedAccount || "default");
     },
@@ -1680,9 +1703,12 @@ export async function createServices({
       return { ok: true };
     },
     async "game.stop"() {
-      running?.kill();
+      stoppedByUser=true;running?.kill();
       return { ok: true };
     },
+    async "diagnostics.current"(){return lastCrash;},
+    async "diagnostics.folder"(){if(!lastCrash)throw Error("暂无异常报告");return shell.openPath(lastCrash.cwd);},
+    async "diagnostics.export"(){if(!lastCrash)throw Error("暂无异常报告");const r=await dialog.showSaveDialog(window(),{defaultPath:"幻想镇-游戏诊断.txt"});if(!r.canceled)await fs.writeFile(r.filePath,diagnosticText(lastCrash),"utf8");return {ok:true};},
     async "logs.export"() {
       const r = await dialog.showSaveDialog(window(), {
         defaultPath: "幻想镇启动日志.txt"

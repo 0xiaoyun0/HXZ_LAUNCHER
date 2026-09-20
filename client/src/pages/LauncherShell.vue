@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import {surfaceColor} from "../lib/surface";
 import PlayerAvatar from "../components/PlayerAvatar.vue";
 import { computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
@@ -29,7 +30,7 @@ const links = [
   { to: "/notices", icon: "campaign", label: "通知公告" }
 ];
 const visibleLinks = computed(() =>
-  links.filter(link => !state.settings.hiddenLinks?.includes(link.to))
+  [...links, ...(state.settings.linkingDiscovered && state.settings.showLinking ? [{to:"/signal",icon:"auto_awesome",label:"Linking"}] : [])].filter(link => !state.settings.hiddenLinks?.includes(link.to))
 );
 function columnVisible(name: "sidebar" | "workspace" | "dock") {
   return name === "workspace" || state.settings.columns[name].visible;
@@ -37,7 +38,7 @@ function columnVisible(name: "sidebar" | "workspace" | "dock") {
 function columnStyle(name: "sidebar" | "workspace") {
   const column = state.settings.columns[name];
   return {
-    backgroundColor: `color-mix(in srgb, ${column.color || (name === "sidebar" ? "var(--sidebar)" : "var(--bg)")} ${column.opacity * 100}%, transparent)`
+    backgroundColor: surfaceColor(column.color || (name === "sidebar" ? "var(--sidebar)" : "var(--bg)"), column.opacity)
   };
 }
 onMounted(() => {
@@ -110,7 +111,7 @@ onMounted(() => {
     >
       <header class="window-bar"
         ><div class="row items-center"
-          ><span class="window-label">HXZ LAUNCHER <b>0.4.2</b></span></div
+          ><span class="window-label">HXZ LAUNCHER <b>0.4.3</b></span></div
         ><div class="row items-center no-drag"
           ><q-btn
             v-if="!columnVisible('sidebar')"
@@ -170,7 +171,7 @@ onMounted(() => {
       <div v-if="!desktop" class="preview-banner"
         >浏览器预览 · 登录、文件管理与游戏启动请使用桌面版</div
       >
-      <main :class="['page-area', { 'home-area': route.path === '/' }]"
+      <main :class="['page-area', { 'home-area': route.path === '/', 'linking-area': route.path === '/signal' }]"
         ><router-view
       /></main>
       <LaunchDock />

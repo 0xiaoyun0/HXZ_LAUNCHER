@@ -74,12 +74,12 @@ final class AppUpdater {
                     try{
                         String raw=fetch(prefix+MANIFEST+"?t="+System.currentTimeMillis());JSONObject found=verifyManifest(raw);
                         if(candidate==null||found.getLong("versionCode")>candidate.getLong("versionCode")){candidate=found;envelope=raw;}
-                        if(found.getLong("versionCode")>BuildConfig.VERSION_CODE)break;
+                        // Compare all authenticated manifests: a mirror may cache an older release.
                     }catch(Exception e){failure=e;}
                 }
                 ensureActive();if(candidate==null)throw new IOException("所有更新源暂时不可用，请稍后重试",failure);
                 prefs.edit().putLong("checkedAt",System.currentTimeMillis()).apply();
-                synchronized(this){info=candidate;}
+                synchronized(this){if(info!=null && info.getLong("versionCode")>candidate.getLong("versionCode")){candidate=info;envelope=prefs.getString("manifest",envelope);}info=candidate;}
                 if(candidate.getLong("versionCode")<=BuildConfig.VERSION_CODE){set("latest","已是最新版本");return;}
                 prefs.edit().putString("manifest",envelope).apply();
                 if(apk.isFile()){try{validateApk(apk,candidate);set("ready","更新已就绪，点击安装");return;}catch(Exception ignored){apk.delete();}}
@@ -123,7 +123,9 @@ final class AppUpdater {
     }
     private void downloadNow(JSONObject target) throws Exception{
         Exception failure=null;long expected=target.getLong("size");
-        for(String prefix:MIRRORS){
+        for(int attempt=0;attempt<MIRRORS.length*2;attempt++){
+            String prefix=MIRRORS[attempt%MIRRORS.length];
+            if(attempt==MIRRORS.length){ensureActive();Thread.sleep(1500);}
             ensureActive();set("downloading","正在下载更新…");progress(sourceName(prefix),0,expected);
             try{
                 activeCall=http.newBuilder().callTimeout(4,TimeUnit.MINUTES).build().newCall(new Request.Builder().url(prefix+target.getString("url")).build());

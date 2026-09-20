@@ -82,11 +82,13 @@ export function endpoint(value) {
     throw Error("服务地址需要 HTTPS；本机调试可以使用 HTTP");
   return u.href.replace(/\/$/, "");
 }
+const sourceFailures=new Map();
+function preferHealthy(urls){return [...urls].sort((a,b)=>(sourceFailures.get(new URL(a).host)>Date.now()?1:0)-(sourceFailures.get(new URL(b).host)>Date.now()?1:0));}
 export async function remoteJSON(url, options = {}) {
   const candidates =
     !options.method || options.method === "GET" ? downloadSources(url) : [url];
   let failure;
-  for (const candidate of candidates)
+  for (const candidate of preferHealthy(candidates))
     try {
       return await remoteJSONOnce(candidate, options);
     } catch (error) {
@@ -135,12 +137,13 @@ export async function download(url, file, options = {}) {
   ];
   for (let attempt = 0; attempt < 3; attempt++) {
     let retryable = false;
-    for (const candidate of candidates) {
+    for (const candidate of preferHealthy(candidates)) {
       try {
-        return await downloadOne(candidate, file, options);
+        const result=await downloadOne(candidate,file,options);sourceFailures.delete(new URL(candidate).host);return result;
       } catch (error) {
         if (options.signal?.aborted) throw error;
         failure = error;
+        if(error.retryable!==false)sourceFailures.set(new URL(candidate).host,Date.now()+15000);
         retryable ||= error.retryable !== false;
       }
     }
@@ -248,7 +251,7 @@ async function downloadOne(
       }
     });
     await pipeline(
-      Readable.fromWeb(r.body),
+      Readable.fromWeb ? Readable.fromWeb(r.body) : Readable.from(readBody(r.body)),
       meter,
       createWriteStream(temp, { flags: "wx" }),
       { signal: transferSignal }
@@ -264,6 +267,11 @@ async function downloadOne(
     clearTimeout(idle);
     await fs.rm(temp, { force: true }).catch(() => {});
   }
+}
+async function* readBody(body) {
+  const reader=body.getReader();
+  try { for (;;) { const {done,value}=await reader.read(); if(done)return; yield value; } }
+  finally { await reader.cancel().catch(()=>{}); reader.releaseLock(); }
 }
 export async function parallel(values, fn, limit = 8) {
   let next = 0,

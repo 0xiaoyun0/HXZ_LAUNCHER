@@ -41,6 +41,17 @@ await fs.writeFile(path.join(client,'latest.json'),await signUpdate({version,fil
 await fs.writeFile(path.join(client,'latest.yml'),`version: ${version}\nfiles:\n  - url: ${JSON.stringify(exe)}\n    sha512: ${sha512}\n    size: ${size}\npath: ${JSON.stringify(exe)}\nsha512: ${sha512}\nreleaseDate: ${JSON.stringify(new Date().toISOString())}\n`);
 async function zip(dir,file){await new Promise((resolve,reject)=>{const child=spawn('tar.exe',['-a','-c','-f',file,'-C',dir,'.'],{stdio:'inherit',windowsHide:true,shell:false});child.on('error',reject);child.on('close',code=>code?reject(Error('ZIP failed '+code)):resolve());});}
 await Promise.all([zip(portable,path.join(client,'HXZ-Launcher-'+version+'-windows-x64-portable.zip')),zip(serverApp,path.join(server,'HXZ-Community-'+version+'-windows-x64.zip'))]);
-const checks=[];for(const folder of ['client','server'])for(const name of await fs.readdir(path.join(release,folder)))if(/\.(zip|exe|yml|json|blockmap)$/.test(name))checks.push((await digest(path.join(release,folder,name),'sha256'))+'  '+folder+'/'+name);
+const legacyBuild=path.join(root,'client/dist/electron/LegacyPackaged'),legacyExe='HXZ-Launcher-'+version+'-ia32.exe';
+if(await fs.stat(path.join(legacyBuild,legacyExe)).then(()=>true,()=>false)){
+ const legacyDir=path.join(release,'client-ia32');await fs.mkdir(legacyDir,{recursive:true});
+ for(const file of [legacyExe,legacyExe+'.blockmap'])await fs.copyFile(path.join(legacyBuild,file),path.join(legacyDir,file));
+ const portable=path.join(legacyDir,'幻想镇启动器');await fs.cp(path.join(legacyBuild,'win-ia32-unpacked'),portable,{recursive:true});
+ await fs.copyFile(path.join(client,'幻想镇启动器/便携启动.bat'),path.join(portable,'便携启动.bat'));
+ await fs.writeFile(path.join(legacyDir,'使用说明.txt'),'Windows 7 SP1 / 32位兼容版。现代Windows 64位请优先使用x64版。\n需要选择支持系统的32位Java，游戏最大堆限制1280MB。现代Minecraft版本不一定支持Win7或32位。\n便携版保留profile升级；安装版使用独立的ia32签名更新通道。\n');
+ const sha512=await digest(path.join(legacyDir,legacyExe),'sha512','base64'),size=(await fs.stat(path.join(legacyDir,legacyExe))).size;
+ await fs.writeFile(path.join(legacyDir,'latest-ia32.json'),await signUpdate({version,files:[{url:legacyExe,sha512,size}],releaseDate:new Date().toISOString(),releaseNotes:notes},'ia32'));
+ await zip(portable,path.join(legacyDir,'HXZ-Launcher-'+version+'-windows-ia32-portable.zip'));
+}
+const checks=[];for(const folder of ['client','server',...(await fs.stat(path.join(release,'client-ia32')).then(()=>['client-ia32'],()=>[]))])for(const name of await fs.readdir(path.join(release,folder)))if(/\.(zip|exe|yml|json|blockmap)$/.test(name))checks.push((await digest(path.join(release,folder,name),'sha256'))+'  '+folder+'/'+name);
 await fs.writeFile(path.join(release,'SHA256SUMS.txt'),checks.join('\n')+'\n');
 console.log('Separate client and server releases:',release);

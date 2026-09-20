@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import PlayerAvatar from "../components/PlayerAvatar.vue";
 import EmojiPicker from "../components/EmojiPicker.vue";
-import { ref, toRef, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
+import { computed, ref, toRef, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import type { QInput } from "quasar";
 import {
   groups,
@@ -26,6 +26,7 @@ const composer = ref<QInput>(),
   device = toRef(chatView, "device"),
   devices = toRef(chatView, "devices"),
   joining = ref(false);
+const onlineUsers = computed(()=>[...new Map(community.users.map(u=>[u.uid,u])).values()]);
 const rooms = [{ id: "lobby", name: "旅人休息室" }, ...groups];
 function voiceKeyLabel() {
   const code = state.settings.voiceKey || "KeyT";
@@ -109,7 +110,7 @@ watch(
     ><section class="panel chat-panel"
       ><header class="chat-header"
         ><h2><span class="hash">#</span> 公共大厅</h2
-        ><span class="subtle">{{ community.users.length }} 人在线</span></header
+        ><span class="subtle">{{ onlineUsers.length }} 人在线</span></header
       ><div ref="history" class="chat-history" @scroll.passive="rememberScroll"
         ><div v-if="!community.messages.length" class="chat-welcome"
           ><q-icon name="waving_hand" size="42px" /><h2>公共聊天</h2
@@ -286,18 +287,18 @@ watch(
       ><section class="panel online-panel"
         ><h2
           >在线用户
-          <span class="count-badge">{{ community.users.length }}</span></h2
-        ><div v-if="!community.users.length" class="subtle q-mt-md"
+          <span class="count-badge">{{ onlineUsers.length }}</span></h2
+        ><div v-if="!onlineUsers.length" class="subtle q-mt-md"
           >暂无在线用户</div
         ><div
-          v-for="member in community.users.slice(0, 40)"
+          v-for="member in onlineUsers.slice(0, 40)"
           :key="member.id"
           class="online-member"
           ><PlayerAvatar
             class="small"
             :name="member.name"
             :uid="member.uid"
-            :version="member.avatarVersion" /><span>{{ member.name }}</span
+            :version="member.avatarVersion" /><span>{{ member.name }}<small class="device-label">{{ member.devices?.includes("android") && member.devices?.includes("desktop") ? "手机 · 电脑" : member.devices?.includes("android") ? "手机在线" : "电脑在线" }}</small></span
           ><q-icon
             v-if="member.room"
             :name="member.muted ? 'mic_off' : 'headset_mic'" /><i
