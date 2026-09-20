@@ -11,6 +11,7 @@ import {
   perform,
   saveSettings,
   instanceConfig,
+  instanceMemoryLabel,
   orderedInstances,
   invoke,
   reload
@@ -296,7 +297,12 @@ async function chooseRoot() {
                   : "自动选择"
             }}</dd></div
           ><div
-            ><dt>分配内存</dt><dd>{{ config.memoryMB }} MB</dd></div
+            ><dt>分配内存</dt
+            ><dd>{{
+              selectedInstance
+                ? instanceMemoryLabel(selectedInstance.id)
+                : "自动分配"
+            }}</dd></div
           ><div
             ><dt>版本隔离</dt
             ><dd>{{

@@ -3,7 +3,7 @@ function message(text,error=false){$('message').hidden=false;$('message').textCo
 async function api(url,method='GET',body){const r=await fetch(url,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined});const value=await r.json();if(!r.ok)throw Error(value.error||'操作失败');return value;}
 function row(container,heading,body,button,action){const el=document.createElement('div');el.className='row';const content=document.createElement('div'),title=document.createElement('strong'),p=document.createElement('p');title.textContent=heading;p.textContent=body;content.append(title,p);el.append(content);if(button){const b=document.createElement('button');b.textContent=button;b.className='danger';b.onclick=()=>run(action);el.append(b);}container.append(el);}
 async function run(fn){try{await fn();}catch(e){message(e.message,true);}}
-function tab(value){current=value;if(value==='blueprints')void run(loadBlueprints);if(value==='forum')void run(loadForum);if(value==='users')void run(loadReviewers);document.querySelectorAll('[data-view]').forEach(el=>el.hidden=el.dataset.view!==value);document.querySelectorAll('[data-tab]').forEach(el=>{el.classList.toggle('active',el.dataset.tab===value);if(el.dataset.tab===value)$('heading').textContent=el.textContent;});}
+function tab(value){current=value;if(value==='arcana')void run(loadArcana);if(value==='blueprints')void run(loadBlueprints);if(value==='forum')void run(loadForum);if(value==='users')void run(loadReviewers);document.querySelectorAll('[data-view]').forEach(el=>el.hidden=el.dataset.view!==value);document.querySelectorAll('[data-tab]').forEach(el=>{el.classList.toggle('active',el.dataset.tab===value);if(el.dataset.tab===value)$('heading').textContent=el.textContent;});}
 async function refresh(){const [state,notices]=await Promise.all([api('/api/admin/overview'),api('/api/notices')]);$('online-count').textContent=state.online.length;$('voice-count').textContent=state.online.filter(p=>p.room).length;$('version').textContent=state.version;
  for(const id of ['online-list','notice-list','message-list','ban-list'])$(id).replaceChildren();
  for(const p of state.online)row($('online-list'),p.name,p.uid+(p.room?' · 语音 '+p.room:''),'封禁',async()=>{await api('/api/moderation','POST',{uid:p.uid,banned:true});await refresh();});
@@ -37,3 +37,27 @@ $('load-blueprints').onclick=()=>{blueprintOffset=0;void run(loadBlueprints);};$
 async function loadForum(){const value=await api('/api/forum/posts?manage=1&q='+encodeURIComponent($('forum-query').value)+'&offset='+forumOffset);$('forum-list').replaceChildren();for(const p of value.items)row($('forum-list'),p.title,p.name+' · '+p.category+' · '+p.replies+' 回复 · '+p.likes+' 赞'+(p.hidden?' · 已隐藏':'')+(p.locked?' · 已锁定':'')+(p.pinned?' · 已置顶':''),'管理帖子',()=>showPost(p.id));if(!value.items.length)$('forum-list').append(paragraph('暂无帖子'));$('forum-page').textContent=`${Math.floor(forumOffset/24)+1} / ${Math.max(1,Math.ceil(value.total/24))}`;$('forum-prev').disabled=forumOffset===0;$('forum-next').disabled=forumOffset+24>=value.total;}
 async function showPost(id,offset=0){const value=await api('/api/forum/posts/'+id+'?offset='+offset),p=value.post,container=contentDialog(p.title);container.append(paragraph(p.name+' · '+p.uid),paragraph(p.body,'pre'));const actions=document.createElement('div');actions.className='content-buttons';container.append(actions);for(const [label,key] of [[p.pinned?'取消置顶':'置顶','pinned'],[p.locked?'开放回复':'锁定回复','locked'],[p.hidden?'恢复公开':'隐藏帖子','hidden']])action(actions,label,async()=>{await api('/api/forum/posts/'+id+'/moderate','POST',{action:key,value:!p[key]});await showPost(id,offset);await loadForum();});action(actions,'删除帖子',async()=>{if(!confirm('删除帖子及全部回复？'))return;await api('/api/forum/posts/'+id,'DELETE');$('content-dialog').close();await loadForum();},true);container.append(paragraph('回复 · '+value.total,'h3'));for(const r of value.replies)row(container,r.name,r.body,'删除回复',async()=>{await api('/api/forum/replies/'+r.id,'DELETE');await showPost(id,offset);});const pagination=document.createElement('div');pagination.className='content-buttons';container.append(pagination);if(offset)action(pagination,'上一页回复',()=>showPost(id,Math.max(0,offset-24)));if(offset+24<value.total)action(pagination,'下一页回复',()=>showPost(id,offset+24));}
 $('load-forum').onclick=()=>{forumOffset=0;void run(loadForum);};$('forum-prev').onclick=()=>{forumOffset=Math.max(0,forumOffset-24);void run(loadForum);};$('forum-next').onclick=()=>{forumOffset+=24;void run(loadForum);};
+
+let arcanaConfig;
+function arcanaField(container,label,value,set,{large=false,lines=false,check=false}={}) {
+ const wrapper=document.createElement('label');wrapper.textContent=label;
+ const input=document.createElement(large?'textarea':'input');
+ if(check){input.type='checkbox';input.checked=value;}else{input.value=lines?JSON.stringify(value,null,2):value||'';input.maxLength=large?60000:2000;}
+ if(large)input.rows=lines?8:3;
+ input.oninput=()=>{input.setCustomValidity('');try{set(check?input.checked:lines?JSON.parse(input.value):input.value);}catch{input.setCustomValidity('请输入有效 JSON，每行包含 speaker 与 text');}};
+ wrapper.append(input);container.append(wrapper);
+}
+async function loadArcana(){
+ arcanaConfig=await api('/api/admin/arcana');const root=$('arcana-fields');root.replaceChildren();
+ arcanaField(root,'开启活动',arcanaConfig.enabled,v=>arcanaConfig.enabled=v,{check:true});
+ for(const [key,label] of [['title','活动名称'],['subtitle','副标题'],['accessCode','入口代码']])arcanaField(root,label,arcanaConfig[key],v=>arcanaConfig[key]=v);
+ for(const card of [...arcanaConfig.cards,arcanaConfig.center]){
+  const box=document.createElement('details'),heading=document.createElement('summary');heading.textContent=card.name;box.append(heading);root.append(box);
+  for(const [key,label] of [['name','牌名'],['activity','对应活动'],['unlockCode','点亮代码']])arcanaField(box,label,card[key],v=>card[key]=v);
+  if(card.id)arcanaField(box,'开放时间',card.unlockAt,v=>card.unlockAt=v);
+  for(const [key,label] of [['eyebrow','章节标识'],['title','详情标题'],['line','章节描述']])arcanaField(box,label,card.detail[key],v=>card.detail[key]=v,{large:key==='line'});
+  arcanaField(box,card.id?'对话（JSON）':'最终长剧情（JSON）',card.dialogue,v=>card.dialogue=v,{large:true,lines:true});
+  if(!card.id){arcanaField(box,'卡牌短对话（JSON）',card.cardDialogue,v=>card.cardDialogue=v,{large:true,lines:true});for(const key of ['english','signal','line'])arcanaField(box,key,card[key],v=>card[key]=v);}
+ }
+}
+$('arcana-form').onsubmit=event=>{event.preventDefault();void run(async()=>{if(!arcanaConfig)return;await api('/api/admin/arcana','PUT',arcanaConfig);message('活动已保存，玩家再次进入或刷新牌库后生效');});};

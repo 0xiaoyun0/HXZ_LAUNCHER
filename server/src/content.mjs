@@ -30,6 +30,11 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
     CREATE TABLE IF NOT EXISTS forum_replies(id TEXT PRIMARY KEY,post_id TEXT NOT NULL REFERENCES forum_posts(id) ON DELETE CASCADE,uid TEXT NOT NULL,name TEXT NOT NULL,body TEXT NOT NULL,created INTEGER NOT NULL,hidden INTEGER NOT NULL DEFAULT 0);
     CREATE INDEX IF NOT EXISTS forum_reply_post ON forum_replies(post_id,created);
     CREATE TABLE IF NOT EXISTS forum_likes(post_id TEXT NOT NULL REFERENCES forum_posts(id) ON DELETE CASCADE,uid TEXT NOT NULL,PRIMARY KEY(post_id,uid));`);
+  if (!db.prepare("PRAGMA table_info(forum_replies)").all().some(c => c.name === 'parent_id'))
+    db.exec("ALTER TABLE forum_replies ADD COLUMN parent_id TEXT REFERENCES forum_replies(id) ON DELETE SET NULL");
+  db.exec("CREATE INDEX IF NOT EXISTS forum_reply_parent ON forum_replies(parent_id)");
+  db.exec("CREATE TABLE IF NOT EXISTS forum_reply_likes(reply_id TEXT NOT NULL REFERENCES forum_replies(id) ON DELETE CASCADE,uid TEXT NOT NULL,PRIMARY KEY(reply_id,uid))");
+  function replyView(row,user) { return {...row,parentId:row.parent_id,likes:db.prepare('SELECT COUNT(*) AS n FROM forum_reply_likes WHERE reply_id=?').get(row.id).n,liked:!!user&&!!db.prepare('SELECT 1 FROM forum_reply_likes WHERE reply_id=? AND uid=?').get(row.id,user.uid)}; }
   const fail = (message, status = 400) => {
     throw Object.assign(Error(message), { status });
   };
@@ -162,6 +167,9 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
           send(res, 200, { ok: true });
           return true;
         }
+      }
+      if(p === '/api/blueprints/versions' && method === 'GET') {
+        send(res,200,{minecraft:db.prepare("SELECT DISTINCT mc FROM blueprints WHERE status='approved' AND mc<>'' ORDER BY mc DESC LIMIT 200").all().map(row=>row.mc),create:db.prepare("SELECT DISTINCT create_version FROM blueprints WHERE status='approved' AND create_version<>'' ORDER BY create_version DESC LIMIT 200").all().map(row=>row.create_version)});return true;
       }
       if (p === "/api/blueprints" && method === "GET") {
         const user = optionalUser(req),
@@ -388,14 +396,20 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
           const { offset, size } = pagination(url);
           const items = db
             .prepare(
-              "SELECT * FROM forum_replies WHERE post_id=?" +
+              "SELECT r.*, r.parent_id AS parentId, (SELECT name FROM forum_replies WHERE id=r.parent_id) AS parentName FROM forum_replies r WHERE post_id=?" +
                 (isAdmin(user) ? "" : " AND hidden=0") +
                 " ORDER BY created,id LIMIT ? OFFSET ?",
             )
             .all(item.id, size, offset);
+          const known=new Set(items.map(row=>row.id)), context=[];
+          for(const row of items){let parent=row.parent_id,depth=0;while(parent && !known.has(parent) && depth++<8){
+            const ancestor=db.prepare('SELECT * FROM forum_replies WHERE id=? AND post_id=?').get(parent,item.id);
+            if(!ancestor || (ancestor.hidden && !isAdmin(user)))break;
+            known.add(parent);context.push(ancestor);parent=ancestor.parent_id;
+          }}
           send(res, 200, {
             post: item,
-            replies: items,
+            replies: [...context, ...items].map(row=>replyView(row,user)),
             total: db
               .prepare(
                 "SELECT COUNT(*) AS n FROM forum_replies WHERE post_id=?" +
@@ -438,9 +452,13 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
             id = randomUUID(),
             current = post(item.id, user, true);
           if (current.locked || current.hidden) fail("该帖子已关闭回复");
+          const parentId = input.parentId || null;
+          if(parentId && (typeof parentId !== 'string' || !db.prepare("SELECT 1 FROM forum_replies WHERE id=? AND post_id=? AND hidden=0").get(parentId,item.id))) fail("被回复的评论不存在或不属于此帖子");
+          let ancestorId=parentId,depth=0;
+          while(ancestorId){if(++depth>8)fail('回复层级过深，请回复上级评论');ancestorId=db.prepare('SELECT parent_id FROM forum_replies WHERE id=?').get(ancestorId)?.parent_id;}
           db.prepare(
-            "INSERT INTO forum_replies(id,post_id,uid,name,body,created) VALUES(?,?,?,?,?,?)",
-          ).run(id, item.id, user.uid, user.name, text(input.body, 5000), Date.now());
+            "INSERT INTO forum_replies(id,post_id,uid,name,body,created,parent_id) VALUES(?,?,?,?,?,?,?)",
+          ).run(id, item.id, user.uid, user.name, text(input.body, 5000), Date.now(), parentId);
           db.prepare("UPDATE forum_posts SET updated=? WHERE id=?").run(Date.now(), item.id);
           send(res, 201, { id });
           return true;
@@ -459,6 +477,16 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
           return true;
         }
         fail("不支持的论坛操作", 405);
+      }
+      const replyLike=p.match(/^\/api\/forum\/replies\/([\w-]+)\/like$/);
+      if(replyLike && method==='PUT'){
+        const user=auth(req);limit('reply-like:'+user.uid,60);const input=await body(req);auth(req);
+        const item=db.prepare('SELECT * FROM forum_replies WHERE id=? AND hidden=0').get(replyLike[1]);
+        if(!item)fail('回复不存在',404);post(item.post_id,user);
+        if(typeof input.liked!=='boolean')fail('点赞状态无效');
+        if(input.liked)db.prepare('INSERT OR IGNORE INTO forum_reply_likes VALUES(?,?)').run(item.id,user.uid);
+        else db.prepare('DELETE FROM forum_reply_likes WHERE reply_id=? AND uid=?').run(item.id,user.uid);
+        send(res,200,replyView(item,user));return true;
       }
       const reply = p.match(/^\/api\/forum\/replies\/([\w-]+)$/);
       if (reply && method === "DELETE") {

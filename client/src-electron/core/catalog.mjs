@@ -138,3 +138,8 @@ export async function modVersions(id) {
   if (!/^[\w-]{1,100}$/.test(id)) throw Error("无效模组项目");
   return remoteJSON("https://api.modrinth.com/v2/project/" + id + "/version");
 }
+
+export async function modVersion(id) {
+  if (!/^[\w-]{1,100}$/.test(id)) throw Error("无效模组版本");
+  return remoteJSON("https://api.modrinth.com/v2/version/" + id);
+}

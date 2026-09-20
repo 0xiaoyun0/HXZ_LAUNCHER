@@ -10,14 +10,27 @@ export const REPOSITORY = {
 export async function launcherReleases() {
   let items;
   try {
-    items = await remoteJSON(
-      "https://api.github.com/repos/0xiaoyun0/HXZ_LAUNCHER/releases?per_page=100",
-      {
-        headers: { Accept: "application/vnd.github+json" },
-        signal: AbortSignal.timeout(6000)
+    items = [];
+    // Bound memory and latency while retaining paginated release history.
+    for (let page = 1; page <= 10; page++) {
+      let batch;
+      try {
+        batch = await remoteJSON(
+          "https://api.github.com/repos/0xiaoyun0/HXZ_LAUNCHER/releases?per_page=100&page=" +
+            page,
+          {
+            headers: { Accept: "application/vnd.github+json" },
+            signal: AbortSignal.timeout(6000)
+          }
+        );
+        if (!Array.isArray(batch)) throw Error("GitHub 更新日志格式错误");
+      } catch (error) {
+        if (items.length) break;
+        throw error;
       }
-    );
-    if (!Array.isArray(items)) throw Error("GitHub 更新日志格式错误");
+      items.push(...batch);
+      if (batch.length < 100) break;
+    }
   } catch {
     const { info } = await discoverRelease();
     return [

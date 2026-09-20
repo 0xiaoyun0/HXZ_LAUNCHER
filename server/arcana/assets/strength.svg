@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 900">
+  <defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#512d43"/><stop offset=".48" stop-color="#25172a"/><stop offset="1" stop-color="#0c0a12"/></linearGradient><radialGradient id="f"><stop stop-color="#ffd49a"/><stop offset="1" stop-color="#e95767" stop-opacity="0"/></radialGradient></defs>
+  <rect width="640" height="900" fill="url(#g)"/><ellipse cx="320" cy="490" rx="220" ry="295" fill="url(#f)" opacity=".65"/>
+  <path d="M320 740c-57-91-39-166 0-220 39 54 57 129 0 220Z" fill="#ff9cad"/><path d="M320 520c-24-82 20-149 64-190-3 75-4 132-64 190Z" fill="#ffcf77"/><path d="M320 540c26-91 75-128 114-146-14 73-55 128-114 146Z" fill="#ee6477"/><path d="M320 546c-28-62-74-99-115-114 11 66 62 111 115 114Z" fill="#ffc581"/>
+  <path d="M126 280c98 49 162 119 194 216 32-97 96-167 194-216" fill="none" stroke="#ff9cad" stroke-opacity=".45" stroke-width="2"/>
+  <circle cx="320" cy="450" r="165" fill="none" stroke="#ff9cad" stroke-opacity=".28" stroke-dasharray="2 11"/><path d="M320 276v348M146 450h348" stroke="#ffcf77" stroke-opacity=".2"/>
+  <text x="40" y="72" fill="#f4f1e9" font-family="serif" font-size="25" letter-spacing="4">IV</text><text x="40" y="840" fill="#ff9cad" font-family="monospace" font-size="13" letter-spacing="4">STRENGTH</text>
+</svg>

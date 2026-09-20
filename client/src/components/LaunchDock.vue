@@ -16,8 +16,7 @@ import {
 function dockStyle() {
   const column = state.settings.columns.dock;
   return {
-    ...(column.color ? { backgroundColor: column.color } : {}),
-    ...(column.opacity !== 1 ? { opacity: column.opacity } : {})
+    backgroundColor: `color-mix(in srgb, ${column.color || "var(--panel)"} ${column.opacity * 100}%, transparent)`
   };
 }
 </script>
@@ -38,10 +37,13 @@ function dockStyle() {
           task.busy
             ? task.phase + " · " + taskCount
             : selectedInstance
-              ? selectedInstance.version + " · " + state.settings.memoryMode ===
-                "auto"
-                ? "自动内存"
-                : instanceConfig(selectedInstance.id).memoryMB + " MB"
+              ? selectedInstance.version +
+                " · " +
+                ((instanceConfig(selectedInstance.id).memoryMode === "inherit"
+                  ? state.settings.memoryMode
+                  : instanceConfig(selectedInstance.id).memoryMode) === "auto"
+                  ? "自动内存"
+                  : instanceConfig(selectedInstance.id).memoryMB + " MB")
               : "在实例列表中选择或添加游戏"
         }}</small></div
       ></div

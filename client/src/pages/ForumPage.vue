@@ -140,8 +140,8 @@ async function sendReply() {
       true
     );
     reply.value = "";
-    replyParent.value = null;
     replyPage.value = Math.ceil((replyTotal.value + 1) / 24);
+    replyParent.value = null;
     await loadDetail();
     void nextTick(() => composer.value?.focus());
   } finally {

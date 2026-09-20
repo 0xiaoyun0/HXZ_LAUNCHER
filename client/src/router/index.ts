@@ -8,6 +8,10 @@ export default defineRouter(() =>
         path: "/",
         component: () => import("../pages/LauncherShell.vue"),
         children: [
+          {
+            path: "signal",
+            component: () => import("../pages/ArcanaPage.vue")
+          },
           { path: "", component: () => import("../pages/HomePage.vue") },
           {
             path: "instances",

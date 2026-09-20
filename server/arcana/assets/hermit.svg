@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 900">
+  <defs><linearGradient id="g" x2="1" y2="1"><stop stop-color="#403a2b"/><stop offset=".42" stop-color="#20201d"/><stop offset="1" stop-color="#0b0c11"/></linearGradient><radialGradient id="l"><stop stop-color="#fff2bf"/><stop offset="1" stop-color="#d7a95f" stop-opacity="0"/></radialGradient></defs>
+  <rect width="640" height="900" fill="url(#g)"/><circle cx="326" cy="370" r="210" fill="url(#l)" opacity=".45"/>
+  <path d="M84 760 128 394l64-44 47 63 53-83 53 83 55-69 58 69 75-43 61 390Z" fill="#090b10" stroke="#d6c9a7" stroke-opacity=".48"/>
+  <path d="M325 696V291M325 291l-54-83M325 291l66-88" stroke="#d6c9a7" stroke-width="7" stroke-linecap="round"/><circle cx="325" cy="290" r="24" fill="#fff2bf"/><circle cx="325" cy="290" r="92" fill="none" stroke="#d6c9a7" stroke-opacity=".32" stroke-dasharray="2 12"/>
+  <text x="40" y="72" fill="#f4f1e9" font-family="serif" font-size="25" letter-spacing="4">VI</text><text x="40" y="840" fill="#d6c9a7" font-family="monospace" font-size="13" letter-spacing="4">THE HERMIT</text>
+</svg>

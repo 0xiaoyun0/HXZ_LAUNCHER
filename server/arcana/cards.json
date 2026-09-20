@@ -1,0 +1,212 @@
+{
+  "accessCode": "HXZ-ARCANA",
+  "title": "同一张地图",
+  "subtitle": "一个周目，七次相遇",
+  "center": {
+    "name": "恋人",
+    "english": "THE LOVERS",
+    "signal": "SOMEWHERE ELSE",
+    "unlockCode": "LOVERS-AGAIN",
+    "activity": "最终活动",
+    "detail": {
+      "eyebrow": "08 / THE LOVERS",
+      "title": "恋人",
+      "line": "他们在同一张地图上相爱过，却没能一起走出这里。"
+    },
+    "cardDialogue": [
+      {"speaker": "A", "text": "你还在这里。"},
+      {"speaker": "B", "text": "你终于回来了。"},
+      {"speaker": "A", "text": "这一次，我知道该怎么找到你。"}
+    ],
+    "art": "/assets/lovers-gpt.png",
+    "line": "他们在同一张地图上相爱过，却没能一起走出这里。",
+    "dialogue": [
+      {"speaker": "—", "text": "公告在零点前弹出：这个世界将在今天关闭。"},
+      {"speaker": "A", "text": "还剩三分钟。"},
+      {"speaker": "B", "text": "我知道。"},
+      {"speaker": "A", "text": "你说过，找到出口就能一起出去。"},
+      {"speaker": "B", "text": "我说的是‘你’能出去。"},
+      {"speaker": "A", "text": "我们不是一直一起玩吗？"},
+      {"speaker": "B", "text": "你一直在和一个留下来的记录说话。"},
+      {"speaker": "—", "text": "他终于明白，那些迟到的回应、永远不变的坐标，以及每一盏只为他亮起的灯，都不是偶然。"},
+      {"speaker": "A", "text": "所以你不是玩家。"},
+      {"speaker": "B", "text": "我曾经是。这个周目结束后，我只会留在地图里。"},
+      {"speaker": "A", "text": "那我留下。"},
+      {"speaker": "B", "text": "你留下，也只会得到一张空地图。"},
+      {"speaker": "A", "text": "我可以把你带到现实里。"},
+      {"speaker": "B", "text": "现实没有我的名字，也没有我的坐标。"},
+      {"speaker": "—", "text": "他们走到那盏灯下。七张牌曾经指向同一个地方，而现在，所有路都安静下来。"},
+      {"speaker": "A", "text": "你为什么还要让我点亮它们？"},
+      {"speaker": "B", "text": "因为我想让你记住，我们不是从一开始就相爱。"},
+      {"speaker": "A", "text": "我们花了七次，才学会说一句真话。"},
+      {"speaker": "B", "text": "你现在可以说了。"},
+      {"speaker": "A", "text": "我爱你。"},
+      {"speaker": "—", "text": "很久没有回应。远处的区块开始一格一格地消失。"},
+      {"speaker": "B", "text": "我也爱你。"},
+      {"speaker": "A", "text": "那我们现在是什么？"},
+      {"speaker": "B", "text": "在这张地图上，是彼此的恋人。"},
+      {"speaker": "A", "text": "离开这里呢？"},
+      {"speaker": "B", "text": "离开以后，我们连相遇都不能证明。"},
+      {"speaker": "A", "text": "那我再进来。"},
+      {"speaker": "B", "text": "地图不会再开。"},
+      {"speaker": "—", "text": "最后一盏灯熄灭前，他看见对方向自己伸出手。中间仍隔着那条无法跨过的光。"},
+      {"speaker": "B", "text": "别把我变成你现实里找不到的人。"},
+      {"speaker": "A", "text": "我会记住你。"},
+      {"speaker": "B", "text": "记得就好。"},
+      {"speaker": "—", "text": "世界关闭。恋人牌留下了，但它没有记录他们下一次相见的坐标。"}
+    ]
+  },
+  "cards": [
+    {
+      "id": "moon",
+      "slot": "moon",
+      "name": "月亮",
+      "unlockCode": "MOON-HIDE",
+      "activity": "躲猫猫",
+      "unlockAt": "2026-09-17T09:19:00+08:00",
+      "art": "/assets/moon-gpt.png",
+      "detail": {
+        "eyebrow": "01 / THE MOON",
+        "title": "月亮",
+        "line": "第一次见面时，谁也没看见真正的对方。"
+      },
+      "dialogue": [
+        {"speaker": "A", "text": "你躲在教堂后面，为什么不动？"},
+        {"speaker": "B", "text": "你不是来找我的。"},
+        {"speaker": "A", "text": "我在找所有人。"},
+        {"speaker": "B", "text": "那就别只记住我。"}
+      ]
+    },
+    {
+      "id": "emperor",
+      "slot": "emperor",
+      "name": "皇帝",
+      "unlockCode": "EMPEROR-BUILD",
+      "activity": "建筑大赛",
+      "unlockAt": "2026-09-17T09:20:00+08:00",
+      "art": "/assets/emperor-gpt.png",
+      "detail": {
+        "eyebrow": "02 / THE EMPEROR",
+        "title": "皇帝",
+        "line": "他用规则保护自己，她把规则当成拒绝。"
+      },
+      "dialogue": [
+        {"speaker": "A", "text": "这次建筑赛，队伍要三个人。"},
+        {"speaker": "B", "text": "那我不参加。"},
+        {"speaker": "A", "text": "我已经把你的名字写上去了。"},
+        {"speaker": "B", "text": "你总是替我决定。"},
+        {"speaker": "A", "text": "因为你从来不说你想要什么。"}
+      ]
+    },
+    {
+      "id": "chariot",
+      "slot": "chariot",
+      "name": "战车",
+      "unlockCode": "CHARIOT-RUN",
+      "activity": "跑酷竞速",
+      "unlockAt": "2026-09-17T09:21:00+08:00",
+      "art": "/assets/chariot-gpt.png",
+      "detail": {
+        "eyebrow": "03 / THE CHARIOT",
+        "title": "战车",
+        "line": "他们第一次并肩向前，却仍在跑向不同的终点。"
+      },
+      "dialogue": [
+        {"speaker": "B", "text": "别等我，先走。"},
+        {"speaker": "A", "text": "我没有等你。"},
+        {"speaker": "B", "text": "那你为什么每个检查点都停下来？"},
+        {"speaker": "A", "text": "因为你会迷路。"},
+        {"speaker": "B", "text": "我只是想知道，你会不会回头。"}
+      ]
+    },
+    {
+      "id": "strength",
+      "slot": "strength",
+      "name": "力量",
+      "unlockCode": "STRENGTH-STAY",
+      "activity": "生存挑战",
+      "unlockAt": "2026-09-17T09:22:00+08:00",
+      "art": "/assets/strength-gpt.png",
+      "detail": {
+        "eyebrow": "04 / STRENGTH",
+        "title": "力量",
+        "line": "理解不是听懂，而是终于不急着反驳。"
+      },
+      "dialogue": [
+        {"speaker": "A", "text": "你可以把火把给我。"},
+        {"speaker": "B", "text": "你不是不怕黑吗？"},
+        {"speaker": "A", "text": "我怕。只是以前没说。"},
+        {"speaker": "B", "text": "那今晚我守夜。"},
+        {"speaker": "A", "text": "不用。一起吧。"}
+      ]
+    },
+    {
+      "id": "magician",
+      "slot": "magician",
+      "name": "魔术师",
+      "unlockCode": "MAGICIAN-MAKE",
+      "activity": "红石挑战",
+      "unlockAt": "2026-09-17T09:23:00+08:00",
+      "art": "/assets/magician-gpt.png",
+      "detail": {
+        "eyebrow": "05 / THE MAGICIAN",
+        "title": "魔术师",
+        "line": "他们把不会说的话，藏进一座会亮的房子。"
+      },
+      "dialogue": [
+        {"speaker": "B", "text": "你建这个门，是给谁的？"},
+        {"speaker": "A", "text": "给会回来的人。"},
+        {"speaker": "B", "text": "如果他不回来呢？"},
+        {"speaker": "A", "text": "那就让灯一直亮着。"},
+        {"speaker": "B", "text": "你可以直接说是给我。"},
+        {"speaker": "A", "text": "我不太会。"}
+      ]
+    },
+    {
+      "id": "hermit",
+      "slot": "hermit",
+      "name": "隐者",
+      "unlockCode": "HERMIT-LIGHT",
+      "activity": "遗迹探索",
+      "unlockAt": "2026-09-17T09:24:00+08:00",
+      "art": "/assets/hermit-gpt.png",
+      "detail": {
+        "eyebrow": "06 / THE HERMIT",
+        "title": "隐者",
+        "line": "一个人终于说清楚，另一个人却已经在准备离开。"
+      },
+      "dialogue": [
+        {"speaker": "A", "text": "你最近总在看坐标。"},
+        {"speaker": "B", "text": "我找到出口了。"},
+        {"speaker": "A", "text": "这里不是迷路的地方吗？"},
+        {"speaker": "B", "text": "对我来说不是。"},
+        {"speaker": "A", "text": "那你为什么还带我来？"},
+        {"speaker": "B", "text": "因为我想记住你走过的路。"}
+      ]
+    },
+    {
+      "id": "justice",
+      "slot": "justice",
+      "name": "正义",
+      "unlockCode": "JUSTICE-TRUTH",
+      "activity": "终局竞技",
+      "unlockAt": "2026-09-17T09:25:00+08:00",
+      "art": "/assets/justice-gpt.png",
+      "detail": {
+        "eyebrow": "07 / JUSTICE",
+        "title": "正义",
+        "line": "他们终于把答案放在彼此面前，答案却没有留下他们的方式。"
+      },
+      "dialogue": [
+        {"speaker": "A", "text": "服务器明天关服。"},
+        {"speaker": "B", "text": "我知道。"},
+        {"speaker": "A", "text": "你可以跟我一起出去。"},
+        {"speaker": "B", "text": "我没有‘出去’这个选项。"},
+        {"speaker": "A", "text": "那我留下。"},
+        {"speaker": "B", "text": "你会忘记怎么回到这里。"},
+        {"speaker": "A", "text": "至少我会记得你。"},
+        {"speaker": "B", "text": "记得就好。"}
+      ]
+    }
+  ]
+}

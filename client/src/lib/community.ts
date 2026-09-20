@@ -1,4 +1,4 @@
-import { reactive } from "vue";
+import { reactive, watch } from "vue";
 import { createRelayVoice } from "./voice-relay.mjs";
 import { invoke, errorMessage, loadNotices, state } from "./launcher";
 export interface Member {
@@ -109,6 +109,11 @@ function playVoiceTone(action: "join" | "leave") {
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.16);
     oscillator.connect(gain).connect(audioContext.destination);
     oscillator.start(now);
+    oscillator.onended = () => {
+      oscillator.disconnect();
+      gain.disconnect();
+    };
+    void audioContext.resume().catch(() => {});
     oscillator.stop(now + 0.18);
   } catch {}
 }
@@ -145,6 +150,8 @@ function voiceCleanup() {
   chatView.voiceTalking = false;
 }
 export function disconnect() {
+  void audioContext?.close().catch(() => {});
+  audioContext = null;
   wanted = false;
   retries = 0;
   generation++;
@@ -393,7 +400,19 @@ export function toggleDeafen() {
 function handleTalkKey(event: KeyboardEvent, active: boolean) {
   if (state.settings.voiceMode !== "push-to-talk" || !voiceKeyMatches(event))
     return;
-  if (active && event.repeat) return;
+  if (
+    active &&
+    (event.repeat ||
+      event.isComposing ||
+      event.defaultPrevented ||
+      !community.room ||
+      (event.target instanceof Element &&
+        !!event.target.closest(
+          'input,textarea,select,[contenteditable="true"],[role="textbox"]'
+        )))
+  )
+    return;
+  if (!active && !talking) return;
   event.preventDefault();
   talking = active;
   community.voiceTalking = active;
@@ -401,6 +420,14 @@ function handleTalkKey(event: KeyboardEvent, active: boolean) {
 }
 window.addEventListener("keydown", event => handleTalkKey(event, true));
 window.addEventListener("keyup", event => handleTalkKey(event, false));
+watch(
+  () => [state.settings.voiceMode, state.settings.voiceKey],
+  () => {
+    talking = false;
+    community.voiceTalking = false;
+    chatView.voiceTalking = false;
+  }
+);
 window.addEventListener("blur", () => {
   talking = false;
   community.voiceTalking = false;
@@ -440,4 +467,38 @@ export async function communityRequest<T>(
   const value = await response.json();
   if (!response.ok) throw Error(value.error || "社区请求未完成");
   return value as T;
+}
+
+export async function communityAsset(
+  path: string,
+  signal: AbortSignal
+): Promise<Blob> {
+  if (!credentials) throw Error("请先连接社区");
+  if (!/^\/api\/arcana\/art\/[\w-]+\.(png|svg)$/.test(path))
+    throw Error("无效活动图片");
+  const response = await fetch(credentials.base + path, {
+    headers: { Authorization: "Bearer " + credentials.token },
+    signal: AbortSignal.any([signal, AbortSignal.timeout(30000)]),
+    redirect: "error"
+  });
+  if (!response.ok || !response.body)
+    throw Error("卡面加载失败，请重新进入活动");
+  const type = response.headers.get("content-type")?.split(";")[0];
+  if (!["image/png", "image/svg+xml"].includes(type || ""))
+    throw Error("卡面格式无效");
+  const reader = response.body.getReader(),
+    chunks: ArrayBuffer[] = [];
+  let size = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > 4 * 1024 * 1024) throw Error("卡面图片过大");
+      chunks.push(value.slice().buffer);
+    }
+  } finally {
+    await reader.cancel().catch(() => {});
+  }
+  return new Blob(chunks, { type: type! });
 }

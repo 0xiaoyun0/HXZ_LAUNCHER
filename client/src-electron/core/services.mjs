@@ -1,3 +1,4 @@
+import { instanceTarget, modPlan } from "./mod-plan.mjs";
 import {
   normalizeDownloadConcurrency,
   validateDownloadConcurrency
@@ -60,7 +61,7 @@ export async function createServices({
     javaPath: "",
     selectedInstance: "",
     selectedAccount: "",
-    theme: "dark",
+    theme: "light",
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
@@ -92,29 +93,8 @@ export async function createServices({
   };
   if (await exists(configFile))
     settings = { ...settings, ...(await json(configFile)) };
-  if (settings.appearanceVersion !== APPEARANCE_VERSION) {
-    settings = {
-      ...settings,
-      appearanceVersion: APPEARANCE_VERSION,
-      theme: "dark",
-      fontSize: 15,
-      accentColor: "#a9ce80",
-      backgroundColor: "",
-      backgroundImage: "",
-      backgroundOpacity: 0.4,
-      backgroundPositionX: 50,
-      backgroundPositionY: 50,
-      backgroundFit: "cover",
-      layout: "standard",
-      hiddenLinks: [],
-      columns: {
-        sidebar: { visible: true, color: "", opacity: 1, label: "游戏与社区" },
-        workspace: { visible: true, color: "", opacity: 1, label: "主工作区" },
-        dock: { visible: true, color: "", opacity: 1, label: "任务详情" }
-      }
-    };
-    await writeJSON(configFile, settings);
-  }
+  // Extend old settings without resetting the player's appearance.
+  settings.appearanceVersion = APPEARANCE_VERSION;
   settings.hiddenLinks = Array.isArray(settings.hiddenLinks)
     ? settings.hiddenLinks.filter(
         value =>
@@ -127,21 +107,21 @@ export async function createServices({
       color: "",
       opacity: 1,
       label: "游戏与社区",
-      ...(settings.columns?.sidebar || {})
+      ...settings.columns?.sidebar
     },
     workspace: {
       visible: true,
       color: "",
       opacity: 1,
       label: "主工作区",
-      ...(settings.columns?.workspace || {})
+      ...settings.columns?.workspace
     },
     dock: {
       visible: true,
       color: "",
       opacity: 1,
       label: "任务详情",
-      ...(settings.columns?.dock || {})
+      ...settings.columns?.dock
     }
   };
   settings.columns.workspace.visible = true;
@@ -303,7 +283,12 @@ export async function createServices({
     if (task || running) throw Error("请等待当前任务完成或先停止游戏");
   }
   function memoryFor(cfg) {
-    if (settings.memoryMode !== "auto") return cfg.memoryMB;
+    if (
+      (cfg.memoryMode && cfg.memoryMode !== "inherit"
+        ? cfg.memoryMode
+        : settings.memoryMode) !== "auto"
+    )
+      return cfg.memoryMB;
     const total = Math.floor(os.totalmem() / 1048576);
     const free = Math.floor(os.freemem() / 1048576);
     return Math.max(
@@ -1181,6 +1166,9 @@ export async function createServices({
           ...settings.instanceSettings[id],
           autoJoin: !!v.autoJoin,
           serverAddress: serverAddress(v.serverAddress || ""),
+          memoryMode: ["auto", "manual"].includes(v.memoryMode)
+            ? v.memoryMode
+            : "inherit",
           memoryMB: v.memoryMB,
           favorite: !!v.favorite,
           width: v.width,
@@ -1262,11 +1250,16 @@ export async function createServices({
       return { ok: true };
     },
     async "mods.search"(input) {
+      const target = instanceTarget(
+        await readVersion(settings.gameRoot, input.instance)
+      );
+      if (!target.loader)
+        throw Error("原版实例不能直接加载 MOD，请先安装加载器");
       return catalog.searchMods(
         input.query,
         input.offset,
-        input.minecraft,
-        input.loader
+        target.minecraft,
+        target.loader
       );
     },
     async "mods.download"(input) {
@@ -1276,24 +1269,72 @@ export async function createServices({
         !/^[\w-]{1,100}$/.test(input.project)
       )
         throw Error("无效模组项目");
-      const versions = await catalog.modVersions(input.project),
-        version = versions.find(v => v.id === input.version) || versions[0],
-        file = version?.files?.find(v => v.primary) || version?.files?.[0];
-      if (!file?.url || !/\.jar$/i.test(file.filename || ""))
-        throw Error("未找到可下载的模组文件");
-      const dir = await modDirectory(settings, input.instance),
-        filename = path.basename(file.filename).replace(/[\\/:*?"<>|]/g, "_");
-      if (!/^[-\w .]+\.jar$/i.test(filename)) throw Error("模组文件名无效");
-      const target = modFile(dir, filename);
-      await noLinks(target);
-      await fs.mkdir(dir, { recursive: true });
-      await download(file.url, target, {
-        sha1: file.hashes?.sha1,
-        sha512: file.hashes?.sha512,
-        size: file.size,
-        maxSize: 256 * 1024 * 1024
+      const target = instanceTarget(
+        await readVersion(settings.gameRoot, input.instance)
+      );
+      const plan = await modPlan(target, input.project, input.version, {
+        versions: catalog.modVersions,
+        version: catalog.modVersion
       });
-      return { ok: true, file: filename };
+      const dir = await modDirectory(settings, input.instance),
+        staging = path.join(data, "mod-downloads", randomUUID()),
+        installed = [];
+      const controller = new AbortController();
+      task = controller;
+      try {
+        await noLinks(dir);
+        await fs.mkdir(dir, { recursive: true });
+        await fs.mkdir(staging, { recursive: true });
+        for (let i = 0; i < plan.length; i++) {
+          const f = plan[i];
+          phase({
+            phase: "下载 MOD · " + f.filename,
+            busy: true,
+            completed: i,
+            total: plan.length
+          });
+          await download(f.url, path.join(staging, f.filename), {
+            sha512: f.hashes.sha512,
+            size: f.size,
+            maxSize: 256 * 1024 * 1024,
+            signal: controller.signal
+          });
+        }
+        for (const f of plan) {
+          controller.signal.throwIfAborted();
+          const dest = modFile(dir, f.filename);
+          await noLinks(dest);
+          if (await exists(dest)) {
+            if ((await hash(dest, "sha512")) === f.hashes.sha512) continue;
+            throw Error("同名 MOD 已存在，请先在管理页移除：" + f.filename);
+          }
+          await fs.copyFile(
+            path.join(staging, f.filename),
+            dest,
+            fs.constants.COPYFILE_EXCL
+          );
+          installed.push(dest);
+        }
+        phase({
+          phase: "MOD 安装完成",
+          busy: false,
+          completed: plan.length,
+          total: plan.length
+        });
+        return { ok: true, files: plan.map(f => f.filename) };
+      } catch (error) {
+        for (const file of installed) await fs.rm(file, { force: true });
+        phase({
+          phase: "MOD 安装未完成",
+          busy: false,
+          failure: error.message,
+          failed: true
+        });
+        throw error;
+      } finally {
+        task = null;
+        await fs.rm(staging, { recursive: true, force: true });
+      }
     },
     async "mods.list"(input) {
       return listMods(await modDirectory(settings, input.id));

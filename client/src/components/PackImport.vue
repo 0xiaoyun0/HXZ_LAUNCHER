@@ -78,20 +78,43 @@ onBeforeUnmount(() => {
             >{{ importing.pack.loader || "原版" }}
             {{ importing.pack.loaderVersion }}</span
           ><span>{{ importing.pack.format || "Minecraft ZIP" }}</span
-          ><span
-            >{{
-              (importing.pack.files?.length || 0) +
-              (importing.pack.embedded?.length || 0)
-            }}
-            个文件</span
-          ></div
+          ><span>{{ importing.pack.fileCount }} 个文件</span></div
         ><q-input
           v-model="importing.name"
           outlined
           label="实例名称"
           class="q-mt-lg"
           :disable="importing.working"
-        /><q-checkbox
+        /><template v-if="importing.pack.format === 'minecraft-zip'">
+          <q-input
+            v-model="importing.pack.minecraft"
+            outlined
+            label="Minecraft 版本（ZIP 未提供版本清单）"
+            class="q-mt-md"
+          />
+          <q-select
+            v-model="importing.pack.loader"
+            outlined
+            :options="[
+              { label: '原版', value: '' },
+              { label: 'Fabric', value: 'fabric' },
+              { label: 'Quilt', value: 'quilt' },
+              { label: 'Forge', value: 'forge' },
+              { label: 'NeoForge', value: 'neoforge' }
+            ]"
+            emit-value
+            map-options
+            label="加载器"
+            class="q-mt-md"
+          />
+          <q-input
+            v-if="importing.pack.loader"
+            v-model="importing.pack.loaderVersion"
+            outlined
+            label="加载器版本"
+            class="q-mt-md"
+          /> </template
+        ><q-checkbox
           v-if="importing.pack.optionalFiles.length"
           v-model="importing.optional"
           :label="'安装可选文件（' + importing.pack.optionalFiles.length + '）'"

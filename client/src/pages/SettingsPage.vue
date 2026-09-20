@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, onBeforeUnmount, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { secretSequence } from "../lib/secret-sequence";
+const router = useRouter();
+const secretKey = secretSequence(() => {
+  void router.push("/signal");
+});
+onMounted(() => window.addEventListener("keydown", secretKey));
+onBeforeUnmount(() => window.removeEventListener("keydown", secretKey));
 import {
   state,
   appUpdate,
@@ -36,6 +44,7 @@ function voiceKeyName(code: string) {
 function captureVoiceKey(event: KeyboardEvent) {
   if (!capturingVoiceKey.value) return;
   event.preventDefault();
+  event.stopImmediatePropagation();
   if (event.code === "Escape") {
     capturingVoiceKey.value = false;
     return;
@@ -44,9 +53,16 @@ function captureVoiceKey(event: KeyboardEvent) {
   capturingVoiceKey.value = false;
 }
 function startVoiceKeyCapture() {
+  window.removeEventListener("keydown", captureVoiceKey, true);
   capturingVoiceKey.value = true;
-  window.addEventListener("keydown", captureVoiceKey, { once: true });
+  window.addEventListener("keydown", captureVoiceKey, {
+    once: true,
+    capture: true
+  });
 }
+onBeforeUnmount(() =>
+  window.removeEventListener("keydown", captureVoiceKey, true)
+);
 const connection = ref(""),
   checking = ref(false),
   downloadMode = ref(state.settings.downloadMode);

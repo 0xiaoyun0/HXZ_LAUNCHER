@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 900">
+  <defs><linearGradient id="g" x2="0" y2="1"><stop stop-color="#163d34"/><stop offset=".5" stop-color="#101d1e"/><stop offset="1" stop-color="#080b12"/></linearGradient><linearGradient id="n" x2="1"><stop stop-color="#9be9b5"/><stop offset="1" stop-color="#54afa4"/></linearGradient></defs>
+  <rect width="640" height="900" fill="url(#g)"/>
+  <path d="M100 700h440M120 700 220 530h200l100 170M220 530l-65-168M420 530l65-168" fill="none" stroke="#9be9b5" stroke-opacity=".53" stroke-width="4"/>
+  <g fill="#101f1c" stroke="url(#n)" stroke-width="3"><rect x="106" y="216" width="112" height="112"/><rect x="264" y="136" width="112" height="112"/><rect x="422" y="216" width="112" height="112"/></g>
+  <path d="M162 272h450M320 192v504M478 272 190 540M162 272l288 268" fill="none" stroke="#9be9b5" stroke-opacity=".38"/><circle cx="320" cy="530" r="47" fill="none" stroke="#d1ffdb" stroke-opacity=".65"/><circle cx="320" cy="530" r="8" fill="#d1ffdb"/>
+  <text x="40" y="72" fill="#f4f1e9" font-family="serif" font-size="25" letter-spacing="4">V</text><text x="40" y="840" fill="#9be9b5" font-family="monospace" font-size="13" letter-spacing="4">THE MAGICIAN</text>
+</svg>

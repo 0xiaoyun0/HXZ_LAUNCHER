@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ARCANA</title><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <link rel="stylesheet" href="style.css?v=20260917-19">
+</head>
+<body class="on-gate">
+  <canvas id="magicCircle" aria-hidden="true"></canvas>
+  <div class="veil" aria-hidden="true"></div>
+
+  <div class="site-shell">
+    <main>
+      <section id="gateView" class="view gate-view is-active">
+        <form id="accessForm" class="access-form">
+          <input id="accessCode" type="text" autocomplete="off" spellcheck="false" aria-label="神秘代码" placeholder="ENTER CODE" autofocus>
+          <button type="submit" aria-label="打开入口">↗</button>
+        </form>
+        <p id="accessStatus" class="access-status" aria-live="polite"></p>
+      </section>
+
+      <section id="archiveView" class="view archive-view" aria-label="活动卡牌" hidden>
+        <div class="table-frame">
+          <button id="previousCards" class="carousel-control" type="button" aria-label="上一组卡牌">←</button>
+          <div id="cardViewport" class="card-viewport">
+            <div id="cardTable" class="card-table" aria-label="活动卡牌牌阵"></div>
+          </div>
+          <button id="nextCards" class="carousel-control" type="button" aria-label="下一组卡牌">→</button>
+        </div>
+
+        <div class="carousel-meta">
+          <span id="carouselRange">01—03 / 07</span>
+        </div>
+
+        <div id="centerReveal" class="center-reveal" hidden></div>
+
+        <form id="cardCodeForm" class="card-code-form">
+          <input id="cardCode" type="text" autocomplete="off" spellcheck="false" aria-label="卡牌代码" placeholder="ENTER CARD CODE">
+          <button type="submit" aria-label="点亮当前卡牌">↗</button>
+        </form>
+        <a id="skinLogin" class="skin-login" href="https://skin.hxzmc.top/auth/login" hidden>SKIN LOGIN</a>
+        <p id="cardCodeStatus" class="card-code-status" aria-live="polite"></p>
+
+        <div class="archive-progress">
+          <span id="progressText">00 / 07</span>
+          <span class="progress-bar"><i id="progressFill"></i></span>
+          <span>SYNC</span>
+        </div>
+        <p id="archiveStatus" class="archive-status"></p>
+        <div class="final-action">
+          <button id="finalAction" class="ghost-button" type="button" hidden>OPEN ↗</button>
+        </div>
+      </section>
+
+      <section id="detailView" class="view detail-view" aria-labelledby="detailTitle" hidden>
+        <button id="backButton" class="back-button" type="button">← BACK</button>
+        <div class="detail-layout">
+          <div class="detail-image-wrap">
+            <img id="detailImage" src="assets/card-back.svg" alt="">
+          </div>
+          <div class="detail-copy">
+            <span id="detailEyebrow" class="micro-label">00 / SIGNAL</span>
+            <h2 id="detailTitle">未命名</h2>
+            <p id="detailActivity" class="detail-activity"></p>
+            <p id="detailLine" class="detail-line"></p>
+            <div id="detailDialogue" class="detail-dialogue" aria-live="polite"></div>
+            <span class="detail-rule"></span>
+            <span id="detailState" class="detail-state">SIGNAL RECEIVED</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="storyView" class="view story-view" aria-labelledby="storyTitle" hidden>
+        <div class="story-shell">
+          <div class="story-heading">
+            <span class="micro-label">08 / THE LOVERS</span>
+            <h2 id="storyTitle">恋人</h2>
+          </div>
+          <div id="storyStream" class="story-stream" aria-live="polite"></div>
+          <button id="storyContinue" class="ghost-button story-continue" type="button" hidden>ARCHIVE ↗</button>
+        </div>
+      </section>
+    </main>
+
+  </div>
+
+  <div id="archiveNoticeModal" class="notice-modal" role="dialog" aria-modal="true" aria-labelledby="archiveNoticeText" hidden>
+    <button id="archiveNoticeBackdrop" class="notice-modal-backdrop" type="button" aria-label="关闭提示"></button>
+    <div class="notice-modal-panel">
+      <span class="micro-label">NEW SIGNAL / 08</span>
+      <p id="archiveNoticeText" class="notice-modal-text">恋人牌已加入牌库</p>
+      <button id="archiveNoticeClose" class="ghost-button notice-modal-close" type="button">CONTINUE ↗</button>
+    </div>
+  </div>
+
+  <script type="module" src="app.js?v=20260917-19"></script>
+</body>
+</html>

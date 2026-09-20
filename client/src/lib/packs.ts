@@ -8,6 +8,7 @@ import {
 } from "./launcher";
 export interface PackInfo {
   file: string;
+  fileCount: number;
   name: string;
   version: string;
   minecraft: string;
@@ -58,7 +59,10 @@ export async function installPack() {
     await invoke("pack.install", {
       file: pack.file,
       name: importing.name,
-      includeOptional: importing.optional
+      includeOptional: importing.optional,
+      minecraft: pack.minecraft,
+      loader: pack.loader,
+      loaderVersion: pack.loaderVersion
     });
     importing.pack = null;
     await reload();

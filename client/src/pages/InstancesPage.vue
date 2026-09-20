@@ -11,6 +11,7 @@ import {
   saveSettings,
   launch,
   instanceConfig,
+  instanceMemoryLabel,
   orderedInstances,
   type InstanceConfig
 } from "../lib/launcher";
@@ -179,7 +180,7 @@ async function openFolder(
               color="primary"
           /></button>
           <span>{{ instance.loader || "待安装" }}</span
-          ><span>{{ instanceConfig(instance.id).memoryMB }} MB</span
+          ><span>{{ instanceMemoryLabel(instance.id) }}</span
           ><span>{{
             instanceConfig(instance.id).autoUpdate ? "启动前更新" : "手动"
           }}</span>
@@ -302,9 +303,26 @@ async function openFolder(
     ><q-card class="dialog-card wide"
       ><q-card-section
         ><h2>{{ editing }} · 实例配置</h2
-        ><div class="form-grid"
+        ><q-select
+          v-model="config.memoryMode"
+          outlined
+          emit-value
+          map-options
+          label="内存分配"
+          :options="[
+            { label: '跟随全局设置', value: 'inherit' },
+            { label: '自动分配', value: 'auto' },
+            { label: '指定最大内存', value: 'manual' }
+          ]"
+          class="q-mb-md" />
+        <div class="form-grid"
           ><q-input
             v-model.number="config.memoryMB"
+            :disable="
+              config.memoryMode === 'auto' ||
+              (config.memoryMode === 'inherit' &&
+                state.settings.memoryMode === 'auto')
+            "
             outlined
             type="number"
             label="最大内存（MB）"

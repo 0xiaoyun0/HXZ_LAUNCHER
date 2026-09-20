@@ -1,4 +1,5 @@
 import {createContent} from "./content.mjs";
+import {createArcana} from "./arcana.mjs";
 import {VERSION} from "./version.mjs";
 import {relayVoice} from "./voice-relay.mjs";
 import {createUpdateLogs} from "./update-logs.mjs";
@@ -51,6 +52,7 @@ export function createCommunity(options={}) {
   function packet(ws,value){if(ws.readyState===WebSocket.OPEN){if(ws.bufferedAmount>256*1024)ws.close(1013,'连接太慢');else ws.send(JSON.stringify(value));}}
   function broadcast(value,filter=()=>true) {for(const [ws,c] of clients)if(filter(c))packet(ws,value);}
   function avatarVersion(uid){return db.prepare("SELECT version FROM profiles WHERE uid=?").get(uid)?.version||"";}
+  function voiceEvent(c,action,room=c?.room){if(room)broadcast({type:'voice-event',action,room,voiceUser:{id:c.id,uid:c.user.uid,name:c.user.name}},member=>member.room===room||member.id===c.id);}
   function presence(){broadcast({type:'presence',users:[...clients.values()].map(c=>({id:c.id,uid:c.user.uid,name:c.user.name,avatarVersion:avatarVersion(c.user.uid),room:c.room,muted:c.muted}))});}
   async function exchange(input) {
     let response;
@@ -67,6 +69,7 @@ export function createCommunity(options={}) {
   const updateSources={};
   const updateLogs=createUpdateLogs(()=>updateSources);
   const content=createContent({data,db,auth,admin,adminIDs,body,send,limit});
+  const arcana=createArcana({data,db,auth,admin,body,send,limit});
   const adminRoute=createAdmin({updateSources,data,db,issue,admin,send,body,limit,clients,broadcast,adminIDs});
   const server=http.createServer(async(req,res)=>{
     const origin=req.headers.origin;if(origin&&!origins.has(origin)&&!['http://','https://'].some(protocol=>origin===protocol+req.headers.host)){send(res,403,{error:'来源不允许'});return;}
@@ -75,6 +78,7 @@ export function createCommunity(options={}) {
     if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
     try {
       const url=new URL(req.url,'http://localhost'),path=url.pathname;limit('http:'+clientIP(req),240);
+      if(await arcana(req,res,url))return;
       if(await content.route(req,res,url))return;
       if(await adminRoute(req,res,url))return;
       if(path==='/api/update-logs'&&req.method==='GET')return send(res,200,await updateLogs());
@@ -122,14 +126,14 @@ export function createCommunity(options={}) {
       if(message.type==='ping'){ws.alive=true;packet(ws,{type:'pong'});}
       else if(message.type==='chat'){limit('chat:'+c.user.uid,8,10000);const value=text(message.body,1000);const created=Date.now();const inserted=db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)').run('lobby',c.user.uid,c.user.name,value,created);
         db.prepare('DELETE FROM messages WHERE id < (SELECT MAX(id)-3000 FROM messages)').run();broadcast({type:'chat',message:{id:Number(inserted.lastInsertRowid),channel:'lobby',uid:c.user.uid,name:c.user.name,avatarVersion:avatarVersion(c.user.uid),body:value,created}});}
-      else if(message.type==='voice-join'){if(!ROOMS.includes(message.room))throw Error('房间不存在');if([...clients.values()].filter(p=>p.room===message.room&&p.id!==c.id).length>=roomLimit)throw Error('语音房间已满');if(message.transport!=='ws-opus-v1')throw Error('请更新启动器到 0.4.0 后使用语音');c.voiceTransport=message.transport;c.muted=false;c.deafened=false;c.audioEpoch=null;c.audioSeq=-1;c.room=message.room;presence();}
-      else if(message.type==='voice-leave'){c.room=null;c.muted=false;c.deafened=false;presence();}
+      else if(message.type==='voice-join'){if(!ROOMS.includes(message.room))throw Error('房间不存在');if([...clients.values()].filter(p=>p.room===message.room&&p.id!==c.id).length>=roomLimit)throw Error('语音房间已满');if(message.transport!=='ws-opus-v1')throw Error('请更新启动器到 0.4.0 后使用语音');if(c.room&&c.room!==message.room)voiceEvent(c,'leave');const changed=c.room!==message.room;c.voiceTransport=message.transport;c.muted=false;c.deafened=false;c.audioEpoch=null;c.audioSeq=-1;c.room=message.room;presence();if(changed)voiceEvent(c,'join');}
+      else if(message.type==='voice-leave'){voiceEvent(c,'leave');c.room=null;c.muted=false;c.deafened=false;presence();}
       else if(message.type==='voice-mute'){c.muted=!!message.muted;presence();}
       else if(message.type==='voice-deafen'){c.deafened=!!message.deafened;}
       else if(message.type==='signal'){const peer=[...clients.entries()].find(([,p])=>p.id===message.to);if(!peer||!c.room||peer[1].room!==c.room)throw Error('语音目标不在同一房间');packet(peer[0],{type:'signal',from:c.id,data:message.data});}
       else throw Error('未知消息');
     }catch(error){packet(ws,{type:'error',error:error.message});}});
-    ws.on('error',()=>{});ws.on('close',()=>{clearTimeout(timer);clients.delete(ws);presence();});
+    ws.on('error',()=>{});ws.on('close',()=>{clearTimeout(timer);voiceEvent(clients.get(ws),'leave');clients.delete(ws);presence();});
   });
   const sweep=setInterval(()=>{for(const [id,v] of attempts)if(Date.now()-v.time>60000)attempts.delete(id);for(const ws of wss.clients){const c=clients.get(ws);if(c&&c.user.exp<Date.now()){ws.close(1008,'登录已过期');continue;}if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();}},15000);sweep.unref();
   return {server,db,async close(){clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};

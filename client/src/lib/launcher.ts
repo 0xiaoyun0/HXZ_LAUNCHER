@@ -1,6 +1,7 @@
 import { reactive, computed } from "vue";
 import { Notify } from "quasar";
 export interface InstanceConfig {
+  memoryMode: "inherit" | "auto" | "manual";
   autoJoin: boolean;
   serverAddress: string;
   memoryMB: number;
@@ -591,6 +592,7 @@ export async function toggleTheme() {
 }
 export function instanceConfig(id: string): InstanceConfig {
   return {
+    memoryMode: "inherit",
     memoryMB: state.settings.defaultMemoryMB || 4096,
     favorite: false,
     width: 1280,
@@ -607,6 +609,14 @@ export function instanceConfig(id: string): InstanceConfig {
     coverZoom: 1,
     ...state.settings.instanceSettings[id]
   };
+}
+export function instanceMemoryLabel(id: string): string {
+  const config = instanceConfig(id);
+  const mode =
+    config.memoryMode === "inherit"
+      ? state.settings.memoryMode
+      : config.memoryMode;
+  return mode === "auto" ? "自动分配" : config.memoryMB + " MB";
 }
 export async function loadNotices() {
   notices.loading = true;

@@ -13,7 +13,8 @@ import {
   download,
   parallel,
   endpoint,
-  exists
+  exists,
+  remoteJSON
 } from "./io.mjs";
 async function archive(file, visit) {
   const zip = await new Promise((resolve, reject) =>
@@ -85,44 +86,44 @@ export async function inspectPack(file) {
   )
     throw Error("请选择支持的 Minecraft 整合包文件");
   await noLinks(file);
-  let index, manifest, mmc;
-  const entries = new Set();
-  const configs = {};
+  const entries = new Map(),
+    manifests = [];
   await archive(file, async (entry, open) => {
     const name = entry.fileName;
     if (entries.has(name.toLowerCase())) throw Error("压缩包包含重复文件项");
-    entries.add(name.toLowerCase());
-    const lower = name.toLowerCase();
-    if (lower === "modrinth.index.json") index = await entryJSON(entry, open);
-    if (lower === "manifest.json") manifest = await entryJSON(entry, open);
-    if (lower === "mmc-pack.json") mmc = await entryJSON(entry, open);
+    entries.set(name.toLowerCase(), name);
     if (
-      [
-        "overrides/updater/config.json",
-        "client-overrides/updater/config.json"
-      ].includes(name)
-    )
-      configs[name] = await entryJSON(entry, open);
+      /(^|\/)(modrinth.index.json|manifest.json|mmc-pack.json)$/i.test(name)
+    ) {
+      if (manifests.length >= 8) throw Error("压缩包包含过多实例清单");
+      manifests.push({ name, value: await entryJSON(entry, open) });
+    }
   });
-  const seen = new Set();
-  const embedded = [];
-  const files = [];
-  const addEmbedded = (name, destination = name) => {
-    if (name.endsWith("/")) return;
-    const relative = safeRelative(destination);
-    const key = relative.toLowerCase();
-    if (seen.has(key)) throw Error("整合包包含重复目标路径");
-    seen.add(key);
-    embedded.push({ archivePath: name, path: relative });
-  };
+  const supported = manifests.filter(
+    m =>
+      m.name.endsWith("modrinth.index.json") ||
+      m.name.endsWith("mmc-pack.json") ||
+      m.value?.minecraft?.version
+  );
+  if (supported.length > 1) throw Error("压缩包含有多个实例，请分别导出后导入");
+  const meta = supported[0],
+    root = meta ? meta.name.slice(0, meta.name.lastIndexOf("/") + 1) : "";
+  const index = meta?.name.endsWith("modrinth.index.json") ? meta.value : null;
+  const manifest =
+    meta?.name.endsWith("manifest.json") && !index ? meta.value : null;
+  const mmc = meta?.name.endsWith("mmc-pack.json") ? meta.value : null;
   let minecraft = "",
     loader = "",
     loaderVersion = "",
+    format = "minecraft-zip",
+    version = "",
     name = path
       .basename(file)
-      .replace(/\.(mrpack|zip|modpack|pack|instance)$/i, ""),
-    version = "",
-    format = "";
+      .replace(/\.(mrpack|zip|modpack|pack|instance)$/i, "");
+  const files = [],
+    embedded = [],
+    seen = new Set();
+  let overridePrefixes = [];
   if (index) {
     if (
       index.formatVersion !== 1 ||
@@ -135,15 +136,16 @@ export async function inspectPack(file) {
     minecraft = index.dependencies.minecraft;
     name = String(index.name || name);
     version = String(index.versionId || "");
+    format = "modrinth";
     const loaders = [
       "fabric-loader",
       "quilt-loader",
       "forge",
       "neoforge"
-    ].filter(key => index.dependencies[key]);
+    ].filter(k => index.dependencies[k]);
     if (loaders.length > 1) throw Error("整合包声明了冲突的加载器");
     loader = loaders[0]?.replace("-loader", "") || "";
-    loaderVersion = loaders[0] ? index.dependencies[loaders[0]] : "";
+    loaderVersion = loaders.length ? index.dependencies[loaders[0]] : "";
     for (const f of index.files) {
       safeRelative(f.path);
       const key = f.path.toLowerCase();
@@ -166,79 +168,125 @@ export async function inspectPack(file) {
       }
       files.push(f);
     }
-    format = "modrinth";
-  } else if (manifest?.minecraft?.version && Array.isArray(manifest.files)) {
+    overridePrefixes = [root + "overrides/", root + "client-overrides/"];
+  } else if (manifest) {
+    if (!Array.isArray(manifest.files) || manifest.files.length > 100000)
+      throw Error("CurseForge 文件清单无效");
     minecraft = String(manifest.minecraft.version);
     name = String(manifest.name || name);
     version = String(manifest.version || "");
-    const modLoader = String(manifest.minecraft.modLoaders?.[0]?.id || "");
-    const match = modLoader.match(
-      /^(fabric-loader|quilt-loader|forge|neoforge)-(.+)$/i
-    );
-    if (match) {
+    format = "curseforge";
+    const choices = manifest.minecraft.modLoaders || [],
+      selected = choices.find(x => x.primary) || choices[0];
+    if (selected) {
+      const match = String(selected.id).match(
+        /^(fabric-loader|quilt-loader|forge|neoforge)-(.+)$/i
+      );
+      if (!match) throw Error("整合包加载器无法识别");
       loader = match[1].toLowerCase().replace("-loader", "");
       loaderVersion = match[2];
     }
     for (const item of manifest.files) {
-      if (!Number.isInteger(item.projectID) || !Number.isInteger(item.fileID))
-        throw Error("CurseForge 清单缺少有效文件标识");
+      if (
+        !Number.isSafeInteger(item.projectID) ||
+        !Number.isSafeInteger(item.fileID) ||
+        item.projectID <= 0 ||
+        item.fileID <= 0
+      )
+        throw Error("CurseForge 文件标识无效");
+      const dest = `mods/curseforge-${item.projectID}-${item.fileID}.jar`;
+      if (seen.has(dest)) throw Error("CurseForge 清单包含重复文件");
+      seen.add(dest);
       files.push({
-        path: `mods/curseforge-${item.projectID}-${item.fileID}.jar`,
-        downloads: [
-          `https://www.curseforge.com/api/v1/mods/${item.projectID}/files/${item.fileID}/download`
-        ],
-        hashes: {},
-        fileSize: null,
+        path: dest,
+        curseforge: { projectID: item.projectID, fileID: item.fileID },
         env: item.required === false ? { client: "optional" } : undefined
       });
     }
-    format = "curseforge";
-  } else if (mmc?.components && Array.isArray(mmc.components)) {
+    overridePrefixes = [
+      root + safeRelative(manifest.overrides || "overrides") + "/"
+    ];
+  } else if (mmc) {
+    if (!Array.isArray(mmc.components)) throw Error("Prism / MultiMC 清单无效");
     const component = id => mmc.components.find(x => x.uid === id)?.version;
     minecraft = component("net.minecraft") || "";
-    const loaderInfo = [
+    format = "prism";
+    const choices = [
       ["net.fabricmc.fabric-loader", "fabric"],
       ["org.quiltmc.quilt-loader", "quilt"],
       ["net.minecraftforge", "forge"],
       ["net.neoforged.neoforge", "neoforge"]
-    ].find(([id]) => component(id));
-    loader = loaderInfo?.[1] || "";
-    loaderVersion = loaderInfo ? component(loaderInfo[0]) : "";
-    format = "prism";
+    ].filter(([id]) => component(id));
+    if (choices.length > 1) throw Error("整合包声明了冲突的加载器");
+    loader = choices[0]?.[1] || "";
+    loaderVersion = choices.length ? component(choices[0][0]) : "";
   }
-  if (!minecraft && !index && !manifest && !mmc) format = "minecraft-zip";
-  if (!minecraft && format !== "minecraft-zip")
+  if (format !== "minecraft-zip" && !minecraft)
     throw Error("整合包缺少 Minecraft 版本信息");
-  let updateUrls = [];
-  const updaterConfig =
-    configs["client-overrides/updater/config.json"] ||
-    configs["overrides/updater/config.json"];
-  if (updaterConfig) {
-    if (!Array.isArray(updaterConfig.servers) || !updaterConfig.servers.length)
-      throw Error("包内 HXZ UP 配置缺少服务地址");
-    updateUrls = [...new Set(updaterConfig.servers.map(endpoint))];
-  }
-  const key = loaders[0];
+  // Read only instance data, never import launcher accounts, caches or a foreign versions tree.
+  const dataPath =
+    /^(mods|config|defaultconfigs|kubejs|scripts|saves|resourcepacks|shaderpacks|datapacks|updater|options.txt|optionsof.txt|servers.dat)(\/|$)/i;
   if (!index && !manifest) {
-    await archive(file, async entry => {
-      const raw = entry.fileName
-        .replace(/^\.minecraft\//i, "")
-        .replace(/^minecraft\//i, "");
-      if (!raw || raw === "instance.cfg" || raw === "mmc-pack.json") return;
-      if (/^(?:\.minecraft\/|minecraft\/)/i.test(entry.fileName))
-        addEmbedded(entry.fileName, raw);
-      else if (
-        /^(?:mods|config|saves|resourcepacks|shaderpacks|options\.txt)\//i.test(
-          raw
-        ) ||
-        /^(?:mods|config|saves|resourcepacks|shaderpacks|options\.txt)$/i.test(
-          raw
-        )
-      )
-        addEmbedded(entry.fileName, raw);
-    });
-    if (format === "minecraft-zip" && !embedded.length)
-      throw Error("无法识别此 ZIP 整合包，请确认其中包含 Minecraft 文件");
+    let prefix = root;
+    for (const candidate of [root + ".minecraft/", root + "minecraft/"])
+      if (
+        [...entries.keys()].some(n => n.startsWith(candidate.toLowerCase()))
+      ) {
+        prefix = candidate;
+        break;
+      }
+    if (!meta && !prefix) {
+      const roots = new Set(
+        [...entries.values()]
+          .map(n => n.match(/^(.*?)(?:\.minecraft|minecraft)\//i)?.[0])
+          .filter(Boolean)
+      );
+      if (roots.size === 1) prefix = [...roots][0];
+    }
+    for (const archivePath of entries.values()) {
+      if (!archivePath.startsWith(prefix) || archivePath.endsWith("/"))
+        continue;
+      const relative = archivePath.slice(prefix.length);
+      if (!dataPath.test(relative)) continue;
+      safeRelative(relative);
+      const key = relative.toLowerCase();
+      if (seen.has(key)) throw Error("整合包包含重复目标路径");
+      seen.add(key);
+      embedded.push({ archivePath, path: relative });
+    }
+    if (!embedded.length && format === "minecraft-zip")
+      throw Error("ZIP 中没有可导入的 Minecraft 实例文件");
+  }
+  const configPaths = new Set(
+    embedded
+      .filter(e => e.path === "updater/config.json")
+      .map(e => e.archivePath)
+  );
+  let updateConfig,
+    configPriority = -1,
+    overrideCount = embedded.length;
+  await archive(file, async (entry, open) => {
+    if (entry.fileName.endsWith("/")) return;
+    const prefix = overridePrefixes.find(p => entry.fileName.startsWith(p));
+    if (prefix) {
+      const relative = safeRelative(entry.fileName.slice(prefix.length));
+      overrideCount++;
+      if (
+        relative === "updater/config.json" &&
+        overridePrefixes.indexOf(prefix) >= configPriority
+      ) {
+        configPriority = overridePrefixes.indexOf(prefix);
+        updateConfig = await entryJSON(entry, open);
+      }
+    }
+    if (configPaths.has(entry.fileName))
+      updateConfig = await entryJSON(entry, open);
+  });
+  let updateUrls = [];
+  if (updateConfig) {
+    if (!Array.isArray(updateConfig.servers) || !updateConfig.servers.length)
+      throw Error("包内 HXZ UP 配置缺少服务地址");
+    updateUrls = [...new Set(updateConfig.servers.map(endpoint))];
   }
   return {
     file,
@@ -248,17 +296,53 @@ export async function inspectPack(file) {
     loader,
     loaderVersion,
     format,
-    overrideCount:
-      [...entries].filter(
-        n => /^(overrides|client-overrides)\//.test(n) && !n.endsWith("/")
-      ).length + embedded.length,
     files,
     embedded,
+    overridePrefixes,
+    overrideCount,
     optionalFiles: files
       .filter(f => f.env?.client === "optional")
       .map(f => f.path),
     hxzup: updateUrls.length > 0,
     updateUrls
+  };
+}
+export async function resolveCurseFile(ref, signal, request = remoteJSON) {
+  const base = "https://mod.mcimirror.top/curseforge/v1/mods/" + ref.projectID;
+  const info = (await request(base + "/files/" + ref.fileID, { signal })).data;
+  const sha1 = info?.hashes?.find(h => h.algo === 1)?.value;
+  if (
+    info?.id !== ref.fileID ||
+    info?.modId !== ref.projectID ||
+    !/^[a-f0-9]{40}$/i.test(sha1 || "") ||
+    !Number.isSafeInteger(info.fileLength) ||
+    info.fileLength <= 0 ||
+    !info.downloadUrl
+  )
+    throw Error(
+      `CurseForge 文件 ${ref.projectID}/${ref.fileID} 暂不可自动下载；请检查作者下载许可或稍后继续`
+    );
+  const url = new URL(info.downloadUrl);
+  if (url.protocol !== "https:" || url.username || url.password)
+    throw Error("CurseForge 下载地址无效");
+  let folder = "mods";
+  if (!/\.jar$/i.test(info.fileName)) {
+    const project = (await request(base, { signal })).data;
+    folder =
+      project?.classId === 12
+        ? "resourcepacks"
+        : project?.classId === 6552
+          ? "shaderpacks"
+          : "";
+    if (!folder || !/\.zip$/i.test(info.fileName))
+      throw Error("不支持的 CurseForge 文件类型");
+  }
+  if (/[\\/]/.test(info.fileName)) throw Error("CurseForge 文件名无效");
+  return {
+    path: safeRelative(folder + "/" + info.fileName),
+    downloads: [url.href],
+    hashes: { sha1 },
+    fileSize: info.fileLength
   };
 }
 export async function extractPack(
@@ -299,8 +383,11 @@ export async function extractPack(
     onProgress,
     "文件"
   );
-  await downloadFiles(files, f =>
-    downloads.run(f.path, async onProgress => {
+  await downloadFiles(files, original =>
+    downloads.run(original.path, async onProgress => {
+      const f = original.curseforge
+        ? await resolveCurseFile(original.curseforge, signal)
+        : original;
       signal?.throwIfAborted();
       await download(
         f.downloads[0],
@@ -337,7 +424,10 @@ export async function extractPack(
         pipeline(await open(), createWriteStream(target), { signal })
       );
     });
-  for (const prefix of ["overrides/", "client-overrides/"])
+  for (const prefix of pack.overridePrefixes || [
+    "overrides/",
+    "client-overrides/"
+  ])
     await archive(pack.file, async (entry, open) => {
       signal?.throwIfAborted();
       if (!entry.fileName.startsWith(prefix) || entry.fileName.endsWith("/"))

@@ -37,8 +37,7 @@ function columnVisible(name: "sidebar" | "workspace" | "dock") {
 function columnStyle(name: "sidebar" | "workspace") {
   const column = state.settings.columns[name];
   return {
-    ...(column.color ? { backgroundColor: column.color } : {}),
-    ...(column.opacity !== 1 ? { opacity: column.opacity } : {})
+    backgroundColor: `color-mix(in srgb, ${column.color || (name === "sidebar" ? "var(--sidebar)" : "var(--bg)")} ${column.opacity * 100}%, transparent)`
   };
 }
 onMounted(() => {
@@ -111,9 +110,23 @@ onMounted(() => {
     >
       <header class="window-bar"
         ><div class="row items-center"
-          ><span class="window-label">HXZ LAUNCHER <b>0.4.1</b></span></div
+          ><span class="window-label">HXZ LAUNCHER <b>0.4.2</b></span></div
         ><div class="row items-center no-drag"
           ><q-btn
+            v-if="!columnVisible('sidebar')"
+            flat
+            round
+            dense
+            to="/appearance"
+            icon="palette"
+            title="恢复栏目与外观" /><q-btn
+            v-if="!columnVisible('sidebar')"
+            flat
+            round
+            dense
+            to="/"
+            icon="home"
+            title="启动游戏" /><q-btn
             v-if="appUpdate.available"
             flat
             to="/settings"

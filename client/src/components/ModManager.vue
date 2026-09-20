@@ -42,15 +42,13 @@ async function change(action: string, file?: string) {
 async function searchOnline(offset = 0) {
   onlineLoading.value = true;
   try {
-    const instance = state.instances.find(item => item.id === props.id);
     const result = await invoke<{
       hits: typeof online.value;
       total_hits: number;
     }>("mods.search", {
       query: onlineQuery.value,
       offset,
-      minecraft: instance?.version || "",
-      loader: instance?.loader || ""
+      instance: props.id
     });
     online.value = result.hits;
     onlineTotal.value = result.total_hits;
