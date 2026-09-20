@@ -1,0 +1,30 @@
+apply plugin: 'com.android.application'
+android {
+    namespace 'top.hxzmc.community'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'top.hxzmc.community'
+        minSdk 29
+        targetSdk 35
+        versionCode 40203
+        versionName '0.4.2'
+    }
+    buildFeatures { buildConfig true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    sourceSets.main {
+        assets.srcDir '../../web/dist'
+        java.srcDir '../../third_party/concentus'
+    }
+    signingConfigs {
+        release {
+            if (System.getenv('HXZ_ANDROID_KEYSTORE')) {
+                storeFile file(System.getenv('HXZ_ANDROID_KEYSTORE'))
+                storePassword System.getenv('HXZ_ANDROID_STORE_PASSWORD')
+                keyAlias 'hxz-community'
+                keyPassword System.getenv('HXZ_ANDROID_STORE_PASSWORD')
+            }
+        }
+    }
+    buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
+}
+dependencies { implementation 'com.squareup.okhttp3:okhttp:4.12.0' }

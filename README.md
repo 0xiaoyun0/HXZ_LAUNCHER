@@ -24,6 +24,12 @@
 
 下载：[GitHub Releases](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases)。
 
+## Android 社区端
+
+0.4.2 提供独立 Android 社区应用，最低 Android 10。包含皮肤站登录、文字与语音聊天、论坛、机械动力蓝图库、公告和账号管理；手机六栏导航，平板自适应布局，统一应用内弹窗与可关闭的界面动效。兼容现有 0.4.2 社区服务。
+
+在同一 [0.4.2 发布页](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.4.2) 下载 `HXZ-Community-Android-0.4.2.apk`。构建及功能说明见 [mobile/README.md](mobile/README.md)；独立源码标签 `v0.4.2-android`。Android 社区端不包含游戏安装或启动功能。
+
 ## 已实现
 
 - 无系统标题栏，内置最小化、最大化、关闭；深色/浅色；固定导航与启动区。
