@@ -3,7 +3,7 @@ function message(text,error=false){$('message').hidden=false;$('message').textCo
 async function api(url,method='GET',body){const r=await fetch(url,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined});const value=await r.json();if(!r.ok)throw Error(value.error||'操作失败');return value;}
 function row(container,heading,body,button,action){const el=document.createElement('div');el.className='row';const content=document.createElement('div'),title=document.createElement('strong'),p=document.createElement('p');title.textContent=heading;p.textContent=body;content.append(title,p);el.append(content);if(button){const b=document.createElement('button');b.textContent=button;b.className='danger';b.onclick=()=>run(action);el.append(b);}container.append(el);}
 async function run(fn){try{await fn();}catch(e){message(e.message,true);}}
-function tab(value){current=value;if(value==='arcana')void run(loadArcana);if(value==='blueprints')void run(loadBlueprints);if(value==='forum')void run(loadForum);if(value==='users')void run(loadReviewers);document.querySelectorAll('[data-view]').forEach(el=>el.hidden=el.dataset.view!==value);document.querySelectorAll('[data-tab]').forEach(el=>{el.classList.toggle('active',el.dataset.tab===value);if(el.dataset.tab===value)$('heading').textContent=el.textContent;});}
+function tab(value){current=value;if(value==='servers')void run(loadServers);if(value==='arcade')void run(loadArcade);if(value==='arcana')void run(loadArcana);if(value==='blueprints')void run(loadBlueprints);if(value==='forum')void run(loadForum);if(value==='users')void run(loadReviewers);document.querySelectorAll('[data-view]').forEach(el=>el.hidden=el.dataset.view!==value);document.querySelectorAll('[data-tab]').forEach(el=>{el.classList.toggle('active',el.dataset.tab===value);if(el.dataset.tab===value)$('heading').textContent=el.textContent;});}
 async function refresh(){const [state,notices]=await Promise.all([api('/api/admin/overview'),api('/api/notices')]);$('online-count').textContent=state.online.length;$('voice-count').textContent=state.online.filter(p=>p.room).length;$('version').textContent=state.version;
  for(const id of ['online-list','notice-list','message-list','ban-list'])$(id).replaceChildren();
  for(const p of state.online)row($('online-list'),p.name,p.uid+(p.room?' · 语音 '+p.room:''),'封禁',async()=>{await api('/api/moderation','POST',{uid:p.uid,banned:true});await refresh();});
@@ -61,3 +61,36 @@ async function loadArcana(){
  }
 }
 $('arcana-form').onsubmit=event=>{event.preventDefault();void run(async()=>{if(!arcanaConfig)return;await api('/api/admin/arcana','PUT',arcanaConfig);message('活动已保存，玩家再次进入或刷新牌库后生效');});};
+
+let serverPresets;
+function updateLinksField(root,preset){
+ const group=document.createElement('section'),heading=document.createElement('h3'),hint=document.createElement('p'),list=document.createElement('div'),add=document.createElement('button');
+ group.className='update-links';heading.textContent='HXZ UP 连接地址';hint.textContent='同一整合包的主备地址，按从上到下的顺序尝试。支持 http://主机:端口/整合包 和 HTTPS，最多 16 个。';add.type='button';add.className='secondary';add.textContent='＋ 添加链接';
+ function render(){list.replaceChildren();preset.updateUrls.forEach((value,index)=>{
+  const row=document.createElement('div'),input=document.createElement('input'),up=document.createElement('button'),remove=document.createElement('button');row.className='update-link-row';
+  input.type='url';input.required=true;input.maxLength=2048;input.value=value;input.placeholder='https://hxzup.example.com/original';input.setAttribute('aria-label',preset.name+' 更新地址 '+(index+1));input.oninput=()=>preset.updateUrls[index]=input.value.trim();
+  up.type=remove.type='button';up.className='secondary';up.textContent='↑';up.disabled=index===0;up.setAttribute('aria-label','提高地址 '+(index+1)+' 的优先级');up.onclick=()=>{[preset.updateUrls[index-1],preset.updateUrls[index]]=[preset.updateUrls[index],preset.updateUrls[index-1]];render();};
+  remove.className='danger';remove.textContent='删除';remove.setAttribute('aria-label','删除地址 '+(index+1));remove.onclick=()=>{preset.updateUrls.splice(index,1);render();};row.append(input,up,remove);list.append(row);
+ });add.disabled=preset.updateUrls.length>=16;}
+ add.onclick=()=>{preset.updateUrls.push('');render();list.lastElementChild?.querySelector('input')?.focus();};group.append(heading,hint,list,add);root.append(group);render();
+}
+function selectField(root,label,value,options,set){const wrapper=document.createElement('label');wrapper.textContent=label;const input=document.createElement('select');for(const [key,text] of options)input.append(new Option(text,key));input.value=value;input.onchange=()=>set(input.value);wrapper.append(input);root.append(wrapper);}
+async function loadServers(){
+ serverPresets=(await api('/api/admin/server-presets')).servers;const root=$('servers-fields');root.replaceChildren();
+ for(const preset of serverPresets){const box=document.createElement('fieldset'),title=document.createElement('legend');title.textContent=preset.name;box.append(title);root.append(box);
+  arcanaField(box,'显示名称',preset.name,v=>preset.name=v);
+  selectField(box,'首次安装来源',preset.profileSource,[['manual','指定游戏版本与加载器'],['hxzup','读取 HXZ UP 的游戏配置'],['package','下载整合包文件']],v=>preset.profileSource=v);
+  arcanaField(box,'Minecraft 版本（指定版本时必填）',preset.version,v=>preset.version=v);
+  selectField(box,'加载器',preset.loader,[['','原版'],['fabric','Fabric'],['quilt','Quilt'],['forge','Forge'],['neoforge','NeoForge']],v=>preset.loader=v);
+  arcanaField(box,'加载器版本（留空选择可用稳定版）',preset.loaderVersion,v=>preset.loaderVersion=v);
+  arcanaField(box,'自动安装 Fabric API',preset.fabricAPI,v=>preset.fabricAPI=v,{check:true});
+  updateLinksField(box,preset);
+  arcanaField(box,'整合包下载地址（整合包文件模式）',preset.packageUrl,v=>preset.packageUrl=v);
+  arcanaField(box,'整合包 SHA256',preset.packageSha256,v=>preset.packageSha256=v);
+  arcanaField(box,'进入游戏服务器地址（域名:端口）',preset.address,v=>preset.address=v);
+  for(const [key,label] of [['enabled','开放此服务器入口'],['autoUpdate','默认启动前更新（玩家可关闭）'],['updateRequired','每次启动必须更新（玩家不可跳过）'],['autoJoin','默认自动进入服务器（玩家可关闭）']])arcanaField(box,label,preset[key],v=>preset[key]=v,{check:true});
+ }
+}
+$('servers-form').onsubmit=event=>{event.preventDefault();void run(async()=>{await api('/api/admin/server-presets','PUT',{servers:serverPresets});message('默认服务器已保存');});};
+async function loadArcade(){const game=$('arcade-game').value,value=await api('/api/arcade/'+game);$('arcade-list').replaceChildren();for(const [i,p] of value.items.entries())row($('arcade-list'),(i+1)+'. '+p.name,p.score+' 分 · '+p.uid,'移除成绩',async()=>{if(!confirm('移除此玩家的排行榜成绩？'))return;await api('/api/admin/arcade/'+game,'DELETE',{uid:p.uid});await loadArcade();});if(!value.items.length)$('arcade-list').append(paragraph('暂无成绩'));}
+$('arcade-refresh').onclick=()=>run(loadArcade);$('arcade-game').onchange=()=>run(loadArcade);

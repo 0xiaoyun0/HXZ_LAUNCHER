@@ -1,6 +1,13 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 contextBridge.exposeInMainWorld("launcher", {
-  filePath: (file: File) => webUtils.getPathForFile(file),
+  filePath: (file: File) => {
+    // Electron 22 exposes File.path; newer runtimes use webUtils instead.
+    if (!file) return "";
+    const value = typeof webUtils?.getPathForFile === "function"
+      ? webUtils.getPathForFile(file)
+      : (file as File & { path?: string }).path;
+    return typeof value === "string" ? value : "";
+  },
   invoke: (action: string, input: unknown = {}) =>
     ipcRenderer.invoke("hxz:invoke", action, input),
   subscribe: (callback: (value: unknown) => void) => {

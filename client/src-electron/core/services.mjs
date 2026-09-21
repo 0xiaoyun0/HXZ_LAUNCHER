@@ -1,4 +1,7 @@
 import {crashReport,diagnosticText,redactDiagnostic} from "./diagnostics.mjs";
+import {javaPathArgument, systemArchitecture} from "./platform.mjs";
+import {createPresetCatalog} from "./server-presets.mjs";
+import {normalizeUpdateUrl,readUpdateSource} from "./hxzup-sources.mjs";
 import { instanceTarget, modPlan } from "./mod-plan.mjs";
 import {
   normalizeDownloadConcurrency,
@@ -30,7 +33,6 @@ import {
 } from "./minecraft.mjs";
 
 import {
-  SERVERS,
   serverAddress,
   modDirectory,
   listMods,
@@ -95,6 +97,8 @@ export async function createServices({
   };
   if (await exists(configFile))
     settings = { ...settings, ...(await json(configFile)) };
+  const presetCatalog = await createPresetCatalog(data,()=>settings.communityUrl);
+  void presetCatalog.refresh();
   // Extend old settings without resetting the player's appearance.
   settings.appearanceVersion = APPEARANCE_VERSION;
   settings.hiddenLinks = Array.isArray(settings.hiddenLinks)
@@ -352,7 +356,8 @@ export async function createServices({
         shell: false
       });
       log("[进程] "+path.basename(command)+" · 工作目录: "+cwd);
-      let finished = false;
+      let finished = false, failureEvidence = "";
+      const started = Date.now();
       const abort = () => {
         if (process.platform === "win32" && child.pid) {
           const killer = spawn(
@@ -386,7 +391,11 @@ export async function createServices({
           return false;
         }
       });
-      attachLog(child.stderr);
+      attachLog(child.stderr, line => {
+        if (/^(?:Caused by:|Exception in thread|Error:)|InvalidPathException|UnsupportedClassVersionError/.test(line))
+          failureEvidence = redactDiagnostic(line, [...secrets]).slice(0, 800);
+        return false;
+      });
       child.on("error", error => {
         finished = true;
         signal?.removeEventListener("abort", abort);
@@ -397,8 +406,10 @@ export async function createServices({
         finished = true;
         signal?.removeEventListener("abort", abort);
         if (signal?.aborted) reject(Error("任务已取消"));
-        else if (code !== 0)
-          reject(Error("任务进程未完成，请查看任务详情中的日志"));
+        else if (code !== 0) {
+          log(`[进程结束] 退出码 ${code} · 耗时 ${Math.round((Date.now()-started)/1000)} 秒`);
+          reject(Error(`任务进程退出（${code}）${failureEvidence ? "：" + failureEvidence : "，请查看任务详情"}`));
+        }
         else resolve();
       });
     });
@@ -417,6 +428,8 @@ export async function createServices({
     if (!urls?.length) {
       throw Error("请为此实例填写 HXZ UP 客户端地址");
     }
+    const {status,base:availableSource}=await readUpdateSource(urls,{signal,log});
+    if(status.maintenance){log('[HXZ UP] 整合包正在维护，保留已安装版本并跳过本次更新');return;}
     for (const name of ["updater-1.0.3.jar", "launcher-agent.jar"]) {
       const target = path.join(updater, name);
       if (!(await exists(target)))
@@ -424,7 +437,7 @@ export async function createServices({
     }
     const value = {
       ...existingConfig,
-      servers: urls.map(endpoint),
+      servers: [availableSource,...urls.map(normalizeUpdateUrl).filter(url=>url!==availableSource)],
       showChangelog: settings.hxzupPopup !== false,
       theme: settings.theme
     };
@@ -466,7 +479,7 @@ export async function createServices({
         "-Dsun.stderr.encoding=UTF-8",
         "-Djava.awt.headless=" + (settings.hxzupPopup === false),
         "-jar",
-        path.join(updater, jars[0])
+        path.join("updater", jars[0])
       ],
       instance,
       signal
@@ -481,16 +494,42 @@ export async function createServices({
   }
   async function launch(id, updateOnly = false, joinServer = false) {
     busy();
-    const preset = SERVERS.find(p => p.id === id);
-    if (preset?.placeholder) throw Error("此服务器的整合包尚未发布");
-    if (preset && !updateOnly) {
+    const preset = (await presetCatalog.refresh()).find(p => p.id === id);
+    if (preset && !preset.enabled) throw Error("管理员暂时关闭了此服务器入口");
+    if (preset) {
       if (!settings.gameRoot) {
         settings.gameRoot = path.join(data, "games/.minecraft");
         await writeJSON(configFile, settings);
       }
       const metadata = inside(settings.gameRoot, `versions/${id}/${id}.json`);
-      if (!(await exists(metadata)))
-        await installGame({ name: id, minecraft: preset.version });
+      const local = await exists(metadata) ? instanceTarget(await readVersion(settings.gameRoot,id)) : null;
+      const presetSignature=JSON.stringify([preset.profileSource,preset.version,preset.loader,preset.loaderVersion,preset.fabricAPI,preset.packageSha256]);
+      const installedRecord=path.join(path.dirname(metadata),'.hxzl/server-preset.json');
+      const previous=await exists(installedRecord)?await json(installedRecord):{};
+      const needsInstall = !local || (preset.profileSource==='manual' && (local.minecraft!==preset.version || local.loader!==preset.loader || previous.signature!==presetSignature)) || (preset.profileSource==='package'&&previous.signature!==presetSignature);
+      if (needsInstall) {
+        const setup = new AbortController();task=setup;
+        phase({phase:'读取 '+preset.name+' 安装配置',busy:true});
+        let input={name:id,minecraft:preset.version,loader:preset.loader,loaderVersion:preset.loaderVersion,fabricAPI:preset.fabricAPI,upgrade:!!local,presetSignature},pack=null;
+        try {
+          if(preset.profileSource==='hxzup') {
+            const {status,profile}=await readUpdateSource(preset.updateUrls,{signal:setup.signal,profile:true,log});
+            if(status.maintenance)throw Error(preset.name+' 正在维护，发布后即可安装');
+            input={...input,minecraft:profile.gameVersion,loader:profile.loader?.type||'',loaderVersion:profile.loader?.version||''};
+          } else if(preset.profileSource==='package') {
+            const file=path.join(data,'downloads',preset.packageSha256+'.zip');
+            await download(preset.packageUrl,file,{sha256:preset.packageSha256,signal:setup.signal,onProgress:received=>phase({phase:'下载 '+preset.name+' 整合包',busy:true,received})});
+            pack=await inspectPack(file);
+          }
+          if(input.loader&&!input.loaderVersion&&!pack){
+            const releases=await catalog.loaders(input.minecraft,input.loader);
+            input.loaderVersion=(releases.find(v=>v.stable)||releases[0])?.version||'';
+            if(!input.loaderVersion)throw Error('没有适用的 '+input.loader+' 加载器版本');
+          }
+        } catch(error){phase({phase:'服务器安装未开始',busy:false,failed:true,failure:error.message});throw error;}
+        finally {task=null;}
+        await installGame(input,pack);
+      }
     }
     if (
       !settings.gameRoot ||
@@ -515,11 +554,13 @@ export async function createServices({
         width: 1280,
         height: 720,
         isolated: true,
-        autoUpdate: false,
-        autoJoin: !!preset?.address,
+        autoUpdate: preset?.autoUpdate || false,
+        autoJoin: !!preset?.address && preset.autoJoin,
         serverAddress: preset?.address || "",
-        ...settings.instanceSettings[id]
+        ...settings.instanceSettings[id],
+        ...(preset ? {updateUrls:preset.updateUrls,serverAddress:preset.address} : {})
       };
+      if(preset?.updateRequired)cfg.autoUpdate=true;
       cfg.memoryMB = memoryFor(cfg);
       if (joinServer) {
         if (!cfg.serverAddress) throw Error("请先在实例配置中填写服务器地址");
@@ -538,10 +579,11 @@ export async function createServices({
       phase({ phase: "读取实例与选择 Java", busy: true });
       const metadata = await readVersion(settings.gameRoot, id);
       const available = await findJava();
+      const runtimeArch=systemArchitecture();
       const managed = path.join(
         data,
         "runtimes",
-        metadata.javaVersion?.component || "none",
+        (metadata.javaVersion?.component || "none")+(runtimeArch==='x64'?'':'-'+runtimeArch),
         "bin/java.exe"
       );
       if (await exists(managed)) available.unshift(await inspectJava(managed));
@@ -707,6 +749,11 @@ export async function createServices({
         parallelDownloads: settings.downloadConcurrency
       });
       await fs.mkdir(path.join(instance, "updater"), { recursive: true });
+      // Keep JVM bootstrap paths ASCII too; application paths travel as UTF-8 payloads.
+      for(const [source,name] of [['installer/game-installer.jar','game-installer.jar'],['hxzup/updater-1.0.3.jar','updater.jar']])
+        await fs.copyFile(path.join(resources,source),path.join(instance,'.hxzl',name));
+      const javaInfo=await inspectJava(java);
+      log(`[安装环境] 启动器 ${process.arch} · 系统 ${systemArchitecture()} · Java ${javaInfo.version} ${javaInfo.arch} · MC ${request.gameVersion} · ${request.loader.type||'原版'} ${request.loader.version}`);
       await runProcess(
         java,
         [
@@ -720,13 +767,11 @@ export async function createServices({
           "-Dhxz.launcher.official=" + (settings.downloadMode === "official"),
           "-cp",
           [
-            path.join(resources, "installer/game-installer.jar"),
-            path.join(resources, "hxzup/updater-1.0.3.jar")
+            ".hxzl/game-installer.jar",
+            ".hxzl/updater.jar"
           ].join(path.delimiter),
           "up.hxz.LauncherInstall",
-          path.join(instance, "updater"),
-          requestFile,
-          configFile
+          ...[path.join(instance, "updater"), requestFile, configFile].map(javaPathArgument)
         ],
         instance,
         controller.signal,
@@ -742,6 +787,14 @@ export async function createServices({
           downloadConcurrency: settings.downloadConcurrency
         });
       }
+      if(input.fabricAPI) {
+        phase({phase:'准备 Fabric API',busy:true});
+        const files=await modPlan({minecraft:request.gameVersion,loader:request.loader.type},'P7dR8mSH',null,{versions:catalog.modVersions,version:catalog.modVersion});
+        for(const f of files)await download(f.url,path.join(instance,'mods',f.filename),{sha512:f.hashes.sha512,size:f.size,signal:controller.signal,onProgress:received=>phase({phase:'下载 Fabric API · '+f.filename,received,busy:true})});
+        const keep=new Set(files.map(f=>f.filename));
+        for(const name of await fs.readdir(path.join(instance,'mods')))if(/^fabric-api-[\w.+-]+\.jar$/.test(name)&&!keep.has(name))await fs.rm(path.join(instance,'mods',name));
+      }
+      if(input.presetSignature)await writeJSON(path.join(instance,'.hxzl/server-preset.json'),{signature:input.presetSignature});
       if (update.hxzup)
         for (const name of ["updater-1.0.3.jar", "launcher-agent.jar"]) {
           const target = path.join(instance, "updater", name);
@@ -759,8 +812,7 @@ export async function createServices({
         coverPositionX: 50,
         coverPositionY: 50,
         coverZoom: 1,
-        autoUpdate: update.hxzup,
-        updateUrls: update.updateUrls,
+        ...(!presetCatalog.list().some(p=>p.id===id) ? {autoUpdate:update.hxzup,updateUrls:update.updateUrls} : {}),
         ...settings.instanceSettings[id]
       };
       settings.selectedInstance = id;
@@ -842,6 +894,7 @@ export async function createServices({
           loader: i.request.loader.type,
           loaderVersion: i.request.loader.version,
           includeOptional: i.includeOptional
+          ,fabricAPI:i.fabricAPI,upgrade:i.upgrade,presetSignature:i.presetSignature
         },
         pack
       );
@@ -967,14 +1020,16 @@ export async function createServices({
       );
     },
     async state() {
+      await presetCatalog.refresh();
+      const presets=presetCatalog.list();
       const local = await scanInstances(settings.gameRoot);
       const instances = [
-        ...SERVERS.map(p => ({
+        ...presets.map(p => ({
           ...p,
           ...local.find(i => i.id === p.id),
           name: p.name
         })),
-        ...local.filter(i => !SERVERS.some(p => p.id === i.id))
+        ...local.filter(i => !presets.some(p => p.id === i.id))
       ];
       return {
         settings,
@@ -1174,7 +1229,7 @@ export async function createServices({
           throw Error("内存或分辨率超出范围");
         if (!Array.isArray(v.updateUrls) || v.updateUrls.length > 16)
           throw Error("更新地址最多 16 个");
-        v.updateUrls = v.updateUrls.map(endpoint);
+        v.updateUrls = v.updateUrls.map(normalizeUpdateUrl);
         settings.instanceSettings[id] = {
           ...settings.instanceSettings[id],
           autoJoin: !!v.autoJoin,
@@ -1266,7 +1321,7 @@ export async function createServices({
         height: 720,
         isolated: true,
         autoUpdate: true,
-        updateUrls: [endpoint(input.updateUrl)],
+        updateUrls: [normalizeUpdateUrl(input.updateUrl)],
         coverPositionX: 50,
         coverPositionY: 50,
         coverZoom: 1
@@ -1770,6 +1825,7 @@ export async function createServices({
       }
     },
     dispose() {
+      presetCatalog.dispose();
       task?.abort();
       clearTimeout(logTimer);
       pendingLogs = [];

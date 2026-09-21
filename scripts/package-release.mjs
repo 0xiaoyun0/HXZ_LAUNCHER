@@ -23,7 +23,7 @@ const portable=path.join(client,'幻想镇启动器');await fs.cp(path.join(buil
 await fs.writeFile(path.join(portable,'便携启动.bat'),'@echo off\r\nchcp 65001 >nul\r\nsetlocal\r\ncd /d "%~dp0" || exit /b 1\r\nset "HXZ_LA_HOME=%~dp0profile"\r\nstart "" "%~dp0幻想镇启动器.exe"\r\n');
 await fs.writeFile(path.join(client,'使用说明.txt'),'幻想镇启动器 '+version+'\n玩家只需本目录客户端。安装程序支持安装版升级；便携版解压后运行 便携启动.bat。\n下载与安装：Minecraft / 加载器 / Modrinth / 导入 mrpack / CurseForge / Prism / MultiMC / ZIP。\n个性化：字号、颜色、图片、布局。\n社区服务端是另一个独立发布包，客户端不会自动启动它。\n安装版默认从 GitHub 正式版本自动更新，可在设置中关闭；便携版建议手动替换程序并保留 profile。\n');
 const serverApp=path.join(server,'幻想镇社区服务端');await fs.mkdir(serverApp,{recursive:true});
-for(const dir of ['src','public','arcana'])await fs.cp(path.join(root,'server',dir),path.join(serverApp,dir),{recursive:true});
+for(const dir of ['src','public','arcana','shared'])await fs.cp(path.join(root,'server',dir),path.join(serverApp,dir),{recursive:true});
 for(const file of ['package.json','pnpm-lock.yaml','.env.example','Dockerfile','compose.yaml','nginx-community.conf.example'])await fs.copyFile(path.join(root,file==='nginx-community.conf.example'?'docs':'server',file),path.join(serverApp,file));
 await fs.mkdir(path.join(serverApp,'node_modules'),{recursive:true});await fs.cp(await fs.realpath(path.join(root,'server/node_modules/ws')),path.join(serverApp,'node_modules/ws'),{recursive:true});
 await fs.copyFile(process.execPath,path.join(serverApp,'node.exe'));
@@ -47,7 +47,7 @@ if(await fs.stat(path.join(legacyBuild,legacyExe)).then(()=>true,()=>false)){
  for(const file of [legacyExe,legacyExe+'.blockmap'])await fs.copyFile(path.join(legacyBuild,file),path.join(legacyDir,file));
  const portable=path.join(legacyDir,'幻想镇启动器');await fs.cp(path.join(legacyBuild,'win-ia32-unpacked'),portable,{recursive:true});
  await fs.copyFile(path.join(client,'幻想镇启动器/便携启动.bat'),path.join(portable,'便携启动.bat'));
- await fs.writeFile(path.join(legacyDir,'使用说明.txt'),'Windows 7 SP1 / 32位兼容版。现代Windows 64位请优先使用x64版。\n需要选择支持系统的32位Java，游戏最大堆限制1280MB。现代Minecraft版本不一定支持Win7或32位。\n便携版保留profile升级；安装版使用独立的ia32签名更新通道。\n');
+ await fs.writeFile(path.join(legacyDir,'使用说明.txt'),'Windows 7 SP1 / 32位兼容版。现代Windows 64位请优先使用x64版。\n按游戏 Java 选择本机库与内存；32位Java最大堆限制1280MB，64位系统可使用64位Java。现代Minecraft版本不一定支持Win7或32位。\n便携版保留profile升级；安装版使用独立的ia32签名更新通道。\n');
  const sha512=await digest(path.join(legacyDir,legacyExe),'sha512','base64'),size=(await fs.stat(path.join(legacyDir,legacyExe))).size;
  await fs.writeFile(path.join(legacyDir,'latest-ia32.json'),await signUpdate({version,files:[{url:legacyExe,sha512,size}],releaseDate:new Date().toISOString(),releaseNotes:notes},'ia32'));
  await zip(portable,path.join(legacyDir,'HXZ-Launcher-'+version+'-windows-ia32-portable.zip'));

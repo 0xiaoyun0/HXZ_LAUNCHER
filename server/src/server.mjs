@@ -1,4 +1,6 @@
 import {createContent} from "./content.mjs";
+import {createServerPresets} from "./server-presets.mjs";
+import {createArcade} from "./arcade.mjs";
 import {createArcana} from "./arcana.mjs";
 import {VERSION} from "./version.mjs";
 import {relayVoice} from "./voice-relay.mjs";
@@ -71,6 +73,8 @@ export function createCommunity(options={}) {
   const content=createContent({data,db,auth,admin,adminIDs,body,send,limit});
   const arcana=createArcana({data,db,auth,admin,body,send,limit});
   const adminRoute=createAdmin({updateSources,data,db,issue,admin,send,body,limit,clients,broadcast,adminIDs});
+  const presetsRoute=createServerPresets({data,admin,body,send,broadcast});
+  const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast});
   const server=http.createServer(async(req,res)=>{
     const origin=req.headers.origin;if(origin&&!origins.has(origin)&&!['http://','https://'].some(protocol=>origin===protocol+req.headers.host)){send(res,403,{error:'来源不允许'});return;}
     if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');}
@@ -79,6 +83,8 @@ export function createCommunity(options={}) {
     try {
       const url=new URL(req.url,'http://localhost'),path=url.pathname;limit('http:'+clientIP(req),240);
       if(await arcana(req,res,url))return;
+      if(await presetsRoute(req,res,url))return;
+      if(await arcadeRoute(req,res,url))return;
       if(await content.route(req,res,url))return;
       if(await adminRoute(req,res,url))return;
       if(path==='/api/update-logs'&&req.method==='GET')return send(res,200,await updateLogs());

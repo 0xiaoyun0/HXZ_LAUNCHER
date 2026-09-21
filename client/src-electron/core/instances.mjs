@@ -1,38 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { inside, noLinks, exists } from "./io.mjs";
-export const SERVERS = [
-  {
-    id: "HXZ-survival",
-    name: "原版生存群组服",
-    version: "26.2",
-    loader: "原版",
-    javaMajor: 25,
-    address: "s1.hxzmc.top",
-    builtin: true,
-    placeholder: false
-  },
-  {
-    id: "HXZ-mod-1",
-    name: "模组一服",
-    version: "待公布",
-    loader: "待公布",
-    javaMajor: 0,
-    address: "",
-    builtin: true,
-    placeholder: true
-  },
-  {
-    id: "HXZ-mod-2",
-    name: "模组二服",
-    version: "待公布",
-    loader: "待公布",
-    javaMajor: 0,
-    address: "",
-    builtin: true,
-    placeholder: true
-  }
-];
 export function serverAddress(value = "") {
   if (!value) return "";
   if (

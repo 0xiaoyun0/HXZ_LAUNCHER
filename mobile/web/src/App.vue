@@ -1,6 +1,7 @@
 <script setup>
 import {ref,reactive,computed,watch,nextTick,onMounted,onUnmounted} from 'vue';
 import Icon from './Icon.vue';
+import ArcadeGames from '../../../client/src/components/ArcadeGames.vue';
 import VoicePage from './VoicePage.vue';
 import AppSelect from './AppSelect.vue';
 import ChoiceRows from './ChoiceRows.vue';
@@ -9,10 +10,17 @@ import AppOverlay from './AppOverlay.vue';
 import {closeTopOverlay,overlayCount} from './overlays.js';
 import {state,native,api,on,avatar,groups,rooms,date} from './native.js';
 
-const tabs=[{id:'chat',name:'聊天',icon:'chat'},{id:'voice',name:'语音',icon:'headphones'},{id:'forum',name:'论坛',icon:'forum'},{id:'blueprint',name:'蓝图',icon:'blueprint'},{id:'notice',name:'公告',icon:'notice'},{id:'me',name:'我的',icon:'user'}];
+const tabs=[{id:'chat',name:'聊天',icon:'chat'},{id:'voice',name:'语音',icon:'headphones'},{id:'forum',name:'论坛',icon:'forum'},{id:'blueprint',name:'蓝图',icon:'blueprint'},{id:'games',name:'游戏',icon:'games'},{id:'notice',name:'公告',icon:'notice'},{id:'me',name:'我的',icon:'user'}];
 const tab=ref('chat'), sheet=ref(''), busy=ref(false), toast=ref(''), error=ref('');let toastTimer;
+const mainTabs=[{id:'chat',name:'聊天',icon:'chat'},{id:'community',name:'社区',icon:'forum'},{id:'games',name:'游戏',icon:'games'},{id:'notice',name:'公告',icon:'notice'},{id:'me',name:'我的',icon:'user'}];
+const sections={chat:['chat','voice'],community:['forum','blueprint']};
+const lastSection=reactive({chat:'chat',community:'forum'});
+const mainTab=computed(()=>Object.keys(sections).find(id=>sections[id].includes(tab.value))||tab.value);
+const sectionTabs=computed(()=>(sections[mainTab.value]||[]).map(id=>tabs.find(item=>item.id===id)));
+watch(tab,value=>{if(sections[mainTab.value])lastSection[mainTab.value]=value;},{flush:'sync'});
+function navigateMain(id){navigate(lastSection[id]||id);}
 const settings=reactive(readSettings());
-const appUpdate=ref({currentVersion:'0.4.3',currentBuild:40301,autoCheck:true,autoDownload:true,phase:'idle'});
+const appUpdate=ref({currentVersion:'0.4.4',currentBuild:40401,autoCheck:true,autoDownload:true,phase:'idle'});
 async function updateAction(action,values={}){try{appUpdate.value=await native('appUpdate',{action,...values});}catch(e){error.value=e.message;}}
 
 function readSettings(){
@@ -35,7 +43,7 @@ const onlineUsers=computed(()=>[...new Map(state.users.map(u=>[u.uid,u])).values
 const roomName=computed(()=>rooms.find(r=>r.id===(state.room||state.recoveringRoom))?.name||''),members=id=>state.users.filter(u=>u.room===id);
 const access=reactive({admin:false,reviewer:false,forumCategories:['交流讨论','游戏求助','作品分享','建议反馈'],blueprintCategories:['生产与加工','仓储与物流','动力与传动','列车与交通','建筑与装饰','其他']});
 async function loadAccess(){Object.assign(access,await api('/api/content/access'));}
-function navigate(id){tab.value=id;sheet.value='';detail.value=null;blueprint.value=null;error.value='';}
+function navigate(id){if(tab.value===id)return;tab.value=id;sheet.value='';detail.value=null;blueprint.value=null;error.value='';}
 watch(tab,()=>{if(tab.value==='chat')nextTick(scrollBottom);if(tab.value==='forum')run(loadPosts);if(tab.value==='blueprint')run(loadBlueprints);if(tab.value==='notice')run(loadNotices);});
 const workspace=ref();let pageAnimation;
 watch(()=>settings.animations,value=>{document.documentElement.dataset.motion=value?'on':'off';localStorage.setItem('hxz-mobile-settings',JSON.stringify(settings));if(!value){pageAnimation?.cancel();workspace.value?.getAnimations({subtree:true}).forEach(a=>a.cancel());}},{immediate:true});
@@ -133,12 +141,17 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
 
 <template>
 <div class="app-shell" :aria-hidden="overlayCount>0?true:undefined" :inert="overlayCount>0?true:undefined" @invalid.capture.prevent="invalidField">
+  <div class="app-top">
   <header class="app-header">
     <div class="brand-mark" aria-hidden="true">幻</div><div class="header-title"><strong>幻想镇</strong><span>{{tabs.find(t=>t.id===tab)?.name}}</span></div>
     <button v-if="(state.room||state.recoveringRoom)&&tab!=='voice'" class="header-call icon-button" :aria-label="'返回语音：'+roomName" @click="navigate('voice')"><Icon :name="state.muted?'mute':'headphones'"/><i class="status-dot"/></button>
     <button class="connection" :class="{online:state.connected}" @click="sheet=state.hasAccount?'connection':'login'"><i/>{{state.connected?'在线':state.hasAccount?'连接':'登录'}}</button>
     <button v-if="appUpdate.phase==='ready'" class="icon-button update-ready" aria-label="安装社区更新" @click="navigate('me')"><Icon name="download"/></button><button class="avatar small" aria-label="我的账号" @click="navigate('me')"><img v-if="selectedAvatar" :src="selectedAvatar" alt="头像"><span v-else>{{(state.user.name||'旅').slice(0,1)}}</span></button>
   </header>
+  <nav v-if="sectionTabs.length" class="section-nav" :aria-label="mainTab==='chat'?'聊天分区':'社区分区'">
+    <button v-for="item in sectionTabs" :key="item.id" :class="{active:tab===item.id}" :aria-current="tab===item.id?'page':undefined" @click="navigate(item.id)"><Icon :name="item.icon"/>{{item.id==='chat'?'文字聊天':item.id==='voice'?'语音房间':item.id==='blueprint'?'机械动力蓝图':'幻想镇论坛'}}<i v-if="item.id==='voice'&&(state.room||state.recoveringRoom)" class="section-status" aria-label="语音已连接"/><i v-if="item.id==='chat'&&newMessages&&tab!=='chat'" class="section-status unread" aria-label="有新消息"/></button>
+  </nav>
+  </div>
   <div v-if="error" class="error-banner" role="alert"><span>{{error}}</span><button class="icon-button" aria-label="关闭错误" @click="error=''"><Icon name="close"/></button></div>
   <div v-if="busy" class="busy-line" role="status" aria-label="正在处理"/>
 
@@ -159,6 +172,7 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
 
     <VoicePage v-if="tab==='voice'" :state="state" :settings="settings" :rooms="rooms" :members="members" :room-name="roomName" :speaker="speaker" :busy="busy" @join="join" @change="voiceChange" @leave="leaveVoice" @press="press" @speaker="toggleSpeaker" @login="sheet=state.hasAccount?'connection':'login'"/>
 
+    <ArcadeGames v-if="tab==='games'" :request="api"/>
     <section v-if="tab==='forum'" class="content-page">
       <template v-if="!detail"><div class="page-toolbar"><div><h1>幻想镇论坛</h1></div><button class="primary" :disabled="!state.connected" @click="sheet='newPost'"><Icon name="plus"/>发帖</button></div>
         <form class="search-bar" @submit.prevent="searchPosts"><Icon name="search"/><input v-model="postQuery" placeholder="搜索帖子" maxlength="100"><button aria-label="搜索"><Icon name="chevron"/></button></form>
@@ -201,17 +215,17 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
       <div class="settings-group"><button class="settings-row" @click="sheet='connection'"><Icon name="settings"/><span>社区连接<small>{{state.server}}</small></span><Icon name="chevron"/></button><button class="settings-row" @click="run(()=>native('openSkin'))"><Icon name="user"/><span>皮肤站账号管理<small>皮肤、资料与账号安全</small></span><Icon name="chevron"/></button><button class="settings-row" :disabled="!state.connected" @click="setAvatar"><Icon name="image"/><span>更换社区头像<small>相册选择，居中裁剪</small></span><Icon name="chevron"/></button></div>
       <h2 class="section-title">外观</h2><div class="card form-stack"><label>主题<AppSelect v-model="settings.theme" label="主题" :options="[{value:'system',label:'跟随系统',icon:'settings',description:'随手机外观自动切换'},{value:'light',label:'浅色',icon:'sun',description:'明亮清晰的浅色界面'},{value:'dark',label:'深色',icon:'moon',description:'柔和舒适的深色界面'}]"/></label><label>文字大小 <span>{{settings.font}} px</span><input v-model.number="settings.font" type="range" min="14" max="22" step="1" aria-label="文字大小"></label><div class="color-row"><span>强调色</span><button v-for="color in ['#58734b','#407d8b','#626cc1','#9f6178','#a17137']" :key="color" :aria-label="'强调色 '+color" :aria-pressed="settings.accent===color" :style="{background:color}" @click="settings.accent=color"><Icon v-if="settings.accent===color" name="check"/></button></div></div>
       <div class="card form-stack"><label>界面动效<AppSelect v-model="settings.animations" label="界面动效" :options="[{value:true,label:'开启'},{value:false,label:'关闭'}]"/></label></div><h2 class="section-title">语音</h2><div class="card form-stack"><label>说话方式<AppSelect v-model="settings.ptt" label="说话方式" :options="[{value:false,label:'自由说话',icon:'mic',description:'进入频道后持续传送语音'},{value:true,label:'按住说话',icon:'mute',description:'仅按住语音页按钮时传送语音'}]" @change="value=>voiceChange({ptt:value,pressing:false})"/></label><p class="muted">按住说话时，在通话面板按住麦克风按钮。离开应用会自动停止发言。</p></div>
-      <UpdateCard :state="appUpdate" @action="updateAction"/><div class="settings-group"><button class="settings-row" @click="secret"><span>幻想镇社区<small>Android · 0.4.3（40301） · Android 10 及以上</small></span><span class="tag">0.4.3</span></button><button v-if="state.hasAccount" class="settings-row danger-text" @click="confirm('退出登录并离开语音？',logout)"><Icon name="logout"/><span>退出登录</span></button></div>
+      <UpdateCard :state="appUpdate" @action="updateAction"/><div class="settings-group"><button class="settings-row" @click="secret"><span>幻想镇社区<small>Android · 0.4.4（40401） · Android 10 及以上</small></span><span class="tag">0.4.4</span></button><button v-if="state.hasAccount" class="settings-row danger-text" @click="confirm('退出登录并离开语音？',logout)"><Icon name="logout"/><span>退出登录</span></button></div>
     </section>
   </main>
 
-  <nav class="bottom-nav" aria-label="主导航"><button v-for="item in tabs" :key="item.id" :class="{active:tab===item.id}" :aria-current="tab===item.id?'page':undefined" @click="navigate(item.id)"><span><Icon :name="item.icon"/><i v-if="item.id==='chat'&&newMessages&&tab!=='chat'" class="badge"/><i v-if="item.id==='voice'&&(state.room||state.recoveringRoom)" class="badge voice-badge"/></span>{{item.name}}</button></nav>
+  <nav class="bottom-nav" aria-label="主导航"><button v-for="item in mainTabs" :key="item.id" :class="{active:mainTab===item.id}" :aria-current="mainTab===item.id?'page':undefined" @click="navigateMain(item.id)"><span><Icon :name="item.icon"/><i v-if="item.id==='chat'&&newMessages&&tab!=='chat'" class="badge"/><i v-else-if="item.id==='chat'&&(state.room||state.recoveringRoom)" class="badge voice-badge"/></span>{{item.name}}</button></nav>
 
   <AppOverlay :open="!!sheet" label="社区面板" @close="sheet=''"><section class="sheet" @invalid.capture.prevent="invalidField" :class="{'full-sheet':['newPost','newBlueprint','newNotice','arcana'].includes(sheet)}"><div class="sheet-handle"/><header class="sheet-header"><h2>{{({login:'登录社区',profiles:'选择角色',connection:'社区连接',members:'在线成员',newPost:'发布帖子',newBlueprint:'上传蓝图',filters:'筛选蓝图',newNotice:'发布公告',arcana:'星之回廊'})[sheet]}}</h2><button class="icon-button" aria-label="关闭面板" @click="sheet=''"><Icon name="close"/></button></header><div class="sheet-body">
     <p v-if="error" class="error-note sheet-error" role="alert">{{error}}</p>
     <form v-if="sheet==='login'" class="form-stack" @submit.prevent="login"><p class="muted">使用幻想镇皮肤站账号登录</p><label>邮箱或用户名<input v-model="username" autocomplete="username" autocapitalize="off" required></label><label>密码<input v-model="password" type="password" autocomplete="current-password" required></label><button class="primary full-width" :disabled="busy">{{busy?'正在登录…':'登录'}}</button><button class="text-button" type="button" @click="run(()=>native('openSkin'))">注册账号 / 管理皮肤站</button></form>
     <div v-if="sheet==='profiles'" class="form-stack"><p v-if="!state.profiles.length" class="muted">账号还没有角色，请先在皮肤站创建。</p><ChoiceRows :items="state.profiles.map(p=>({value:p.id,label:p.name}))" :value="state.selectedProfile?.id" label="选择角色" @choose="profile"/><button class="soft-button" @click="sheet='login'">登录其他账号</button></div>
-    <form v-if="sheet==='connection'" class="form-stack" @submit.prevent="run(async()=>{Object.assign(state,await native('server',{url:server}));sheet='';notify('社区地址已保存')})"><div class="connection-summary"><i class="status-dot" :class="{offline:!state.connected}"/>{{state.connection}}</div><label>社区服务地址<input v-model="server" type="url" placeholder="https://qqbot.hxzmc.top" autocapitalize="off" required></label><button class="primary" :disabled="busy">保存并连接</button><button type="button" class="soft-button" @click="run(()=>native('reconnect'))">重新连接</button><p class="muted">社区服务端 0.4.3。连接地址同时用于聊天和语音，无需额外端口。</p></form>
+    <form v-if="sheet==='connection'" class="form-stack" @submit.prevent="run(async()=>{Object.assign(state,await native('server',{url:server}));sheet='';notify('社区地址已保存')})"><div class="connection-summary"><i class="status-dot" :class="{offline:!state.connected}"/>{{state.connection}}</div><label>社区服务地址<input v-model="server" type="url" placeholder="https://qqbot.hxzmc.top" autocapitalize="off" required></label><button class="primary" :disabled="busy">保存并连接</button><button type="button" class="soft-button" @click="run(()=>native('reconnect'))">重新连接</button><p class="muted">社区服务端 0.4.4。连接地址同时用于聊天和语音，无需额外端口。</p></form>
     <div v-if="sheet==='members'" class="member-list"><p v-if="!onlineUsers.length" class="empty-note">暂时没有在线成员</p><div v-for="u in onlineUsers" :key="u.id" class="member"><span class="avatar"><img v-if="avatar(u.uid,u.avatarVersion)" :src="avatar(u.uid,u.avatarVersion)" alt=""><span v-else>{{u.name.slice(0,1)}}</span></span><strong>{{u.name}}<small class="device-label">{{u.devices?.includes('android')&&u.devices?.includes('desktop')?'手机 · 电脑':u.devices?.includes('android')?'手机在线':u.devices?.includes('desktop')?'电脑在线':'在线'}}</small></strong><small>{{rooms.find(r=>r.id===u.room)?.name||'在线'}}</small></div></div>
     <form v-if="sheet==='newPost'" class="form-stack" @submit.prevent="publishPost"><label>分类<AppSelect v-model="postForm.category" label="帖子分类" :options="access.forumCategories"/></label><label>标题<input v-model="postForm.title" maxlength="100" placeholder="给话题起个名字" required></label><label>正文<textarea v-model="postForm.body" maxlength="12000" rows="10" placeholder="分享你的想法…" required/></label><div class="emoji-tray inline"><button v-for="e in emojis" :key="e" type="button" @click="postForm.body+=e">{{e}}</button></div><button class="primary" :disabled="busy">发布帖子</button></form>
     <form v-if="sheet==='newBlueprint'" class="form-stack" @submit.prevent="publishBlueprint"><button type="button" class="file-picker" @click="run(async()=>selectedFile=await native('pick',{kind:'blueprint'}))"><Icon name="upload"/><strong>{{selectedFile?.name||'选择 .nbt 蓝图文件'}}</strong><small>{{selectedFile?(selectedFile.size/1024).toFixed(1)+' KB':'最大 8 MB · 审核后公开'}}</small></button><button type="button" class="soft-button" @click="run(async()=>blueprintForm.cover=(await native('pick',{kind:'cover'})).avatar)"><Icon name="image"/>{{blueprintForm.cover?'重新选择封面':'添加封面（可选）'}}</button><img v-if="blueprintForm.cover" class="upload-cover" :src="blueprintForm.cover" alt="封面预览"><label>作品名称<input v-model="blueprintForm.title" maxlength="100" required></label><label>说明<textarea v-model="blueprintForm.description" maxlength="12000" rows="4" required/></label><label>分类<AppSelect v-model="blueprintForm.category" label="蓝图分类" :options="access.blueprintCategories"/></label><div class="form-grid"><label>Minecraft 版本<input v-model="blueprintForm.mc" maxlength="40" placeholder="1.21.1" required></label><label>机械动力版本<input v-model="blueprintForm.create_version" maxlength="40" placeholder="6.0" required></label></div><label>加载器<AppSelect v-model="blueprintForm.loader" label="加载器" :options="['通用','neoforge','forge','fabric','quilt']"/></label><label>其他依赖<textarea v-model="blueprintForm.dependencies" maxlength="2000" rows="2"/></label><button class="primary" :disabled="busy||!selectedFile">提交审核</button></form>

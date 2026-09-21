@@ -4,6 +4,7 @@ COPY package.json ./
 COPY pnpm-lock.yaml ./
 RUN npm install --global pnpm@11.1.2 && pnpm install --prod --frozen-lockfile
 COPY src ./src
+COPY shared ./shared
 COPY public ./public
 COPY arcana ./arcana
 RUN mkdir /app/data && chown -R node:node /app

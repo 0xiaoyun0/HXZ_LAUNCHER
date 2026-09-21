@@ -80,6 +80,10 @@ type StoredAccount = Account & {
   avatars?: Record<string, string>;
 };
 export interface Instance {
+  autoUpdate?: boolean;
+  autoJoin?: boolean;
+  updateRequired?: boolean;
+  updateUrls?: string[];
   id: string;
   name: string;
   version: string;
@@ -595,6 +599,7 @@ export async function toggleTheme() {
   }
 }
 export function instanceConfig(id: string): InstanceConfig {
+  const preset=state.instances.find(i=>i.id===id&&i.builtin);
   return {
     memoryMode: "inherit",
     memoryMB: state.settings.defaultMemoryMB || 4096,
@@ -602,13 +607,14 @@ export function instanceConfig(id: string): InstanceConfig {
     width: 1280,
     height: 720,
     isolated: true,
-    autoJoin: id === "HXZ-survival",
-    serverAddress: id === "HXZ-survival" ? "s1.hxzmc.top" : "",
-    autoUpdate: false,
+    autoJoin: !!preset?.address && preset.autoJoin!==false,
+    serverAddress: preset?.address || "",
+    autoUpdate: preset?.autoUpdate || false,
     fullscreen: false,
     updateUrls: [],
     jvmArgs: [],
     ...state.settings.instanceSettings[id],
+    ...(preset ? {updateUrls:preset.updateUrls||[],serverAddress:preset.address||'',...(preset.updateRequired?{autoUpdate:true}:{})}:{}),
     coverPositionX:Math.max(0,Math.min(100,Number(state.settings.instanceSettings[id]?.coverPositionX ?? 50)||0)),
     coverPositionY:Math.max(0,Math.min(100,Number(state.settings.instanceSettings[id]?.coverPositionY ?? 50)||0)),
     coverZoom:Math.max(1,Math.min(2,Number(state.settings.instanceSettings[id]?.coverZoom)||1))

@@ -27,6 +27,7 @@ const links = [
   { to: "/blueprints", icon: "view_in_ar", label: "机械动力蓝图库" },
   { to: "/chat", icon: "forum", label: "聊天大厅" },
   { to: "/forum", icon: "article", label: "幻想镇论坛" },
+  { to: "/games", icon: "videogame_asset", label: "小游戏" },
   { to: "/notices", icon: "campaign", label: "通知公告" }
 ];
 const visibleLinks = computed(() =>
@@ -111,7 +112,7 @@ onMounted(() => {
     >
       <header class="window-bar"
         ><div class="row items-center"
-          ><span class="window-label">HXZ LAUNCHER <b>0.4.3</b></span></div
+          ><span class="window-label">HXZ LAUNCHER <b>0.4.4</b></span></div
         ><div class="row items-center no-drag"
           ><q-btn
             v-if="!columnVisible('sidebar')"

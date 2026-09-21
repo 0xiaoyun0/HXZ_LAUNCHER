@@ -17,6 +17,13 @@ function locations(root, id) {
     target: inside(root, "versions/" + id)
   };
 }
+async function restoreInterruptedUpgrade(root,paths,job){
+  if(!job.backup || await exists(paths.target))return;
+  const expected=inside(root,'.hxzl-backups/'+job.id+'/'+path.basename(job.backup));
+  if(expected!==path.resolve(job.backup)||!/^\d+$/.test(path.basename(job.backup)))throw Error('安装备份路径无效');
+  await noLinks(expected);
+  if(await exists(expected))await fs.rename(expected,paths.target);
+}
 export async function beginInstall(root, id, request, pack, input) {
   const paths = locations(root, id);
   await noLinks(paths.home);
@@ -26,17 +33,22 @@ export async function beginInstall(root, id, request, pack, input) {
     request,
     pack: pack?.file || "",
     fingerprint,
-    includeOptional: input.includeOptional !== false
+    includeOptional: input.includeOptional !== false,
+    ...(input.fabricAPI ? {fabricAPI:true}:{}),
+    ...(input.upgrade ? {upgrade:true}:{}),
+    ...(input.presetSignature ? {presetSignature:input.presetSignature}:{})
   };
   let job;
   if (await exists(paths.record)) {
     job = await json(paths.record);
+    if(job.id!==id)throw Error('安装记录与实例不匹配');
+    await restoreInterruptedUpgrade(root,paths,job);
     if (JSON.stringify(job.identity) !== JSON.stringify(identity))
       throw Error("该实例有另一项未完成安装，请继续原任务或先清理");
   } else {
     job = { id, identity, created: Date.now() };
     // Import only a directory explicitly marked by the old installer as incomplete.
-    if (await exists(paths.target)) {
+    if ((await exists(paths.target)) && !input.upgrade) {
       const marker = path.join(paths.target, ".hxzl/install-request.json");
       if (!(await exists(marker)))
         throw Error("同名实例已存在，请使用新的名称");
@@ -50,7 +62,15 @@ export async function beginInstall(root, id, request, pack, input) {
       await fs.rename(paths.target, paths.stage);
     }
   }
-  if (await exists(paths.target)) throw Error("目标实例已经存在，请先刷新列表");
+  if ((await exists(paths.target)) && !input.upgrade) throw Error("目标实例已经存在，请先刷新列表");
+  if(input.upgrade && !(await exists(path.join(paths.home,'upgrade-copied.json')))) {
+    await writeJSON(paths.record,{...job,status:'running',updated:Date.now()});
+    // Copy into the transaction; the original instance remains playable on failure.
+    await fs.cp(paths.target,paths.stage,{recursive:true,filter:async source=>{
+      if((await fs.lstat(source)).isSymbolicLink())throw Error('实例包含链接，请先移除链接后升级');return true;
+    }});
+    await writeJSON(path.join(paths.home,'upgrade-copied.json'),{complete:true});
+  }
   await fs.mkdir(paths.stage, { recursive: true });
   const save = async (status, error = "") => {
     job = {
@@ -68,11 +88,18 @@ export async function beginInstall(root, id, request, pack, input) {
     async commit() {
       await noLinks(paths.target);
       await noLinks(paths.stage);
-      if (await exists(paths.target))
+      if ((await exists(paths.target)) && !input.upgrade)
         throw Error("目标实例已存在，安装未覆盖它");
       await fs.mkdir(path.dirname(paths.target), { recursive: true });
       await save("committing");
-      await fs.rename(paths.stage, paths.target);
+      if(input.upgrade) {
+        const backup=inside(root,'.hxzl-backups/'+id+'/'+Date.now());
+        await noLinks(backup);await fs.mkdir(path.dirname(backup),{recursive:true});
+        // Journal the backup before moving anything, for interruption recovery.
+        job.backup=backup;await save('committing');
+        await fs.rename(paths.target,backup);
+        try{await fs.rename(paths.stage,paths.target);}catch(error){await fs.rename(backup,paths.target);throw error;}
+      } else await fs.rename(paths.stage, paths.target);
       await fs
         .rm(paths.home, {
           recursive: true,
@@ -138,6 +165,7 @@ export async function discardInstall(root, id) {
   const p = locations(root, id);
   const job = (await listInstalls(root)).find(j => j.id === id);
   if (!job) throw Error("未找到可清理的未完成安装");
+  await restoreInterruptedUpgrade(root,p,job);
   const target = job.legacy ? p.target : p.home;
   await noLinks(target);
   // locations() resolves this target strictly beneath the selected game directory.

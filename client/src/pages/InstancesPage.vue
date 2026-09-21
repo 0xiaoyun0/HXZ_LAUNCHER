@@ -213,7 +213,7 @@ async function openFolder(
               dense
               icon="sync"
               title="立即更新"
-              :disable="instance.builtin || task.busy || state.running"
+              :disable="instance.placeholder || task.busy || state.running"
               @click="perform(() => launch(instance.id, true))"
             /><q-btn
               flat
@@ -345,14 +345,17 @@ async function openFolder(
           v-model="config.fullscreen"
           label="全屏启动" /><q-separator class="q-my-md" /><q-toggle
           v-model="config.autoUpdate"
+          :disable="!!state.instances.find(i=>i.id===editing)?.updateRequired"
           label="每次启动前检查 HXZ UP 更新" /><q-input
           v-model="urls"
+          :readonly="!!state.instances.find(i=>i.id===editing)?.builtin"
           outlined
           type="textarea"
-          label="HXZ UP 客户端地址（每行一个）"
+          :label="state.instances.find(i=>i.id===editing)?.builtin ? 'HXZ UP 地址（由社区管理员配置）' : 'HXZ UP 客户端地址（每行一个）'"
           rows="3"
           class="q-my-md" /><q-input
           v-model="config.serverAddress"
+          :readonly="!!state.instances.find(i=>i.id===editing)?.builtin"
           outlined
           label="进入服务器的地址"
           placeholder="s1.hxzmc.top 或 主机:端口"

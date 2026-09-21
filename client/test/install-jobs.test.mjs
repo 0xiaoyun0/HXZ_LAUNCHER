@@ -9,6 +9,17 @@ import {
   discardInstall
 } from "../src-electron/core/install-jobs.mjs";
 import { exists, writeJSON } from "../src-electron/core/io.mjs";
+void test('preset upgrade retains saves and original backup; failed stage resumes',async()=>{
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'hxzl-upgrade-'));
+ try{
+  const target=path.join(root,'versions/HXZ-survival');await fs.mkdir(path.join(target,'saves'),{recursive:true});await fs.writeFile(path.join(target,'saves/world.dat'),'my world');await fs.writeFile(path.join(target,'HXZ-survival.json'),'old');
+  const req={gameVersion:'26.2',loader:{type:'fabric',version:'fixture'}},input={upgrade:true,fabricAPI:true};
+  const job=await beginInstall(root,'HXZ-survival',req,null,input);await fs.writeFile(path.join(job.stage,'HXZ-survival.json'),'new');await job.save('failed','network');
+  assert.equal(await fs.readFile(path.join(target,'HXZ-survival.json'),'utf8'),'old');
+  const resumed=await beginInstall(root,'HXZ-survival',req,null,input);await resumed.commit();assert.equal(await fs.readFile(path.join(target,'saves/world.dat'),'utf8'),'my world');assert.equal(await fs.readFile(path.join(target,'HXZ-survival.json'),'utf8'),'new');
+  const backups=await fs.readdir(path.join(root,'.hxzl-backups/HXZ-survival'));assert.equal(await fs.readFile(path.join(root,'.hxzl-backups/HXZ-survival',backups[0],'HXZ-survival.json'),'utf8'),'old');
+ }finally{await fs.rm(root,{recursive:true,force:true});}
+});
 void test("interrupted install is isolated, resumes verified files and publishes atomically", async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "hxzl-jobs-"));
   const request = { gameVersion: "26.2", loader: { type: "", version: "" } };

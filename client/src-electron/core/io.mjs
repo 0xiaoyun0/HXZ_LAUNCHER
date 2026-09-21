@@ -136,7 +136,7 @@ export async function download(url, file, options = {}) {
     ])
   ];
   for (let attempt = 0; attempt < 3; attempt++) {
-    let retryable = false;
+    let retryable = false, retryAfter = 0;
     for (const candidate of preferHealthy(candidates)) {
       try {
         const result=await downloadOne(candidate,file,options);sourceFailures.delete(new URL(candidate).host);return result;
@@ -145,10 +145,11 @@ export async function download(url, file, options = {}) {
         failure = error;
         if(error.retryable!==false)sourceFailures.set(new URL(candidate).host,Date.now()+15000);
         retryable ||= error.retryable !== false;
+        retryAfter=Math.max(retryAfter,Math.min(60000,error.retryAfter||0));
       }
     }
     if (!retryable || attempt === 2) break;
-    await delay(options.retryDelay ?? 1000 * 2 ** attempt, undefined, {
+    await delay(Math.max(retryAfter,options.retryDelay ?? 1000 * 2 ** attempt + Math.floor(Math.random()*250)), undefined, {
       signal: options.signal
     });
   }
@@ -222,6 +223,11 @@ async function downloadOne(
       await r.body?.cancel();
       const error = Error(`下载失败 (${r.status}): ${u.hostname}`);
       error.retryable = r.status === 408 || r.status === 429 || r.status >= 500;
+      const after=r.headers.get('retry-after');
+      if((r.status===429||r.status===503)&&after){
+        const ms=/^\d+$/.test(after)?Number(after)*1000:Date.parse(after)-Date.now();
+        if(Number.isFinite(ms)){error.retryAfter=Math.max(0,ms);if(ms>60000)error.retryable=false;}
+      }
       throw error;
     }
     const touch = () => {

@@ -15,7 +15,7 @@ import {
   extractNative
 } from "./io.mjs";
 
-export function allowed(rules = [], features = {}) {
+export function allowed(rules = [], features = {}, architecture = process.arch) {
   if (!rules.length) return true;
   let result = false;
   for (const rule of rules) {
@@ -30,8 +30,8 @@ export function allowed(rules = [], features = {}) {
       (!spec.name || spec.name === osName) &&
       (!spec.arch ||
         [
-          process.arch,
-          process.arch === "x64" ? "amd64" : process.arch
+          architecture,
+          architecture === "x64" ? "amd64" : architecture === "ia32" ? "x86" : architecture === "arm64" ? "aarch64" : architecture
         ].includes(spec.arch));
     if (spec.version)
       match = match && new RegExp(spec.version).test(os.release());
@@ -117,7 +117,7 @@ export async function scanInstances(root) {
 }
 export async function inspectJava(binary) {
   return new Promise((ok, fail) => {
-    const p = spawn(binary, ["-version"], { windowsHide: true, shell: false });
+    const p = spawn(binary, ["-XshowSettings:properties", "-version"], { windowsHide: true, shell: false });
     let output = "";
     const timer = setTimeout(() => {
       p.kill();
@@ -148,7 +148,8 @@ export async function inspectJava(binary) {
         path: binary,
         version,
         major,
-        arch: /64-Bit|aarch64|amd64/i.test(output) ? "64 位" : "32 位"
+        arch: /64-Bit|aarch64|amd64/i.test(output) ? "64 位" : "32 位",
+        architecture: /os\.arch\s*=\s*(aarch64|arm64)/i.test(output) ? "arm64" : /64-Bit|amd64|x86_64/i.test(output) ? "x64" : "ia32"
       });
     });
   });
@@ -165,6 +166,8 @@ export async function findJava() {
     );
   if (process.platform === "win32")
     for (const base of [
+      path.join(process.env.ProgramW6432 || "C:/Program Files", "Java"),
+      path.join(process.env.ProgramW6432 || "C:/Program Files", "Eclipse Adoptium"),
       path.join(process.env.ProgramFiles || "C:/Program Files", "Java"),
       path.join(
         process.env.ProgramFiles || "C:/Program Files",
@@ -228,15 +231,15 @@ export async function prepareLaunch({
         ? "osx"
         : "linux";
   for (const lib of version.libraries || []) {
-    if (!allowed(lib.rules)) continue;
+    if (!allowed(lib.rules, {}, j.architecture)) continue;
     if (
       process.platform === "win32" &&
       lib.name?.includes(":natives-windows")
     ) {
-      if (lib.name.endsWith("-arm64") !== (process.arch === "arm64")) continue;
+      if (lib.name.endsWith("-arm64") !== (j.architecture === "arm64")) continue;
       if (
-        process.arch !== "arm64" &&
-        lib.name.endsWith("-x86") !== (process.arch === "ia32")
+        j.architecture !== "arm64" &&
+        lib.name.endsWith("-x86") !== (j.architecture === "ia32")
       )
         continue;
     }
@@ -258,7 +261,7 @@ export async function prepareLaunch({
     if (lib.natives?.[osName]) {
       const classifier = lib.natives[osName].replace(
           "${arch}",
-          process.arch.includes("64") ? "64" : "32"
+          j.architecture.includes("64") ? "64" : "32"
         ),
         d = lib.downloads?.classifiers?.[classifier];
       if (d) {
@@ -414,7 +417,7 @@ export async function prepareLaunch({
     classpath,
     classpath_separator: path.delimiter,
     launcher_name: "HXZ Launcher",
-    launcher_version: "0.3.0",
+    launcher_version: "0.4.4",
     resolution_width: String(settings.width || 1280),
     resolution_height: String(settings.height || 720),
     clientid: "",
@@ -430,7 +433,7 @@ export async function prepareLaunch({
       .flatMap(v =>
         typeof v === "string"
           ? [v]
-          : allowed(v.rules, features)
+          : allowed(v.rules, features, j.architecture)
             ? [].concat(v.value)
             : []
       )
@@ -457,7 +460,7 @@ export async function prepareLaunch({
   const memory = Math.min(
     Math.max(Number(settings.memoryMB) || 4096, 512),
     Math.floor((os.totalmem() / 1048576) * 0.85),
-    process.arch === "ia32" ? 1280 : 131072
+    j.architecture === "ia32" ? 1280 : 131072
   );
   jvm.unshift(
     "-Xmx" + memory + "M",

@@ -20,6 +20,7 @@ final class Network {
     final int timeout,retries;
     private final ConcurrentHashMap<String,Long> unhealthy=new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String,Long> latency=new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String,Long> cooldown=new ConcurrentHashMap<>();
     private static String host(String url){try{return new URL(url).getHost();}catch(Exception e){return url;}}
     final AtomicLong received=new AtomicLong();
     private final AtomicLong verified=new AtomicLong();
@@ -150,7 +151,7 @@ final class Network {
             while(true){
                 for(int i=0;i<unique.size();i++){
                     checkCancelled();
-                    if(attempts[i]>retries||readyAt[i]>System.currentTimeMillis())continue;
+                    if(attempts[i]>retries||Math.max(readyAt[i],cooldown.getOrDefault(host(unique.get(i)),0L))>System.currentTimeMillis())continue;
                     String url=unique.get(i);int attempt=attempts[i]++;
                     state.bytes.set(0);
                     try{
@@ -160,14 +161,16 @@ final class Network {
                     }catch(IOException failure){
                         checkCancelled();errors[i]=url+" → "+failure.getMessage();
                         if(!(failure instanceof HttpFailure)||((HttpFailure)failure).status==429||((HttpFailure)failure).status>=500)unhealthy.put(host(url),System.currentTimeMillis()+15000);
-                        System.err.println("[下载换源] "+label+" · "+host(url)+" · "+failure.getClass().getSimpleName()+" · 尝试 "+(attempt+1));
                         long delay=retryDelay(failure,attempt);
+                        if(failure instanceof HttpFailure){HttpFailure http=(HttpFailure)failure;if(http.status==429||http.status==503)cooldown.merge(host(url),System.currentTimeMillis()+Math.max(1000,Math.min(60000,Math.max(http.retryAfter,delay))),Math::max);}
+                        String reason=failure instanceof HttpFailure?"HTTP "+((HttpFailure)failure).status:failure.getClass().getSimpleName();
+                        System.err.println("[下载换源] "+label+" · "+host(url)+" · "+reason+" · 尝试 "+(attempt+1)+"/"+(retries+1));
                         if(delay<0)attempts[i]=retries+1;
                         else readyAt[i]=System.currentTimeMillis()+delay;
                     }
                 }
                 long next=Long.MAX_VALUE;
-                for(int i=0;i<unique.size();i++)if(attempts[i]<=retries)next=Math.min(next,readyAt[i]);
+                for(int i=0;i<unique.size();i++)if(attempts[i]<=retries)next=Math.min(next,Math.max(readyAt[i],cooldown.getOrDefault(host(unique.get(i)),0L)));
                 if(next==Long.MAX_VALUE)throw new NetworkFailure("所有下载源均失败\n"+String.join("\n",errors));
                 // Retry only after the server's cooldown, with no open stream or held file.
                 Thread.sleep(Math.max(1,next-System.currentTimeMillis()));

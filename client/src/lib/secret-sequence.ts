@@ -18,6 +18,7 @@ export function secretSequence(open: () => void) {
       event.repeat ||
       event.isComposing ||
       event.defaultPrevented ||
+      document.querySelector('[data-arcade-playing="true"]') ||
       (event.target instanceof Element &&
         event.target.closest(
           'input,textarea,select,[contenteditable="true"],[role="textbox"]'

@@ -285,6 +285,7 @@ async function reset() {
           { label: '机械动力蓝图库', value: '/blueprints' },
           { label: '聊天大厅', value: '/chat' },
           { label: '幻想镇论坛', value: '/forum' },
+          { label: '小游戏', value: '/games' },
           { label: '通知公告', value: '/notices' }
         ]"
         inline
