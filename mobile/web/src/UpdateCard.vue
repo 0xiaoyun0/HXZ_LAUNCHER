@@ -10,7 +10,7 @@ const mb=n=>(Number(n||0)/1048576).toFixed(1);
 <template>
   <h2 class="section-title">应用更新</h2>
   <div class="card update-card">
-    <div class="update-heading"><span class="avatar"><Icon name="download"/></span><div><strong>幻想镇社区 {{state.currentVersion||'0.4.4'}}</strong><small>构建 {{state.currentBuild||40401}}</small></div><span v-if="state.phase==='ready'" class="tag">可安装</span></div>
+    <div class="update-heading"><span class="avatar"><Icon name="download"/></span><div><strong>幻想镇社区 {{state.currentVersion||'0.4.4'}}</strong><small>构建 {{state.currentBuild||40402}}</small></div><span v-if="state.phase==='ready'" class="tag">可安装</span></div>
     <label class="toggle-row"><span>自动检查更新<small>启动与返回应用时定期检查</small></span><input type="checkbox" :checked="state.autoCheck" @change="$emit('action','settings',{autoCheck:$event.target.checked})"></label>
     <label class="toggle-row"><span>自动下载更新<small>发现新版后下载，安装需系统确认</small></span><input type="checkbox" :checked="state.autoDownload" @change="$emit('action','settings',{autoDownload:$event.target.checked})"></label>
     <div class="update-status" role="status"><Icon :class="{spinning:working}" :name="working?'refresh':state.phase==='ready'?'check':'download'"/><span>{{state.message||'正在读取更新设置…'}}</span></div>

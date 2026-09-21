@@ -20,7 +20,7 @@ const sectionTabs=computed(()=>(sections[mainTab.value]||[]).map(id=>tabs.find(i
 watch(tab,value=>{if(sections[mainTab.value])lastSection[mainTab.value]=value;},{flush:'sync'});
 function navigateMain(id){navigate(lastSection[id]||id);}
 const settings=reactive(readSettings());
-const appUpdate=ref({currentVersion:'0.4.4',currentBuild:40401,autoCheck:true,autoDownload:true,phase:'idle'});
+const appUpdate=ref({currentVersion:'0.4.4',currentBuild:40402,autoCheck:true,autoDownload:true,phase:'idle'});
 async function updateAction(action,values={}){try{appUpdate.value=await native('appUpdate',{action,...values});}catch(e){error.value=e.message;}}
 
 function readSettings(){
@@ -172,7 +172,7 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
 
     <VoicePage v-if="tab==='voice'" :state="state" :settings="settings" :rooms="rooms" :members="members" :room-name="roomName" :speaker="speaker" :busy="busy" @join="join" @change="voiceChange" @leave="leaveVoice" @press="press" @speaker="toggleSpeaker" @login="sheet=state.hasAccount?'connection':'login'"/>
 
-    <ArcadeGames v-if="tab==='games'" :request="api"/>
+    <div v-if="tab==='games'" class="games-scroll"><ArcadeGames :request="api"/></div>
     <section v-if="tab==='forum'" class="content-page">
       <template v-if="!detail"><div class="page-toolbar"><div><h1>幻想镇论坛</h1></div><button class="primary" :disabled="!state.connected" @click="sheet='newPost'"><Icon name="plus"/>发帖</button></div>
         <form class="search-bar" @submit.prevent="searchPosts"><Icon name="search"/><input v-model="postQuery" placeholder="搜索帖子" maxlength="100"><button aria-label="搜索"><Icon name="chevron"/></button></form>
@@ -215,7 +215,7 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
       <div class="settings-group"><button class="settings-row" @click="sheet='connection'"><Icon name="settings"/><span>社区连接<small>{{state.server}}</small></span><Icon name="chevron"/></button><button class="settings-row" @click="run(()=>native('openSkin'))"><Icon name="user"/><span>皮肤站账号管理<small>皮肤、资料与账号安全</small></span><Icon name="chevron"/></button><button class="settings-row" :disabled="!state.connected" @click="setAvatar"><Icon name="image"/><span>更换社区头像<small>相册选择，居中裁剪</small></span><Icon name="chevron"/></button></div>
       <h2 class="section-title">外观</h2><div class="card form-stack"><label>主题<AppSelect v-model="settings.theme" label="主题" :options="[{value:'system',label:'跟随系统',icon:'settings',description:'随手机外观自动切换'},{value:'light',label:'浅色',icon:'sun',description:'明亮清晰的浅色界面'},{value:'dark',label:'深色',icon:'moon',description:'柔和舒适的深色界面'}]"/></label><label>文字大小 <span>{{settings.font}} px</span><input v-model.number="settings.font" type="range" min="14" max="22" step="1" aria-label="文字大小"></label><div class="color-row"><span>强调色</span><button v-for="color in ['#58734b','#407d8b','#626cc1','#9f6178','#a17137']" :key="color" :aria-label="'强调色 '+color" :aria-pressed="settings.accent===color" :style="{background:color}" @click="settings.accent=color"><Icon v-if="settings.accent===color" name="check"/></button></div></div>
       <div class="card form-stack"><label>界面动效<AppSelect v-model="settings.animations" label="界面动效" :options="[{value:true,label:'开启'},{value:false,label:'关闭'}]"/></label></div><h2 class="section-title">语音</h2><div class="card form-stack"><label>说话方式<AppSelect v-model="settings.ptt" label="说话方式" :options="[{value:false,label:'自由说话',icon:'mic',description:'进入频道后持续传送语音'},{value:true,label:'按住说话',icon:'mute',description:'仅按住语音页按钮时传送语音'}]" @change="value=>voiceChange({ptt:value,pressing:false})"/></label><p class="muted">按住说话时，在通话面板按住麦克风按钮。离开应用会自动停止发言。</p></div>
-      <UpdateCard :state="appUpdate" @action="updateAction"/><div class="settings-group"><button class="settings-row" @click="secret"><span>幻想镇社区<small>Android · 0.4.4（40401） · Android 10 及以上</small></span><span class="tag">0.4.4</span></button><button v-if="state.hasAccount" class="settings-row danger-text" @click="confirm('退出登录并离开语音？',logout)"><Icon name="logout"/><span>退出登录</span></button></div>
+      <UpdateCard :state="appUpdate" @action="updateAction"/><div class="settings-group"><button class="settings-row" @click="secret"><span>幻想镇社区<small>Android · 0.4.4（40402） · Android 10 及以上</small></span><span class="tag">0.4.4</span></button><button v-if="state.hasAccount" class="settings-row danger-text" @click="confirm('退出登录并离开语音？',logout)"><Icon name="logout"/><span>退出登录</span></button></div>
     </section>
   </main>
 

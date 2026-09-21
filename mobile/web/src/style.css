@@ -67,6 +67,9 @@ button{position:relative}.tap-feedback{position:absolute;inset:0;border-radius:i
 .reply-compose textarea { background:#fff; color:#26362c; }
 
 /* Grouped mobile navigation keeps page content and the composer in their own grid row. */
+.games-scroll{height:100%;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
+.games-scroll>.arcade-page{padding-bottom:24px}
+.games-scroll .blocks .arcade-stage>canvas{touch-action:pan-y}
 .app-top{grid-row:1;min-width:0;background:var(--surface)}
 .section-nav{display:flex;gap:6px;padding:4px 14px 6px;border-bottom:1px solid var(--line)}
 .section-nav button{display:flex;align-items:center;justify-content:center;gap:7px;flex:1;min-width:0;min-height:44px;padding:6px 8px;border-radius:10px;font-size:.86rem;color:var(--muted);white-space:nowrap}
