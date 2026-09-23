@@ -70,6 +70,11 @@ button{position:relative}.tap-feedback{position:absolute;inset:0;border-radius:i
 .games-scroll{height:100%;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch}
 .games-scroll>.arcade-page{padding-bottom:24px}
 .games-scroll .blocks .arcade-stage>canvas{touch-action:pan-y}
+/* Board intersections follow their grid tracks, not the 44px form-button target.
+   A forced minimum makes square cells overflow adjacent tracks on phones. */
+.games-scroll .board-cell{min-height:0;min-width:0;width:100%;line-height:1}
+.games-scroll .chess .board-piece{font-size:clamp(14px,7vw,50px);font-size:clamp(14px,7cqw,50px)}
+.games-scroll .xiangqi .board-piece{font-size:clamp(10px,4vw,28px);font-size:clamp(10px,4cqw,28px);line-height:1;border-width:1px;outline-width:1px}
 .app-top{grid-row:1;min-width:0;background:var(--surface)}
 .bottom-nav button{min-height:50px}
 .bottom-nav button>span{width:48px}
