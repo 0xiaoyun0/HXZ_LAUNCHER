@@ -7,6 +7,7 @@ import AppSelect from './AppSelect.vue';
 import ChoiceRows from './ChoiceRows.vue';
 import UpdateCard from './UpdateCard.vue';
 import AppOverlay from './AppOverlay.vue';
+import FloatingSectionSwitch from './FloatingSectionSwitch.vue';
 import {closeTopOverlay,overlayCount} from './overlays.js';
 import {state,native,api,on,avatar,groups,rooms,date} from './native.js';
 
@@ -16,11 +17,11 @@ const mainTabs=[{id:'chat',name:'聊天',icon:'chat'},{id:'community',name:'社�
 const sections={chat:['chat','voice'],community:['forum','blueprint']};
 const lastSection=reactive({chat:'chat',community:'forum'});
 const mainTab=computed(()=>Object.keys(sections).find(id=>sections[id].includes(tab.value))||tab.value);
-const sectionTabs=computed(()=>(sections[mainTab.value]||[]).map(id=>tabs.find(item=>item.id===id)));
+const switchTarget=computed(()=>{const pair=sections[mainTab.value];return pair?tabs.find(item=>item.id===pair.find(id=>id!==tab.value)):null;});
 watch(tab,value=>{if(sections[mainTab.value])lastSection[mainTab.value]=value;},{flush:'sync'});
 function navigateMain(id){navigate(lastSection[id]||id);}
 const settings=reactive(readSettings());
-const appUpdate=ref({currentVersion:'0.4.5',currentBuild:40501,autoCheck:true,autoDownload:true,phase:'idle'});
+const appUpdate=ref({currentVersion:'0.4.5',currentBuild:40502,autoCheck:true,autoDownload:true,phase:'idle'});
 async function updateAction(action,values={}){try{appUpdate.value=await native('appUpdate',{action,...values});}catch(e){error.value=e.message;}}
 
 function readSettings(){
@@ -218,15 +219,11 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
       <div class="settings-group"><button class="settings-row" @click="sheet='connection'"><Icon name="settings"/><span>社区连接<small>{{state.server}}</small></span><Icon name="chevron"/></button><button class="settings-row" @click="run(()=>native('openSkin'))"><Icon name="user"/><span>皮肤站账号管理<small>皮肤、资料与账号安全</small></span><Icon name="chevron"/></button><button class="settings-row" :disabled="!state.connected" @click="setAvatar"><Icon name="image"/><span>更换社区头像<small>相册选择，居中裁剪</small></span><Icon name="chevron"/></button></div>
       <h2 class="section-title">外观</h2><div class="card form-stack"><label>主题<AppSelect v-model="settings.theme" label="主题" :options="[{value:'system',label:'跟随系统',icon:'settings',description:'随手机外观自动切换'},{value:'light',label:'浅色',icon:'sun',description:'明亮清晰的浅色界面'},{value:'dark',label:'深色',icon:'moon',description:'柔和舒适的深色界面'}]"/></label><label>文字大小 <span>{{settings.font}} px</span><input v-model.number="settings.font" type="range" min="14" max="22" step="1" aria-label="文字大小"></label><div class="color-row"><span>强调色</span><button v-for="color in ['#58734b','#407d8b','#626cc1','#9f6178','#a17137']" :key="color" :aria-label="'强调色 '+color" :aria-pressed="settings.accent===color" :style="{background:color}" @click="settings.accent=color"><Icon v-if="settings.accent===color" name="check"/></button></div></div>
       <div class="card form-stack"><label>界面动效<AppSelect v-model="settings.animations" label="界面动效" :options="[{value:true,label:'开启'},{value:false,label:'关闭'}]"/></label></div><h2 class="section-title">语音</h2><div class="card form-stack"><label>说话方式<AppSelect v-model="settings.ptt" label="说话方式" :options="[{value:false,label:'自由说话',icon:'mic',description:'进入频道后持续传送语音'},{value:true,label:'按住说话',icon:'mute',description:'仅按住语音页按钮时传送语音'}]" @change="value=>voiceChange({ptt:value,pressing:false})"/></label><p class="muted">按住说话时，在通话面板按住麦克风按钮。离开应用会自动停止发言。</p></div>
-      <div class="settings-group"><label class="settings-row"><span>聊天记录范围</span><AppSelect v-model="settings.chatHistoryDays" label="聊天记录范围" :options="[{label:'不限制',value:0},{label:'1 天',value:1},{label:'3 天',value:3},{label:'5 天',value:5},{label:'1 周',value:7},{label:'一个月',value:30}]"/></label></div><UpdateCard :state="appUpdate" @action="updateAction"/><div class="settings-group"><button class="settings-row" @click="secret"><span>幻想镇社区<small>Android · 0.4.5（40501） · Android 10 及以上</small></span><span class="tag">0.4.5</span></button><button v-if="state.hasAccount" class="settings-row danger-text" @click="confirm('退出登录并离开语音？',logout)"><Icon name="logout"/><span>退出登录</span></button></div>
+      <div class="settings-group"><label class="settings-row"><span>聊天记录范围</span><AppSelect v-model="settings.chatHistoryDays" label="聊天记录范围" :options="[{label:'不限制',value:0},{label:'1 天',value:1},{label:'3 天',value:3},{label:'5 天',value:5},{label:'1 周',value:7},{label:'一个月',value:30}]"/></label></div><UpdateCard :state="appUpdate" @action="updateAction"/><div class="settings-group"><button class="settings-row" @click="secret"><span>幻想镇社区<small>Android · 0.4.5（40502） · Android 10 及以上</small></span><span class="tag">0.4.5</span></button><button v-if="state.hasAccount" class="settings-row danger-text" @click="confirm('退出登录并离开语音？',logout)"><Icon name="logout"/><span>退出登录</span></button></div>
     </section>
   </main>
 
-  <div class="navigation-dock">
-  <nav v-if="sectionTabs.length" class="section-nav" :aria-label="mainTab==='chat'?'聊天分区':'社区分区'">
-    <button v-for="item in sectionTabs" :key="item.id" :class="{active:tab===item.id}" :aria-current="tab===item.id?'page':undefined" @click="navigate(item.id)"><Icon :name="item.icon"/>{{item.id==='chat'?'文字聊天':item.id==='voice'?'语音房间':item.id==='blueprint'?'机械动力蓝图':'幻想镇论坛'}}<i v-if="item.id==='voice'&&(state.room||state.recoveringRoom)" class="section-status" aria-label="语音已连接"/><i v-if="item.id==='chat'&&newMessages&&tab!=='chat'" class="section-status unread" aria-label="有新消息"/></button>
-  </nav>
-  </div>
+  <FloatingSectionSwitch :group="switchTarget?mainTab:''" :icon="switchTarget?.icon" :label="switchTarget?'切换到'+({chat:'文字大厅',voice:'语音房间',forum:'幻想镇论坛',blueprint:'机械动力蓝图'})[switchTarget.id]:''" :workspace="workspace" :hidden="overlayCount>0" :status="mainTab==='chat'?(tab==='voice'&&newMessages?'unread':state.room||state.recoveringRoom?'voice':''):''" @toggle="switchTarget&&navigate(switchTarget.id)"/>
   <nav class="bottom-nav" aria-label="主导航"><button v-for="item in mainTabs" :key="item.id" :class="{active:mainTab===item.id}" :aria-current="mainTab===item.id?'page':undefined" @click="navigateMain(item.id)"><span><Icon :name="item.icon"/><i v-if="item.id==='chat'&&newMessages&&tab!=='chat'" class="badge"/><i v-else-if="item.id==='chat'&&(state.room||state.recoveringRoom)" class="badge voice-badge"/></span>{{item.name}}</button></nav>
 
   <AppOverlay :open="!!sheet" label="社区面板" @close="sheet=''"><section class="sheet" @invalid.capture.prevent="invalidField" :class="{'full-sheet':['newPost','newBlueprint','newNotice','arcana'].includes(sheet)}"><div class="sheet-handle"/><header class="sheet-header"><h2>{{({login:'登录社区',profiles:'选择角色',connection:'社区连接',members:'在线成员',newPost:'发布帖子',newBlueprint:'上传蓝图',filters:'筛选蓝图',newNotice:'发布公告',arcana:'星之回廊'})[sheet]}}</h2><button class="icon-button" aria-label="关闭面板" @click="sheet=''"><Icon name="close"/></button></header><div class="sheet-body">

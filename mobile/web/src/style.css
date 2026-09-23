@@ -71,20 +71,7 @@ button{position:relative}.tap-feedback{position:absolute;inset:0;border-radius:i
 .games-scroll>.arcade-page{padding-bottom:24px}
 .games-scroll .blocks .arcade-stage>canvas{touch-action:pan-y}
 .app-top{grid-row:1;min-width:0;background:var(--surface)}
-.section-nav{display:flex;gap:6px;padding:4px 14px 6px;border-bottom:1px solid var(--line)}
-.section-nav button{display:flex;align-items:center;justify-content:center;gap:7px;flex:1;min-width:0;min-height:44px;padding:6px 8px;border-radius:10px;font-size:.86rem;color:var(--muted);white-space:nowrap}
-.section-nav button.active{background:var(--accent-soft);color:var(--accent);font-weight:700}
-.section-nav .icon{width:18px;height:18px;flex-shrink:0}
-.section-status{width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
-.section-status.unread{background:var(--danger)}
 .bottom-nav button{min-height:50px}
 .bottom-nav button>span{width:48px}
-@media(min-width:760px){.app-top{grid-column:1/-1}.section-nav{padding-left:90px;justify-content:flex-start}.section-nav button{flex:0 1 190px}}
-@media(max-width:359px){.section-nav{padding-left:8px;padding-right:8px}.section-nav button{gap:5px;padding-left:4px;padding-right:4px;font-size:.8rem}}
-
-/* Keep both levels of navigation reachable without covering the page or keyboard. */
-.navigation-dock {grid-row:4;min-width:0;background:var(--surface);}
-.navigation-dock .section-nav {border-top:1px solid var(--line);border-bottom:0;padding:3px 12px;}
-.navigation-dock .section-nav button {min-height:38px;font-size:.8rem;}
-.navigation-dock .bottom-nav {padding-top:2px;}
-@media(min-width:760px){.navigation-dock{grid-column:1;grid-row:2/4;display:flex;flex-direction:column-reverse;justify-content:flex-end;border-right:1px solid var(--line)}.navigation-dock .bottom-nav{border:0}.navigation-dock .section-nav{padding:5px;flex-direction:column}.navigation-dock .section-nav button{flex:auto;white-space:normal;flex-direction:column;font-size:.7rem}.navigation-dock .section-nav .icon{width:18px;height:18px}}
+@media(max-width:759px){.app-shell{grid-template-columns:minmax(0,1fr)}.app-top,.workspace,.error-banner,.bottom-nav{grid-column:1}}
+@media(min-width:760px){.app-top{grid-column:1/-1}}
