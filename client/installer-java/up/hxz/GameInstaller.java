@@ -239,11 +239,13 @@ final class GameInstaller {
         }finally{workers.shutdownNow();if(!workers.awaitTermination(45,TimeUnit.SECONDS))throw new IOException("游戏文件下载线程未正常退出");}
     }
     private boolean allowed(JsonObject library){
-        String name=IO.str(library,"name",""),arch=System.getProperty("os.arch");
-        if(name.contains(":natives-windows")&&osName().equals("windows")){
-            boolean arm=arch.equals("aarch64")||arch.equals("arm64");
-            if(name.endsWith("-arm64")!=arm)return false;
-            if(!arm&&name.endsWith("-x86")!=arch.equals("x86"))return false;
+        String name=IO.str(library,"name","").split("@",2)[0],arch=System.getProperty("os.arch");
+        java.util.regex.Matcher nativeId=java.util.regex.Pattern.compile(":natives-(windows|linux|macos|osx)(?:-(arm64|aarch64|x86_64|x64|x86|arm32))?$").matcher(name);
+        if(nativeId.find()){
+            String nativeOs=nativeId.group(1).equals("macos")?"osx":nativeId.group(1);
+            String suffix=nativeId.group(2), actual=(arch.equals("aarch64")||arch.equals("arm64"))?"arm64":arch.contains("64")?"x64":arch.startsWith("arm")?"arm":"x86";
+            String expected=suffix==null?"x64":(suffix.equals("arm64")||suffix.equals("aarch64"))?"arm64":suffix.equals("x86")?"x86":suffix.equals("arm32")?"arm":"x64";
+            if(!nativeOs.equals(osName())||!actual.equals(expected))return false;
         }
         if(!library.has("rules"))return true;boolean allowed=false;
         for(JsonElement entry:library.getAsJsonArray("rules")){JsonObject rule=entry.getAsJsonObject(),os=IO.object(rule,"os");boolean matches=true;

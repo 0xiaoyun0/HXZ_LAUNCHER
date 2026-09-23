@@ -40,11 +40,40 @@ export async function beginInstall(root, id, request, pack, input) {
   };
   let job;
   if (await exists(paths.record)) {
-    job = await json(paths.record);
+    try { job = await json(paths.record); }
+    catch (error) {
+      if(await exists(paths.target))throw Error('安装记录损坏，请先在任务详情清理或备份此记录：'+paths.record);
+      const saved=inside(root,'.hxzl-backups/install-'+id+'-'+Date.now());
+      await noLinks(saved);await fs.mkdir(path.dirname(saved),{recursive:true});
+      await fs.rename(paths.home,saved);
+      return beginInstall(root,id,request,pack,input);
+    }
     if(job.id!==id)throw Error('安装记录与实例不匹配');
+    if(job.status==='committing' && await exists(paths.target) && !(await exists(paths.stage))) {
+      // Publication completed but its journal cleanup was interrupted. Preserve
+      // that journal separately so it cannot block the next version upgrade.
+      const saved=inside(root,'.hxzl-backups/install-'+id+'-'+Date.now());
+      await noLinks(saved);await fs.mkdir(path.dirname(saved),{recursive:true});
+      await fs.rename(paths.home,saved);
+      return beginInstall(root,id,request,pack,input);
+    }
     await restoreInterruptedUpgrade(root,paths,job);
-    if (JSON.stringify(job.identity) !== JSON.stringify(identity))
-      throw Error("该实例有另一项未完成安装，请继续原任务或先清理");
+    const previousIdentity={...job.identity}, nextIdentity={...identity};
+    // Deleting the original directory changes an upgrade into an installation,
+    // not into a different download task. Keep the verified stage resumable.
+    if (!(await exists(paths.target))) {
+      delete previousIdentity.upgrade;
+      delete nextIdentity.upgrade;
+    }
+    if (JSON.stringify(previousIdentity) !== JSON.stringify(nextIdentity)) {
+      if(await exists(paths.target))throw Error("该实例有另一项未完成安装，请继续原任务或先清理");
+      // The folder was removed and the server configuration changed. Preserve
+      // the old stage separately, so its journal cannot block a fresh install.
+      const saved=inside(root,'.hxzl-backups/install-'+id+'-'+Date.now());
+      await noLinks(saved);await fs.mkdir(path.dirname(saved),{recursive:true});
+      await fs.rename(paths.home,saved);
+      return beginInstall(root,id,request,pack,input);
+    }
   } else {
     job = { id, identity, created: Date.now() };
     // Import only a directory explicitly marked by the old installer as incomplete.
@@ -63,7 +92,8 @@ export async function beginInstall(root, id, request, pack, input) {
     }
   }
   if ((await exists(paths.target)) && !input.upgrade) throw Error("目标实例已经存在，请先刷新列表");
-  if(input.upgrade && !(await exists(path.join(paths.home,'upgrade-copied.json')))) {
+  const upgrading = !!input.upgrade && await exists(paths.target);
+  if(upgrading && (!(await exists(path.join(paths.home,'upgrade-copied.json'))) || !(await exists(paths.stage)))) {
     await writeJSON(paths.record,{...job,status:'running',updated:Date.now()});
     // Copy into the transaction; the original instance remains playable on failure.
     await fs.cp(paths.target,paths.stage,{recursive:true,filter:async source=>{
@@ -92,13 +122,17 @@ export async function beginInstall(root, id, request, pack, input) {
         throw Error("目标实例已存在，安装未覆盖它");
       await fs.mkdir(path.dirname(paths.target), { recursive: true });
       await save("committing");
-      if(input.upgrade) {
+      if(upgrading && await exists(paths.target)) {
         const backup=inside(root,'.hxzl-backups/'+id+'/'+Date.now());
         await noLinks(backup);await fs.mkdir(path.dirname(backup),{recursive:true});
         // Journal the backup before moving anything, for interruption recovery.
         job.backup=backup;await save('committing');
         await fs.rename(paths.target,backup);
-        try{await fs.rename(paths.stage,paths.target);}catch(error){await fs.rename(backup,paths.target);throw error;}
+        try{await fs.rename(paths.stage,paths.target);}catch(error){
+          try { await fs.rename(backup,paths.target); }
+          catch (rollback) { throw Error(`安装替换失败：${error.message}；自动还原失败：${rollback.message}。原实例已保留在 ${backup}，请解除占用后继续或清理任务。`); }
+          throw error;
+        }
       } else await fs.rename(paths.stage, paths.target);
       await fs
         .rm(paths.home, {

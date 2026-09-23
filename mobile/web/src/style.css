@@ -81,3 +81,10 @@ button{position:relative}.tap-feedback{position:absolute;inset:0;border-radius:i
 .bottom-nav button>span{width:48px}
 @media(min-width:760px){.app-top{grid-column:1/-1}.section-nav{padding-left:90px;justify-content:flex-start}.section-nav button{flex:0 1 190px}}
 @media(max-width:359px){.section-nav{padding-left:8px;padding-right:8px}.section-nav button{gap:5px;padding-left:4px;padding-right:4px;font-size:.8rem}}
+
+/* Keep both levels of navigation reachable without covering the page or keyboard. */
+.navigation-dock {grid-row:4;min-width:0;background:var(--surface);}
+.navigation-dock .section-nav {border-top:1px solid var(--line);border-bottom:0;padding:3px 12px;}
+.navigation-dock .section-nav button {min-height:38px;font-size:.8rem;}
+.navigation-dock .bottom-nav {padding-top:2px;}
+@media(min-width:760px){.navigation-dock{grid-column:1;grid-row:2/4;display:flex;flex-direction:column-reverse;justify-content:flex-end;border-right:1px solid var(--line)}.navigation-dock .bottom-nav{border:0}.navigation-dock .section-nav{padding:5px;flex-direction:column}.navigation-dock .section-nav button{flex:auto;white-space:normal;flex-direction:column;font-size:.7rem}.navigation-dock .section-nav .icon{width:18px;height:18px}}

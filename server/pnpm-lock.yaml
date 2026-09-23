@@ -8,11 +8,17 @@ importers:
 
   .:
     dependencies:
+      chess.js:
+        specifier: 1.4.0
+        version: 1.4.0
       ws:
         specifier: ^8.18.3
         version: 8.21.3
 
 packages:
+
+  chess.js@1.4.0:
+    resolution: {integrity: sha512-BBJgrrtKQOzFLonR0l+k64A98NLemPwNsCskwb+29bRwobUa4iTm51E1kwGPbWXAcfdDa18nad6vpPPKPWarqw==}
 
   ws@8.21.3:
     resolution: {integrity: sha512-201TZ/kPWxoPr/OKWjquZR1SWKXcvxdH+e1xrx89b3YbmzLMFCLfnaG1HFIgWzJOEWZ7MvpK++odZufgYR50Rw==}
@@ -27,5 +33,7 @@ packages:
         optional: true
 
 snapshots:
+
+  chess.js@1.4.0: {}
 
   ws@8.21.3: {}

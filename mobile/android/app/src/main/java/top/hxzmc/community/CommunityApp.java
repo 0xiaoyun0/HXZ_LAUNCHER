@@ -55,7 +55,7 @@ public final class CommunityApp extends Application {
         JSONObject selected = credentials.optJSONObject("selectedProfile");
         return obj("server",base,"user",user,"profiles",profiles==null?new JSONArray():profiles,"selectedProfile",selected==null?JSONObject.NULL:selected,
             "hasAccount",credentials.has("accessToken"),"connected",connected,"connection",connection,"users",users,"messages",messages,
-            "room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.4.4",
+            "room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.4.5",
             "systemDark",(getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)==android.content.res.Configuration.UI_MODE_NIGHT_YES);
     }
     void event(String name, Object value) { MainActivity a=activity.get(); if(a!=null)a.emit(name,value); }
@@ -155,7 +155,7 @@ public final class CommunityApp extends Application {
                     @Override public void onMessage(WebSocket ws,String text){ if(ticket!=generation)return; try {receive(new JSONObject(text));}catch(Exception ignored){} }
                     @Override public void onMessage(WebSocket ws,ByteString bytes){if(ticket==generation && audio!=null && !deafened)audio.receive(bytes.toByteArray());}
                     @Override public void onClosing(WebSocket ws,int code,String reason){ws.close(code,reason);}
-                    @Override public void onClosed(WebSocket ws,int code,String reason){failed(ticket,code==4001||code==4003||code==1008);}
+                    @Override public void onClosed(WebSocket ws,int code,String reason){if(code==4001){synchronized(CommunityApp.this){if(ticket!=generation)return;disconnect(false);connection="已在另一台手机登录";changed();}}else failed(ticket,code==4003||code==1008);}
                     @Override public void onFailure(WebSocket ws,Throwable t,Response response){failed(ticket,false);}
                 });
                 synchronized(this){if(ticket==generation)socket=ws;else ws.cancel();}

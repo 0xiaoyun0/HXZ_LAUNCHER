@@ -1,6 +1,7 @@
 import { normalizeDownloadConcurrency } from "./download-settings.mjs";
 import { serverAddress } from "./instances.mjs";
 import { fileProgress } from "./progress.mjs";
+import { nativeArtifactAllowed } from "./platform.mjs";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs/promises";
@@ -116,6 +117,11 @@ export async function scanInstances(root) {
   return result.slice(0, 300);
 }
 export async function inspectJava(binary) {
+  // javaw.exe suppresses the console on Windows; inspect and launch its paired java.exe.
+  if (/javaw\.exe$/i.test(binary)) {
+    const consoleJava = binary.replace(/javaw\.exe$/i, 'java.exe');
+    if (await exists(consoleJava)) binary = consoleJava;
+  }
   return new Promise((ok, fail) => {
     const p = spawn(binary, ["-XshowSettings:properties", "-version"], { windowsHide: true, shell: false });
     let output = "";
@@ -154,7 +160,7 @@ export async function inspectJava(binary) {
     });
   });
 }
-export async function findJava() {
+export async function findJava({ roots = [], chinesePaths = true } = {}) {
   const candidates = new Set(["java"]);
   if (process.env.JAVA_HOME)
     candidates.add(
@@ -173,7 +179,9 @@ export async function findJava() {
         process.env.ProgramFiles || "C:/Program Files",
         "Eclipse Adoptium"
       ),
-      "E:/zulu-java"
+      "E:/zulu-java",
+      path.join(process.env.ProgramW6432 || "C:/Program Files", "Zulu"),
+      ...roots
     ]) {
       try {
         for (const e of await fs.readdir(base, { withFileTypes: true }))
@@ -181,9 +189,21 @@ export async function findJava() {
             candidates.add(path.join(base, e.name, "bin/java.exe"));
       } catch {}
     }
+  // Bounded scan of selected roots supports Unicode vendor/install paths without walking drives.
+  for (const root of roots) {
+    const queue = [{ dir: root, depth: 0 }]; let visited = 0;
+    while (queue.length && visited++ < 300) {
+      const { dir, depth } = queue.shift();
+      for (const entry of await fs.readdir(dir, { withFileTypes: true }).catch(() => [])) {
+        if (!chinesePaths && /[^\x00-\x7f]/.test(entry.name)) continue;
+        if (entry.isDirectory() && !entry.isSymbolicLink() && depth < 3) queue.push({dir:path.join(dir,entry.name),depth:depth+1});
+        if (entry.isFile() && /^java(?:\.exe)?$/i.test(entry.name)) candidates.add(path.join(dir,entry.name));
+      }
+    }
+  }
   const result = [];
   await parallel(
-    [...candidates],
+    [...candidates].filter(p => chinesePaths || !/[^\x00-\x7f]/.test(p)),
     async p => {
       try {
         result.push(await inspectJava(p));
@@ -214,10 +234,11 @@ export async function prepareLaunch({
   const version = await readVersion(root, id),
     instance = inside(root, `versions/${id}`);
   await noLinks(instance);
-  const run = settings.isolated !== false ? instance : root,
-    natives = path.join(instance, ".hxzl/natives");
-  await fs.mkdir(natives, { recursive: true });
   const j = await inspectJava(java);
+  const run = settings.isolated !== false ? instance : root,
+    natives = path.join(instance, ".hxzl/natives-" + j.architecture);
+  await noLinks(natives);
+  await fs.mkdir(natives, { recursive: true });
   if (j.major < (version.javaVersion?.majorVersion || 8))
     throw Error(
       `该实例至少需要 Java ${version.javaVersion.majorVersion}，当前为 Java ${j.major}`
@@ -232,17 +253,7 @@ export async function prepareLaunch({
         : "linux";
   for (const lib of version.libraries || []) {
     if (!allowed(lib.rules, {}, j.architecture)) continue;
-    if (
-      process.platform === "win32" &&
-      lib.name?.includes(":natives-windows")
-    ) {
-      if (lib.name.endsWith("-arm64") !== (j.architecture === "arm64")) continue;
-      if (
-        j.architecture !== "arm64" &&
-        lib.name.endsWith("-x86") !== (j.architecture === "ia32")
-      )
-        continue;
-    }
+    if (!nativeArtifactAllowed(lib, j.architecture)) continue;
     const artifact = lib.downloads?.artifact;
     if (artifact || !lib.downloads) {
       const rel = artifact?.path || maven(lib.name),
@@ -417,7 +428,7 @@ export async function prepareLaunch({
     classpath,
     classpath_separator: path.delimiter,
     launcher_name: "HXZ Launcher",
-    launcher_version: "0.4.4",
+    launcher_version: "0.4.5",
     resolution_width: String(settings.width || 1280),
     resolution_height: String(settings.height || 720),
     clientid: "",

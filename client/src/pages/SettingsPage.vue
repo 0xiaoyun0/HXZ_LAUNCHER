@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref, watch, onBeforeUnmount, onMounted } from "vue";
-import { useRouter } from "vue-router";
+import { ref, computed, watch, onBeforeUnmount, onMounted } from "vue";
+import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { secretSequence } from "../lib/secret-sequence";
 const router = useRouter();
 let secretTaps=0, secretAt=0;
@@ -21,6 +21,23 @@ import {
   perform
 } from "../lib/launcher";
 import { disconnect, connect } from "../lib/community";
+const gameRoot=ref(state.settings.gameRoot), theme=ref(state.settings.theme);
+const section=ref('game'), chinesePaths=ref(state.settings.chinesePaths!==false), confirmUnsaved=ref(state.settings.confirmUnsaved!==false), chatHistoryDays=ref(state.settings.chatHistoryDays||0);
+const deleted=ref<{id:string}[]>([]), deletedOpen=ref(false);
+async function manageDeleted(){deleted.value=await invoke('instance.deleted');deletedOpen.value=true;}
+async function restore(id:string){await invoke('instance.restore',{id});await reload();deleted.value=await invoke('instance.deleted');}
+const leavePrompt=ref(false);let resolveLeave:((v:boolean)=>void)|undefined;
+function draft(){return {theme:theme.value,...(gameRoot.value?{gameRoot:gameRoot.value}:{}),communityUrl:base.value,javaPath:java.value,downloadMode:downloadMode.value,downloadConcurrency:downloadConcurrency.value,hxzupPopup:hxzupPopup.value,simpleHome:simpleHome.value,autoCheckUpdates:automatic.value,memoryMode:memoryMode.value,defaultMemoryMB:Math.round(defaultMemoryMB.value),voiceMode:voiceMode.value,voiceKey:voiceKey.value,voiceSounds:voiceSounds.value,chinesePaths:chinesePaths.value,confirmUnsaved:confirmUnsaved.value,chatHistoryDays:chatHistoryDays.value};}
+const dirty=computed(()=>Object.entries(draft()).some(([key,value])=>value!==state.settings[key as keyof typeof state.settings]));
+onBeforeRouteLeave(()=>{
+  if(!dirty.value || !confirmUnsaved.value)return true;
+  leavePrompt.value=true;
+  return new Promise<boolean>(resolve=>resolveLeave=resolve);
+});
+async function leave(action:string){
+  if(action==='save')await save();
+  leavePrompt.value=false;resolveLeave?.(action!=='stay');resolveLeave=undefined;
+}
 const hxzupPopup = ref(state.settings.hxzupPopup !== false);
 const simpleHome = ref(state.settings.simpleHome);
 const memoryMode = ref(state.settings.memoryMode || "auto");
@@ -71,9 +88,8 @@ const connection = ref(""),
 async function check() {
   checking.value = true;
   try {
-    await saveSettings({ communityUrl: base.value });
     const r = await invoke<{ ok: boolean; version?: string; error?: string }>(
-      "community.status"
+      "community.status", {url:base.value}
     );
     connection.value = r.ok
       ? "已连接 · 社区服务 " + r.version
@@ -109,32 +125,19 @@ async function choose() {
   if (value) java.value = value;
 }
 async function save() {
-  await saveSettings({
-    communityUrl: base.value,
-    javaPath: java.value,
-    downloadMode: downloadMode.value,
-    downloadConcurrency: downloadConcurrency.value,
-    hxzupPopup: hxzupPopup.value,
-    simpleHome: simpleHome.value,
-    autoCheckUpdates: automatic.value,
-    memoryMode: memoryMode.value,
-    defaultMemoryMB: Math.round(defaultMemoryMB.value),
-    voiceMode: voiceMode.value,
-    voiceKey: voiceKey.value,
-    voiceSounds: voiceSounds.value
-  });
+  await saveSettings(draft());
   disconnect();
   if (state.settings.selectedAccount) await connect();
 }
 async function root() {
-  const gameRoot = await invoke<string | null>("directory.choose");
-  if (gameRoot) {
-    await saveSettings({ gameRoot });
-    await reload();
-  }
+  const value = await invoke<string | null>('directory.choose');
+  if(value)gameRoot.value=value;
 }
+
 </script>
 <template>
+  <q-dialog v-model="leavePrompt" persistent><q-card class="dialog-card"><q-card-section><h2>应用设置更改？</h2><p>你还有未保存的设置。</p></q-card-section><q-card-actions align="right"><q-btn flat label="继续编辑" @click="leave('stay')"/><q-btn flat label="放弃更改" @click="leave('discard')"/><q-btn unelevated class="primary-button" label="应用并离开" @click="perform(()=>leave('save'))"/></q-card-actions></q-card></q-dialog>
+  <q-dialog v-model="deletedOpen"><q-card class="dialog-card"><q-card-section><h2>已隐藏的实例</h2><p class="subtle">恢复列表显示；已硬删除的默认服务器恢复后需要重新下载。</p><p v-if="!deleted.length">暂无隐藏实例</p><div v-for="item in deleted" :key="item.id" class="row items-center justify-between q-my-sm"><span>{{item.id}}</span><q-btn flat label="恢复显示" @click="perform(()=>restore(item.id))"/></div></q-card-section><q-card-actions align="right"><q-btn flat label="关闭" v-close-popup/></q-card-actions></q-card></q-dialog>
   <section v-if="state.settings.linkingDiscovered" class="panel q-mb-md"><q-toggle :model-value="!!state.settings.showLinking" label="在左侧显示 Linking" @update:model-value="value=>perform(()=>saveSettings({showLinking:!!value}))"/><q-btn flat label="打开 Linking" to="/signal"/></section>
   <div class="page-heading"
     ><div><h1 @click="secretClick">启动器设置</h1></div
@@ -146,15 +149,16 @@ async function root() {
       :disable="task.busy || state.running"
       @click="perform(save, '设置已保存')"
   /></div>
-  <section class="panel settings-section">
+  <q-tabs v-model="section" align="left" class="settings-tabs q-mb-md" active-color="primary" indicator-color="primary"><q-tab name="game" label="游戏与存储"/><q-tab name="display" label="外观与操作"/><q-tab name="network" label="下载与更新"/><q-tab name="community" label="聊天与社区"/></q-tabs>
+  <section v-show="section==='network'" class="panel settings-section">
     <h2>HXZ UP 更新</h2
     ><q-toggle v-model="hxzupPopup" label="保留 HXZ UP 默认更新弹窗" /><p
       class="subtle"
       >默认开启：启动游戏更新时显示独立窗口。关闭后在启动器任务详情中查看。是否自动更新仍由各实例的配置决定。</p
     >
   </section>
-  <section class="panel settings-section settings-appearance">
-    <h2>外观</h2>
+  <section v-show="section==='display'" class="panel settings-section settings-appearance">
+    <h2>外观</h2><q-toggle v-model="confirmUnsaved" label="离开设置时提醒应用未保存的更改"/>
     <div class="settings-appearance-actions">
       <q-toggle v-model="simpleHome" label="使用简化版启动游戏界面" />
       <q-btn outline to="/appearance" label="字号、颜色与布局" icon="palette" />
@@ -164,28 +168,28 @@ async function root() {
         :class="[
           'theme-card',
           'theme-dark',
-          { selected: state.settings.theme === 'dark' }
+          { selected: theme === 'dark' }
         ]"
-        @click="perform(() => saveSettings({ theme: 'dark' }))"
+        @click="theme='dark'"
         ><span class="theme-sample"><i /><b /><b /></span>深色
         <q-icon
-          v-if="state.settings.theme === 'dark'"
+          v-if="theme === 'dark'"
           name="check_circle" /></button
       ><button
         :class="[
           'theme-card',
           'theme-light',
-          { selected: state.settings.theme === 'light' }
+          { selected: theme === 'light' }
         ]"
-        @click="perform(() => saveSettings({ theme: 'light' }))"
+        @click="theme='light'"
         ><span class="theme-sample"><i /><b /><b /></span>浅色
         <q-icon
-          v-if="state.settings.theme === 'light'"
+          v-if="theme === 'light'"
           name="check_circle" /></button></div
   ></section>
-  <section class="panel settings-section"
+  <section v-show="section==='game'" class="panel settings-section"
     ><h2>游戏与 Java</h2
-    ><p class="subtle">默认内存用于新实例；已有实例可在实例配置中单独调整。</p
+    ><div class="row q-gutter-sm q-mb-md"><q-toggle v-model="chinesePaths" label="检索中文路径中的 Java"/><q-btn outline icon="restore_from_trash" label="管理隐藏实例" @click="perform(manageDeleted)"/><q-btn flat to="/instances" label="管理与删除实例"/></div><p class="subtle">默认内存用于新实例；已有实例可在实例配置中单独调整。</p
     ><div class="install-grid q-mb-md"
       ><q-select
         v-model="memoryMode"
@@ -211,7 +215,7 @@ async function root() {
       ></div
     ><div class="directory-bar"
       ><q-icon name="folder_open" /><span>{{
-        state.settings.gameRoot || "尚未设置游戏目录"
+        gameRoot || "尚未设置游戏目录"
       }}</span
       ><q-btn
         flat
@@ -246,7 +250,7 @@ async function root() {
         :disable="!desktop"
         @click="perform(choose)" /></div
   ></section>
-  <section class="panel settings-section"
+  <section v-show="section==='network'" class="panel settings-section"
     ><h2>下载设置</h2
     ><q-select
       v-model="downloadMode"
@@ -269,7 +273,7 @@ async function root() {
       :disable="task.busy || state.running"
     />
   </section>
-  <section class="panel settings-section"
+  <section v-show="section==='community'" class="panel settings-section"
     ><h2>语音聊天</h2
     ><div class="install-grid"
       ><q-select
@@ -296,9 +300,9 @@ async function root() {
         ></div
       ><q-toggle v-model="voiceSounds" label="播放语音频道进出提示音" /></div
   ></section>
-  <section class="panel settings-section"
+  <section v-show="section==='community'" class="panel settings-section"
     ><h2>社区服务</h2
-    ><p class="subtle">聊天、语音和公告共用此地址；皮肤站与 HXZ UP 独立运行。</p
+    ><q-select v-model="chatHistoryDays" outlined emit-value map-options label="聊天记录显示范围" class="q-mb-md" :options="[{label:'不限制',value:0},{label:'1 天',value:1},{label:'3 天',value:3},{label:'5 天',value:5},{label:'1 周',value:7},{label:'一个月',value:30}]"/><p class="subtle">聊天、语音和公告共用此地址；皮肤站与 HXZ UP 独立运行。</p
     ><q-input
       v-model="base"
       outlined
@@ -317,14 +321,11 @@ async function root() {
       >幻想镇社区：https://qqbot.hxzmc.top。</p
     ></section
   >
-  <section class="panel settings-section"
+  <section v-show="section==='network'" class="panel settings-section"
     ><h2>启动器更新</h2
     ><q-toggle
       v-model="automatic"
       label="自动更新启动器并安装（GitHub）"
-      @update:model-value="
-        perform(() => saveSettings({ autoCheckUpdates: automatic }))
-      "
     /><p class="subtle"
       >发现更高的正式版本后自动下载，游戏与安装任务结束后自动重启安装。可随时关闭。</p
     ><div class="row items-center q-gutter-sm q-mt-md"

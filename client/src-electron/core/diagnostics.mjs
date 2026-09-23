@@ -21,4 +21,4 @@ export async function crashReport({cwd,id,started,code,signal,logs,secrets,java}
  files.sort((a,b)=>b.mtime-a.mtime);const reports=[];for(const item of files.slice(0,5)){try{const content=redactDiagnostic(await tail(item.file),secrets);reports.push({path:item.file,content});text+='\n'+content;}catch{}}
  const safe=redactDiagnostic(text,secrets),evidence=errorEvidence(safe);return {id,code,signal:signal||'',cwd,java,created:Date.now(),hints:crashHints(evidence||safe,code),reports,log:redactDiagnostic(logs.join('\n'),secrets),summary:evidence};
 }
-export function diagnosticText(report){return ['HXZ Launcher 0.4.4 · 游戏异常诊断','实例: '+report.id,'退出码: '+report.code+' · 信号: '+report.signal,'Java: '+report.java,'提示（推测，不代表确定原因）:',...report.hints,'','启动器日志:',report.log,...report.reports.flatMap(r=>['','报告: '+path.basename(r.path),r.content])].join('\n');}
+export function diagnosticText(report){return ['HXZ Launcher 0.4.5 · 游戏异常诊断','实例: '+report.id,'退出码: '+report.code+' · 信号: '+report.signal,'Java: '+report.java,'提示（推测，不代表确定原因）:',...report.hints,'','启动器日志:',report.log,...report.reports.flatMap(r=>['','报告: '+path.basename(r.path),r.content])].join('\n');}

@@ -13,6 +13,8 @@ import {
 import {
   community,
   chatView,
+  communityRequest,
+  type ChatMessage,
   connect,
   disconnect,
   sendChat,
@@ -27,6 +29,22 @@ const composer = ref<QInput>(),
   devices = toRef(chatView, "devices"),
   joining = ref(false);
 const onlineUsers = computed(()=>[...new Map(community.users.map(u=>[u.uid,u])).values()]);
+const older=ref<ChatMessage[]|null>(null), loadingOlder=ref(false), historyEnd=ref(false);
+const visibleMessages=computed(()=>{
+ const cutoff=state.settings.chatHistoryDays?Date.now()-state.settings.chatHistoryDays*86400000:0;
+ return (older.value||community.messages).filter(m=>m.created>=cutoff).sort((a,b)=>a.id-b.id);
+});
+function grouped(index:number){const m=visibleMessages.value[index],p=visibleMessages.value[index-1];return !!m&&!!p&&m.uid===p.uid&&m.created-p.created<120000&&new Date(m.created).toDateString()===new Date(p.created).toDateString();}
+async function loadOlder(){
+ if(loadingOlder.value||historyEnd.value)return;loadingOlder.value=true;
+ const height=history.value?.scrollHeight||0,top=history.value?.scrollTop||0;
+ try{const before=visibleMessages.value[0]?.id||Number.MAX_SAFE_INTEGER;
+ const result=await communityRequest<{items:ChatMessage[];more:boolean}>('/api/chat/history?before='+before+'&days='+(state.settings.chatHistoryDays||0),{},true);
+ older.value=result.items;historyEnd.value=!result.more;chatView.atBottom=false;
+ await nextTick();if(history.value)history.value.scrollTop=top+history.value.scrollHeight-height;
+ }finally{loadingOlder.value=false;}
+}
+watch(()=>[state.settings.chatHistoryDays,community.user?.uid],()=>{older.value=null;historyEnd.value=false;});
 const rooms = [{ id: "lobby", name: "旅人休息室" }, ...groups];
 function voiceKeyLabel() {
   const code = state.settings.voiceKey || "KeyT";
@@ -63,7 +81,7 @@ onMounted(() => {
   if (chatView.atBottom) scrollLatest();
   else if (history.value) history.value.scrollTop = chatView.scrollTop;
 });
-onBeforeUnmount(rememberScroll);
+onBeforeUnmount(()=>{if(older.value){chatView.atBottom=true;chatView.scrollTop=0;}else rememberScroll();});
 async function join(id: string) {
   joining.value = true;
   try {
@@ -112,7 +130,7 @@ watch(
         ><h2><span class="hash">#</span> 公共大厅</h2
         ><span class="subtle">{{ onlineUsers.length }} 人在线</span></header
       ><div ref="history" class="chat-history" @scroll.passive="rememberScroll"
-        ><div v-if="!community.messages.length" class="chat-welcome"
+        ><q-btn v-if="community.connected&&!historyEnd" flat dense class="full-width q-mb-sm" :loading="loadingOlder" label="加载更早消息" @click="perform(loadOlder)"/><q-btn v-if="older" flat dense label="返回最新消息" class="full-width" @click="older=null;historyEnd=false;chatView.atBottom=true;nextTick(scrollLatest)"/><div v-if="!visibleMessages.length" class="chat-welcome"
           ><q-icon name="waving_hand" size="42px" /><h2>公共聊天</h2
           ><p>{{
             community.connected
@@ -122,9 +140,9 @@ watch(
           ><router-link v-if="!selectedAccount" to="/accounts" class="text-link"
             >前往登录 <q-icon name="arrow_forward" /></router-link></div
         ><article
-          v-for="item in community.messages"
+          v-for="(item,index) in visibleMessages"
           :key="item.id"
-          :class="['chat-message', { own: item.uid === community.user?.uid }]"
+          :class="['chat-message', { own: item.uid === community.user?.uid, grouped:grouped(index) }]"
           ><PlayerAvatar
             :name="item.name"
             :uid="item.uid"
@@ -133,7 +151,8 @@ watch(
             ><header
               ><strong>{{ item.name }}</strong
               ><time>{{
-                new Date(item.created).toLocaleTimeString([], {
+                new Date(item.created).toLocaleString("zh-CN", {
+                  year:"numeric",month:"2-digit",day:"2-digit",
                   hour: "2-digit",
                   minute: "2-digit"
                 })
@@ -298,7 +317,7 @@ watch(
             class="small"
             :name="member.name"
             :uid="member.uid"
-            :version="member.avatarVersion" /><span>{{ member.name }}<small class="device-label">{{ member.devices?.includes("android") && member.devices?.includes("desktop") ? "手机 · 电脑" : member.devices?.includes("android") ? "手机在线" : "电脑在线" }}</small></span
+            :version="member.avatarVersion" /><span>{{ member.name }}<small class="device-label">{{ member.devices?.includes("android") && member.devices?.includes("desktop") ? "手机 · 电脑" : member.devices?.includes("android") ? "手机在线" : member.devices?.includes("desktop") ? "电脑在线" : "设备未知" }}</small></span
           ><q-icon
             v-if="member.room"
             :name="member.muted ? 'mic_off' : 'headset_mic'" /><i

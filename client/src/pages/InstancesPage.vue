@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DeleteInstance from "../components/DeleteInstance.vue";
 import ModManager from "../components/ModManager.vue";
 import { ref } from "vue";
 import {
@@ -17,6 +18,7 @@ import {
   favoritePending,
   type InstanceConfig
 } from "../lib/launcher";
+const deleting = ref("");
 const modID = ref(""),
   builtinsOpen = ref(true);
 const showCreate = ref(false),
@@ -81,6 +83,7 @@ async function openFolder(
 }
 </script>
 <template>
+  <DeleteInstance :id="deleting" @close="deleting = ''"/>
   <ModManager :id="modID" @close="modID = ''" />
   <div class="page-heading"
     ><div><h1>游戏实例</h1></div
@@ -236,7 +239,7 @@ async function openFolder(
               "
               :loading="!!favoritePending[instance.id]"
               @click="perform(() => toggleFavorite(instance.id))"
-            /><q-btn flat round dense icon="more_horiz" title="打开实例文件夹"
+            /><q-btn flat round dense icon="delete_outline" title="删除实例" :disable="task.busy||state.running" @click="deleting=instance.id"/><q-btn flat round dense icon="more_horiz" title="打开实例文件夹"
               ><q-menu
                 ><q-list dense
                   ><q-item

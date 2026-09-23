@@ -7,7 +7,8 @@ import {
   normalizeDownloadConcurrency,
   validateDownloadConcurrency
 } from "./download-settings.mjs";
-import { ensureRuntime } from "./runtime.mjs";
+import { chooseJava } from "./zulu-runtime.mjs";
+import { defaultGameRoot, runtimeHome, instanceKey, removeInstanceFiles } from "./game-storage.mjs";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs/promises";
@@ -86,6 +87,11 @@ export async function createServices({
     voiceSounds: true,
     hxzupPopup: true,
     simpleHome: false,
+    chinesePaths: true,
+    confirmUnsaved: true,
+    chatHistoryDays: 0,
+    instancesCollapsed: false,
+    hiddenInstances: [],
     communityUrl: "https://qqbot.hxzmc.top",
     hiddenLinks: [],
     columns: {
@@ -97,6 +103,11 @@ export async function createServices({
   };
   if (await exists(configFile))
     settings = { ...settings, ...(await json(configFile)) };
+  if (!settings.gameRoot) {
+    settings.gameRoot = await defaultGameRoot();
+    if (settings.gameRoot) await writeJSON(configFile, settings);
+  }
+  if (!Array.isArray(settings.hiddenInstances)) settings.hiddenInstances = [];
   const presetCatalog = await createPresetCatalog(data,()=>settings.communityUrl);
   void presetCatalog.refresh();
   // Extend old settings without resetting the player's appearance.
@@ -438,6 +449,7 @@ export async function createServices({
     const value = {
       ...existingConfig,
       servers: [availableSource,...urls.map(normalizeUpdateUrl).filter(url=>url!==availableSource)],
+      parallelDownloads: settings.downloadConcurrency,
       showChangelog: settings.hxzupPopup !== false,
       theme: settings.theme
     };
@@ -446,19 +458,13 @@ export async function createServices({
       JSON.stringify(value.servers) !==
         JSON.stringify(existingConfig.servers) ||
       value.showChangelog !== existingConfig.showChangelog ||
-      value.theme !== existingConfig.theme
+      value.theme !== existingConfig.theme ||
+      value.parallelDownloads !== existingConfig.parallelDownloads
     )
       await writeJSON(path.join(updater, "config.json"), value);
-    const jars = (await fs.readdir(updater))
-      .filter(n => /^updater-\d+\.\d+\.\d+\.jar$/.test(n))
-      .sort((a, b) => {
-        const x = a.match(/\d+/g).map(BigInt),
-          y = b.match(/\d+/g).map(BigInt);
-        for (let i = 0; i < 3; i++)
-          if (x[i] !== y[i]) return x[i] > y[i] ? -1 : 1;
-        return 0;
-      });
-    const java = settings.javaPath || (await findJava())[0]?.path;
+    const embeddedSource=path.join(resources,'hxzup/updater-launcher.jar'),embeddedTarget=path.join(updater,'updater-launcher.jar');
+    if(!(await exists(embeddedTarget))||await hash(embeddedSource,'sha256')!==await hash(embeddedTarget,'sha256'))await fs.copyFile(embeddedSource,embeddedTarget);
+    const java = await selectJava({ javaVersion: {majorVersion:8} }, signal);
     if (!java) throw Error("请安装或选择 Java");
     phase({
       phase:
@@ -479,7 +485,7 @@ export async function createServices({
         "-Dsun.stderr.encoding=UTF-8",
         "-Djava.awt.headless=" + (settings.hxzupPopup === false),
         "-jar",
-        path.join("updater", jars[0])
+        path.join("updater", "updater-launcher.jar")
       ],
       instance,
       signal
@@ -492,17 +498,26 @@ export async function createServices({
         throw Error("部分文件未更新完成，请解除占用后重试；详情见日志");
     }
   }
+  async function selectJava(metadata, signal) {
+    return chooseJava({gameRoot:settings.gameRoot, preferred:settings.javaPath, metadata, signal,
+      onProgress:p=>phase({...p,busy:true}), log, chinesePaths:settings.chinesePaths !== false});
+  }
   async function launch(id, updateOnly = false, joinServer = false) {
     busy();
     const preset = (await presetCatalog.refresh()).find(p => p.id === id);
     if (preset && !preset.enabled) throw Error("管理员暂时关闭了此服务器入口");
     if (preset) {
       if (!settings.gameRoot) {
-        settings.gameRoot = path.join(data, "games/.minecraft");
+        settings.gameRoot = await defaultGameRoot();
+        if (!settings.gameRoot) throw Error("未找到空间充足的非 C 盘，请在设置中选择游戏目录");
         await writeJSON(configFile, settings);
       }
       const metadata = inside(settings.gameRoot, `versions/${id}/${id}.json`);
-      const local = await exists(metadata) ? instanceTarget(await readVersion(settings.gameRoot,id)) : null;
+      let local = null;
+      if (await exists(metadata)) {
+        try { local = instanceTarget(await readVersion(settings.gameRoot,id)); }
+        catch (error) { log('[安装恢复] 实例信息损坏，将保留原文件并重新准备：' + error.message); }
+      }
       const presetSignature=JSON.stringify([preset.profileSource,preset.version,preset.loader,preset.loaderVersion,preset.fabricAPI,preset.packageSha256]);
       const installedRecord=path.join(path.dirname(metadata),'.hxzl/server-preset.json');
       const previous=await exists(installedRecord)?await json(installedRecord):{};
@@ -510,7 +525,7 @@ export async function createServices({
       if (needsInstall) {
         const setup = new AbortController();task=setup;
         phase({phase:'读取 '+preset.name+' 安装配置',busy:true});
-        let input={name:id,minecraft:preset.version,loader:preset.loader,loaderVersion:preset.loaderVersion,fabricAPI:preset.fabricAPI,upgrade:!!local,presetSignature},pack=null;
+        let input={name:id,minecraft:preset.version,loader:preset.loader,loaderVersion:preset.loaderVersion,fabricAPI:preset.fabricAPI,upgrade:await exists(path.dirname(metadata)),presetSignature},pack=null;
         try {
           if(preset.profileSource==='hxzup') {
             const {status,profile}=await readUpdateSource(preset.updateUrls,{signal:setup.signal,profile:true,log});
@@ -578,29 +593,7 @@ export async function createServices({
       const authAgent = await credentialsAgent(controller.signal);
       phase({ phase: "读取实例与选择 Java", busy: true });
       const metadata = await readVersion(settings.gameRoot, id);
-      const available = await findJava();
-      const runtimeArch=systemArchitecture();
-      const managed = path.join(
-        data,
-        "runtimes",
-        (metadata.javaVersion?.component || "none")+(runtimeArch==='x64'?'':'-'+runtimeArch),
-        "bin/java.exe"
-      );
-      if (await exists(managed)) available.unshift(await inspectJava(managed));
-      const required = metadata.javaVersion?.majorVersion || 8;
-      const java =
-        settings.javaPath ||
-        available.find(j => j.major === required)?.path ||
-        available
-          .filter(j => j.major >= required)
-          .sort((a, b) => a.major - b.major)[0]?.path ||
-        (await ensureRuntime(
-          data,
-          metadata,
-          controller.signal,
-          p => phase({ ...p, busy: true }),
-          settings.downloadConcurrency
-        ));
+      const java = await selectJava(metadata, controller.signal);
       if (!java) throw Error("没有找到 Java，请在设置中选择");
       const command = await prepareLaunch({
         root: settings.gameRoot,
@@ -717,30 +710,8 @@ export async function createServices({
       const instance = job.stage;
       const marker = path.join(instance, ".hxzl/install-request.json");
       await writeJSON(marker, { request, pack: pack?.file || "" });
-      const [versions, metadata] = await Promise.all([
-          findJava(),
-          catalog.gameMetadata(request.gameVersion)
-        ]),
-        required = metadata.javaVersion?.majorVersion || 8,
-        java =
-          settings.javaPath ||
-          versions.find(j => j.major === required)?.path ||
-          versions
-            .filter(j => j.major >= required)
-            .sort((a, b) => a.major - b.major)[0]?.path ||
-          (await ensureRuntime(
-            data,
-            metadata,
-            controller.signal,
-            p => phase({ ...p, busy: true }),
-            settings.downloadConcurrency
-          ));
-      if (!java)
-        throw Error(
-          "此版本需要 Java " + required + "，请在设置中选择已安装的 Java"
-        );
-      if ((await inspectJava(java)).major < required)
-        throw Error("选择的 Java 版本过低，需要 Java " + required);
+      const metadata = await catalog.gameMetadata(request.gameVersion);
+      const java = await selectJava(metadata, controller.signal);
       const configFile = path.join(instance, ".hxzl/installer-settings.json"),
         requestFile = path.join(instance, ".hxzl/game-profile.json");
       await writeJSON(requestFile, request);
@@ -984,10 +955,10 @@ export async function createServices({
         task = null;
       }
     },
-    async "community.status"() {
+    async "community.status"(input = {}) {
       try {
         const value = await remoteJSON(
-          endpoint(settings.communityUrl) + "/health"
+          endpoint(input.url || settings.communityUrl) + "/health"
         );
         if (!value.ok) throw Error("地址不是社区服务");
         return { ok: true, version: value.version };
@@ -1034,7 +1005,7 @@ export async function createServices({
       return {
         settings,
         accounts: accounts.map(accountView),
-        instances,
+        instances: instances.filter(i => !settings.hiddenInstances.includes(instanceKey(settings.gameRoot, i.id))),
         persistentCredentials: persistent,
         system: {
           memoryMB: Math.floor(os.totalmem() / 1048576),
@@ -1050,6 +1021,7 @@ export async function createServices({
           k =>
             ![
               "autoCheckUpdates",
+              "instancesCollapsed",
               "theme",
               "fontSize",
               "accentColor",
@@ -1066,6 +1038,7 @@ export async function createServices({
         )
       )
         busy();
+      const nextSettings={...settings,columns:Object.fromEntries(Object.entries(settings.columns).map(([key,value])=>[key,{...value}])),instanceSettings:{...settings.instanceSettings}};
       if (input.fontSize != null) {
         if (
           !Number.isInteger(input.fontSize) ||
@@ -1073,13 +1046,13 @@ export async function createServices({
           input.fontSize > 22
         )
           throw Error("字号范围 13–22");
-        settings.fontSize = input.fontSize;
+        nextSettings.fontSize = input.fontSize;
       }
       for (const key of ["accentColor", "backgroundColor"])
         if (input[key] != null) {
           if (input[key] && !/^#[a-f0-9]{6}$/i.test(input[key]))
             throw Error("颜色格式无效");
-          settings[key] = input[key];
+          nextSettings[key] = input[key];
         }
       if (input.backgroundImage != null) {
         if (input.backgroundImage.length > 12 * 1024 * 1024)
@@ -1091,41 +1064,47 @@ export async function createServices({
           )
         )
           throw Error("背景图片无效");
-        settings.backgroundImage = input.backgroundImage;
+        nextSettings.backgroundImage = input.backgroundImage;
       }
       if (input.backgroundOpacity != null)
-        settings.backgroundOpacity = Math.max(
+        nextSettings.backgroundOpacity = Math.max(
           0,
           Math.min(1, Number(input.backgroundOpacity) || 0)
         );
       for (const key of ["backgroundPositionX", "backgroundPositionY"])
         if (input[key] != null)
-          settings[key] = Math.max(0, Math.min(100, Number(input[key]) || 0));
+          nextSettings[key] = Math.max(0, Math.min(100, Number(input[key]) || 0));
       if (["cover", "contain", "100% 100%"].includes(input.backgroundFit))
-        settings.backgroundFit = input.backgroundFit;
+        nextSettings.backgroundFit = input.backgroundFit;
       if (["standard", "compact", "wide"].includes(input.layout))
-        settings.layout = input.layout;
+        nextSettings.layout = input.layout;
       if (input.downloadConcurrency != null)
-        settings.downloadConcurrency = validateDownloadConcurrency(
+        nextSettings.downloadConcurrency = validateDownloadConcurrency(
           input.downloadConcurrency
         );
       if (input.downloadMode) {
-        settings.downloadMode =
+        nextSettings.downloadMode =
           input.downloadMode === "official" ? "official" : "domestic";
-        setDownloadMode(settings.downloadMode);
+
       }
       if (input.hxzupPopup != null) {
         if (typeof input.hxzupPopup !== "boolean")
           throw Error("更新弹窗设置无效");
-        settings.hxzupPopup = input.hxzupPopup;
+        nextSettings.hxzupPopup = input.hxzupPopup;
       }
-      if (input.simpleHome != null) settings.simpleHome = !!input.simpleHome;
+      for (const key of ['chinesePaths','confirmUnsaved','instancesCollapsed'])
+        if (typeof input[key] === 'boolean') nextSettings[key] = input[key];
+      if (input.chatHistoryDays != null) {
+        if (![0,1,3,5,7,30].includes(input.chatHistoryDays)) throw Error('聊天记录范围无效');
+        nextSettings.chatHistoryDays = input.chatHistoryDays;
+      }
+      if (input.simpleHome != null) nextSettings.simpleHome = !!input.simpleHome;
       if (input.autoCheckUpdates != null)
-        settings.autoCheckUpdates = !!input.autoCheckUpdates;
+        nextSettings.autoCheckUpdates = !!input.autoCheckUpdates;
       if (input.memoryMode != null) {
         if (!["auto", "manual"].includes(input.memoryMode))
           throw Error("内存分配方式无效");
-        settings.memoryMode = input.memoryMode;
+        nextSettings.memoryMode = input.memoryMode;
       }
       if (input.defaultMemoryMB != null) {
         if (
@@ -1134,12 +1113,12 @@ export async function createServices({
           input.defaultMemoryMB > 131072
         )
           throw Error("默认内存范围为 512–131072 MB");
-        settings.defaultMemoryMB = input.defaultMemoryMB;
+        nextSettings.defaultMemoryMB = input.defaultMemoryMB;
       }
       if (input.voiceMode != null) {
         if (!["open", "push-to-talk"].includes(input.voiceMode))
           throw Error("语音麦克风模式无效");
-        settings.voiceMode = input.voiceMode;
+        nextSettings.voiceMode = input.voiceMode;
       }
       if (input.voiceKey != null) {
         if (
@@ -1147,9 +1126,9 @@ export async function createServices({
           !/^[A-Za-z][A-Za-z0-9+_:-]{0,63}$/.test(input.voiceKey)
         )
           throw Error("语音按键无效");
-        settings.voiceKey = input.voiceKey;
+        nextSettings.voiceKey = input.voiceKey;
       }
-      if (input.voiceSounds != null) settings.voiceSounds = !!input.voiceSounds;
+      if (input.voiceSounds != null) nextSettings.voiceSounds = !!input.voiceSounds;
       if (input.hiddenLinks != null) {
         if (
           !Array.isArray(input.hiddenLinks) ||
@@ -1159,7 +1138,7 @@ export async function createServices({
           )
         )
           throw Error("隐藏栏目设置无效");
-        settings.hiddenLinks = [...new Set(input.hiddenLinks)].filter(
+        nextSettings.hiddenLinks = [...new Set(input.hiddenLinks)].filter(
           value =>
             value !== "/" && value !== "/settings" && value !== "/appearance"
         );
@@ -1177,17 +1156,17 @@ export async function createServices({
             (value.color && !/^#[a-f0-9]{6}$/i.test(value.color))
           )
             throw Error("栏目设置无效");
-          settings.columns[name] = {
+          nextSettings.columns[name] = {
             visible: value.visible,
             color: value.color || "",
             opacity: Math.max(0, Math.min(1, Number(value.opacity) || 0)),
             label: value.label
           };
         }
-        settings.columns.workspace.visible = true;
+        nextSettings.columns.workspace.visible = true;
       }
       if (input.updateFeed != null)
-        settings.updateFeed = input.updateFeed
+        nextSettings.updateFeed = input.updateFeed
           ? endpoint(input.updateFeed)
           : "";
       if (input.gameRoot != null) {
@@ -1197,20 +1176,20 @@ export async function createServices({
         )
           throw Error("请通过文件夹选择器设置游戏目录");
         await noLinks(input.gameRoot);
-        settings.gameRoot = input.gameRoot;
+        nextSettings.gameRoot = input.gameRoot;
       }
       if (input.communityUrl != null) {
-        settings.communityUrl = endpoint(input.communityUrl);
-        community = null;
+        nextSettings.communityUrl = endpoint(input.communityUrl);
+
       }
       if (input.javaPath != null) {
         if (input.javaPath) await inspectJava(input.javaPath);
-        settings.javaPath = input.javaPath;
+        nextSettings.javaPath = input.javaPath;
       }
       for (const name of ["selectedInstance", "selectedAccount", "theme"])
         if (typeof input[name] === "string" && input[name].length < 300)
-          settings[name] = input[name];
-      for (const key of ["linkingDiscovered", "showLinking"]) if (typeof input[key] === "boolean") settings[key] = input[key];
+          nextSettings[name] = input[name];
+      for (const key of ["linkingDiscovered", "showLinking"]) if (typeof input[key] === "boolean") nextSettings[key] = input[key];
       if (input.instance) {
         const { id, ...v } = input.instance;
         if (typeof id !== "string" || !id || /[\\/:]/.test(id))
@@ -1230,8 +1209,8 @@ export async function createServices({
         if (!Array.isArray(v.updateUrls) || v.updateUrls.length > 16)
           throw Error("更新地址最多 16 个");
         v.updateUrls = v.updateUrls.map(normalizeUpdateUrl);
-        settings.instanceSettings[id] = {
-          ...settings.instanceSettings[id],
+        nextSettings.instanceSettings[id] = {
+          ...nextSettings.instanceSettings[id],
           autoJoin: !!v.autoJoin,
           serverAddress: serverAddress(v.serverAddress || ""),
           memoryMode: ["auto", "manual"].includes(v.memoryMode)
@@ -1266,8 +1245,35 @@ export async function createServices({
           )
         };
       }
-      await writeJSON(configFile, settings);
+      await writeJSON(configFile, nextSettings);
+      settings=nextSettings;
+      setDownloadMode(settings.downloadMode);
+      if(input.communityUrl!=null)community=null;
       return settings;
+    },
+    async "instance.deleted"() {
+      const prefix = instanceKey(settings.gameRoot, '');
+      return settings.hiddenInstances.filter(k=>k.startsWith(prefix)).map(k=>({id:k.slice(prefix.length)}));
+    },
+    async "instance.restore"({id}) {
+      busy();
+      settings.hiddenInstances = settings.hiddenInstances.filter(k=>k!==instanceKey(settings.gameRoot,id));
+      await writeJSON(configFile,settings);
+      return {ok:true};
+    },
+    async "instance.delete"({id, mode, confirmed}) {
+      busy();
+      if (confirmed !== true || !['logical','physical'].includes(mode) || typeof id !== 'string' || !id || /[\\/:]/.test(id) || ['.','..'].includes(id)) throw Error('请确认删除方式与实例');
+      if (mode === 'physical') {
+        // Restore an interrupted backup before removing only the chosen instance.
+        if ((await listInstalls(settings.gameRoot)).some(j=>j.id===id)) await discardInstall(settings.gameRoot,id);
+        await removeInstanceFiles(settings.gameRoot,id);
+        delete settings.instanceSettings[id];
+      }
+      settings.hiddenInstances = [...new Set([...settings.hiddenInstances,instanceKey(settings.gameRoot,id)])];
+      if (settings.selectedInstance===id) settings.selectedInstance='';
+      await writeJSON(configFile,settings);
+      return {ok:true};
     },
     async "instance.favorite"(input) {
       const { id, favorite } = input;
@@ -1298,7 +1304,7 @@ export async function createServices({
       return r.canceled ? null : (await inspectJava(r.filePaths[0])).path;
     },
     async "java.scan"() {
-      return findJava();
+      return findJava({roots:settings.gameRoot?[runtimeHome(settings.gameRoot),settings.gameRoot]:[],chinesePaths:settings.chinesePaths !== false});
     },
     async "instance.create"(input) {
       busy();
@@ -1808,13 +1814,15 @@ export async function createServices({
         "pack.download",
         "game.launch",
         "game.update",
-        "instance.create"
+        "instance.create",
+        "instance.delete",
+        "instance.restore"
       ].includes(action);
       if (
         exclusive &&
         (owns ||
           (action === "settings.save" &&
-            Object.keys(input).some(k => k !== "autoCheckUpdates")))
+            Object.keys(input).some(k => !["autoCheckUpdates","instancesCollapsed"].includes(k))))
       )
         throw Error("请等待当前游戏任务完成");
       if (owns) exclusive = true;

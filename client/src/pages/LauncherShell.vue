@@ -112,7 +112,7 @@ onMounted(() => {
     >
       <header class="window-bar"
         ><div class="row items-center"
-          ><span class="window-label">HXZ LAUNCHER <b>0.4.4</b></span></div
+          ><span class="window-label">HXZ LAUNCHER <b>0.4.5</b></span></div
         ><div class="row items-center no-drag"
           ><q-btn
             v-if="!columnVisible('sidebar')"

@@ -24,7 +24,7 @@ for (const [command, args] of [
       path.join(root, "resources/hxzup/updater-1.0.3.jar"),
       "-d",
       out,
-      ...["Network", "GameInstaller", "ForgeInstaller", "LauncherInstall"].map(
+      ...["Network", "GameInstaller", "ForgeInstaller", "LauncherInstall", "Updater"].map(
         n => path.join(root, "installer-java/up/hxz", n + ".java")
       )
     ]
@@ -38,3 +38,11 @@ for (const [command, args] of [
   if (r.error) throw r.error;
   if (r.status) process.exit(r.status);
 }
+
+// The embedded 1.0.3 protocol runtime shares the launcher's bounded downloader.
+const embedded=path.join(root,'resources/hxzup/updater-launcher.jar');
+fs.copyFileSync(path.join(root,'resources/hxzup/updater-1.0.3.jar'),embedded);
+const patched=fs.readdirSync(path.join(out,'up/hxz')).filter(n=>/^(Updater|Network|GameInstaller|ForgeInstaller)(\$[^/]*)?\.class$/.test(n));
+const patchedResult=spawnSync(tool('jar'),['uf',embedded,...patched.flatMap(n=>['-C',out,'up/hxz/'+n])],{stdio:'inherit',shell:false});
+if(patchedResult.error)throw patchedResult.error;
+if(patchedResult.status)process.exit(patchedResult.status);

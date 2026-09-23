@@ -1,5 +1,7 @@
 import {createContent} from "./content.mjs";
 import {createServerPresets} from "./server-presets.mjs";
+import {createBoardMatches} from "./board-matches.mjs";
+import {createPoints} from "./points.mjs";
 import {createArcade} from "./arcade.mjs";
 import {createArcana} from "./arcana.mjs";
 import {VERSION} from "./version.mjs";
@@ -74,7 +76,9 @@ export function createCommunity(options={}) {
   const arcana=createArcana({data,db,auth,admin,body,send,limit});
   const adminRoute=createAdmin({updateSources,data,db,issue,admin,send,body,limit,clients,broadcast,adminIDs});
   const presetsRoute=createServerPresets({data,admin,body,send,broadcast});
-  const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast});
+  const points=createPoints({db,auth,admin,body,send,limit});
+  const boards=createBoardMatches({db,auth,body,send,limit,points});
+  const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast,points});
   const server=http.createServer(async(req,res)=>{
     const origin=req.headers.origin;if(origin&&!origins.has(origin)&&!['http://','https://'].some(protocol=>origin===protocol+req.headers.host)){send(res,403,{error:'来源不允许'});return;}
     if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');}
@@ -84,9 +88,18 @@ export function createCommunity(options={}) {
       const url=new URL(req.url,'http://localhost'),path=url.pathname;limit('http:'+clientIP(req),240);
       if(await arcana(req,res,url))return;
       if(await presetsRoute(req,res,url))return;
+      if(await boards.route(req,res,url))return;
+      if(await points.route(req,res,url))return;
       if(await arcadeRoute(req,res,url))return;
       if(await content.route(req,res,url))return;
       if(await adminRoute(req,res,url))return;
+      if(path==='/api/chat/history'&&req.method==='GET'){
+        const user=auth(req);limit('chat-history:'+user.uid,30);
+        const before=Number(url.searchParams.get('before')||Number.MAX_SAFE_INTEGER),days=Number(url.searchParams.get('days')||0);
+        if(!Number.isSafeInteger(before)||before<1||![0,1,3,5,7,30].includes(days))throw Error('聊天记录范围无效');
+        const items=db.prepare('SELECT m.id,m.uid,m.name,m.body,m.created,p.version AS avatarVersion FROM messages m LEFT JOIN profiles p ON p.uid=m.uid WHERE m.channel=? AND m.id<? AND m.created>=? ORDER BY m.id DESC LIMIT 101').all('lobby',before,days?Date.now()-days*86400000:0);
+        const more=items.length>100;send(res,200,{items:items.slice(0,100).reverse(),more});return;
+      }
       if(path==='/api/update-logs'&&req.method==='GET')return send(res,200,await updateLogs());
       if(path==='/api/profile/avatar'&&req.method==='POST'){
         const user=auth(req);limit('avatar:'+user.uid,12);const input=await body(req),value=avatarData(input.avatar);
@@ -126,12 +139,14 @@ export function createCommunity(options={}) {
     ws.on('message',(raw,isBinary)=>{try{
       if(isBinary){relayVoice(ws,raw,clients);return;}
       const message=JSON.parse(raw.toString());let c=clients.get(ws);
-      if(!c){if(message.type!=='auth')throw Error('请先登录');const user=verify(message.token);content.recordMember(user);if([...clients.values()].filter(x=>x.user.uid===user.uid).length>=2)throw Error('此账号已打开过多连接');
+      if(!c){if(message.type!=='auth')throw Error('请先登录');const user=verify(message.token);content.recordMember(user);const platform=message.platform==='android'?'android':'desktop';
+        for(const [old,p] of clients)if(p.user.uid===user.uid&&p.platform===platform){voiceEvent(p,'leave');clients.delete(old);old.close(4001,'已在另一处登录此设备');}
+
         c={id:randomUUID(),user,platform:message.platform==='android'?'android':'desktop',room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',heartbeatInterval:15000,voiceTransport:'ws-opus-v1',roomLimit,id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
       verify(c.token);limit('client:'+c.id,120,10000);
       if(message.type==='ping'){ws.alive=true;packet(ws,{type:'pong'});}
       else if(message.type==='chat'){limit('chat:'+c.user.uid,8,10000);const value=text(message.body,1000);const created=Date.now();const inserted=db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)').run('lobby',c.user.uid,c.user.name,value,created);
-        db.prepare('DELETE FROM messages WHERE id < (SELECT MAX(id)-3000 FROM messages)').run();broadcast({type:'chat',message:{id:Number(inserted.lastInsertRowid),channel:'lobby',uid:c.user.uid,name:c.user.name,avatarVersion:avatarVersion(c.user.uid),body:value,created}});}
+        broadcast({type:'chat',message:{id:Number(inserted.lastInsertRowid),channel:'lobby',uid:c.user.uid,name:c.user.name,avatarVersion:avatarVersion(c.user.uid),body:value,created}});}
       else if(message.type==='voice-join'){if(!ROOMS.includes(message.room))throw Error('房间不存在');if([...clients.values()].filter(p=>p.room===message.room&&p.id!==c.id).length>=roomLimit)throw Error('语音房间已满');if(message.transport!=='ws-opus-v1')throw Error('请更新启动器到 0.4.0 后使用语音');if(c.room&&c.room!==message.room)voiceEvent(c,'leave');const changed=c.room!==message.room;c.voiceTransport=message.transport;c.muted=false;c.deafened=false;c.audioEpoch=null;c.audioSeq=-1;c.room=message.room;presence();if(changed)voiceEvent(c,'join');}
       else if(message.type==='voice-leave'){voiceEvent(c,'leave');c.room=null;c.muted=false;c.deafened=false;presence();}
       else if(message.type==='voice-mute'){c.muted=!!message.muted;presence();}
@@ -142,6 +157,6 @@ export function createCommunity(options={}) {
     ws.on('error',()=>{});ws.on('close',()=>{clearTimeout(timer);voiceEvent(clients.get(ws),'leave');clients.delete(ws);presence();});
   });
   const sweep=setInterval(()=>{for(const [id,v] of attempts)if(Date.now()-v.time>60000)attempts.delete(id);for(const ws of wss.clients){const c=clients.get(ws);if(c&&c.user.exp<Date.now()){ws.close(1008,'登录已过期');continue;}if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();}},15000);sweep.unref();
-  return {server,db,async close(){clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
+  return {server,db,async close(){await boards.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const service=createCommunity();const port=Number(process.env.PORT||8787),host=process.env.HOST||'127.0.0.1';service.server.listen(port,host,()=>console.log(`幻想镇社区服务 http://${host}:${port}\n网页管理：http://127.0.0.1:${port}/admin/\n初始密码见数据目录的 初始管理员密码.txt`));for(const sig of ['SIGINT','SIGTERM'])process.on(sig,()=>service.close().then(()=>process.exit()));}

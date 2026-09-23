@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DeleteInstance from "../components/DeleteInstance.vue";
 import CoverImage from "../components/CoverImage.vue";
 import ModManager from "../components/ModManager.vue";
 import { computed, ref, watch } from "vue";
@@ -19,6 +20,29 @@ import {
   invoke,
   reload
 } from "../lib/launcher";
+const deleting = ref("");
+const instancesCollapsed = ref(!!state.settings.instancesCollapsed);
+let savingCollapse = false;
+watch(() => state.settings.instancesCollapsed, value => {
+  if (!savingCollapse) instancesCollapsed.value = !!value;
+});
+async function toggleInstances() {
+  instancesCollapsed.value = !instancesCollapsed.value;
+  if (savingCollapse) return;
+  savingCollapse = true;
+  try {
+    let value: boolean;
+    do {
+      value = instancesCollapsed.value;
+      await saveSettings({ instancesCollapsed: value });
+    } while (value !== instancesCollapsed.value);
+  } catch (error) {
+    instancesCollapsed.value = !!state.settings.instancesCollapsed;
+    throw error;
+  } finally {
+    savingCollapse = false;
+  }
+}
 const search = ref(""),
   cover = ref(""),
   modID = ref(""),
@@ -92,8 +116,10 @@ async function chooseRoot() {
 }
 </script>
 <template>
+  <DeleteInstance :id="deleting" @close="deleting = ''"/>
   <ModManager :id="modID" @close="modID = ''" />
-  <div :class="['desktop-home', { 'simple-home': state.settings.simpleHome }]">
+  <div :class="['desktop-home', { 'simple-home': state.settings.simpleHome, 'instances-collapsed': instancesCollapsed }]">
+    <div id="home-instance-list" class="instance-rail" :inert="instancesCollapsed || undefined" :aria-hidden="instancesCollapsed">
     <section class="world-list"
       ><header
         ><strong>游戏实例</strong
@@ -170,11 +196,11 @@ async function chooseRoot() {
           state.settings.gameRoot || "未设置游戏目录"
         }}</span></footer
       ></section
-    >
+    ></div>
     <section class="world-detail"
       ><div class="detail-toolbar"
-        ><span>实例概览</span
-        ><div class="row q-gutter-xs"
+        ><div class="detail-heading"><q-btn flat dense round :icon="instancesCollapsed ? 'chevron_right' : 'chevron_left'" :title="instancesCollapsed ? '展开实例列表' : '收起实例列表'" :aria-label="instancesCollapsed ? '展开实例列表' : '收起实例列表'" :aria-expanded="!instancesCollapsed" aria-controls="home-instance-list" @click="perform(toggleInstances)"/><span>实例概览</span></div
+        ><div class="row q-gutter-xs detail-actions"
           ><q-btn
             flat
             dense
@@ -237,7 +263,7 @@ async function chooseRoot() {
                 ></q-list
               ></q-menu
             ></q-btn
-          ><q-btn flat dense icon="tune" label="配置" to="/instances" /></div
+          ><q-btn flat dense icon="delete_outline" title="删除实例" :disable="!selectedInstance || task.busy || state.running" @click="deleting=state.settings.selectedInstance"/><q-btn flat dense icon="tune" label="配置" to="/instances" /></div
       ></div>
       <div class="world-preview" :class="{ 'custom-cover': !!cover }"
         ><CoverImage v-if="cover" :src="cover" :x="config.coverPositionX" :y="config.coverPositionY" :zoom="config.coverZoom"/><div v-else class="preview-art" aria-hidden="true"

@@ -6,8 +6,8 @@ android {
         applicationId 'top.hxzmc.community'
         minSdk 29
         targetSdk 35
-        versionCode 40402
-        versionName '0.4.4'
+        versionCode 40501
+        versionName '0.4.5'
     }
     buildFeatures { buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }

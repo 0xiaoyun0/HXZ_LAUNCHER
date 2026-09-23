@@ -41,6 +41,11 @@ export interface Settings {
   voiceSounds: boolean;
   hxzupPopup: boolean;
   simpleHome: boolean;
+  chinesePaths: boolean;
+  confirmUnsaved: boolean;
+  chatHistoryDays: number;
+  instancesCollapsed: boolean;
+  hiddenInstances: string[];
   gameRoot: string;
   javaPath: string;
   selectedInstance: string;
@@ -184,6 +189,11 @@ export const state = reactive<State>({
     voiceSounds: true,
     hxzupPopup: true,
     simpleHome: false,
+    chinesePaths: true,
+    confirmUnsaved: true,
+    chatHistoryDays: 0,
+    instancesCollapsed: false,
+    hiddenInstances: [],
     gameRoot: "",
     javaPath: "",
     selectedInstance: "",

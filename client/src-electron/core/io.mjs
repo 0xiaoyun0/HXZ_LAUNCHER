@@ -296,7 +296,7 @@ export async function parallel(values, fn, limit = 8) {
   );
   if (failure) throw failure;
 }
-export async function extractNative(archive, root, exclude = []) {
+export async function extractNative(archive, root, exclude = [], signal) {
   await noLinks(root);
   await fs.mkdir(root, { recursive: true });
   const zip = await new Promise((ok, fail) =>
@@ -312,6 +312,7 @@ export async function extractNative(archive, root, exclude = []) {
     zip.on("end", ok);
     zip.on("entry", entry => {
       (async () => {
+        signal?.throwIfAborted();
         if (
           entry.fileName.endsWith("/") ||
           entry.fileName.startsWith("META-INF/") ||

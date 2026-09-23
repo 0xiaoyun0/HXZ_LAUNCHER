@@ -4385,3 +4385,47 @@ a:focus-visible {
   color: var(--text);
 }
 .page-area.linking-area{overflow:hidden;padding:14px;min-height:0;display:flex;flex-direction:column}.device-label{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+
+/* Keep both tracks mounted: reversing an animation preserves scroll and focus. */
+.desktop-home {
+  --instance-rail-width: 240px;
+  grid-template-columns: minmax(0, var(--instance-rail-width)) minmax(0, 1fr);
+  transition: grid-template-columns 260ms cubic-bezier(.22,.8,.25,1);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.desktop-home.instances-collapsed { grid-template-columns: minmax(0, 0px) minmax(0, 1fr); }
+.instance-rail { min-width: 0; min-height: 0; overflow: hidden; contain: layout paint; }
+.instance-rail > .world-list {
+  width: var(--instance-rail-width);
+  height: 100%;
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 180ms ease, transform 260ms cubic-bezier(.22,.8,.25,1);
+}
+.instances-collapsed .instance-rail > .world-list { opacity: 0; transform: translateX(-16px); pointer-events: none; }
+.desktop-home > .world-detail { min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto; scrollbar-gutter: stable; }
+.desktop-home .detail-toolbar { gap: 12px; flex-shrink: 0; flex-wrap: nowrap; }
+.detail-heading { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; white-space: nowrap; }
+.detail-actions { min-width: 0; flex-wrap: nowrap; overflow-x: auto; overflow-y: hidden; align-items: center; scrollbar-width: thin; }
+.detail-actions > .q-btn { flex-shrink: 0; white-space: nowrap; }
+@media (min-width: 1500px) { .desktop-home { --instance-rail-width: 270px; } }
+@media (min-width: 821px) and (max-width: 1100px) { .desktop-home { --instance-rail-width: 215px; } }
+@media (max-width: 820px) {
+  .desktop-home, .desktop-home.instances-collapsed { height: 100%; min-height: 0; grid-template-columns: minmax(0,1fr); grid-template-rows: 282px minmax(0,1fr); transition: grid-template-rows 260ms cubic-bezier(.22,.8,.25,1); }
+  .desktop-home.instances-collapsed { grid-template-rows: 0px minmax(0,1fr); }
+  .instance-rail > .world-list { width: 100%; height: 282px; }
+  .instances-collapsed .instance-rail > .world-list { transform: translateY(-16px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .desktop-home, .desktop-home.instances-collapsed, .instance-rail > .world-list { transition: none; }
+}
+.settings-tabs { position:sticky; top:0; z-index:2; background:var(--panel); border:1px solid var(--border); border-radius:10px; }
+.chat-message.own {flex-direction:row-reverse;}
+.chat-message.own > div {text-align:right;}
+.chat-message.own header {justify-content:flex-end;}
+.chat-message.own p {text-align:left;border-radius:11px 0 11px 11px;}
+.chat-message.grouped {margin-top:-17px;}
+.chat-message.grouped > .player-avatar {visibility:hidden;}
+.chat-message.grouped header {display:none;}

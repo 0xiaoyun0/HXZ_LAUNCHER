@@ -25,7 +25,7 @@ await fs.writeFile(path.join(client,'使用说明.txt'),'幻想镇启动器 '+ve
 const serverApp=path.join(server,'幻想镇社区服务端');await fs.mkdir(serverApp,{recursive:true});
 for(const dir of ['src','public','arcana','shared'])await fs.cp(path.join(root,'server',dir),path.join(serverApp,dir),{recursive:true});
 for(const file of ['package.json','pnpm-lock.yaml','.env.example','Dockerfile','compose.yaml','nginx-community.conf.example'])await fs.copyFile(path.join(root,file==='nginx-community.conf.example'?'docs':'server',file),path.join(serverApp,file));
-await fs.mkdir(path.join(serverApp,'node_modules'),{recursive:true});await fs.cp(await fs.realpath(path.join(root,'server/node_modules/ws')),path.join(serverApp,'node_modules/ws'),{recursive:true});
+await fs.mkdir(path.join(serverApp,'node_modules'),{recursive:true});for(const name of ['ws','chess.js'])await fs.cp(await fs.realpath(path.join(root,'server/node_modules',name)),path.join(serverApp,'node_modules',name),{recursive:true});
 await fs.copyFile(process.execPath,path.join(serverApp,'node.exe'));
 await fs.copyFile(path.join(root,'LICENSE'),path.join(serverApp,'LICENSE'));
 await fs.copyFile(path.join(root,'server/Node-LICENSE.txt'),path.join(serverApp,'Node-LICENSE.txt'));

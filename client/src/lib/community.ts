@@ -253,7 +253,10 @@ export async function connect() {
         community.user = packet.user!;
         community.messages = packet.messages || [];
       } else if (packet.type === "presence") {
-        community.users = packet.users || [];
+        const users=packet.users||[];
+        const devices=new Map<string,Set<string>>();
+        for(const u of users){const set=devices.get(u.uid)||new Set<string>();for(const d of [...(u.devices||[]),u.platform||''])if(['android','desktop'].includes(d))set.add(d);devices.set(u.uid,set);}
+        community.users = users.map(u=>({...u,devices:[...(devices.get(u.uid)||[])]}));
         syncPeers();
       } else if (
         packet.type === "voice-event" &&
@@ -309,6 +312,7 @@ export async function connect() {
       clearInterval(heartbeat);
       socket = null;
       if (readyAt && Date.now() - readyAt > 60000) retries = 0;
+      if (event.code === 4001) { wanted=false; community.status="已在另一台电脑登录"; return; }
       if (event.code === 1008 && /禁用|封禁|过多连接/.test(event.reason)) {
         wanted = false;
         return;
