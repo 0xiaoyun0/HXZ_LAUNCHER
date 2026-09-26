@@ -5,7 +5,9 @@ import { nativeArtifactAllowed } from "./platform.mjs";
 import path from "node:path";
 import os from "node:os";
 import fs from "node:fs/promises";
-import { spawn } from "node:child_process";
+import { spawn, execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { javaRequirement } from "./java-policy.mjs";
 import {
   json,
   exists,
@@ -108,7 +110,7 @@ export async function scanInstances(root) {
             : (v.mainClass || "").includes("bootstrap")
               ? "Forge / NeoForge"
               : "原版",
-        javaMajor: v.javaVersion?.majorVersion || 8
+        javaMajor: javaRequirement(v).major
       });
     } catch (error) {
       result.push({ id: e.name, name: e.name, error: error.message });
@@ -116,7 +118,17 @@ export async function scanInstances(root) {
   }
   return result.slice(0, 300);
 }
+const javaInspections = new Map();
 export async function inspectJava(binary) {
+  const info = await fs.stat(binary).catch(()=>null);
+  const key = path.resolve(binary).toLowerCase(), stamp = info ? `${info.size}:${info.mtimeMs}` : '';
+  const cached = javaInspections.get(key);
+  if (cached && cached.stamp === stamp && Date.now()-cached.time<60000) return cached.value;
+  const value = inspectJavaProcess(binary);
+  javaInspections.set(key,{stamp,time:Date.now(),value});
+  try { return await value; } catch(error) {javaInspections.delete(key);throw error;}
+}
+async function inspectJavaProcess(binary) {
   // javaw.exe suppresses the console on Windows; inspect and launch its paired java.exe.
   if (/javaw\.exe$/i.test(binary)) {
     const consoleJava = binary.replace(/javaw\.exe$/i, 'java.exe');
@@ -138,7 +150,7 @@ export async function inspectJava(binary) {
     p.on("close", code => {
       clearTimeout(timer);
       const match =
-        output.match(/version\s+"([\d.]+)/) ||
+        output.match(/version\s+"([\d._+\-]+)/) ||
         output.match(/(?:openjdk|java)\s+(\d[\d.]*)/);
       if (code || !match) {
         fail(Error("不是可用的 Java"));
@@ -160,39 +172,38 @@ export async function inspectJava(binary) {
     });
   });
 }
-export async function findJava({ roots = [], chinesePaths = true } = {}) {
-  const candidates = new Set(["java"]);
-  if (process.env.JAVA_HOME)
-    candidates.add(
-      path.join(
-        process.env.JAVA_HOME,
-        "bin",
-        process.platform === "win32" ? "java.exe" : "java"
-      )
-    );
-  if (process.platform === "win32")
-    for (const base of [
-      path.join(process.env.ProgramW6432 || "C:/Program Files", "Java"),
-      path.join(process.env.ProgramW6432 || "C:/Program Files", "Eclipse Adoptium"),
-      path.join(process.env.ProgramFiles || "C:/Program Files", "Java"),
-      path.join(
-        process.env.ProgramFiles || "C:/Program Files",
-        "Eclipse Adoptium"
-      ),
-      "E:/zulu-java",
-      path.join(process.env.ProgramW6432 || "C:/Program Files", "Zulu"),
-      ...roots
-    ]) {
-      try {
-        for (const e of await fs.readdir(base, { withFileTypes: true }))
-          if (e.isDirectory())
-            candidates.add(path.join(base, e.name, "bin/java.exe"));
-      } catch {}
+const javaDiscovery=new Map();
+export async function findJava(options={}){
+ const key=JSON.stringify([options.roots||[],options.chinesePaths!==false,process.env.JAVA_HOME,process.env.PATH]);
+ const cached=javaDiscovery.get(key);if(!options.refresh&&cached&&Date.now()-cached.time<60000)return cached.promise;
+ const promise=discoverJava(options);if(javaDiscovery.size>10)javaDiscovery.clear();javaDiscovery.set(key,{time:Date.now(),promise});try{return await promise;}catch(e){javaDiscovery.delete(key);throw e;}
+}
+async function discoverJava({ roots = [], chinesePaths = true } = {}) {
+  const candidates = new Set(), binary = process.platform==='win32'?'java.exe':'java';
+  const addHome = home => {if(home)candidates.add(path.join(home,'bin',binary));};
+  for(const name of ['JAVA_HOME','JDK_HOME','JRE_HOME'])addHome(process.env[name]);
+  for(const dir of (process.env.PATH||'').split(path.delimiter).filter(Boolean))candidates.add(path.join(dir.replace(/^"|"$/g,''),binary));
+  const scanRoots = [...roots];
+  if(process.platform==='win32'){
+    const bases=[process.env.ProgramW6432,process.env.ProgramFiles,process.env['ProgramFiles(x86)'],'C:/Programs'].filter(Boolean);
+    for(const base of bases){
+      for(const vendor of ['Java','Eclipse Adoptium','Eclipse Foundation','Microsoft','Amazon Corretto','BellSoft','Semeru','Zulu','Azul','OpenJDK'])scanRoots.push(path.join(base,vendor));
+      // A vendor-neutral shallow check also finds portable JDKs in standard install folders.
+      for(const entry of (await fs.readdir(base,{withFileTypes:true}).catch(()=>[])).slice(0,150))if(entry.isDirectory())addHome(path.join(base,entry.name));
     }
+    for(const base of [process.env.APPDATA,process.env.LOCALAPPDATA].filter(Boolean))scanRoots.push(path.join(base,'.minecraft/runtime'),path.join(base,'Programs/Java'));
+    if(process.env.USERPROFILE)scanRoots.push(path.join(process.env.USERPROFILE,'.jdks'));
+    await Promise.all(['HKLM\\SOFTWARE\\JavaSoft','HKLM\\SOFTWARE\\WOW6432Node\\JavaSoft','HKLM\\SOFTWARE\\Eclipse Adoptium'].map(async key=>{
+      try{const {stdout}=await promisify(execFile)('reg.exe',['query',key,'/s'],{windowsHide:true,timeout:1500,maxBuffer:256*1024});
+        for(const line of stdout.split(/\r?\n/)){const m=line.match(/(?:JavaHome|Path)\s+REG_(?:EXPAND_)?SZ\s+(.+)$/i);if(m)addHome(m[1].trim());}
+      }catch{}
+    }));
+  }
   // Bounded scan of selected roots supports Unicode vendor/install paths without walking drives.
-  for (const root of roots) {
+  let visitedTotal=0;
+  for (const root of new Set(scanRoots.filter(Boolean))) {
     const queue = [{ dir: root, depth: 0 }]; let visited = 0;
-    while (queue.length && visited++ < 300) {
+    while (queue.length && visited++ < 100 && visitedTotal++ < 1200) {
       const { dir, depth } = queue.shift();
       for (const entry of await fs.readdir(dir, { withFileTypes: true }).catch(() => [])) {
         if (!chinesePaths && /[^\x00-\x7f]/.test(entry.name)) continue;
@@ -206,7 +217,10 @@ export async function findJava({ roots = [], chinesePaths = true } = {}) {
     [...candidates].filter(p => chinesePaths || !/[^\x00-\x7f]/.test(p)),
     async p => {
       try {
-        result.push(await inspectJava(p));
+        if(await exists(p)){
+          const real=await fs.realpath(p);
+          if(!result.some(j=>j.path.toLowerCase()===real.toLowerCase()))result.push(await inspectJava(real));
+        }
       } catch {}
     },
     4
@@ -226,6 +240,7 @@ export async function prepareLaunch({
   settings,
   account,
   authAgent,
+  authServer="https://skin.hxzmc.top/api/yggdrasil",authMetadata,
   signal,
   onProgress = () => {}
 }) {
@@ -239,9 +254,10 @@ export async function prepareLaunch({
     natives = path.join(instance, ".hxzl/natives-" + j.architecture);
   await noLinks(natives);
   await fs.mkdir(natives, { recursive: true });
-  if (j.major < (version.javaVersion?.majorVersion || 8))
+  const requiredJava=javaRequirement(version).major;
+  if (j.major < requiredJava)
     throw Error(
-      `该实例至少需要 Java ${version.javaVersion.majorVersion}，当前为 Java ${j.major}`
+      `该实例至少需要 Java ${requiredJava}，当前为 Java ${j.major}`
     );
   const entries = [],
     nativeArchives = [];
@@ -428,7 +444,7 @@ export async function prepareLaunch({
     classpath,
     classpath_separator: path.delimiter,
     launcher_name: "HXZ Launcher",
-    launcher_version: "0.4.5",
+    launcher_version: "0.5.0",
     resolution_width: String(settings.width || 1280),
     resolution_height: String(settings.height || 720),
     clientid: "",
@@ -480,10 +496,18 @@ export async function prepareLaunch({
     "-Dstderr.encoding=UTF-8",
     "-Dlog4j2.formatMsgNoLookups=true"
   );
-  if (authAgent)
+  if (authAgent) {
+    // libinstrument on Windows may interpret the option with the ANSI code page.
+    // CreateProcessW still handles a Unicode cwd correctly: use an ASCII relative
+    // agent name within that cwd, never the translated AppData/application name.
+    const stagedAgent=path.join(run,'.hxzl/authlib-injector.jar');
+    await noLinks(stagedAgent);await fs.mkdir(path.dirname(stagedAgent),{recursive:true});
+    if(path.resolve(authAgent)!==path.resolve(stagedAgent))await fs.copyFile(authAgent,stagedAgent);
     jvm.unshift(
-      "-javaagent:" + authAgent + "=https://skin.hxzmc.top/api/yggdrasil"
+      "-javaagent:.hxzl/authlib-injector.jar="+authServer
     );
+    if(authMetadata)jvm.unshift('-Dauthlibinjector.yggdrasil.prefetched='+Buffer.from(JSON.stringify(authMetadata)).toString('base64'));
+  }
   const extra = settings.jvmArgs || [];
   if (
     !Array.isArray(extra) ||
@@ -521,6 +545,8 @@ export async function prepareLaunch({
     );
   if (!version.mainClass || !/^[\w.$]+$/.test(version.mainClass))
     throw Error("游戏入口无效");
+  const optionsFile=path.join(run,'options.txt');
+  if(!await exists(optionsFile)){await noLinks(optionsFile);await fs.writeFile(optionsFile,'guiScale:2\nlang:zh_cn\n',{flag:'wx'}).catch(e=>{if(e.code!=='EEXIST')throw e;});}
   return {
     command: java,
     args: [...jvm, version.mainClass, ...gameArgs],

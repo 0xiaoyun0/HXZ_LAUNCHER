@@ -55,7 +55,7 @@ public final class CommunityApp extends Application {
         JSONObject selected = credentials.optJSONObject("selectedProfile");
         return obj("server",base,"user",user,"profiles",profiles==null?new JSONArray():profiles,"selectedProfile",selected==null?JSONObject.NULL:selected,
             "hasAccount",credentials.has("accessToken"),"connected",connected,"connection",connection,"users",users,"messages",messages,
-            "room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.4.5",
+            "room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.5.0",
             "systemDark",(getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)==android.content.res.Configuration.UI_MODE_NIGHT_YES);
     }
     void event(String name, Object value) { MainActivity a=activity.get(); if(a!=null)a.emit(name,value); }

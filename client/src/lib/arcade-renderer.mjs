@@ -28,7 +28,7 @@ export function createRenderer(canvas,id,{preview=false}={}){
     const time=s.tick+alpha;
     for(const [speed,size,y,color] of [[.65,57,173,'#284d45'],[1.35,70,186,'#1c4138']])for(let i=0;i<9;i++)tree(c,((i*61-time*speed)%550+550)%550-65,y,size+(i%3)*9,color);
     c.fillStyle='#244238';c.fillRect(0,202,360,58);c.fillStyle='#83a475';c.fillRect(0,201,360,3);c.fillStyle='#152e2960';for(let i=0;i<12;i++)c.fillRect(((i*43-time*3)%520+520)%520-40,218+i%3*11,12+i%3*5,2);
-    const speed=4+Math.min(4,s.tick/1800);
+    const speed=4+Math.min(7,s.tick/720);
     for(const o of s.obstacles){const x=o.x+speed*(1-alpha),y=202-o.h;box(c,x,y,o.w,o.h,4,'#a78359');c.fillStyle='#d3b081';c.fillRect(x+3,y+3,o.w-6,3);c.strokeStyle='#674f3b';c.beginPath();c.moveTo(x+o.w*.65,y+10);c.lineTo(x+o.w*.5,y+o.h-3);c.stroke();c.fillStyle='#466f46';c.fillRect(x-2,y-4,o.w+4,6);}
     const y=172-mix(prev.y,s.y),stride=s.y?0:Math.sin(time*.8)*4;
     // Small explorer with scarf and a backpack; body retains the collision rectangle.
@@ -47,11 +47,11 @@ export function createRenderer(canvas,id,{preview=false}={}){
    }
    if(id==='breakout'){
     label(c,'SECTOR '+String(s.level).padStart(2,'0'),16,29,11,'#c4b4df');label(c,'● '.repeat(s.lives),344,29,13,'#e6b28d','right');
-    for(const brick of s.bricks)if(brick.alive){const row=Math.round((brick.y-62)/24),colors=['#c4a6dc','#bdafd9','#8dbfce','#91c9b6','#d8c598'];box(c,brick.x,brick.y,31,17,3,colors[row]);c.fillStyle='#ffffff40';c.fillRect(brick.x+3,brick.y+2,25,2);if(brick.hp>1){c.strokeStyle='#ffffffb0';c.lineWidth=1;c.strokeRect(brick.x+4,brick.y+5,23,7);}}
+    for(const brick of s.bricks)if(brick.alive){const row=Math.round((brick.y-62)/24),colors=['#c4a6dc','#bdafd9','#8dbfce','#91c9b6','#d8c598'];box(c,brick.x,brick.y,31,17,3,brick.stone?'#60717f':colors[row%colors.length]);c.fillStyle='#ffffff40';c.fillRect(brick.x+3,brick.y+2,25,2);if(brick.stone||brick.buff){label(c,brick.stone?'◆':{wide:'↔',slow:'↓',shield:'◈'}[brick.buff],brick.x+15,brick.y+13,12,'#18232b','center');}if(brick.hp>1){c.strokeStyle='#ffffffb0';c.lineWidth=1;c.strokeRect(brick.x+4,brick.y+5,23,7);}}
     const x=mix(prev.ballX,s.ball.x),y=mix(prev.ballY,s.ball.y),px=mix(prev.paddle,s.paddle);
     if(!reduce&&dt&&(!trail.length||Math.abs(trail[trail.length-1].x-x)+Math.abs(trail[trail.length-1].y-y)>1)){trail.push({x,y});if(trail.length>10)trail.shift();}
     for(let i=0;i<trail.length;i++){c.globalAlpha=i/trail.length*.18;c.fillStyle='#fff0cb';c.beginPath();c.arc(trail[i].x,trail[i].y,2+i/trail.length*3,0,Math.PI*2);c.fill();}c.globalAlpha=1;
-    const beam=c.createLinearGradient(px-40,0,px+40,0);beam.addColorStop(0,'#ccad82');beam.addColorStop(.5,'#fff0cc');beam.addColorStop(1,'#ccad82');box(c,px-40,432,80,9,4,beam);c.fillStyle='#fff7db';c.beginPath();c.arc(x,y,5.5,0,Math.PI*2);c.fill();
+    const beam=c.createLinearGradient(px-40,0,px+40,0);beam.addColorStop(0,'#ccad82');beam.addColorStop(.5,'#fff0cc');beam.addColorStop(1,'#ccad82');const half=s.wideUntil>s.tick?62:42;box(c,px-half,432,half*2,9,4,beam);if(s.shields){c.fillStyle='#83d9de';c.fillRect(4,468,352,2);}if(s.slowUntil>s.tick)label(c,'减速',16,454,11,'#a8e5e1');c.fillStyle='#fff7db';c.beginPath();c.arc(x,y,5.5,0,Math.PI*2);c.fill();
     if(s.serve)label(c,'准备 · '+Math.ceil(s.serve/30),180,316,16,'#efe3d6','center');
     else if(s.combo>1)label(c,s.combo+' 连击',180,280,18,'#e5ceb1','center');
     if(s.event&&s.event.tick!==lastEvent&&!reduce){lastEvent=s.event.tick;for(let i=0;i<8&&particles.length<40;i++)particles.push({x:s.event.x,y:s.event.y,vx:Math.cos(i*Math.PI/4)*45,vy:Math.sin(i*Math.PI/4)*45,life:.45});}

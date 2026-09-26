@@ -33,24 +33,24 @@ async function mavenVersions(minecraft, type) {
       stable: !v.includes("beta")
     }));
 }
-const cache = new Map();
-export async function gameMetadata(id) {
-  return cached("metadata:" + id, async () => {
+const cache = new Map(),pending = new Map();
+export async function gameMetadata(id,options={}) {
+  const load=async () => {
     const manifest = await remoteJSON(
-      "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
+      "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",options
     );
     const item = manifest.versions.find(v => v.id === id);
     if (!item) throw Error("Minecraft 版本不存在");
-    return remoteJSON(item.url);
-  });
+    return remoteJSON(item.url,options);
+  };
+  // An installation owns its cancellation lifetime, independent of UI catalog requests.
+  return options.signal?load():cached("metadata:"+getDownloadMode()+":"+id,load);
 }
 async function cached(key, fn) {
   const item = cache.get(key);
   if (item && Date.now() - item.time < 300000) return item.value;
-  const value = await fn();
-  if (cache.size > 50) cache.clear();
-  cache.set(key, { time: Date.now(), value });
-  return value;
+  if(pending.has(key))return pending.get(key);
+  const task=(async()=>{try{const value=await fn();if(cache.size>50)cache.clear();cache.set(key,{time:Date.now(),value});return value;}finally{pending.delete(key);}})();pending.set(key,task);return task;
 }
 export async function versions() {
   return cached("minecraft", async () => {

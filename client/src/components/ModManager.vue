@@ -4,7 +4,7 @@ import { invoke, perform, task, state, bytesLabel } from "../lib/launcher";
 const props = defineProps<{ id: string }>();
 const emit = defineEmits<{ close: [] }>();
 const mods = ref<
-    { name: string; file: string; enabled: boolean; size: number }[]
+    { name: string; file: string; enabled: boolean; size: number;icon?:string;nameSource?:string }[]
   >([]),
   query = ref(""),
   loading = ref(false),
@@ -35,6 +35,7 @@ async function load() {
     loading.value = false;
   }
 }
+async function identify(){loading.value=true;try{mods.value=await invoke('mods.details',{id:props.id});}finally{loading.value=false;}}
 async function change(action: string, file?: string) {
   await invoke("mods." + action, { id: props.id, file });
   await load();
@@ -105,7 +106,7 @@ watch(
               icon="folder_open"
               title="打开模组目录"
               @click="perform(() => change('open'))" /></div></template
-        ><template v-else
+        ><q-btn v-if="tab==='installed'" flat icon="translate" label="联网获取图标与作者名称" :loading="loading" @click="perform(identify)"/><template v-else
           ><div class="row q-gutter-sm"
             ><q-input
               v-model="onlineQuery"

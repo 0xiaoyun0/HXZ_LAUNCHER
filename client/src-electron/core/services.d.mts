@@ -1,5 +1,6 @@
 export function createServices(options: {
   data: string;
+  dependencyRoot?: string;
   resources: string;
   nativeImage?: typeof import("electron").nativeImage;
   safeStorage: typeof import("electron").safeStorage;

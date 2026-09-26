@@ -23,7 +23,15 @@ export function createPoints({db,auth,admin,body,send,limit,now=()=>Date.now()})
     CREATE TABLE IF NOT EXISTS points_settlements(week INTEGER PRIMARY KEY,created INTEGER);
     CREATE TABLE IF NOT EXISTS game_weekly(game TEXT,week INTEGER,uid TEXT,name TEXT,score INTEGER,updated INTEGER,PRIMARY KEY(game,week,uid));
     CREATE INDEX IF NOT EXISTS game_weekly_rank ON game_weekly(game,week,score DESC,updated);
+    CREATE TABLE IF NOT EXISTS game_alltime(game TEXT,uid TEXT,name TEXT,score INTEGER,updated INTEGER,PRIMARY KEY(game,uid));
+    CREATE INDEX IF NOT EXISTS game_alltime_rank ON game_alltime(game,score DESC,updated,uid);
   `);
+  // Preserve existing personal records when upgrading; weekly settlement never resets this table.
+  db.exec(`INSERT INTO game_alltime SELECT game,uid,name,score,updated FROM game_weekly WHERE score>0
+    ON CONFLICT(game,uid) DO UPDATE SET name=excluded.name,score=excluded.score,updated=excluded.updated WHERE excluded.score>game_alltime.score`);
+  if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='arcade_scores'").get())
+    db.exec(`INSERT INTO game_alltime SELECT game,uid,name,score,updated FROM arcade_scores WHERE score>0
+      ON CONFLICT(game,uid) DO UPDATE SET name=excluded.name,score=excluded.score,updated=excluded.updated WHERE excluded.score>game_alltime.score`);
   function transaction(fn){db.exec('BEGIN IMMEDIATE');try{const value=fn();db.exec('COMMIT');return value;}catch(e){db.exec('ROLLBACK');throw e;}}
   function addTotal(table,period,uid,name,earned) {
     const col=table==='points_week'?'week':'year';
@@ -80,6 +88,7 @@ export function createPoints({db,auth,admin,body,send,limit,now=()=>Date.now()})
   function recordScore(game,user,score) {
     settle();
     if(!Number.isSafeInteger(score)||score<1)return;
+    db.prepare('INSERT INTO game_alltime VALUES(?,?,?,?,?) ON CONFLICT(game,uid) DO UPDATE SET name=excluded.name,score=excluded.score,updated=excluded.updated WHERE excluded.score>game_alltime.score').run(game,user.uid,user.name,score,now());
     db.prepare('INSERT INTO game_weekly VALUES(?,?,?,?,?,?) ON CONFLICT(game,week,uid) DO UPDATE SET name=excluded.name,score=excluded.score,updated=excluded.updated WHERE excluded.score>game_weekly.score')
       .run(game,weekOf(now()),user.uid,user.name,score,now());
   }
@@ -87,8 +96,14 @@ export function createPoints({db,auth,admin,body,send,limit,now=()=>Date.now()})
     settle();const week=weekOf(now());
     return transaction(()=>credit({id:`online:${week}:${user.uid}`,user,amount:1n,reason:'联机胜利 · '+match,week}));
   }
-  function gameBoard(game,user) {
+  function gameBoard(game,user,period='week') {
     settle();const week=weekOf(now());
+    if(period==='all'){
+      const items=db.prepare('SELECT uid,name,score,updated FROM game_alltime WHERE game=? ORDER BY score DESC,updated,uid LIMIT 10').all(game).map((p,i)=>({...p,rank:i+1}));
+      const self=user&&db.prepare('SELECT uid,name,score,updated FROM game_alltime WHERE game=? AND uid=?').get(game,user.uid);
+      if(self)self.rank=1+db.prepare('SELECT COUNT(*) AS n FROM game_alltime WHERE game=? AND (score>? OR (score=? AND (updated<? OR (updated=? AND uid<?))))').get(game,self.score,self.score,self.updated,self.updated,self.uid).n;
+      return {items,self:self||null,label:'长期最高纪录 · 不重置',period:'all'};
+    }
     const rows=db.prepare('SELECT uid,name,score,updated FROM game_weekly WHERE game=? AND week=? ORDER BY score DESC,updated,uid LIMIT 10').all(game,week).map((p,i)=>({...p,rank:i+1}));
     const self=user&&db.prepare('SELECT uid,name,score,updated FROM game_weekly WHERE game=? AND week=? AND uid=?').get(game,week,user.uid);
     if(self)self.rank=1+db.prepare('SELECT COUNT(*) AS n FROM game_weekly WHERE game=? AND week=? AND (score>? OR (score=? AND (updated<? OR (updated=? AND uid<?))))').get(game,week,self.score,self.score,self.updated,self.updated,self.uid).n;

@@ -37,6 +37,7 @@ const form = reactive({
   fontSize: state.settings.fontSize,
   accentColor: state.settings.accentColor,
   backgroundColor: state.settings.backgroundColor,
+  backgroundVideo:state.settings.backgroundVideo,defaultCover:state.settings.defaultCover,backgroundMusic:state.settings.backgroundMusic,musicVolume:state.settings.musicVolume,videoQuality:state.settings.videoQuality,animationSpeed:state.settings.animationSpeed,
   backgroundImage: state.settings.backgroundImage,
   backgroundOpacity: state.settings.backgroundOpacity,
   backgroundPositionX: state.settings.backgroundPositionX ?? 50,
@@ -62,9 +63,14 @@ async function save() {
     }
   });
 }
+async function media(kind:'background'|'cover'|'music'){
+ const value=await invoke<string|null>('media.choose',{kind:kind==='music'?'music':'visual'});if(!value)return;
+ if(kind==='cover')form.defaultCover=value;else if(kind==='music')form.backgroundMusic=value;else if(/\.(mp4|webm)$/i.test(value)){form.backgroundVideo=value;form.backgroundImage='';}else{form.backgroundImage=value;form.backgroundVideo='';}
+}
+function refreshMusic(){window.dispatchEvent(new Event('hxz-refresh-music'));}
 async function background() {
   const image = await invoke<string | null>("background.choose");
-  if (image) form.backgroundImage = image;
+  if (image) { form.backgroundImage = image; form.backgroundVideo = ""; }
 }
 async function reset() {
   Object.assign(form, {
@@ -72,6 +78,7 @@ async function reset() {
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
+    backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:.3,videoQuality:"balanced",animationSpeed:1,
     backgroundImage: "",
     backgroundOpacity: 0.4,
     backgroundPositionX: 50,
@@ -98,6 +105,7 @@ async function reset() {
       label="应用外观"
       @click="perform(save, '外观已保存')"
   /></div>
+  <section class="panel settings-section"><h2>动态外观与声音</h2><div class="install-grid"><div class="row q-gutter-sm"><q-btn outline icon="movie" label="背景图片 / 视频" @click="perform(()=>media('background'))"/><q-btn flat label="清除背景" @click="form.backgroundVideo='';form.backgroundImage=''"/><q-btn outline icon="panorama" label="默认实例头图" @click="perform(()=>media('cover'))"/><q-btn flat label="清除默认头图" @click="form.defaultCover=''"/></div><q-select v-model="form.videoQuality" outlined label="视频绘制质量" emit-value map-options :options="[{label:'原始画质',value:'original'},{label:'均衡 · 最高 1080p / 30 帧',value:'balanced'},{label:'节能 · 最高 720p / 15 帧',value:'efficient'}]"/><div><p class="subtle">视频限 50 MB；后台暂停视频，游戏运行时暂停视频与音乐。解码清晰度取决于原视频。</p><q-btn outline icon="music_note" label="选择背景音乐" @click="perform(()=>media('music'))"/><q-btn flat label="关闭音乐" @click="form.backgroundMusic=''"/><q-btn flat label="刷新播放" @click="refreshMusic"/><label>音乐音量</label><q-slider v-model="form.musicVolume" :min="0" :max="1" :step=".05"/></div><q-select v-model="form.animationSpeed" outlined label="动画速度" emit-value map-options :options="[{label:'关闭动画',value:0},{label:'舒缓 · 0.5 倍',value:.5},{label:'标准',value:1},{label:'轻快 · 1.5 倍',value:1.5},{label:'快速 · 2 倍',value:2}]"/></div></section>
   <section class="panel settings-section">
     <h2>我的头像</h2
     ><div class="avatar-editor"

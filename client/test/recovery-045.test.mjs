@@ -54,7 +54,7 @@ test('actual x64 launch excludes x86 Maven native artifacts with extension suffi
     await fs.writeFile(path.join(root,'libraries',file),'native fixture');
     libraries.push({name:`org.lwjgl:lwjgl:3.4.1:${classifier}@jar`,downloads:{artifact:{path:file,url:''}}});
   }
-  await writeJSON(path.join(root,'versions/原版/原版.json'),{id:'原版',mainClass:'net.minecraft.client.main.Main',libraries,arguments:{jvm:['-cp','${classpath}'],game:[]}});
+  await writeJSON(path.join(root,'versions/原版/原版.json'),{id:'原版',javaVersion:{majorVersion:21},mainClass:'net.minecraft.client.main.Main',libraries,arguments:{jvm:['-cp','${classpath}'],game:[]}});
   await fs.writeFile(path.join(root,'versions/原版/原版.jar'),'fixture');
   const result=await prepareLaunch({root,id:'原版',java:process.env.HXZ_TEST_JAVA||'C:/Program Files/Java/jdk-21/bin/java.exe',settings:{},account:{name:'Fixture',uuid:'test',accessToken:'test'}});
   const cp=result.args[result.args.indexOf('-cp')+1];

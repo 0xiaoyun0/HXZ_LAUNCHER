@@ -4,7 +4,7 @@ import { BOARD_GAMES,createBoard,legalMoves,playMove } from '../shared/board-gam
 
 export function createBoardMatches({db,auth,body,send,limit,points,now=()=>Date.now()}) {
   db.exec('CREATE TABLE IF NOT EXISTS board_matches(id TEXT PRIMARY KEY,game TEXT,a TEXT,b TEXT,a_name TEXT,b_name TEXT,mode TEXT,level INTEGER,state TEXT,updated INTEGER,created INTEGER,finished INTEGER DEFAULT 0); CREATE INDEX IF NOT EXISTS board_matches_active ON board_matches(finished,updated);');
-  const busy=new Set(),workers=new Set();let closed=false;
+  const busy=new Set(),workers=new Set(),comments=new Map();let closed=false;
   function read(id){const row=db.prepare('SELECT * FROM board_matches WHERE id=?').get(id);if(!row)throw Error('对局不存在');return {...row,state:JSON.parse(row.state)};}
   function finish(match){
     if(!match.state.winner||match.finished)return;
@@ -21,8 +21,9 @@ export function createBoardMatches({db,auth,body,send,limit,points,now=()=>Date.
     if(match.b&&now()-match.updated>5*60000){match.state.winner=match.state.turn==='a'?'b':'a';save(match);}
     else if(!match.b&&now()-match.created>30*60000){match.state.winner='draw';save(match);}
   }
-  function view(match,user){expire(match);return {id:match.id,game:match.game,mode:match.mode,level:match.level,a:{uid:match.a,name:match.a_name},b:match.b?{uid:match.b,name:match.b_name}:null,
-    side:match.a===user.uid?'a':match.b===user.uid?'b':'',state:{...match.state,positions:undefined},legal:!match.state.winner&&match.b?legalMoves(match.state):[],updated:match.updated,deadline:match.updated+5*60000,thinking:busy.has(match.id)};}
+  function view(match,user){expire(match);const side=match.a===user.uid?'a':match.b===user.uid?'b':'';return {id:match.id,game:match.game,mode:match.mode,level:match.level,a:{uid:match.a,name:match.a_name},b:match.b?{uid:match.b,name:match.b_name}:null,
+    side,spectator:!side&&!!match.b,comments:!side&&match.b?(comments.get(match.id)||[]).filter(c=>now()-c.created<30000):undefined,
+    state:{...match.state,positions:undefined},legal:side&&!match.state.winner&&match.b?legalMoves(match.state):[],updated:match.updated,deadline:match.updated+5*60000,thinking:busy.has(match.id)};}
   async function computer(match){
     if(closed||match.mode!=='bot'||match.state.winner||match.state.turn!=='b'||busy.has(match.id))return;
     if(workers.size>=4)throw Error('机器人正在思考，请稍后刷新对局');
@@ -44,7 +45,7 @@ export function createBoardMatches({db,auth,body,send,limit,points,now=()=>Date.
     if(req.method==='GET'){
       if(!id){
         for(const r of db.prepare('SELECT id FROM board_matches WHERE finished=0 AND updated<?').all(now()-5*60000))expire(read(r.id));
-        const items=db.prepare("SELECT id FROM board_matches WHERE finished=0 AND (a=? OR b=? OR (mode='online' AND b='')) ORDER BY created DESC LIMIT 40").all(user.uid,user.uid).map(r=>view(read(r.id),user));
+        const items=db.prepare("SELECT id FROM board_matches WHERE finished=0 AND (a=? OR b=? OR mode='online') ORDER BY created DESC LIMIT 40").all(user.uid,user.uid).map(r=>view(read(r.id),user));
         send(res,200,{items});
       }else{let m=read(id);if(m.mode==='bot'&&m.a!==user.uid)throw Error('此练习属于其他玩家');expire(m);await computer(m);send(res,200,view(read(id),user));}
       return true;
@@ -58,6 +59,15 @@ export function createBoardMatches({db,auth,body,send,limit,points,now=()=>Date.
       const id=randomUUID();db.prepare('INSERT INTO board_matches VALUES(?,?,?,?,?,?,?,?,?,?,?,0)').run(id,input.game,user.uid,input.mode==='bot'?'@bot':'',user.name,input.mode==='bot'?'机器人':'',input.mode,input.level,JSON.stringify(createBoard(input.game)),now(),now());send(res,201,view(read(id),user));return true;
     }
     let match=read(id);expire(match);
+    if(input.action==='comment'){
+      if(match.mode!=='online'||!match.b||match.a===user.uid||match.b===user.uid||match.finished)throw Error('只有观众可以发送观战弹幕');
+      limit('board-comment:'+user.uid,12);
+      const text=typeof input.text==='string'?input.text.trim():'';if(!text||text.length>120)throw Error('弹幕限 1–120 字');
+      for(const [key,list] of comments)if(!list.length||now()-list.at(-1).created>30000)comments.delete(key);
+      if(!comments.has(id)&&comments.size>=500)throw Error('观战服务繁忙，请稍后再试');
+      const list=comments.get(id)||[];list.push({id:randomUUID(),name:user.name,text,created:now()});comments.set(id,list.slice(-30));
+      send(res,200,view(match,user));return true;
+    }
     if(match.finished)throw Error('本局已结束');
     if(input.action==='join'){
       if(match.mode!=='online'||match.b||match.a===user.uid)throw Error('无法加入此对局');

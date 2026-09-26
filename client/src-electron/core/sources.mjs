@@ -35,6 +35,11 @@ export function downloadSources(raw) {
       case "api.modrinth.com":
         out.push("https://mod.mcimirror.top/modrinth" + p);
         break;
+      case "cdn.modrinth.com":
+      case "edge.forgecdn.net":
+      case "mediafilez.forgecdn.net":
+        out.push("https://mod.mcimirror.top" + p);
+        break;
     }
   out.push(raw);
   return [...new Set(out)];

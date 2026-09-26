@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AddonDownloads from '../components/AddonDownloads.vue';
 import InstallRecovery from "../components/InstallRecovery.vue";
 import { ref, computed, onMounted, watch } from "vue";
 import { invoke, perform, reload, state, task, desktop } from "../lib/launcher";
@@ -153,7 +154,7 @@ onMounted(() => {
       name="packs"
       label="整合包"
       @click="!results.length && perform(() => searchPacks())"
-  /></q-tabs>
+  /><q-tab name="addons" label="资源包 / 光影 / 数据包"/></q-tabs>
   <section v-if="tab === 'game'" class="panel settings-section"
     ><div class="row items-center justify-between"
       ><h2>安装游戏版本</h2
@@ -221,7 +222,7 @@ onMounted(() => {
         @click="perform(() => invoke('task.cancel'))" /></div
     ><p v-if="installing" class="q-mt-md">{{ task.phase }}</p></section
   >
-  <section v-else
+  <AddonDownloads v-else-if="tab==='addons'"/><section v-else
     ><div class="row q-gutter-sm q-mb-md"
       ><q-input
         v-model="search"

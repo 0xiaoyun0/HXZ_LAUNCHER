@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, onBeforeUnmount, onMounted } from "vue";
+import FeedbackPanel from '../components/FeedbackPanel.vue';
+import {communityRequest} from '../lib/community';
+const feedbackOpen=ref(false);
+const feedbackRequest=(path:string,method='GET',body?:unknown)=>communityRequest(path,{method,...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})},true);
 import { onBeforeRouteLeave, useRouter } from "vue-router";
 import { secretSequence } from "../lib/secret-sequence";
 const router = useRouter();
@@ -22,12 +26,13 @@ import {
 } from "../lib/launcher";
 import { disconnect, connect } from "../lib/community";
 const gameRoot=ref(state.settings.gameRoot), theme=ref(state.settings.theme);
+const promptJavaDownload=ref(state.settings.promptJavaDownload!==false);
 const section=ref('game'), chinesePaths=ref(state.settings.chinesePaths!==false), confirmUnsaved=ref(state.settings.confirmUnsaved!==false), chatHistoryDays=ref(state.settings.chatHistoryDays||0);
 const deleted=ref<{id:string}[]>([]), deletedOpen=ref(false);
 async function manageDeleted(){deleted.value=await invoke('instance.deleted');deletedOpen.value=true;}
 async function restore(id:string){await invoke('instance.restore',{id});await reload();deleted.value=await invoke('instance.deleted');}
 const leavePrompt=ref(false);let resolveLeave:((v:boolean)=>void)|undefined;
-function draft(){return {theme:theme.value,...(gameRoot.value?{gameRoot:gameRoot.value}:{}),communityUrl:base.value,javaPath:java.value,downloadMode:downloadMode.value,downloadConcurrency:downloadConcurrency.value,hxzupPopup:hxzupPopup.value,simpleHome:simpleHome.value,autoCheckUpdates:automatic.value,memoryMode:memoryMode.value,defaultMemoryMB:Math.round(defaultMemoryMB.value),voiceMode:voiceMode.value,voiceKey:voiceKey.value,voiceSounds:voiceSounds.value,chinesePaths:chinesePaths.value,confirmUnsaved:confirmUnsaved.value,chatHistoryDays:chatHistoryDays.value};}
+function draft(){return {promptJavaDownload:promptJavaDownload.value,theme:theme.value,...(gameRoot.value?{gameRoot:gameRoot.value}:{}),communityUrl:base.value,javaPath:java.value,downloadMode:downloadMode.value,downloadConcurrency:downloadConcurrency.value,hxzupPopup:hxzupPopup.value,simpleHome:simpleHome.value,autoCheckUpdates:automatic.value,memoryMode:memoryMode.value,defaultMemoryMB:Math.round(defaultMemoryMB.value),voiceMode:voiceMode.value,voiceKey:voiceKey.value,voiceSounds:voiceSounds.value,chinesePaths:chinesePaths.value,confirmUnsaved:confirmUnsaved.value,chatHistoryDays:chatHistoryDays.value};}
 const dirty=computed(()=>Object.entries(draft()).some(([key,value])=>value!==state.settings[key as keyof typeof state.settings]));
 onBeforeRouteLeave(()=>{
   if(!dirty.value || !confirmUnsaved.value)return true;
@@ -135,7 +140,7 @@ async function root() {
 }
 
 </script>
-<template>
+<template><section class="panel settings-section"><q-btn outline icon="feedback" label="问题反馈与处理" @click="feedbackOpen=!feedbackOpen"/><FeedbackPanel v-if="feedbackOpen" class="q-mt-md" :request="feedbackRequest" :diagnostic-provider="()=>invoke('diagnostics.text')"/></section>
   <q-dialog v-model="leavePrompt" persistent><q-card class="dialog-card"><q-card-section><h2>应用设置更改？</h2><p>你还有未保存的设置。</p></q-card-section><q-card-actions align="right"><q-btn flat label="继续编辑" @click="leave('stay')"/><q-btn flat label="放弃更改" @click="leave('discard')"/><q-btn unelevated class="primary-button" label="应用并离开" @click="perform(()=>leave('save'))"/></q-card-actions></q-card></q-dialog>
   <q-dialog v-model="deletedOpen"><q-card class="dialog-card"><q-card-section><h2>已隐藏的实例</h2><p class="subtle">恢复列表显示；已硬删除的默认服务器恢复后需要重新下载。</p><p v-if="!deleted.length">暂无隐藏实例</p><div v-for="item in deleted" :key="item.id" class="row items-center justify-between q-my-sm"><span>{{item.id}}</span><q-btn flat label="恢复显示" @click="perform(()=>restore(item.id))"/></div></q-card-section><q-card-actions align="right"><q-btn flat label="关闭" v-close-popup/></q-card-actions></q-card></q-dialog>
   <section v-if="state.settings.linkingDiscovered" class="panel q-mb-md"><q-toggle :model-value="!!state.settings.showLinking" label="在左侧显示 Linking" @update:model-value="value=>perform(()=>saveSettings({showLinking:!!value}))"/><q-btn flat label="打开 Linking" to="/signal"/></section>
@@ -189,7 +194,7 @@ async function root() {
   ></section>
   <section v-show="section==='game'" class="panel settings-section"
     ><h2>游戏与 Java</h2
-    ><div class="row q-gutter-sm q-mb-md"><q-toggle v-model="chinesePaths" label="检索中文路径中的 Java"/><q-btn outline icon="restore_from_trash" label="管理隐藏实例" @click="perform(manageDeleted)"/><q-btn flat to="/instances" label="管理与删除实例"/></div><p class="subtle">默认内存用于新实例；已有实例可在实例配置中单独调整。</p
+    ><div class="row q-gutter-sm q-mb-md"><q-toggle v-model="promptJavaDownload" label="缺少合适 Java 时询问下载"/><q-toggle v-model="chinesePaths" label="检索中文路径中的 Java"/><q-btn outline icon="restore_from_trash" label="管理隐藏实例" @click="perform(manageDeleted)"/><q-btn flat to="/instances" label="管理与删除实例"/></div><p class="subtle">默认内存用于新实例；已有实例可在实例配置中单独调整。</p
     ><div class="install-grid q-mb-md"
       ><q-select
         v-model="memoryMode"

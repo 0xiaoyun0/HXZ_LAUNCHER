@@ -10,6 +10,7 @@ import {createUpdateLogs} from "./update-logs.mjs";
 import {avatarData} from "./avatars.mjs";
 import http from 'node:http';
 import {createAdmin} from './admin.mjs';
+import {createFeedback} from './feedback.mjs';
 import { isIP } from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -79,6 +80,7 @@ export function createCommunity(options={}) {
   const points=createPoints({db,auth,admin,body,send,limit});
   const boards=createBoardMatches({db,auth,body,send,limit,points});
   const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast,points});
+  const feedbackRoute=createFeedback({db,auth,admin,body,send,limit});
   const server=http.createServer(async(req,res)=>{
     const origin=req.headers.origin;if(origin&&!origins.has(origin)&&!['http://','https://'].some(protocol=>origin===protocol+req.headers.host)){send(res,403,{error:'来源不允许'});return;}
     if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');}
@@ -91,6 +93,7 @@ export function createCommunity(options={}) {
       if(await boards.route(req,res,url))return;
       if(await points.route(req,res,url))return;
       if(await arcadeRoute(req,res,url))return;
+      if(await feedbackRoute(req,res,url))return;
       if(await content.route(req,res,url))return;
       if(await adminRoute(req,res,url))return;
       if(path==='/api/chat/history'&&req.method==='GET'){

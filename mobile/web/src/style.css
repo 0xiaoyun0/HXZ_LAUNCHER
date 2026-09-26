@@ -80,3 +80,5 @@ button{position:relative}.tap-feedback{position:absolute;inset:0;border-radius:i
 .bottom-nav button>span{width:48px}
 @media(max-width:759px){.app-shell{grid-template-columns:minmax(0,1fr)}.app-top,.workspace,.error-banner,.bottom-nav{grid-column:1}}
 @media(min-width:760px){.app-top{grid-column:1/-1}}
+
+:root[data-custom-background="true"] body,:root[data-custom-background="true"] .app-shell{background:transparent}:root[data-custom-background="true"] .card,:root[data-custom-background="true"] .app-top,:root[data-custom-background="true"] .bottom-nav{background:rgba(255,255,255,var(--mobile-surface-opacity,1))}:root[data-custom-background="true"][data-theme="dark"] .card,:root[data-custom-background="true"][data-theme="dark"] .app-top,:root[data-custom-background="true"][data-theme="dark"] .bottom-nav{background:rgba(26,36,30,var(--mobile-surface-opacity,1))}.overlay-enter-active,.overlay-leave-active{transition-duration:var(--motion-duration,160ms)}

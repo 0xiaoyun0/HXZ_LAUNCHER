@@ -40,6 +40,17 @@ public final class MainActivity extends Activity {
                 if(!ORIGIN.equals(uri.getScheme()+"://"+uri.getAuthority()))return response(403,"text/plain","外部页面已拦截".getBytes(StandardCharsets.UTF_8));
                 String path=uri.getPath();
                 try{
+                    if(path.matches("/media/[a-f0-9-]{36}\\.(mp4|webm|mp3|ogg|wav|m4a|png|jpg|webp)")){
+                        File media=new File(getFilesDir(),path.substring(1));if(!media.isFile())return response(404,"text/plain",new byte[0]);
+                        String ext=path.substring(path.lastIndexOf('.')+1),type=android.webkit.MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);long offset=0,end=media.length()-1;
+                        String range=request.getRequestHeaders().get("Range");if(range==null)range=request.getRequestHeaders().get("range");boolean partial=range!=null;
+                        if(partial){java.util.regex.Matcher m=java.util.regex.Pattern.compile("bytes=([0-9]+)-([0-9]*)").matcher(range);if(!m.matches())return response(416,"text/plain",new byte[0]);offset=Long.parseLong(m.group(1));if(!m.group(2).isEmpty())end=Math.min(end,Long.parseLong(m.group(2)));}
+                        if(offset> end||end<0||offset>=media.length())return response(416,"text/plain",new byte[0]);
+                        FileInputStream stream=new FileInputStream(media);stream.getChannel().position(offset);final long length=end-offset+1;
+                        InputStream bounded=new java.io.FilterInputStream(stream){long left=length;public int read()throws IOException{if(left<=0)return -1;int n=super.read();if(n>=0)left--;return n;}public int read(byte[] bytes,int off,int len)throws IOException{if(left<=0)return -1;int n=in.read(bytes,off,(int)Math.min(left,len));if(n>0)left-=n;return n;}};
+                        Map<String,String> headers=new HashMap<>();headers.put("Content-Length",String.valueOf(length));headers.put("Accept-Ranges","bytes");headers.put("Cache-Control","private, max-age=3600");if(partial)headers.put("Content-Range","bytes "+offset+"-"+end+"/"+media.length());
+                        return new WebResourceResponse(type==null?"application/octet-stream":type,null,partial?206:200,partial?"Partial Content":"OK",headers,bounded);
+                    }
                     if(path.startsWith("/community/api/avatars/")){
                         String endpoint=path.substring("/community".length())+(uri.getQuery()==null?"":"?"+uri.getQuery());
                         try(Response r=app.http.newCall(new Request.Builder().url(app.apiUrl(endpoint)).build()).execute()){
@@ -107,6 +118,21 @@ public final class MainActivity extends Activity {
                 File staged=download;download=null;
                 try(InputStream in=new FileInputStream(staged);OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("无法写入所选位置");byte[] buf=new byte[16384];int n;while((n=in.read(buf))!=-1)out.write(buf,0,n);}finally{staged.delete();}
                 result(id,CommunityApp.obj("saved",true),null);return;
+            }
+            if(kind.equals("background")||kind.equals("music")){
+                String mime=getContentResolver().getType(uri),extension=android.webkit.MimeTypeMap.getSingleton().getExtensionFromMimeType(mime==null?"":mime);
+                if("jpeg".equals(extension))extension="jpg";if("audio/mpeg".equals(mime))extension="mp3";if("audio/mp4".equals(mime))extension="m4a";if("audio/x-wav".equals(mime)||"audio/wav".equals(mime))extension="wav";
+                if(extension==null||!(kind.equals("music")?extension.matches("mp3|ogg|wav|m4a"):extension.matches("mp4|webm|png|jpg|webp")))throw new IOException("请选择支持的图片、MP4/WebM 视频或音频格式");
+                File dir=new File(getFilesDir(),"media");dir.mkdirs();File file=new File(dir,UUID.randomUUID()+"."+extension);
+                try(InputStream in=getContentResolver().openInputStream(uri);OutputStream out=new FileOutputStream(file)){byte[] buffer=new byte[32768];long count=0;int n;while((n=in.read(buffer))!=-1){count+=n;if(count>50L*1024*1024)throw new IOException("媒体文件不能超过 50 MB");out.write(buffer,0,n);}}catch(Exception e){file.delete();throw e;}
+                if(extension.matches("png|jpg|webp")){
+                    BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;BitmapFactory.decodeFile(file.getPath(),bounds);
+                    if(bounds.outWidth<=0||bounds.outHeight<=0){file.delete();throw new IOException("图片格式无效");}
+                    BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=1;while(Math.max(bounds.outWidth,bounds.outHeight)/options.inSampleSize>2048)options.inSampleSize*=2;
+                    Bitmap bitmap=BitmapFactory.decodeFile(file.getPath(),options);if(bitmap==null){file.delete();throw new IOException("图片无法解码");}
+                    File smaller=new File(dir,UUID.randomUUID()+".webp");try(OutputStream out=new FileOutputStream(smaller)){if(!bitmap.compress(Bitmap.CompressFormat.WEBP,88,out))throw new IOException("图片处理失败");}finally{bitmap.recycle();file.delete();}file=smaller;
+                }
+                result(id,CommunityApp.obj("url","/media/"+file.getName()),null);return;
             }
             if(kind.equals("avatar")||kind.equals("cover")){
                 byte[] raw=CommunityApp.bounded(getContentResolver().openInputStream(uri),12*1024*1024);

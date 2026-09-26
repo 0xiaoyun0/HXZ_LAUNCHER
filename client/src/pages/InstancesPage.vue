@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import ServerDiagnostics from '../components/ServerDiagnostics.vue';
 import DeleteInstance from "../components/DeleteInstance.vue";
 import ModManager from "../components/ModManager.vue";
 import { ref } from "vue";
@@ -18,7 +19,7 @@ import {
   favoritePending,
   type InstanceConfig
 } from "../lib/launcher";
-const deleting = ref("");
+const deleting = ref(""),diagnoseID=ref("");
 const modID = ref(""),
   builtinsOpen = ref(true);
 const showCreate = ref(false),
@@ -29,6 +30,7 @@ const showCreate = ref(false),
   urls = ref(""),
   jvm = ref("");
 const config = ref<InstanceConfig>(instanceConfig(""));
+async function chooseJava(){const value=await invoke<string|null>('java.choose');if(value){config.value.javaPath=value;config.value.javaMode='custom';}}
 async function chooseRoot() {
   const gameRoot = await invoke<string | null>("directory.choose");
   if (gameRoot) {
@@ -83,7 +85,7 @@ async function openFolder(
 }
 </script>
 <template>
-  <DeleteInstance :id="deleting" @close="deleting = ''"/>
+  <ServerDiagnostics :id="diagnoseID" @close="diagnoseID=''"/><DeleteInstance :id="deleting" @close="deleting = ''"/>
   <ModManager :id="modID" @close="modID = ''" />
   <div class="page-heading"
     ><div><h1>游戏实例</h1></div
@@ -259,7 +261,7 @@ async function openFolder(
                     v-close-popup
                     @click="perform(() => openFolder(instance.id, 'saves'))"
                     ><q-item-section>存档文件夹</q-item-section></q-item
-                  ></q-list
+                  ><q-item clickable v-close-popup @click="diagnoseID=instance.id"><q-item-section>检查服务器连接</q-item-section></q-item><q-item v-if="instance.builtin" clickable v-close-popup :disable="task.busy||state.running" @click="perform(()=>invoke('instance.export',{id:instance.id}))"><q-item-section>导出整合包（保留 HXZUP）</q-item-section></q-item></q-list
                 ></q-menu
               ></q-btn
             ></div
@@ -305,6 +307,7 @@ async function openFolder(
     ><q-card class="dialog-card wide"
       ><q-card-section
         ><h2>{{ editing }} · 实例配置</h2
+        ><q-select v-model="config.javaMode" outlined emit-value map-options label="此实例的 Java" :options="[{label:'跟随全局',value:'inherit'},{label:'自动匹配游戏版本',value:'auto'},{label:'指定 Java',value:'custom'}]" class="q-mb-md"/><div v-if="config.javaMode==='custom'" class="row items-center q-gutter-sm q-mb-md"><span class="col" style="overflow-wrap:anywhere">{{config.javaPath||'尚未选择'}}</span><q-btn outline label="选择 Java" @click="perform(chooseJava)"/></div
         ><q-select
           v-model="config.memoryMode"
           outlined

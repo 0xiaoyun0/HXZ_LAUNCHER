@@ -62,7 +62,7 @@ watch(
     const image = await invoke<string>("instance.cover", { id }).catch(
       () => ""
     );
-    if (generation === coverGeneration) cover.value = image;
+    if (generation === coverGeneration) cover.value = image||state.settings.defaultCover;
   },
   { immediate: true }
 );
@@ -71,11 +71,11 @@ async function chooseCover(reset = false) {
   if (!id) return;
   const image = await invoke<string | null>("instance.cover", {
     id,
-    choose: !reset,
+    media: !reset,
     reset
   });
   if (id === state.settings.selectedInstance && image !== null)
-    cover.value = image;
+    cover.value = image||state.settings.defaultCover;
 }
 
 const instances = computed(() =>

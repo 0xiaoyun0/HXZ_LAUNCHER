@@ -1,4 +1,5 @@
 import {remoteJSON} from './io.mjs';
+import {networkFailure} from './network-errors.mjs';
 import {normalizeUpdateUrl} from '../../../server/shared/server-presets.mjs';
 export {normalizeUpdateUrl};
 
@@ -6,7 +7,7 @@ export {normalizeUpdateUrl};
 export async function readUpdateSource(urls,{signal,profile=false,log=()=>{},request=remoteJSON}={}){
   if(!Array.isArray(urls)||!urls.length||urls.length>16)throw Error('请设置 1 至 16 个 HXZ UP 地址');
   const sources=[...new Set(urls.map(normalizeUpdateUrl))];
-  let failure;
+  let failure,onlyNetwork=true;
   for(const [index,base] of sources.entries()){
     signal?.throwIfAborted();
     try{
@@ -20,9 +21,9 @@ export async function readUpdateSource(urls,{signal,profile=false,log=()=>{},req
       log(`[HXZ UP] 已连接 · ${base}`);
       return {base,status,profile:game};
     }catch(error){
-      signal?.throwIfAborted();failure=error;
+      signal?.throwIfAborted();failure=error;onlyNetwork&&=networkFailure(error);
       log(`[HXZ UP] 地址不可用 · ${base} · ${error.message}${index+1<sources.length?'；尝试下一个地址':''}`);
     }
   }
-  throw Error('所有 HXZ UP 地址均不可用：'+failure?.message);
+  const error=Error('所有 HXZ UP 地址均不可用：'+failure?.message);error.code=onlyNetwork?'HXZUP_OFFLINE':'HXZUP_INVALID';throw error;
 }

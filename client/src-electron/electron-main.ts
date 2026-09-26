@@ -6,7 +6,7 @@ import {
   nativeImage,
   dialog,
   shell,
-  session
+  session, protocol
 } from "electron";
 import path from "node:path";
 import {fileURLToPath} from "node:url";
@@ -19,6 +19,8 @@ import {
 import { createAppUpdate, launcherReleases } from "./core/app-update.mjs";
 import { createServices } from "./core/services.mjs";
 
+import {mediaPath} from './core/media.mjs';
+protocol.registerSchemesAsPrivileged([{scheme:'hxz-media',privileges:{standard:true,secure:true,stream:true,supportFetchAPI:true}}]);
 let appUpdate: ReturnType<typeof createAppUpdate>;
 let main: BrowserWindow | null = null;
 let services: Awaited<ReturnType<typeof createServices>>;
@@ -65,6 +67,7 @@ async function createWindow() {
   });
   services = await createServices({
     data: app.getPath("userData"),
+    dependencyRoot:app.isPackaged?path.join(path.dirname(app.getPath("exe")),"launcher-cache"):path.resolve(".runtime"),
     resources: app.isPackaged
       ? process.resourcesPath
       : path.resolve("resources"),
@@ -104,6 +107,7 @@ else {
   });
   void app.whenReady().then(async () => {
     registerQuasarRuntime();
+    protocol.registerFileProtocol('hxz-media',(request,callback)=>{try{callback({path:mediaPath(app.getPath('userData'),request.url)});}catch{callback({error:-6});}});
     const trusted = (url: string) => {
       if (!main) return false;
       try {
@@ -177,7 +181,7 @@ else {
         }
       }
     );
-    await createWindow();
+    try { await createWindow(); } catch (error) { dialog.showErrorBox("启动器初始化失败", error instanceof Error ? error.message : String(error)); app.quit(); return; }
     app.on("activate", () => {
       if (!main) void createWindow();
     });

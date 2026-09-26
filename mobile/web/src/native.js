@@ -1,7 +1,7 @@
 import {reactive} from 'vue';
 const pending=new Map(), listeners=new Map();
 let serial=0;
-export const state=reactive({server:'https://qqbot.hxzmc.top',user:{},profiles:[],selectedProfile:null,hasAccount:false,connected:false,connection:'未登录',users:[],messages:[],room:'',muted:false,deafened:false,ptt:false,id:'',version:'0.4.5'});
+export const state=reactive({server:'https://qqbot.hxzmc.top',user:{},profiles:[],selectedProfile:null,hasAccount:false,connected:false,connection:'未登录',users:[],messages:[],room:'',muted:false,deafened:false,ptt:false,id:'',version:'0.5.0'});
 export function on(name,handler){if(!listeners.has(name))listeners.set(name,new Set());listeners.get(name).add(handler);return()=>listeners.get(name)?.delete(handler);}
 window.HXZEvent=(name,data)=>{
   if(name==='result'){const task=pending.get(data.id);if(!task)return;pending.delete(data.id);clearTimeout(task.timer);data.error?task.reject(new Error(data.error)):task.resolve(data.data);return;}

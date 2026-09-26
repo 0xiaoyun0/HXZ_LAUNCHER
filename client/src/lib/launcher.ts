@@ -1,6 +1,8 @@
 import { reactive, computed } from "vue";
 import { Notify } from "quasar";
 export interface InstanceConfig {
+  javaMode: "inherit" | "auto" | "custom";
+  javaPath: string;
   memoryMode: "inherit" | "auto" | "manual";
   autoJoin: boolean;
   serverAddress: string;
@@ -18,12 +20,14 @@ export interface InstanceConfig {
   coverZoom: number;
 }
 export interface Settings {
+  promptJavaDownload: boolean;
   linkingDiscovered?: boolean;
   showLinking?: boolean;
   appearanceVersion: number;
   fontSize: number;
   accentColor: string;
   backgroundColor: string;
+  backgroundVideo:string;defaultCover:string;backgroundMusic:string;musicVolume:number;videoQuality:string;animationSpeed:number;
   backgroundImage: string;
   backgroundOpacity: number;
   backgroundPositionX: number;
@@ -125,7 +129,12 @@ export interface TaskStep {
   unit: string;
 }
 export const crashState=reactive<{open:boolean;report:any}>({open:false,report:null});
+export const decision=reactive({open:false,id:'',title:'',message:'',accept:''});
 interface Event {
+  id?: string;
+  title?: string;
+  message?: string;
+  accept?: string;
   report?: any;
   unit?: string;
   received?: number;
@@ -168,10 +177,12 @@ export const groups = [
 ];
 export const state = reactive<State>({
   settings: {
+    promptJavaDownload: true,
     appearanceVersion: 2,
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
+    backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
     backgroundImage: "",
     backgroundOpacity: 0.4,
     backgroundPositionX: 50,
@@ -513,7 +524,10 @@ export function applyTheme() {
   const root = document.documentElement,
     cfg = state.settings;
   if (cfg.columns?.workspace) cfg.columns.workspace.visible = true;
-  root.dataset.background = cfg.backgroundImage ? "custom" : "default";
+  root.dataset.background = (cfg.backgroundImage||cfg.backgroundVideo) ? "custom" : "default";
+  root.dataset.motion=cfg.animationSpeed===0?'off':'on';
+  root.style.setProperty('--motion-duration',(260/(cfg.animationSpeed||1))+'ms');
+  root.style.setProperty('--motion-fast',(160/(cfg.animationSpeed||1))+'ms');
   root.dataset.layout = cfg.layout || "standard";
   root.style.setProperty("--ui-font-size", (cfg.fontSize || 15) + "px");
   const accent = cfg.accentColor || "#a9ce80";
@@ -551,7 +565,10 @@ export function applyTheme() {
         : name === "workspace"
           ? "var(--panel)"
           : "var(--sidebar)";
-    root.style.setProperty(`--${name}-color`, column.color || fallback);
+    root.style.setProperty(`--${name}-color`,column.color||fallback);
+    const base=column.color||(cfg.theme==='dark'?(name==='workspace'?'#1b2621':'#152019'):(name==='workspace'?'#ffffff':'#eef1e8'));
+    const channels=base.slice(1).match(/../g)?.map(v=>parseInt(v,16))||[255,255,255];
+    root.style.setProperty(`--${name}-surface`,`rgba(${channels.join(',')},${column.opacity??1})`);
     root.style.setProperty(`--${name}-opacity`, String(column.opacity ?? 1));
   }
   root.dataset.sidebarCustom =
@@ -611,6 +628,8 @@ export async function toggleTheme() {
 export function instanceConfig(id: string): InstanceConfig {
   const preset=state.instances.find(i=>i.id===id&&i.builtin);
   return {
+    javaMode: 'inherit',
+    javaPath: '',
     memoryMode: "inherit",
     memoryMB: state.settings.defaultMemoryMB || 4096,
     favorite: false,
@@ -713,6 +732,8 @@ window.launcher?.subscribe(event => {
       completed: 0
     });
   }
+  if(event.type==='decision')Object.assign(decision,event,{open:true});
+  if(event.type==='decision-close'&&event.id===decision.id)decision.open=false;
   if (event.type === "game-crash") {crashState.report=event.report;crashState.open=true;}
   if (event.type === "task") {
     const now = Date.now(),

@@ -98,7 +98,7 @@ final class GameInstaller {
         IO.noLinks(runDirectory);
         temp=updater.resolve(".updater/game-downloads");IO.noLinks(temp);Files.createDirectories(temp);
         versionWorkspace=temp.resolve("versions");IO.noLinks(versionWorkspace);Files.createDirectories(versionWorkspace);
-        this.network=network;mirrors=IO.object(config,"mirrorUrls");concurrency=IO.integer(config,"parallelDownloads",64,2,128);
+        this.network=network;mirrors=IO.object(config,"mirrorUrls");concurrency=IO.integer(config,"parallelDownloads",64,2,128);network.concurrency(concurrency);
     }
     String install(JsonObject profile)throws Exception{
         String gameVersion=IO.str(profile,"gameVersion","");if(gameVersion.isEmpty())return "";
@@ -333,6 +333,7 @@ final class GameInstaller {
             case "meta.fabricmc.net":result.add(mirror+"/fabric-meta"+path);break;
             case "maven.fabricmc.net":case "maven.minecraftforge.net":result.add(mirror+"/maven"+path);break;
             case "maven.neoforged.net":if(path.startsWith("/releases/"))result.add(mirror+"/maven/"+path.substring("/releases/".length()));break;
+            case "cdn.modrinth.com":case "edge.forgecdn.net":case "mediafilez.forgecdn.net":result.add("https://mod.mcimirror.top"+path);break;
             default:break;
         }result.add(raw);return result;
     }

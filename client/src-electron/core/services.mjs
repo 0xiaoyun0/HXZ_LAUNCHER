@@ -1,3 +1,10 @@
+import {diagnoseServer} from './server-diagnostics.mjs';
+import {dependencyStore} from './dependency-store.mjs';
+import {cacheSkin,cachedSkin,startOfflineSkin} from './offline-skin.mjs';
+import {networkFailure} from './network-errors.mjs';
+import {exportPack} from './export-pack.mjs';
+import {addonWorlds,addonSearch,addonInstall,modDetails} from './addons.mjs';
+import {importMedia,mediaReference,mediaPath} from './media.mjs';
 import {crashReport,diagnosticText,redactDiagnostic} from "./diagnostics.mjs";
 import {javaPathArgument, systemArchitecture} from "./platform.mjs";
 import {createPresetCatalog} from "./server-presets.mjs";
@@ -25,6 +32,7 @@ import {
   noLinks,
   hash
 } from "./io.mjs";
+import { configureDownloads } from './io.mjs';
 import {
   findJava,
   inspectJava,
@@ -47,6 +55,7 @@ const SKIN = "https://skin.hxzmc.top/api/yggdrasil";
 const APPEARANCE_VERSION = 2;
 export async function createServices({
   data,
+  dependencyRoot=data,
   resources,
   safeStorage,
   nativeImage,
@@ -58,18 +67,21 @@ export async function createServices({
   skinPanel
 }) {
   await fs.mkdir(data, { recursive: true });
+  const dependencies=await dependencyStore(dependencyRoot,data);
   const configFile = path.join(data, "settings.json"),
     accountFile = path.join(data, "accounts.bin");
   let settings = {
     appearanceVersion: APPEARANCE_VERSION,
     gameRoot: "",
     javaPath: "",
+    promptJavaDownload: true,
     selectedInstance: "",
     selectedAccount: "",
     theme: "light",
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
+    backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
     backgroundImage: "",
     backgroundOpacity: 0.4,
     backgroundPositionX: 50,
@@ -146,6 +158,7 @@ export async function createServices({
     settings.downloadConcurrency
   );
   setDownloadMode(settings.downloadMode);
+  configureDownloads({concurrency:settings.downloadConcurrency,onStatus:value=>{log('[下载节点] '+value.message);emit({type:'task',detail:value.message});}});
   const persistent =
     safeStorage.isEncryptionAvailable() &&
     !(
@@ -286,6 +299,8 @@ export async function createServices({
     await saveAccounts();
     return a;
   }
+  let offlineSession=null;const skinTasks=new Map();
+  async function rememberSkin(a){if(skinTasks.has(a.uuid))return skinTasks.get(a.uuid);const task=cacheSkin(data,a).catch(e=>log('[皮肤缓存] '+e.message)).finally(()=>skinTasks.delete(a.uuid));skinTasks.set(a.uuid,task);return task;}
   async function ensureAccount() {
     const a = selected();
     try {
@@ -294,8 +309,8 @@ export async function createServices({
         clientToken: a.clientToken
       });
       return a;
-    } catch {
-      return refresh(a);
+    } catch(error) {
+      if(networkFailure(error))throw error;return refresh(a);
     }
   }
   function busy() {
@@ -326,7 +341,7 @@ export async function createServices({
     emit({ type: "task", ...value });
   }
   async function credentialsAgent(signal) {
-    const dir = path.join(data, "runtime"),
+    const dir = path.join(dependencies, "runtime"),
       file = path.join(dir, "authlib-injector.jar"),
       record = path.join(dir, "authlib-injector.json");
     await fs.mkdir(dir, { recursive: true });
@@ -464,7 +479,7 @@ export async function createServices({
       await writeJSON(path.join(updater, "config.json"), value);
     const embeddedSource=path.join(resources,'hxzup/updater-launcher.jar'),embeddedTarget=path.join(updater,'updater-launcher.jar');
     if(!(await exists(embeddedTarget))||await hash(embeddedSource,'sha256')!==await hash(embeddedTarget,'sha256'))await fs.copyFile(embeddedSource,embeddedTarget);
-    const java = await selectJava({ javaVersion: {majorVersion:8} }, signal);
+    const java = await selectJava({ javaVersion: {majorVersion:8} }, signal, {}, true);
     if (!java) throw Error("请安装或选择 Java");
     phase({
       phase:
@@ -498,8 +513,21 @@ export async function createServices({
         throw Error("部分文件未更新完成，请解除占用后重试；详情见日志");
     }
   }
-  async function selectJava(metadata, signal) {
-    return chooseJava({gameRoot:settings.gameRoot, preferred:settings.javaPath, metadata, signal,
+  const decisions=new Map();
+  function askDecision(title,message,accept,signal){
+    signal?.throwIfAborted();const id=randomUUID();
+    return new Promise(resolve=>{
+      const finish=value=>{decisions.delete(id);signal?.removeEventListener('abort',abort);emit({type:'decision-close',id});resolve(value);};
+      const abort=()=>finish(false);decisions.set(id,finish);signal?.addEventListener('abort',abort,{once:true});
+      emit({type:'decision',id,title,message,accept});
+    });
+  }
+  async function selectJava(metadata, signal, cfg = {}, tool = false) {
+    const preferred=cfg.javaMode==='auto'?'':cfg.javaMode==='custom'?cfg.javaPath:settings.javaPath;
+    return chooseJava({gameRoot:settings.gameRoot, preferred, metadata, signal, tool,
+      roots:[path.join(data,'runtimes'),path.join(resources,'runtime')],
+      confirmDownload:({major,architecture})=>settings.promptJavaDownload!==false&&askDecision('需要 Java '+major,
+        `未发现适用的 Java ${major}（${architecture}）。是否下载经过校验的 Zulu Java？也可取消后在设置或实例配置里指定已有 Java。`, '下载 Java',signal),
       onProgress:p=>phase({...p,busy:true}), log, chinesePaths:settings.chinesePaths !== false});
   }
   async function launch(id, updateOnly = false, joinServer = false) {
@@ -532,7 +560,7 @@ export async function createServices({
             if(status.maintenance)throw Error(preset.name+' 正在维护，发布后即可安装');
             input={...input,minecraft:profile.gameVersion,loader:profile.loader?.type||'',loaderVersion:profile.loader?.version||''};
           } else if(preset.profileSource==='package') {
-            const file=path.join(data,'downloads',preset.packageSha256+'.zip');
+            const file=path.join(dependencies,'downloads',preset.packageSha256+'.zip');
             await download(preset.packageUrl,file,{sha256:preset.packageSha256,signal:setup.signal,onProgress:received=>phase({phase:'下载 '+preset.name+' 整合包',busy:true,received})});
             pack=await inspectPack(file);
           }
@@ -581,19 +609,33 @@ export async function createServices({
         if (!cfg.serverAddress) throw Error("请先在实例配置中填写服务器地址");
         cfg.autoJoin = true;
       }
-      if (updateOnly || cfg.autoUpdate)
-        await updateInstance(id, cfg, controller.signal);
+      if (updateOnly || cfg.autoUpdate) {
+        try {await updateInstance(id, cfg, controller.signal);}
+        catch(error){
+          if(updateOnly||error.code!=='HXZUP_OFFLINE'||controller.signal.aborted)throw error;
+          const stateFile=inside(settings.gameRoot,`versions/${id}/updater/.updater/local-version.json`);
+          if(await exists(stateFile)&&(await json(stateFile)).pendingVersion)throw Error('更新文件尚未完成，不能启动不完整的实例，请继续更新');
+          if(!await askDecision('更新服务暂不可用','当前未连接到 HXZUP 服务。是否使用已安装的游戏继续？当前版本可能无法进入新版服务器。','启动已有版本',controller.signal))throw error;
+          log('[HXZ UP] 用户选择启动已有版本：'+error.message);
+        }
+      }
       if (updateOnly) {
         phase({ phase: "更新检查完成", busy: false });
         return { ok: true };
       }
       phase({ phase: "正在验证皮肤站账号", busy: true });
-      const account = await ensureAccount();
+      let account;let authServer=SKIN,authMetadata;
+      try{account=await ensureAccount();void rememberSkin(account);}catch(error){
+        const cached=selected();if(!networkFailure(error)||!await cachedSkin(data,cached)||controller.signal.aborted)throw error;
+        if(!await askDecision('皮肤站暂时无法连接','是否使用已验证的缓存角色与皮肤离线启动？离线模式不能通过在线服务器的账号验证。','离线启动',controller.signal))throw error;
+        offlineSession?.close();offlineSession=await startOfflineSkin(data,cached);authServer=offlineSession.base;authMetadata=offlineSession.metadata;account={...cached,accessToken:randomUUID()};cfg.autoJoin=false;
+        log('[账号] 用户确认使用已验证角色的离线缓存；自动进服已关闭');
+      }
       phase({ phase: "准备外置登录组件", busy: true });
       const authAgent = await credentialsAgent(controller.signal);
       phase({ phase: "读取实例与选择 Java", busy: true });
       const metadata = await readVersion(settings.gameRoot, id);
-      const java = await selectJava(metadata, controller.signal);
+      const java = await selectJava(metadata, controller.signal, cfg);
       if (!java) throw Error("没有找到 Java，请在设置中选择");
       const command = await prepareLaunch({
         root: settings.gameRoot,
@@ -602,7 +644,7 @@ export async function createServices({
         settings: cfg,
         downloadConcurrency: settings.downloadConcurrency,
         account: { ...account },
-        authAgent,
+        authAgent,authServer,authMetadata,
         signal: controller.signal,
         onProgress: value => phase({ ...value, busy: true })
       });
@@ -620,6 +662,7 @@ export async function createServices({
       attachLog(child.stdout,capture);
       attachLog(child.stderr,capture);
       child.on("error", error => {
+        offlineSession?.close();offlineSession=null;
         log("游戏启动失败: " + error.message);
         running = null;
         phase({
@@ -630,6 +673,7 @@ export async function createServices({
         });
       });
       child.on("close", (code, exitSignal) => {
+        offlineSession?.close();offlineSession=null;
         running = null;
         phase({
           phase: code === 0 ? "游戏已结束" : "游戏进程已退出",
@@ -667,7 +711,7 @@ export async function createServices({
         cancelled: controller.signal.aborted,
         failure: error.message
       });
-      throw error;
+      offlineSession?.close();offlineSession=null;throw error;
     } finally {
       controller.abort();
       task = null;
@@ -710,8 +754,8 @@ export async function createServices({
       const instance = job.stage;
       const marker = path.join(instance, ".hxzl/install-request.json");
       await writeJSON(marker, { request, pack: pack?.file || "" });
-      const metadata = await catalog.gameMetadata(request.gameVersion);
-      const java = await selectJava(metadata, controller.signal);
+      const metadata = await catalog.gameMetadata(request.gameVersion,{signal:controller.signal,retryBudgetMs:30*60*1000});
+      const java = await selectJava(metadata, controller.signal, settings.instanceSettings[id]||{});
       const configFile = path.join(instance, ".hxzl/installer-settings.json"),
         requestFile = path.join(instance, ".hxzl/game-profile.json");
       await writeJSON(requestFile, request);
@@ -830,6 +874,7 @@ export async function createServices({
     };
   }
   const actions = {
+    async "decision.reply"({id,accepted}){const reply=decisions.get(id);if(reply)reply(accepted===true);return {ok:true};},
     async "catalog.versions"() {
       return catalog.versions();
     },
@@ -909,7 +954,7 @@ export async function createServices({
           ) || release?.files.find(f => f.filename.endsWith(".mrpack"));
         if (!f || !/^[a-f0-9]{40}$/i.test(f.hashes?.sha1 || ""))
           throw Error("未找到可校验的整合包文件");
-        const file = path.join(data, "downloads", f.hashes.sha1 + ".mrpack");
+        const file = path.join(dependencies, "downloads", f.hashes.sha1 + ".mrpack");
         let received = 0,
           last = 0;
         await download(f.url, file, {
@@ -970,6 +1015,11 @@ export async function createServices({
             error.message
         };
       }
+    },
+    async "media.choose"(input={}){
+      const kind=input.kind==='music'?'music':'visual';
+      const r=await dialog.showOpenDialog(window(),{properties:['openFile'],filters:[{name:kind==='music'?'背景音乐':'图片或视频',extensions:kind==='music'?['mp3','ogg','wav','m4a']:['png','jpg','jpeg','webp','mp4','webm']}]});
+      if(r.canceled)return null;return importMedia(data,r.filePaths[0],kind);
     },
     async "background.choose"() {
       const r = await dialog.showOpenDialog(window(), {
@@ -1054,11 +1104,15 @@ export async function createServices({
             throw Error("颜色格式无效");
           nextSettings[key] = input[key];
         }
+      for(const key of ['backgroundVideo','defaultCover','backgroundMusic'])if(input[key]!=null){if(input[key]&&(!mediaReference(input[key])||!await exists(mediaPath(data,input[key]))))throw Error('媒体文件无效或已删除');nextSettings[key]=input[key];}
+      if(['original','balanced','efficient'].includes(input.videoQuality))nextSettings.videoQuality=input.videoQuality;
+      if(input.musicVolume!=null)nextSettings.musicVolume=Math.max(0,Math.min(1,Number(input.musicVolume)||0));
+      if(input.animationSpeed!=null){if(![0,.5,1,1.5,2].includes(input.animationSpeed))throw Error('动画速度无效');nextSettings.animationSpeed=input.animationSpeed;}
       if (input.backgroundImage != null) {
         if (input.backgroundImage.length > 12 * 1024 * 1024)
           throw Error("背景图片过大");
         if (
-          input.backgroundImage &&
+          input.backgroundImage && !mediaReference(input.backgroundImage)&&
           !/^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(
             input.backgroundImage
           )
@@ -1092,7 +1146,7 @@ export async function createServices({
           throw Error("更新弹窗设置无效");
         nextSettings.hxzupPopup = input.hxzupPopup;
       }
-      for (const key of ['chinesePaths','confirmUnsaved','instancesCollapsed'])
+      for (const key of ['chinesePaths','confirmUnsaved','instancesCollapsed','promptJavaDownload'])
         if (typeof input[key] === 'boolean') nextSettings[key] = input[key];
       if (input.chatHistoryDays != null) {
         if (![0,1,3,5,7,30].includes(input.chatHistoryDays)) throw Error('聊天记录范围无效');
@@ -1209,9 +1263,15 @@ export async function createServices({
         if (!Array.isArray(v.updateUrls) || v.updateUrls.length > 16)
           throw Error("更新地址最多 16 个");
         v.updateUrls = v.updateUrls.map(normalizeUpdateUrl);
+        if(v.javaMode==='custom'){
+          if(typeof v.javaPath!=='string'||!v.javaPath)throw Error('请选择实例使用的 Java');
+          await inspectJava(v.javaPath);
+        }
         nextSettings.instanceSettings[id] = {
           ...nextSettings.instanceSettings[id],
           autoJoin: !!v.autoJoin,
+          javaMode: ['auto','custom'].includes(v.javaMode)?v.javaMode:'inherit',
+          javaPath: v.javaMode==='custom'?v.javaPath:'',
           serverAddress: serverAddress(v.serverAddress || ""),
           memoryMode: ["auto", "manual"].includes(v.memoryMode)
             ? v.memoryMode
@@ -1248,6 +1308,7 @@ export async function createServices({
       await writeJSON(configFile, nextSettings);
       settings=nextSettings;
       setDownloadMode(settings.downloadMode);
+      configureDownloads({concurrency:settings.downloadConcurrency});
       if(input.communityUrl!=null)community=null;
       return settings;
     },
@@ -1304,7 +1365,7 @@ export async function createServices({
       return r.canceled ? null : (await inspectJava(r.filePaths[0])).path;
     },
     async "java.scan"() {
-      return findJava({roots:settings.gameRoot?[runtimeHome(settings.gameRoot),settings.gameRoot]:[],chinesePaths:settings.chinesePaths !== false});
+      return findJava({refresh:true,roots:settings.gameRoot?[runtimeHome(settings.gameRoot),settings.gameRoot]:[],chinesePaths:settings.chinesePaths !== false});
     },
     async "instance.create"(input) {
       busy();
@@ -1365,7 +1426,7 @@ export async function createServices({
         version: catalog.modVersion
       });
       const dir = await modDirectory(settings, input.instance),
-        staging = path.join(data, "mod-downloads", randomUUID()),
+        staging = path.join(dependencies, "mod-downloads", randomUUID()),
         installed = [];
       const controller = new AbortController();
       task = controller;
@@ -1424,6 +1485,10 @@ export async function createServices({
         await fs.rm(staging, { recursive: true, force: true });
       }
     },
+    async "addons.worlds"(input){return addonWorlds(settings,input.instance);},
+    async "addons.search"(input){return addonSearch(settings,input);},
+    async "addons.install"(input){busy();const controller=new AbortController();task=controller;try{phase({phase:'下载游戏资源包',busy:true});const result=await addonInstall(settings,input,{signal:controller.signal,onTransfer:p=>phase({phase:'下载游戏资源包',busy:true,completed:p.bytes,total:p.total,unit:'bytes',detail:p.source})});phase({phase:'资源安装完成',busy:false});return result;}catch(e){phase({phase:'资源下载未完成',busy:false,failed:!controller.signal.aborted,failure:e.message});throw e;}finally{controller.abort();task=null;}},
+    async "mods.details"(input){return modDetails(settings,input.id,data);},
     async "mods.list"(input) {
       return listMods(await modDirectory(settings, input.id));
     },
@@ -1471,6 +1536,10 @@ export async function createServices({
       return { ok: true };
     },
     async "instance.cover"(input) {
+      const key=input.id;if(typeof key!=="string"||!key||key.length>100||/[\\/:]/.test(key)||[".","..","__proto__","constructor","prototype"].includes(key))throw Error("无效实例");
+      if(input.media){const value=await actions['media.choose']({});if(value){settings.instanceSettings[key]={...settings.instanceSettings[key],coverMedia:value};await writeJSON(configFile,settings);}return value;}
+      if(input.reset&&settings.instanceSettings[key]){delete settings.instanceSettings[key].coverMedia;await writeJSON(configFile,settings);}
+      if(!input.choose&&!input.reset&&settings.instanceSettings[key]?.coverMedia)return settings.instanceSettings[key].coverMedia;
       if (typeof input.id !== "string" || !input.id || input.id.length > 100)
         throw Error("无效实例");
       const file = path.join(
@@ -1506,6 +1575,12 @@ export async function createServices({
         ? "data:image/jpeg;base64," +
             (await fs.readFile(file)).toString("base64")
         : "";
+    },
+    async "instance.diagnose"(input){const preset=presetCatalog.list().find(p=>p.id===input.id);return diagnoseServer(preset?.address||settings.instanceSettings[input.id]?.serverAddress||'');},
+    async "instance.export"(input){
+      busy();const preset=(await presetCatalog.refresh()).find(p=>p.id===input.id);if(!preset)throw Error('目前支持导出三个默认服务器实例');
+      const picked=await dialog.showSaveDialog(window(),{defaultPath:input.id+'.mrpack',filters:[{name:'Modrinth 整合包',extensions:['mrpack']}]});if(picked.canceled||!picked.filePath)return;
+      const controller=new AbortController();task=controller;try{phase({phase:'导出整合包',busy:true});const file=await exportPack({settings,id:input.id,destination:picked.filePath,resources,urls:preset.updateUrls,signal:controller.signal,progress:p=>phase({...p,phase:'导出整合包',busy:true})});phase({phase:'整合包已导出',busy:false});shell.showItemInFolder(file);return {file};}catch(e){phase({phase:'导出未完成',busy:false,failed:!controller.signal.aborted,failure:e.message});throw e;}finally{controller.abort();task=null;}
     },
     async "instance.open"(input) {
       const dir = inside(settings.gameRoot, "versions/" + input.id);
@@ -1561,6 +1636,7 @@ export async function createServices({
       };
       if(skinPanel)try{await skinPanel.login(a.id,input.username,input.password);}catch{log("[皮肤站] 内嵌会话需要在账号管理中完成网站验证");}
       accounts.push(a);
+      if(a.uuid)void rememberSkin(a);
       settings.selectedAccount = a.id;
       community = null;
       await saveAccounts();
@@ -1585,6 +1661,7 @@ export async function createServices({
         uuid: response.selectedProfile.id
       });
       community = null;
+      void rememberSkin(a);
       await saveAccounts();
       return accountView(a);
     },
@@ -1777,6 +1854,7 @@ export async function createServices({
     },
     async "diagnostics.current"(){return lastCrash;},
     async "diagnostics.folder"(){if(!lastCrash)throw Error("暂无异常报告");return shell.openPath(lastCrash.cwd);},
+    async "diagnostics.text"(){if(!lastCrash)throw Error("暂无异常报告");return diagnosticText(lastCrash).slice(0,64000);},
     async "diagnostics.export"(){if(!lastCrash)throw Error("暂无异常报告");const r=await dialog.showSaveDialog(window(),{defaultPath:"幻想镇-游戏诊断.txt"});if(!r.canceled)await fs.writeFile(r.filePath,diagnosticText(lastCrash),"utf8");return {ok:true};},
     async "logs.export"() {
       const r = await dialog.showSaveDialog(window(), {
@@ -1806,7 +1884,9 @@ export async function createServices({
         "mods.add",
         "mods.toggle",
         "mods.remove",
+        "instance.export",
         "mods.download",
+        "addons.install",
         "install.resume",
         "install.discard",
         "game.install",
@@ -1833,6 +1913,7 @@ export async function createServices({
       }
     },
     dispose() {
+      offlineSession?.close();
       presetCatalog.dispose();
       task?.abort();
       clearTimeout(logTimer);

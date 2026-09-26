@@ -5,10 +5,11 @@ import { remoteJSON, download, inside, noLinks, exists, extractNative, writeJSON
 import { systemArchitecture } from './platform.mjs';
 import { inspectJava, findJava } from './minecraft.mjs';
 import { runtimeHome } from './game-storage.mjs';
+import { javaRequirement, selectJavaCandidate } from './java-policy.mjs';
 const API = 'https://api.azul.com/metadata/v1/zulu/packages/';
 
 export async function ensureZulu(gameRoot, metadata, signal, onProgress = () => {}) {
-  const major = Number(metadata.javaVersion?.majorVersion || 8), architecture = systemArchitecture();
+  const major = javaRequirement(metadata).major, architecture = systemArchitecture();
   if (process.platform !== 'win32' || !Number.isInteger(major) || major < 8 || major > 99)
     throw Error('请在设置中选择适用于此游戏的 Java');
   const base = runtimeHome(gameRoot), home = inside(base, `zulu-${major}-${architecture}`);
@@ -56,18 +57,23 @@ export async function ensureZulu(gameRoot, metadata, signal, onProgress = () => 
   } finally { await fs.rm(stage, { recursive: true, force: true }).catch(() => {}); }
 }
 
-export async function chooseJava({ gameRoot, preferred, metadata, signal, onProgress, log = () => {}, chinesePaths = true }) {
-  const required = metadata.javaVersion?.majorVersion || 8;
+export async function chooseJava({ gameRoot, preferred, metadata, signal, onProgress, log = () => {}, chinesePaths = true, tool = false, confirmDownload, roots = [] }) {
+  const requirement = javaRequirement(metadata,{tool}), required = requirement.major;
   if (preferred) {
     try {
       const selected = await inspectJava(preferred);
       if (selected.major < required) throw Error(`至少需要 Java ${required}，选择的是 ${selected.major}`);
+      if (selected.architecture !== systemArchitecture()) throw Error('所选 Java 架构与当前系统不匹配');
       log(`[Java] 使用手动指定的 Java ${selected.version} · ${selected.architecture} · ${selected.path}`);
       return selected.path;
-    } catch (error) { log('[Java] 指定运行环境不可用：' + error.message + '；自动准备匹配版本'); }
+    } catch (error) { throw Error('[Java] 指定运行环境不可用：' + error.message + '。请修改实例或全局 Java 选择，不会偷偷换用其他版本'); }
   }
-  const options = await findJava({ roots: [runtimeHome(gameRoot)], chinesePaths });
-  const selected = options.find(j => j.major === required && j.architecture === systemArchitecture());
+  const options = await findJava({ roots: [runtimeHome(gameRoot), ...(gameRoot?[path.join(gameRoot,'runtime'),path.join(gameRoot,'runtimes')]:[]), ...roots], chinesePaths });
+  const selected = selectJavaCandidate(options,requirement,systemArchitecture());
   if (selected) { log(`[Java] 自动选择 Java ${selected.version} · ${selected.architecture} · ${selected.path}`); return selected.path; }
-  return ensureZulu(gameRoot, metadata, signal, onProgress);
+  log(`[Java] ${requirement.reason}，需要 Java ${required}；已发现：${options.map(j=>j.version+' '+j.architecture).join('、')||'无可用运行环境'}`);
+  if (!confirmDownload || !await confirmDownload({major:required,architecture:systemArchitecture(),found:options.length}))
+    throw Error(`没有匹配的 Java ${required}。可在实例或全局设置中选择已安装的 Java，或允许下载`);
+  signal?.throwIfAborted();
+  return ensureZulu(gameRoot, {...metadata,javaVersion:{majorVersion:required}}, signal, onProgress);
 }
