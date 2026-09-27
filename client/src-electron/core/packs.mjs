@@ -353,7 +353,7 @@ export async function extractPack(
     onProgress = () => {},
     includeOptional = true,
     optionalFiles,
-    downloadConcurrency = 64
+    downloadConcurrency = 32
   } = {}
 ) {
   const downloadFiles = (values, fn) =>

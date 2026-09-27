@@ -130,7 +130,10 @@ export function createPoints({db,auth,admin,body,send,limit,now=()=>Date.now()})
       } else if(management){
         const offset=Math.max(0,Number(url.searchParams.get('offset')||0));if(!Number.isSafeInteger(offset))throw Error('页码无效');
         send(res,200,{accounts:db.prepare('SELECT * FROM points_wallet ORDER BY uid LIMIT 50 OFFSET ?').all(offset),ledger:db.prepare('SELECT * FROM points_ledger ORDER BY created DESC LIMIT 100').all(),total:db.prepare('SELECT COUNT(*) AS n FROM points_wallet').get().n});
-      } else send(res,200,{...wallet(user),ledger:db.prepare('SELECT amount,earned,reason,created FROM points_ledger WHERE uid=? ORDER BY created DESC LIMIT 50').all(user.uid)});
+      } else {
+        const offset=Number(url.searchParams.get('offset')||0);if(!Number.isSafeInteger(offset)||offset<0)throw Error('页码无效');
+        send(res,200,{...wallet(user),ledger:db.prepare('SELECT id,amount,earned,reason,created FROM points_ledger WHERE uid=? ORDER BY created DESC,id DESC LIMIT 30 OFFSET ?').all(user.uid,offset),total:db.prepare('SELECT COUNT(*) AS n FROM points_ledger WHERE uid=?').get(user.uid).n,offset});
+      }
       return true;
     }
     if(req.method!=='POST')throw Error('不支持的积分操作');const input=await body(req);
@@ -157,5 +160,5 @@ export function createPoints({db,auth,admin,body,send,limit,now=()=>Date.now()})
   }
   settle();
   const timer=setInterval(()=>{try{settle();}catch(error){console.error('[积分结算]',error.message);}},60000);timer.unref();
-  return {route,recordScore,win,gameBoard,settle,weeklyBoard,close:()=>clearInterval(timer)};
+  return {route,recordScore,win,gameBoard,settle,weeklyBoard,transaction,credit,wallet,close:()=>clearInterval(timer)};
 }

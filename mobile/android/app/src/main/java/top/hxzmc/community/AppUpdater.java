@@ -17,7 +17,7 @@ import org.json.*;
 final class AppUpdater {
     static final String REPO="https://github.com/0xiaoyun0/HXZ_LAUNCHER/";
     static final String MANIFEST=REPO+"releases/latest/download/android-latest.json";
-    static final String[] MIRRORS={"https://gh-proxy.com/","https://ghproxy.net/","https://ghfast.top/",""};
+    static final String[] MIRRORS={"https://gh-proxy.org/","https://gh-proxy.com/","https://ghproxy.net/","https://ghfast.top/",""};
     private final CommunityApp app;
     private final SharedPreferences prefs;
     private final ExecutorService worker=Executors.newSingleThreadExecutor();
@@ -26,6 +26,7 @@ final class AppUpdater {
     private final File apk,part;
     private JSONObject info;
     private volatile Call activeCall;
+    private final Set<Call> checks=ConcurrentHashMap.newKeySet();
     private volatile boolean cancelled;
     private boolean working;
     private String phase="idle",message="尚未检查",source="";
@@ -69,14 +70,24 @@ final class AppUpdater {
         worker.execute(()->{
             try{
                 JSONObject candidate=null;String envelope=null;Exception failure=null;
-                for(String prefix:MIRRORS){
-                    ensureActive();progress(sourceName(prefix),0,0);
-                    try{
-                        String raw=fetch(prefix+MANIFEST+"?t="+System.currentTimeMillis());JSONObject found=verifyManifest(raw);
-                        if(candidate==null||found.getLong("versionCode")>candidate.getLong("versionCode")){candidate=found;envelope=raw;}
-                        // Compare all authenticated manifests: a mirror may cache an older release.
-                    }catch(Exception e){failure=e;}
-                }
+                ExecutorService pool=Executors.newFixedThreadPool(MIRRORS.length);
+                CompletionService<String> completed=new ExecutorCompletionService<>(pool);
+                try{
+                    for(String prefix:MIRRORS)completed.submit(()->{
+                        ensureActive();Call call=http.newBuilder().connectTimeout(4,TimeUnit.SECONDS).callTimeout(5,TimeUnit.SECONDS).build().newCall(new Request.Builder().url(prefix+MANIFEST+"?t="+(System.currentTimeMillis()/45000)).header("Cache-Control","no-cache").build());
+                        checks.add(call);try(Response response=call.execute()){
+                            if(!response.isSuccessful()||response.body()==null)throw new IOException("HTTP "+response.code());
+                            return new String(CommunityApp.bounded(response.body().byteStream(),128*1024),StandardCharsets.UTF_8);
+                        }finally{checks.remove(call);}
+                    });
+                    long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(7);
+                    for(int i=0;i<MIRRORS.length;i++){
+                        ensureActive();long left=deadline-System.nanoTime();if(left<=0)break;
+                        Future<String> future=completed.poll(left,TimeUnit.NANOSECONDS);if(future==null)break;
+                        try{String raw=future.get();JSONObject found=verifyManifest(raw);if(candidate==null||found.getLong("versionCode")>candidate.getLong("versionCode")){candidate=found;envelope=raw;}}
+                        catch(Exception e){failure=e;}
+                    }
+                }finally{for(Call call:checks)call.cancel();checks.clear();pool.shutdownNow();}
                 ensureActive();if(candidate==null)throw new IOException("所有更新源暂时不可用，请稍后重试",failure);
                 prefs.edit().putLong("checkedAt",System.currentTimeMillis()).apply();
                 synchronized(this){if(info!=null && info.getLong("versionCode")>candidate.getLong("versionCode")){candidate=info;envelope=prefs.getString("manifest",envelope);}info=candidate;}
@@ -94,7 +105,7 @@ final class AppUpdater {
         working=true;cancelled=false;JSONObject target=info;set("downloading","准备下载…");
         worker.execute(()->{try{downloadNow(target);}catch(Exception e){set(cancelled?"paused":"error",cancelled?"已暂停，可重新下载":CommunityApp.reason(e));}finally{finish();}});return state();
     }
-    synchronized JSONObject cancel(){cancelled=true;Call call=activeCall;if(call!=null)call.cancel();return state();}
+    synchronized JSONObject cancel(){cancelled=true;Call call=activeCall;if(call!=null)call.cancel();for(Call check:checks)check.cancel();return state();}
     private synchronized void finish(){part.delete();activeCall=null;working=false;}
     private void ensureActive() throws IOException{if(cancelled)throw new IOException("已取消");}
     private static String sourceName(String prefix){return prefix.isEmpty()?"GitHub 官方":prefix.contains("ghfast")?"GHFast 镜像":prefix.contains("gh-proxy")?"GH-Proxy 镜像":"GHProxy 镜像";}

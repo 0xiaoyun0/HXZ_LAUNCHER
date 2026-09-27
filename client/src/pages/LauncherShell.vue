@@ -21,6 +21,7 @@ import PackImport from "../components/PackImport.vue";
 import LaunchDock from "../components/LaunchDock.vue";
 const route = useRoute();
 const links = [
+  { to: "/shop", icon: "storefront", label: "积分商城" },
   { to: "/", icon: "sports_esports", label: "启动游戏" },
   { to: "/instances", icon: "widgets", label: "游戏实例" },
   { to: "/downloads", icon: "download", label: "下载与安装" },
@@ -112,7 +113,7 @@ onMounted(() => {
     >
       <header class="window-bar"
         ><div class="row items-center"
-          ><span class="window-label">HXZ LAUNCHER <b>0.5.0</b></span></div
+          ><span class="window-label">HXZ LAUNCHER <b>0.5.1</b></span></div
         ><div class="row items-center no-drag"
           ><q-btn
             v-if="!columnVisible('sidebar')"
@@ -173,8 +174,7 @@ onMounted(() => {
         >浏览器预览 · 登录、文件管理与游戏启动请使用桌面版</div
       >
       <main :class="['page-area', { 'home-area': route.path === '/', 'linking-area': route.path === '/signal' }]"
-        ><router-view
-      /></main>
+        ><router-view v-slot="{Component}"><Transition name="page-fade" mode="out-in"><div :key="route.path" class="route-content"><component :is="Component"/></div></Transition></router-view></main>
       <LaunchDock />
       <footer class="status-bar"
         ><span

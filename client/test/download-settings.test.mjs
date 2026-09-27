@@ -8,7 +8,7 @@ import { createServices } from "../src-electron/core/services.mjs";
 import { extractPack } from "../src-electron/core/packs.mjs";
 const base = path.resolve("../.test");
 await fs.mkdir(base, { recursive: true });
-await test("default 64, five persisted choices, and actual mrpack concurrency up to 128", async t => {
+await test("default 32, five persisted choices, and actual mrpack concurrency up to 128", async t => {
   const root = await fs.mkdtemp(path.join(base, "download-settings-"));
   t.after(() => fs.rm(root, { recursive: true, force: true }));
   const data = path.join(root, "profile");
@@ -25,7 +25,7 @@ await test("default 64, five persisted choices, and actual mrpack concurrency up
   try {
     assert.equal(
       (await service.invoke("state")).settings.downloadConcurrency,
-      64
+      32
     );
     for (const value of [8, 16, 32, 64, 128]) {
       await service.invoke("settings.save", { downloadConcurrency: value });
@@ -51,7 +51,7 @@ await test("default 64, five persisted choices, and actual mrpack concurrency up
   await fs.writeFile(packFile, zip);
   const bytes = Buffer.from("asset"),
     sha = createHash("sha1").update(bytes).digest("hex");
-  for (const limit of [64, 128]) {
+  for (const limit of [32, 128]) {
     let requests = 0;
     const pending = [];
     const server = http.createServer((req, res) => {

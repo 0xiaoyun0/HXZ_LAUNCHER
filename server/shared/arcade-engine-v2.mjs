@@ -1,9 +1,8 @@
-import {EXTRA_GAMES,createExpanded,stepExpanded} from './arcade-expanded.mjs';
 // Pure fixed-step simulation shared by both clients and score verification.
 export const GAMES=[
   {id:'runner',name:'林间疾跑',tag:'反应 · 无尽挑战',description:'穿过晨雾与松林，挑战更远的路途',keys:'空格 / W / ↑ 跳跃',color:'#9dd9a8'},
   {id:'blocks',name:'俄罗斯方块',tag:'益智 · 逐级加速',description:'七种方块，无数种解法',keys:'A D / ← → 移动 · W / ↑ 旋转 · S / ↓ 加速 · 空格落下 · C 暂存',color:'#baa6eb'},
-  {id:'breakout',name:'打砖块',tag:'街机 · 百关挑战',description:'穿过百道防线，借助增益突破坚壁',keys:'A D / ← → 移动，也可拖动挡板',color:'#f1c18d'}, ...EXTRA_GAMES
+  {id:'breakout',name:'打砖块',tag:'街机 · 百关挑战',description:'穿过百道防线，借助增益突破坚壁',keys:'A D / ← → 移动，也可拖动挡板',color:'#f1c18d'}
 ];
 export const MAX_TICKS=18000;
 export const shapes=[[[1,1,1,1]],[[1,1],[1,1]],[[0,1,0],[1,1,1]],[[1,0,0],[1,1,1]],[[0,0,1],[1,1,1]],[[0,1,1],[1,1,0]],[[1,1,0],[0,1,1]]];
@@ -14,7 +13,6 @@ export function createGame(game,seed){
   if(game==='runner')Object.assign(s,{y:0,vy:0,obstacles:[],next:45});
   if(game==='blocks'){Object.assign(s,{board:Array.from({length:20},()=>Array(10).fill(0)),lines:0,level:1,bag:[],next:[],held:0,canHold:true,combo:0,event:null});piece(s);}
   if(game==='breakout'){Object.assign(s,{paddle:180,ball:{x:180,y:410,vx:2.6,vy:-3.8},lives:3,level:1,serve:45,combo:0,event:null});bricks(s);}
-  if(EXTRA_GAMES.some(g=>g.id===game))createExpanded(s);
   return s;
 }
 function nextColor(s){if(!s.bag.length){s.bag=[1,2,3,4,5,6,7];for(let i=6;i>0;i--){const j=Math.floor(random(s)*(i+1));[s.bag[i],s.bag[j]]=[s.bag[j],s.bag[i]];}}return s.bag.pop();}
@@ -39,8 +37,8 @@ export function step(s,actions=[]){
     if(actions.includes('jump')&&s.y===0)s.vy=10.5;
     s.y=Math.max(0,s.y+s.vy);s.vy=s.y? s.vy-.62:0;
     if(--s.next<=0){s.obstacles.push({x:375,w:16+Math.floor(random(s)*15),h:28+Math.floor(random(s)*16)});s.next=45+Math.floor(random(s)*45);}
-    const speed=12+Math.min(7,s.tick/720);
-    for(const o of s.obstacles){const oldX=o.x;o.x-=speed;if(o.x<70&&oldX+o.w>44&&s.y<o.h)s.over=true;}
+    const speed=4+Math.min(7,s.tick/720);
+    for(const o of s.obstacles){o.x-=speed;if(o.x<70&&o.x+o.w>44&&s.y<o.h)s.over=true;}
     s.obstacles=s.obstacles.filter(o=>o.x+o.w>0);s.score=Math.floor(s.tick/6);
   } else if(s.game==='blocks'){
     for(const a of actions){if(s.over)break;
@@ -51,7 +49,7 @@ export function step(s,actions=[]){
       if(a==='drop'){while(!s.over&&drop(s)){}break;}
     }
     if(!s.over&&s.tick%Math.max(3,26-s.level*2)===0)drop(s);
-  } else if(s.game==='breakout'){
+  } else {
     let target=s.paddle;
     for(const a of actions){if(a==='left')target-=9;if(a==='right')target+=9;if(typeof a==='object')target=a.x;}
     s.paddle=Math.max(42,Math.min(318,s.paddle+Math.max(-9,Math.min(9,target-s.paddle))));
@@ -71,9 +69,8 @@ export function step(s,actions=[]){
     }
     if(b.y>470&&s.shields>0){s.shields--;b.y=460;b.vy=-Math.abs(b.vy);}
     if(b.y>485){s.lives--;s.combo=0;if(!s.lives)s.over=true;else{Object.assign(b,{x:s.paddle,y:410,vx:2.6,vy:-velocity});s.serve=45;}}
-    if(s.bricks.every(b=>!b.alive||b.stone)){s.score+=100*s.level;if(s.level%5===0)s.lives=Math.min(3,s.lives+1);if(s.level>=100){s.over=true;s.won=true;}else{s.level++;bricks(s);s.serve=60;Object.assign(b,{x:s.paddle,y:410,vx:2.6,vy:-velocity});}}
+    if(s.bricks.every(b=>!b.alive||b.stone)){s.score+=100*s.level;if(s.level>=100){s.over=true;s.won=true;}else{s.level++;bricks(s);s.serve=60;Object.assign(b,{x:s.paddle,y:410,vx:2.6,vy:-velocity});}}
   }
-  if(EXTRA_GAMES.some(g=>g.id===s.game))stepExpanded(s,actions);
   if(s.game==='blocks'&&s.tick>=MAX_TICKS)s.over=true;
   return s;
 }
@@ -83,7 +80,7 @@ export function replay(game,seed,ticks,inputs){
 export function replaySegment(previous,ticks,inputs){
   if(!Number.isSafeInteger(ticks)||ticks<=previous.tick||ticks-previous.tick>MAX_TICKS||!Array.isArray(inputs)||inputs.length>MAX_TICKS*4)throw Error('游戏记录无效');
   let last=previous.tick,perTick=0;const game=previous.game;
-  for(const e of inputs){if(!Array.isArray(e)||e.length!==2||!Number.isInteger(e[0])||e[0]<=previous.tick||e[0]>ticks||e[0]<last)throw Error('操作顺序无效');perTick=e[0]===last?perTick+1:1;last=e[0];if(perTick>4)throw Error('操作过于频繁');const a=e[1];if(typeof a==='object'&&a!==null){if(!Number.isFinite(a.x)||a.x<0||a.x>360||(game==='breakout'?Object.keys(a).length!==1:!['danmaku','fighter'].includes(game)||Object.keys(a).length!==2||!Number.isFinite(a.y)||a.y<0||a.y>480))throw Error('操作坐标无效');}else if(!['left','right','up','down','focus','rotate','drop','jump','hold','upgrade:power','upgrade:rapid','upgrade:wings','upgrade:shield','upgrade:repair','upgrade:speed'].includes(a))throw Error('操作无效');}
+  for(const e of inputs){if(!Array.isArray(e)||e.length!==2||!Number.isInteger(e[0])||e[0]<=previous.tick||e[0]>ticks||e[0]<last)throw Error('操作顺序无效');perTick=e[0]===last?perTick+1:1;last=e[0];if(perTick>4)throw Error('操作过于频繁');const a=e[1];if(typeof a==='object'&&a!==null){if(game!=='breakout'||Object.keys(a).length!==1||!Number.isFinite(a.x)||a.x<0||a.x>360)throw Error('操作坐标无效');}else if(!['left','right','down','rotate','drop','jump','hold'].includes(a))throw Error('操作无效');}
   const s=structuredClone(previous);let i=0;
   while(s.tick<ticks&&!s.over){const actions=[];while(i<inputs.length&&inputs[i][0]===s.tick+1)actions.push(inputs[i++][1]);step(s,actions);}
   if(s.tick!==ticks||i!==inputs.length)throw Error('游戏结束后的记录无效');

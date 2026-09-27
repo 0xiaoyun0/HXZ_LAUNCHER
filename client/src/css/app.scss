@@ -2954,10 +2954,10 @@ a:focus-visible {
   background: var(--sidebar);
   background: color-mix(in srgb, var(--sidebar) 78%, transparent);
 }
-:root[data-background="custom"] .panel,
-:root[data-background="custom"] .world-list,
-:root[data-background="custom"] .world-detail,
-:root[data-background="custom"] .chat-messages {
+:root[data-background="custom"] .page-area .panel,
+:root[data-background="custom"] .page-area .world-list,
+:root[data-background="custom"] .page-area .world-detail,
+:root[data-background="custom"] .page-area .chat-messages {
   background: var(--panel);
   background: color-mix(in srgb, var(--panel) 76%, transparent);
 }
@@ -4432,7 +4432,6 @@ a:focus-visible {
 
 .launcher{position:relative;z-index:1;background:transparent;isolation:isolate}
 :root[data-sidebar-custom="true"] .sidebar{background:var(--sidebar-surface)!important}
-:root[data-workspace-custom="true"] .workspace,:root[data-workspace-custom="true"] .panel,:root[data-workspace-custom="true"] .world-list,:root[data-workspace-custom="true"] .world-detail,:root[data-workspace-custom="true"] .chat-messages{background:var(--workspace-surface)!important}
 :root[data-dock-custom="true"] .launch-dock,:root[data-dock-custom="true"] .status-bar{background:var(--dock-surface)!important}
 :root[data-background="custom"] .sidebar,:root[data-background="custom"] .window-bar,:root[data-background="custom"] .launch-dock{background:rgba(238,241,232,.78)}
 :root[data-background="custom"] .panel,:root[data-background="custom"] .world-list,:root[data-background="custom"] .world-detail{background:rgba(255,255,255,.76)}
@@ -4442,3 +4441,30 @@ a:focus-visible {
 button,.q-btn,.nav-link{transition:background-color var(--motion-fast,160ms),box-shadow var(--motion-fast,160ms),transform var(--motion-fast,160ms)}
 :root[data-motion="off"] *,:root[data-motion="off"] *::before,:root[data-motion="off"] *::after{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
 :root[data-motion="off"] .spectator-overlay>span{animation:none!important;left:8px}
+
+/* A surface is painted once; dialogs never inherit workspace transparency. */
+.workspace{background:transparent!important}
+:root[data-workspace-custom="true"] .page-area :is(.panel,.world-list,.chat-messages,.community-side,.voice-panel,.forum-card,.blueprint-card,.shop-product,.wallet-card,.shop-order){background:var(--workspace-surface)!important}
+:root[data-workspace-custom="true"] .page-area .panel .panel{background:transparent!important}
+.world-detail{background:transparent!important}
+.world-detail>.detail-toolbar,.world-detail>.detail-body{background:var(--workspace-surface,var(--panel))}
+:root[data-workspace-custom="true"] .window-bar{background:var(--workspace-surface)!important}
+.main-cover{background:transparent!important;color:var(--text)}
+.cover-visual{position:absolute;inset:0;background:linear-gradient(110deg,#264737,#38594a);opacity:var(--cover-opacity,1);transition:opacity var(--motion-fast,160ms)}
+.main-cover .preview-caption{color:var(--text);text-shadow:0 1px 8px var(--panel)}
+.main-cover .preview-caption>span,.main-cover .preview-caption p{color:var(--text)}
+.q-dialog__backdrop{background:rgba(10,17,14,.72)!important;backdrop-filter:blur(10px)}
+.q-dialog__inner>.q-card,.q-dialog__inner>.panel,.q-menu{background:var(--panel)!important;opacity:1!important;color:var(--text)}
+:root[data-theme="light"] .q-dialog__inner>.q-card,:root[data-theme="light"] .q-dialog__inner>.panel{background:#fff!important}
+:root[data-theme="dark"] .q-dialog__inner>.q-card,:root[data-theme="dark"] .q-dialog__inner>.panel{background:#1b2621!important}
+.route-content{min-width:0;min-height:0}.home-area>.route-content,.linking-area>.route-content{height:100%}
+.page-fade-enter-active,.page-fade-leave-active{transition:opacity var(--motion-fast,160ms),transform var(--motion-fast,160ms)}
+.page-fade-enter-from{opacity:0;transform:translateY(5px)}.page-fade-leave-to{opacity:0;transform:translateY(-3px)}
+.linking-area .route-content{transform:none!important}
+.nav-link:active,.q-btn:active,.arcade-card:active,.shop-page button:active{transform:scale(.98)}
+.q-tab__indicator{transition:transform var(--motion-duration,260ms),opacity var(--motion-fast,160ms)}
+.q-toggle__thumb,.q-toggle__track{transition:transform var(--motion-fast,160ms),background-color var(--motion-fast,160ms)}
+.settings-linking{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 18px}.settings-section label{line-height:1.6}.forum-card{min-width:0;overflow-wrap:anywhere}
+@media(prefers-reduced-motion:reduce){.page-fade-enter-active,.page-fade-leave-active,.cover-visual,.q-toggle__thumb,.q-toggle__track,.q-tab__indicator{transition:none!important}.page-fade-enter-from,.page-fade-leave-to{transform:none}}
+
+.forum-sort{max-width:220px;margin:0 0 16px auto}.forum-toolbar{gap:16px;flex-wrap:wrap}.forum-card h2{line-height:1.55}.forum-card footer{flex-wrap:wrap;gap:10px 18px}

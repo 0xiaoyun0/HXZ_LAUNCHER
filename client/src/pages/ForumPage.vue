@@ -20,6 +20,7 @@ const route = useRoute(),
   page = ref(1),
   query = ref(""),
   category = ref(""),
+  sort=ref("newest"),
   loading = ref(false),
   error = ref("");
 const detail = ref<ForumPost | null>(null),
@@ -62,24 +63,27 @@ function displayCount(value: unknown) {
   const count = Number(value);
   return Number.isFinite(count) ? count : 0;
 }
+let listGeneration=0;
 async function load() {
+  const generation=++listGeneration;
   loading.value = true;
   error.value = "";
   try {
     const params = new URLSearchParams({
-      q: query.value,
+      sort:sort.value,q: query.value,
       category: category.value,
       offset: String((page.value - 1) * 24)
     });
     const value = await communityRequest<{ items: ForumPost[]; total: number }>(
       "/api/forum/posts?" + params
     );
+    if(generation!==listGeneration)return;
     items.value = value.items;
     total.value = value.total;
   } catch (e) {
-    error.value = errorMessage(e);
+    if(generation===listGeneration)error.value = errorMessage(e);
   } finally {
-    loading.value = false;
+    if(generation===listGeneration)loading.value = false;
   }
 }
 async function loadDetail() {
@@ -254,7 +258,7 @@ onMounted(() => void permissions());
   /></div>
   <div v-if="error" class="info-note error-note q-mb-md">{{ error }}</div>
   <template v-if="!isDetail"
-    ><div class="content-toolbar forum-toolbar panel"
+    ><div class="forum-sort"><q-select v-model="sort" outlined dense label="排序" emit-value map-options :options="[{label:'最新发布',value:'newest'},{label:'最早发布',value:'oldest'},{label:'最多点赞',value:'likes'},{label:'最多回复',value:'replies'},{label:'最近活跃',value:'active'}]" @update:model-value="page=1;load()"/></div><div class="content-toolbar forum-toolbar panel"
       ><q-input
         v-model="query"
         outlined

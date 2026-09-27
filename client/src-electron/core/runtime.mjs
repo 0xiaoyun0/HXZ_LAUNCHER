@@ -12,7 +12,7 @@ export async function ensureRuntime(
   metadata,
   signal,
   onProgress,
-  downloadConcurrency = 64
+  downloadConcurrency = 32
 ) {
   const component = metadata.javaVersion?.component;
   if (

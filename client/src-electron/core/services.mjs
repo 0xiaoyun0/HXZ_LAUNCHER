@@ -1,3 +1,5 @@
+import {createInstances,importBlueprint} from './blueprint-import.mjs';
+import {automaticMemory} from './memory-policy.mjs';
 import {diagnoseServer} from './server-diagnostics.mjs';
 import {dependencyStore} from './dependency-store.mjs';
 import {cacheSkin,cachedSkin,startOfflineSkin} from './offline-skin.mjs';
@@ -81,7 +83,7 @@ export async function createServices({
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
-    backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
+    blueprintInstance:"",coverOpacity:1,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
     backgroundImage: "",
     backgroundOpacity: 0.4,
     backgroundPositionX: 50,
@@ -89,7 +91,7 @@ export async function createServices({
     backgroundFit: "cover",
     layout: "standard",
     downloadMode: "domestic",
-    downloadConcurrency: 64,
+    downloadConcurrency: 32,
     updateFeed: "",
     autoCheckUpdates: true,
     memoryMode: "auto",
@@ -325,10 +327,7 @@ export async function createServices({
       return cfg.memoryMB;
     const total = Math.floor(os.totalmem() / 1048576);
     const free = Math.floor(os.freemem() / 1048576);
-    return Math.max(
-      1024,
-      Math.min(131072, Math.floor(Math.min(total * 0.75, free * 0.5)))
-    );
+    return automaticMemory(total,free);
   }
   let previousPhase = "", lastDetailLog=0;
   function phase(value) {
@@ -1183,6 +1182,8 @@ export async function createServices({
         nextSettings.voiceKey = input.voiceKey;
       }
       if (input.voiceSounds != null) nextSettings.voiceSounds = !!input.voiceSounds;
+      if(input.blueprintInstance!=null){if(typeof input.blueprintInstance!=="string"||input.blueprintInstance.length>250)throw Error("默认蓝图实例无效");nextSettings.blueprintInstance=input.blueprintInstance;}
+      if(input.coverOpacity!=null){if(!Number.isFinite(input.coverOpacity)||input.coverOpacity<0||input.coverOpacity>1)throw Error("头图透明度无效");nextSettings.coverOpacity=input.coverOpacity;}
       if (input.hiddenLinks != null) {
         if (
           !Array.isArray(input.hiddenLinks) ||
@@ -1776,6 +1777,7 @@ export async function createServices({
       await saveAccounts();
       return { synced: await syncAvatar(a) };
     },
+    async "blueprints.instances"(){return createInstances(settings,await scanInstances(settings.gameRoot));},
     async "blueprints.download"(input) {
       if (typeof input.id !== "string" || !/^[\w-]{1,64}$/.test(input.id))
         throw Error("蓝图标识无效");
@@ -1794,25 +1796,14 @@ export async function createServices({
         !/^[a-f0-9]{64}$/.test(item.sha256)
       )
         throw Error("蓝图文件信息无效");
-      const result = await dialog.showSaveDialog(window(), {
-        defaultPath: String(item.filename || "blueprint.nbt").replace(
-          /[\\/:*?"<>|]/g,
-          "_"
-        ),
-        filters: [{ name: "机械动力蓝图", extensions: ["nbt"] }]
-      });
-      if (result.canceled || !result.filePath) return { canceled: true };
-      await download(
-        base + "/api/blueprints/" + input.id + "/file",
-        result.filePath,
-        {
-          headers,
-          size: item.size,
-          sha256: item.sha256,
-          maxSize: 8 * 1024 * 1024
-        }
-      );
-      return { ok: true };
+      const staged=path.join(dependencies,'blueprints',randomUUID()+'.nbt');
+      await noLinks(staged);await fs.mkdir(path.dirname(staged),{recursive:true});
+      try{
+        await download(base+'/api/blueprints/'+input.id+'/file',staged,{headers,size:item.size,sha256:item.sha256,maxSize:8*1024*1024});
+        if(input.instance){const file=await importBlueprint(settings,input.instance,staged,item.filename);return {ok:true,file,instance:input.instance};}
+        const result=await dialog.showSaveDialog(window(),{defaultPath:String(item.filename||'blueprint.nbt').replace(/[\\/:*?"<>|]/g,'_'),filters:[{name:'机械动力蓝图',extensions:['nbt']}]});
+        if(result.canceled||!result.filePath)return {canceled:true};await noLinks(result.filePath);await fs.copyFile(staged,result.filePath);return {ok:true,file:result.filePath};
+      }finally{await fs.rm(staged,{force:true}).catch(()=>{});}
     },
     async "notices.list"() {
       return remoteJSON(endpoint(settings.communityUrl) + "/api/notices");

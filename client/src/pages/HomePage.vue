@@ -265,12 +265,12 @@ async function chooseRoot() {
             ></q-btn
           ><q-btn flat dense icon="delete_outline" title="删除实例" :disable="!selectedInstance || task.busy || state.running" @click="deleting=state.settings.selectedInstance"/><q-btn flat dense icon="tune" label="配置" to="/instances" /></div
       ></div>
-      <div class="world-preview" :class="{ 'custom-cover': !!cover }"
-        ><CoverImage v-if="cover" :src="cover" :x="config.coverPositionX" :y="config.coverPositionY" :zoom="config.coverZoom"/><div v-else class="preview-art" aria-hidden="true"
+      <div class="world-preview main-cover" :class="{ 'custom-cover': !!cover }"
+        ><div class="cover-visual"><CoverImage v-if="cover" :src="cover" :x="config.coverPositionX" :y="config.coverPositionY" :zoom="config.coverZoom"/><div v-else class="preview-art" aria-hidden="true"
           ><div class="sun" /><div class="mountain mountain-back" /><div
             class="mountain mountain-front" /><div class="tower"
             ><i /><i /><i /></div></div
-        ><div class="preview-caption"
+        ></div><div class="preview-caption"
           ><span>{{ selectedInstance?.loader || "MINECRAFT" }}</span
           ><h1>{{ selectedInstance?.name || "幻想镇" }}</h1
           ><p v-if="selectedInstance?.placeholder">整合包尚未发布</p

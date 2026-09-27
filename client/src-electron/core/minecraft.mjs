@@ -1,3 +1,4 @@
+import {javaHeapLimit} from './memory-policy.mjs';
 import { normalizeDownloadConcurrency } from "./download-settings.mjs";
 import { serverAddress } from "./instances.mjs";
 import { fileProgress } from "./progress.mjs";
@@ -233,7 +234,7 @@ function legacySplit(text) {
   );
 }
 export async function prepareLaunch({
-  downloadConcurrency = 64,
+  downloadConcurrency = 32,
   root,
   id,
   java,
@@ -444,7 +445,7 @@ export async function prepareLaunch({
     classpath,
     classpath_separator: path.delimiter,
     launcher_name: "HXZ Launcher",
-    launcher_version: "0.5.0",
+    launcher_version: "0.5.1",
     resolution_width: String(settings.width || 1280),
     resolution_height: String(settings.height || 720),
     clientid: "",
@@ -484,11 +485,7 @@ export async function prepareLaunch({
     });
     jvm.push(l.argument.replace("${path}", file));
   }
-  const memory = Math.min(
-    Math.max(Number(settings.memoryMB) || 4096, 512),
-    Math.floor((os.totalmem() / 1048576) * 0.85),
-    j.architecture === "ia32" ? 1280 : 131072
-  );
+  const memory = javaHeapLimit(settings.memoryMB,os.totalmem()/1048576,j.architecture);
   jvm.unshift(
     "-Xmx" + memory + "M",
     "-Dfile.encoding=UTF-8",

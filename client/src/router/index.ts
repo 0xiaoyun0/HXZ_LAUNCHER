@@ -8,6 +8,7 @@ export default defineRouter(() =>
         path: "/",
         component: () => import("../pages/LauncherShell.vue"),
         children: [
+          {path:"shop",component:()=>import("../pages/ShopPage.vue")},
           {path:"games",component:()=>import("../pages/GamesPage.vue")},
           {
             path: "signal",

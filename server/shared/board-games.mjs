@@ -1,3 +1,4 @@
+import {chessBot} from './chess-bot.mjs';
 import { Chess } from 'chess.js';
 import { BOARD_GAMES } from './board-catalog.mjs';
 export { BOARD_GAMES, DIFFICULTIES } from './board-catalog.mjs';
@@ -34,13 +35,19 @@ function xiangqiPseudo(s,from,to){
   if(type==='p')return dx===0&&dy===(who==='a'?-1:1)||dy===0&&ax===1&&(who==='a'?y<=4:y>=5);
   return false;
 }
+function xiangqiTargets(s,from){const x=from%9,y=Math.floor(from/9),p=s.board[from],type=p[1],out=[];const add=(dx,dy)=>{const tx=x+dx,ty=y+dy;if(tx>=0&&tx<9&&ty>=0&&ty<10)out.push(ty*9+tx);};
+if(type==='r'||type==='c'){for(let i=0;i<9;i++)if(i!==x)out.push(y*9+i);for(let i=0;i<10;i++)if(i!==y)out.push(i*9+x);}
+else if(type==='h'){for(const [dx,dy] of [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]])add(dx,dy);}
+else if(type==='a'||type==='e'){const d=type==='a'?1:2;for(const dx of [-d,d])for(const dy of [-d,d])add(dx,dy);}
+else if(type==='k'){for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]])add(dx,dy);const enemy=s.board.indexOf(opponent(p[0])+'k');if(enemy>=0&&!out.includes(enemy))out.push(enemy);}
+else{add(0,p[0]==='a'?-1:1);add(1,0);add(-1,0);}return out;}
 function threatened(s,who){const king=s.board.indexOf(who+'k');if(king<0)return true;return s.board.some((p,i)=>color(p)===opponent(who)&&xiangqiPseudo(s,i,king));}
 export function legalMoves(s){
   if(s.winner)return [];
   if(s.game==='gomoku')return s.board.flatMap((p,to)=>p?[]:[{to}]);
   if(s.game==='chess')return new Chess(s.fen).moves({verbose:true}).map(m=>({from:index(m.from),to:index(m.to),...(m.promotion?{promotion:m.promotion}:{})}));
   const moves=[];
-  for(let from=0;from<90;from++)if(color(s.board[from])===s.turn)for(let to=0;to<90;to++)if(xiangqiPseudo(s,from,to)){
+  for(let from=0;from<90;from++)if(color(s.board[from])===s.turn)for(const to of xiangqiTargets(s,from))if(xiangqiPseudo(s,from,to)){
     const moved=s.board[from],taken=s.board[to];s.board[to]=moved;s.board[from]='';
     const check=threatened(s,s.turn);s.board[from]=moved;s.board[to]=taken;
     if(!check)moves.push({from,to});
@@ -72,7 +79,7 @@ const values={p:100,n:320,h:320,b:330,e:200,a:180,r:520,c:360,q:950,k:20000};
 function gomokuPoint(board,to,who){
   const x=to%15,y=Math.floor(to/15);let score=0;
   for(const [dx,dy] of [[1,0],[0,1],[1,1],[1,-1]]){
-    let count=1,open=0;
+    let count=1,open=0;let line='';for(let k=-4;k<=4;k++){const xx=x+dx*k,yy=y+dy*k;line+=xx<0||xx>=15||yy<0||yy>=15?'#':k===0||board[yy*15+xx]===who?'X':board[yy*15+xx]?'#':'.';}if(/XXXXX/.test(line))score+=2000000;else if(/\.XXXX\./.test(line))score+=100000;else if(/XXX\.X|XX\.XX|X\.XXX/.test(line))score+=18000;else if(/\.XXX\.|\.XX\.X\.|\.X\.XX\./.test(line))score+=2500;
     for(const sign of [-1,1])for(let k=1;k<=5;k++){
       const xx=x+dx*k*sign,yy=y+dy*k*sign;if(xx<0||xx>=15||yy<0||yy>=15)break;
       const piece=board[yy*15+xx];if(piece===who)count++;else{if(!piece)open++;break;}
@@ -84,12 +91,13 @@ function gomokuPoint(board,to,who){
 function candidates(s,level){
   if(s.game!=='gomoku')return legalMoves(s).sort((a,b)=>(values[s.board[b.to]?.[1]]||0)-(values[s.board[a.to]?.[1]]||0));
   if(!s.ply)return [{to:112}];
-  const choices=[];
+  const choices=[],wins=[],blocks=[];
   for(let i=0;i<225;i++)if(!s.board[i]){
     const x=i%15,y=Math.floor(i/15);let nearby=false;
     for(let dy=-2;dy<=2&&!nearby;dy++)for(let dx=-2;dx<=2;dx++)if(x+dx>=0&&x+dx<15&&y+dy>=0&&y+dy<15&&s.board[(y+dy)*15+x+dx]){nearby=true;break;}
-    if(nearby)choices.push({to:i,priority:gomokuPoint(s.board,i,s.turn)*1.12+gomokuPoint(s.board,i,opponent(s.turn))});
+    if(nearby){if(gomokuPoint(s.board,i,s.turn)>=2000000)wins.push({to:i});if(gomokuPoint(s.board,i,opponent(s.turn))>=2000000)blocks.push({to:i});}if(nearby)choices.push({to:i,priority:gomokuPoint(s.board,i,s.turn)*1.12+gomokuPoint(s.board,i,opponent(s.turn))});
   }
+  if(wins.length)return wins;if(blocks.length)return blocks;
   return choices.sort((a,b)=>b.priority-a.priority).slice(0,6+level*3).map(({to})=>({to}));
 }
 function evaluate(s,who){
@@ -105,12 +113,13 @@ function evaluate(s,who){
 // Called only in a worker. Iterative deepening keeps a legal fallback on a time budget.
 export function botMove(state,level=1){
   level=Math.max(1,Math.min(5,Math.trunc(level)||1));
-  const deadline=Date.now()+[55,140,300,600,1000][level-1],who=state.turn;
+  if(state.game==='chess')return chessBot(state.fen,level);
+  const deadline=Date.now()+[90,280,650,1400,3000][level-1],who=state.turn;
   let best=candidates(state,level)[0],nodes=0;
   if(!best)return null;
   const timeout={};
   function search(s,depth,alpha,beta){
-    if(++nodes%16===0&&Date.now()>deadline)throw timeout;
+    if(++nodes%4===0&&Date.now()>deadline)throw timeout;
     if(depth===0||s.winner)return evaluate(s,who);
     const maximize=s.turn===who;let value=maximize?-Infinity:Infinity;
     for(const m of candidates(s,level)){
@@ -121,9 +130,9 @@ export function botMove(state,level=1){
     }
     return Number.isFinite(value)?value:evaluate(s,who);
   }
-  for(let depth=1;depth<=level;depth++){
+  for(let depth=1;depth<=[1,2,3,4,6][level-1];depth++){
     let next=best,score=-Infinity;
-    try{for(const m of candidates(state,level)){const n=search(playMove(state,m,false),depth-1,-Infinity,Infinity);if(n>score){score=n;next=m;}if(Date.now()>deadline)throw timeout;}best=next;}
+    try{for(const m of candidates(state,level)){const n=search(playMove(state,m,false),depth-1,score,Infinity);if(n>score){score=n;next=m;}if(Date.now()>deadline)throw timeout;}best=next;}
     catch(e){if(e!==timeout)throw e;break;}
   }
   return best;

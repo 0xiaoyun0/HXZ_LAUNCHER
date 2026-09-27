@@ -360,7 +360,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
           .prepare(
             "SELECT p.*, substr(p.body,1,180) AS body, (SELECT COUNT(*) FROM forum_likes WHERE post_id=p.id) AS likes,(SELECT COUNT(*) FROM forum_replies WHERE post_id=p.id AND hidden=0) AS replies FROM forum_posts p WHERE " +
               where +
-              " ORDER BY p.pinned DESC,p.updated DESC LIMIT ? OFFSET ?",
+              " ORDER BY p.pinned DESC," + ({newest:"p.created DESC",oldest:"p.created ASC",likes:"likes DESC,p.created DESC",replies:"replies DESC,p.created DESC",active:"p.updated DESC"}[url.searchParams.get("sort")]||"p.created DESC") + ",p.id DESC LIMIT ? OFFSET ?",
           )
           .all(...args, size, offset);
         send(res, 200, { items, total });

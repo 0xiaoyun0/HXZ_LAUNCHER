@@ -27,6 +27,8 @@ export interface Settings {
   fontSize: number;
   accentColor: string;
   backgroundColor: string;
+  blueprintInstance:string;
+  coverOpacity:number;
   backgroundVideo:string;defaultCover:string;backgroundMusic:string;musicVolume:number;videoQuality:string;animationSpeed:number;
   backgroundImage: string;
   backgroundOpacity: number;
@@ -182,7 +184,7 @@ export const state = reactive<State>({
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
-    backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
+    blueprintInstance:"",coverOpacity:1,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
     backgroundImage: "",
     backgroundOpacity: 0.4,
     backgroundPositionX: 50,
@@ -190,7 +192,7 @@ export const state = reactive<State>({
     backgroundFit: "cover",
     layout: "standard",
     downloadMode: "domestic",
-    downloadConcurrency: 64,
+    downloadConcurrency: 32,
     updateFeed: "",
     autoCheckUpdates: true,
     memoryMode: "auto",
@@ -525,6 +527,7 @@ export function applyTheme() {
     cfg = state.settings;
   if (cfg.columns?.workspace) cfg.columns.workspace.visible = true;
   root.dataset.background = (cfg.backgroundImage||cfg.backgroundVideo) ? "custom" : "default";
+  root.style.setProperty('--cover-opacity',String(cfg.coverOpacity??1));
   root.dataset.motion=cfg.animationSpeed===0?'off':'on';
   root.style.setProperty('--motion-duration',(260/(cfg.animationSpeed||1))+'ms');
   root.style.setProperty('--motion-fast',(160/(cfg.animationSpeed||1))+'ms');

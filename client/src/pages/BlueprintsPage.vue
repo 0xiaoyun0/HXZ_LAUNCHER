@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { community, communityRequest } from "../lib/community";
-import { perform, invoke, errorMessage } from "../lib/launcher";
+import { state,saveSettings,perform, invoke, errorMessage } from "../lib/launcher";
 import {
   type Blueprint,
   blueprintCategories,
@@ -11,6 +11,9 @@ import {
   coverImage,
   displayDate
 } from "../lib/content";
+const downloadOpen=ref(false),downloadBusy=ref(false),destinations=ref<{id:string;name:string}[]>([]),destination=ref(''),rememberDestination=ref(false),downloadNote=ref('');
+async function chooseDownload(){destinations.value=await invoke('blueprints.instances');destination.value=destinations.value.some(i=>i.id===state.settings.blueprintInstance)?state.settings.blueprintInstance:'';rememberDestination.value=false;downloadNote.value='';downloadOpen.value=true;}
+async function downloadBlueprint(){if(!detail.value||downloadBusy.value)return;downloadBusy.value=true;try{const result=await invoke<{ok?:boolean;file?:string}>('blueprints.download',{id:detail.value.id,instance:destination.value});if(result.ok){if(rememberDestination.value)await saveSettings({blueprintInstance:destination.value});downloadNote.value='蓝图已保存：'+result.file;downloadOpen.value=false;}}finally{downloadBusy.value=false;}}
 const route = useRoute(),
   router = useRouter();
 const items = ref<Blueprint[]>([]),
@@ -221,7 +224,7 @@ onMounted(() => {
   void loadVersions();
 });
 </script>
-<template>
+<template><p v-if="downloadNote" role="status">{{downloadNote}}</p><q-dialog v-model="downloadOpen" :persistent="downloadBusy"><q-card class="dialog-card"><q-card-section><h2>保存机械动力蓝图</h2><p>选择安装了 Create 的实例；已有同名蓝图会自动改名保留。</p><q-select v-model="destination" outlined label="保存位置" emit-value map-options :options="[{label:'另存到文件夹',value:''},...destinations.map(i=>({label:i.name,value:i.id}))]"/><p v-if="!destinations.length" class="subtle">未找到已启用 Create 的实例，可以先保存文件。</p><q-toggle v-model="rememberDestination" label="记住默认位置"/></q-card-section><q-card-actions align="right"><q-btn flat label="取消" :disable="downloadBusy" v-close-popup/><q-btn unelevated class="primary-button" :loading="downloadBusy" label="下载并保存" @click="perform(downloadBlueprint)"/></q-card-actions></q-card></q-dialog>
   <div class="page-heading"
     ><div><h1>机械动力蓝图库</h1></div
     ><q-btn
@@ -453,7 +456,7 @@ onMounted(() => {
           label="下载蓝图"
           :disable="!detail.size"
           @click="
-            perform(() => invoke('blueprints.download', { id: detail!.id }))
+            perform(chooseDownload)
           "
       /></div> </div
   ></q-dialog>

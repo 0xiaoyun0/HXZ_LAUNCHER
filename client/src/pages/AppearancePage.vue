@@ -33,6 +33,7 @@ async function saveAvatar() {
     : "头像已保存，下次连接社区时同步";
 }
 const form = reactive({
+  coverOpacity:state.settings.coverOpacity??1,
   theme: state.settings.theme,
   fontSize: state.settings.fontSize,
   accentColor: state.settings.accentColor,
@@ -78,7 +79,7 @@ async function reset() {
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
-    backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:.3,videoQuality:"balanced",animationSpeed:1,
+    coverOpacity:1,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:.3,videoQuality:"balanced",animationSpeed:1,
     backgroundImage: "",
     backgroundOpacity: 0.4,
     backgroundPositionX: 50,
@@ -105,7 +106,7 @@ async function reset() {
       label="应用外观"
       @click="perform(save, '外观已保存')"
   /></div>
-  <section class="panel settings-section"><h2>动态外观与声音</h2><div class="install-grid"><div class="row q-gutter-sm"><q-btn outline icon="movie" label="背景图片 / 视频" @click="perform(()=>media('background'))"/><q-btn flat label="清除背景" @click="form.backgroundVideo='';form.backgroundImage=''"/><q-btn outline icon="panorama" label="默认实例头图" @click="perform(()=>media('cover'))"/><q-btn flat label="清除默认头图" @click="form.defaultCover=''"/></div><q-select v-model="form.videoQuality" outlined label="视频绘制质量" emit-value map-options :options="[{label:'原始画质',value:'original'},{label:'均衡 · 最高 1080p / 30 帧',value:'balanced'},{label:'节能 · 最高 720p / 15 帧',value:'efficient'}]"/><div><p class="subtle">视频限 50 MB；后台暂停视频，游戏运行时暂停视频与音乐。解码清晰度取决于原视频。</p><q-btn outline icon="music_note" label="选择背景音乐" @click="perform(()=>media('music'))"/><q-btn flat label="关闭音乐" @click="form.backgroundMusic=''"/><q-btn flat label="刷新播放" @click="refreshMusic"/><label>音乐音量</label><q-slider v-model="form.musicVolume" :min="0" :max="1" :step=".05"/></div><q-select v-model="form.animationSpeed" outlined label="动画速度" emit-value map-options :options="[{label:'关闭动画',value:0},{label:'舒缓 · 0.5 倍',value:.5},{label:'标准',value:1},{label:'轻快 · 1.5 倍',value:1.5},{label:'快速 · 2 倍',value:2}]"/></div></section>
+  <section class="panel settings-section"><h2>动态外观与声音</h2><label>头图不透明度 · {{Math.round(form.coverOpacity*100)}}%</label><q-slider v-model="form.coverOpacity" :min="0" :max="1" :step=".05"/><p class="subtle">设为 0 时，实例头图区域完全显示全局背景。</p><div class="install-grid"><div class="row q-gutter-sm"><q-btn outline icon="movie" label="背景图片 / 视频" @click="perform(()=>media('background'))"/><q-btn flat label="清除背景" @click="form.backgroundVideo='';form.backgroundImage=''"/><q-btn outline icon="panorama" label="默认实例头图" @click="perform(()=>media('cover'))"/><q-btn flat label="清除默认头图" @click="form.defaultCover=''"/></div><q-select v-model="form.videoQuality" outlined label="视频绘制质量" emit-value map-options :options="[{label:'原始画质',value:'original'},{label:'均衡 · 最高 1080p / 30 帧',value:'balanced'},{label:'节能 · 最高 720p / 15 帧',value:'efficient'}]"/><div><p class="subtle">视频限 50 MB；后台暂停视频，游戏运行时暂停视频与音乐。解码清晰度取决于原视频。</p><q-btn outline icon="music_note" label="选择背景音乐" @click="perform(()=>media('music'))"/><q-btn flat label="关闭音乐" @click="form.backgroundMusic=''"/><q-btn flat label="刷新播放" @click="refreshMusic"/><label>音乐音量</label><q-slider v-model="form.musicVolume" :min="0" :max="1" :step=".05"/></div><q-select v-model="form.animationSpeed" outlined label="动画速度" emit-value map-options :options="[{label:'关闭动画',value:0},{label:'舒缓 · 0.5 倍',value:.5},{label:'标准',value:1},{label:'轻快 · 1.5 倍',value:1.5},{label:'快速 · 2 倍',value:2}]"/></div></section>
   <section class="panel settings-section">
     <h2>我的头像</h2
     ><div class="avatar-editor"
@@ -278,7 +279,7 @@ async function reset() {
           ><label>透明度 · {{ Math.round(column.opacity * 100) }}%</label
           ><q-slider
             v-model="column.opacity"
-            :min="0.2"
+            :min="0"
             :max="1"
             :step="0.01"
             label /></div></div></div
@@ -293,7 +294,7 @@ async function reset() {
           { label: '机械动力蓝图库', value: '/blueprints' },
           { label: '聊天大厅', value: '/chat' },
           { label: '幻想镇论坛', value: '/forum' },
-          { label: '小游戏', value: '/games' },
+          { label: '小游戏', value: '/games' },{label:'积分商城',value:'/shop'},
           { label: '通知公告', value: '/notices' }
         ]"
         inline

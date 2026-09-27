@@ -3,7 +3,7 @@ import { UPDATE_PUBLIC_KEY } from "./update-public-key.mjs";
 
 export const RELEASE_ROOT =
   "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases";
-export const UPDATE_SOURCES = Object.freeze([{name:"GH-Proxy",prefix:"https://gh-proxy.com/"},{name:"GHProxy",prefix:"https://ghproxy.net/"},{name:"GHFast",prefix:"https://ghfast.top/"},{name:"GitHub",prefix:""}]);
+export const UPDATE_SOURCES = Object.freeze([{name:"GH-Proxy.org",prefix:"https://gh-proxy.org/"},{name:"GH-Proxy",prefix:"https://gh-proxy.com/"},{name:"GHProxy",prefix:"https://ghproxy.net/"},{name:"GHFast",prefix:"https://ghfast.top/"},{name:"GitHub",prefix:""}]);
 const LIMIT = 256 * 1024;
 export function compareVersions(a, b) {
   const left = a.split(".").map(Number),
@@ -53,7 +53,7 @@ export function verifyRelease(envelope, publicKey = UPDATE_PUBLIC_KEY, arch = pr
 }
 export async function fetchUpdateJSON(
   url,
-  { fetcher = fetch, timeout = 8000 } = {}
+  { fetcher = fetch, timeout = 5000 } = {}
 ) {
   const response = await fetcher(url, {
     signal: AbortSignal.timeout(timeout),
@@ -67,7 +67,7 @@ export async function fetchUpdateJSON(
   let size = 0;
   for await (const chunk of response.body) {
     size += chunk.length;
-    if (size > LIMIT) throw Error("更新信息过大");
+    if (size > LIMIT) {throw Error("更新信息过大");}
     chunks.push(chunk);
   }
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
@@ -76,7 +76,7 @@ export async function discoverRelease({
   sources = UPDATE_SOURCES,
   fetcher,
   publicKey,
-  timeout = 8000
+  timeout = 5000
 } = {}) {
   const results = await Promise.allSettled(
     sources.map(async source => ({

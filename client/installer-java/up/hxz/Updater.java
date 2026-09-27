@@ -16,6 +16,7 @@ import java.util.concurrent.*;
 public final class Updater {
     private Path dir,cache,own;
     private JsonObject config;
+    private JsonObject portable;
     private Network network;
     private Progress ui;
     private int levels;
@@ -33,8 +34,10 @@ public final class Updater {
         try(FileChannel lockChannel=FileChannel.open(cache.resolve("update.lock"),StandardOpenOption.CREATE,StandardOpenOption.WRITE)){
             FileLock lock=lockChannel.tryLock();if(lock==null)throw new IOException("另一个游戏实例正在更新，请稍后启动");
             try{
-                config=IO.read(dir.resolve("config.json"));levels=IO.integer(config,"maxParentLevels",5,0,99);
-                network=new Network(IO.integer(config,"downloadTimeout",30,5,1800),IO.integer(config,"retryCount",3,0,5),IO.integer(config,"parallelDownloads",64,8,128));
+                config=IO.read(dir.resolve("config.json"));
+                if(Files.isRegularFile(dir.resolve("portable.json"))){IO.noLinks(dir.resolve("portable.json"));portable=IO.read(dir.resolve("portable.json"));}
+                levels=portable==null?IO.integer(config,"maxParentLevels",5,0,99):1;
+                network=new Network(IO.integer(config,"downloadTimeout",30,5,1800),IO.integer(config,"retryCount",3,0,5),IO.integer(config,"parallelDownloads",32,8,128));
                 ui=new Progress(config,network);ui.show("正在连接更新服务");if(!ui.platformMessage().isEmpty())log(ui.platformMessage());
                 recover();cleanTemporaryDirectories();
                 try{update();}catch(Exception failure){
@@ -74,7 +77,14 @@ public final class Updater {
         String id=IO.str(version,"version","");String suffix="?version="+encode(id);
         if(manifest==null){if(!Files.exists(cache.resolve("local-changelog.json"))){try{IO.write(cache.resolve("local-changelog.json"),network.json(base+"/changelog.json"+suffix));}catch(IOException e){log("日志暂不可用: "+e);}}ui.close();return;}
         JsonArray entries=manifest.getAsJsonArray("files");if(entries==null||entries.size()>100000)throw new IOException("无效或过大的清单");
+        if(portable!=null){
+            JsonArray filtered=new JsonArray();
+            for(JsonElement e:entries){String mapped=IO.str(e.getAsJsonObject(),"path","");if(mapped.matches("0/(?:updater-[^/]+\\.jar|launcher-agent\\.jar|portable\\.json)")){log("保留外部启动器兼容组件: "+mapped);continue;}filtered.add(e);}
+            entries=filtered;manifest.add("files",filtered);
+        }
         Rules rules=new Rules(network.json(base+"/action.json"+suffix));
+        JsonObject game=network.json(base+"/game-profile.json"+suffix);
+        if(portable!=null)validatePortableGame(game);
         Map<String,JsonObject> previous=new HashMap<>();if(old.has("files"))for(JsonElement e:old.getAsJsonArray("files")){JsonObject f=e.getAsJsonObject();previous.put(f.get("path").getAsString(),f);}
         List<Change> changes=new ArrayList<>();Set<Path> targets=new HashSet<>();Set<String> paths=new HashSet<>();Map<String,JsonObject> newEntries=new LinkedHashMap<>();
         for(JsonElement e:entries){JsonObject file=e.getAsJsonObject();String path=IO.str(file,"path","");try{Path target=target(path);if(!targets.add(target))throw new IOException("多个清单路径映射到同一文件: "+path);paths.add(path);newEntries.put(path,file);
@@ -103,7 +113,7 @@ public final class Updater {
         }
         changes.removeIf(c->skippedPaths.contains(c.path));
         Path stage=Files.createTempDirectory(cache,"stage-");
-        int concurrency=IO.integer(config,"parallelDownloads",64,8,128);ExecutorService workers=Executors.newFixedThreadPool(concurrency);CompletionService<Change> completed=new ExecutorCompletionService<>(workers);
+        int concurrency=IO.integer(config,"parallelDownloads",32,8,128);ExecutorService workers=Executors.newFixedThreadPool(concurrency);CompletionService<Change> completed=new ExecutorCompletionService<>(workers);
         List<Change> downloads=new ArrayList<>();for(Change c:changes)if(c.file!=null)downloads.add(c);final String server=base;
         long plannedBytes=0;for(Change c:downloads)plannedBytes+=c.file.get("fileSize").getAsLong();ui.begin(plannedBytes,downloads.size());
         int next=0,done=0,running=0;boolean stagedAll=false;Set<String> optionalFailures=new HashSet<>();
@@ -116,8 +126,7 @@ public final class Updater {
             stagedAll=true;
         }finally{workers.shutdownNow();if(!workers.awaitTermination(1900,TimeUnit.SECONDS))throw new IOException("文件下载线程无法退出");if(!stagedAll)deleteTree(stage);}
         try{
-            JsonObject game=network.json(base+"/game-profile.json"+suffix);
-            if(!IO.str(game,"gameVersion","").isEmpty()){
+            if(portable==null&&!IO.str(game,"gameVersion","").isEmpty()){
                 ui.phase("正在准备游戏版本与加载器");
                 try{GameInstaller installer=new GameInstaller(dir,config,network);installer.progress(ui::phase);
                 JsonObject previousGame=local("local-game-profile.json");
@@ -193,8 +202,19 @@ public final class Updater {
             }else if(c.path.equals("local-version.json")){JsonObject version=IO.read(c.staged);version.addProperty("pendingVersion",IO.str(version,"version",""));version.addProperty("version",IO.str(oldVersion,"version",""));IO.write(c.staged,version);}
         }
     }
-    private Path target(String path)throws IOException{Path p=IO.map(dir,path,levels);if(p.startsWith(cache))throw new IOException("清单不能覆盖更新器内部文件: "+path);return p;}
-    private boolean protectedFile(Path p){return p.startsWith(cache)||p.equals(own)||p.equals(dir.resolve("config.json"))||p.equals(dir.resolve("launcher-agent.jar"));}
+    private void validatePortableGame(JsonObject game)throws IOException{
+        String version=IO.str(game,"gameVersion","");if(version.isEmpty())return;
+        JsonObject expected=IO.object(portable,"loader"),actual=IO.object(game,"loader");
+        if(!version.equals(IO.str(portable,"gameVersion",""))||!IO.str(expected,"type","").equals(IO.str(actual,"type",""))||!IO.str(expected,"version","").equals(IO.str(actual,"version","")))
+            throw new IOException("服务端已更换 Minecraft 或加载器版本。请在当前启动器中安装对应版本并重新导入最新导出包，再执行 HXZUP；本次未替换文件。");
+    }
+    private Path target(String path)throws IOException{
+        Path p=IO.map(dir,path,levels);if(p.startsWith(cache))throw new IOException("清单不能覆盖更新器内部文件: "+path);
+        if(portable!=null&&(portableHelper(p)||p.equals(dir.resolve("portable.json"))||p.getParent().equals(dir)&&p.getFileName().toString().endsWith(".jar")))throw new IOException("外部启动器兼容包不允许替换引导组件，请重新导入新版导出包: "+path);
+        return p;
+    }
+    private boolean portableHelper(Path p){return portable!=null&&(p.equals(dir.getParent().resolve("HXZUP-update.cmd"))||p.equals(dir.getParent().resolve("HXZUP-使用说明.txt")));}
+    private boolean protectedFile(Path p){return portableHelper(p)||p.startsWith(cache)||p.equals(own)||p.equals(dir.resolve("config.json"))||p.equals(dir.resolve("launcher-agent.jar"))||portable!=null&&(p.equals(dir.resolve("portable.json"))||p.getParent()!=null&&p.getParent().equals(dir)&&p.getFileName().toString().endsWith(".jar"));}
     private void policyChanges(Rules rules,Map<String,JsonObject> previous,Set<String> manifestPaths,Set<Path> targets,List<Change> changes)throws IOException{
         for(Map.Entry<String,JsonElement> entry:IO.object(rules.policies,"file").entrySet()){
             String path=entry.getKey();if(manifestPaths.contains(path)||!"delete".equals(IO.str(entry.getValue().getAsJsonObject(),"existing","")))continue;

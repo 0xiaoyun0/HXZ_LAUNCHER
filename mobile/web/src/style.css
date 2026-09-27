@@ -82,3 +82,9 @@ button{position:relative}.tap-feedback{position:absolute;inset:0;border-radius:i
 @media(min-width:760px){.app-top{grid-column:1/-1}}
 
 :root[data-custom-background="true"] body,:root[data-custom-background="true"] .app-shell{background:transparent}:root[data-custom-background="true"] .card,:root[data-custom-background="true"] .app-top,:root[data-custom-background="true"] .bottom-nav{background:rgba(255,255,255,var(--mobile-surface-opacity,1))}:root[data-custom-background="true"][data-theme="dark"] .card,:root[data-custom-background="true"][data-theme="dark"] .app-top,:root[data-custom-background="true"][data-theme="dark"] .bottom-nav{background:rgba(26,36,30,var(--mobile-surface-opacity,1))}.overlay-enter-active,.overlay-leave-active{transition-duration:var(--motion-duration,160ms)}
+
+:root[data-custom-background="true"] .workspace :is(.settings-group,.profile-card,.post-card,.blueprint-card,.notice-card,.voice-room,.voice-session,.wallet-card,.shop-product,.shop-order){background:rgba(255,255,255,var(--mobile-surface-opacity,1))}
+:root[data-custom-background="true"][data-theme="dark"] .workspace :is(.settings-group,.profile-card,.post-card,.blueprint-card,.notice-card,.voice-room,.voice-session,.wallet-card,.shop-product,.shop-order){background:rgba(26,36,30,var(--mobile-surface-opacity,1))}
+.sheet-backdrop{background:#081713b8;backdrop-filter:blur(10px)}.sheet .card,.confirm-dialog,.shop-modal section{background:var(--surface)!important;opacity:1!important}
+button{transition:background-color var(--motion-duration,160ms),transform var(--motion-duration,160ms)}button:active{transform:scale(.97)}.forum-sort{margin:12px 0}.shop-heading{align-items:flex-start}.shop-grid{grid-template-columns:1fr}.wallet-card{padding:18px}.wallet-card form{flex-wrap:wrap}.wallet-card form input{flex-basis:170px}
+@media(prefers-reduced-motion:reduce){button{transition:none!important}button:active{transform:none}}

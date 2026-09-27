@@ -1,5 +1,5 @@
 export const DOWNLOAD_CONCURRENCY = Object.freeze([8, 16, 32, 64, 128]);
-export const DEFAULT_DOWNLOAD_CONCURRENCY = 64;
+export const DEFAULT_DOWNLOAD_CONCURRENCY = 32;
 export function normalizeDownloadConcurrency(value) {
   return DOWNLOAD_CONCURRENCY.includes(value)
     ? value

@@ -1,59 +1,30 @@
 import updaterPackage from "electron-updater";
 import { remoteJSON } from "./io.mjs";
-import { discoverRelease, RELEASE_ROOT, compareVersions } from "./update-sources.mjs";
+import { discoverRelease, RELEASE_ROOT, compareVersions, UPDATE_SOURCES, fetchUpdateJSON } from "./update-sources.mjs";
 import { SignedReleaseProvider } from "./update-provider.mjs";
 export const REPOSITORY = {
   provider: "github",
   owner: "0xiaoyun0",
   repo: "HXZ_LAUNCHER"
 };
-export async function launcherReleases() {
-  let items;
-  try {
-    items = [];
-    // Bound memory and latency while retaining paginated release history.
-    for (let page = 1; page <= 10; page++) {
-      let batch;
-      try {
-        batch = await remoteJSON(
-          "https://api.github.com/repos/0xiaoyun0/HXZ_LAUNCHER/releases?per_page=100&page=" +
-            page,
-          {
-            headers: { Accept: "application/vnd.github+json" },
-            signal: AbortSignal.timeout(6000)
-          }
-        );
-        if (!Array.isArray(batch)) throw Error("GitHub 更新日志格式错误");
-      } catch (error) {
-        if (items.length) break;
-        throw error;
-      }
-      items.push(...batch);
-      if (batch.length < 100) break;
-    }
-  } catch {
-    const { info } = await discoverRelease();
-    return [
-      {
-        version: info.version,
-        title: info.releaseName,
-        body: info.releaseNotes,
-        date: info.releaseDate,
-        url: RELEASE_ROOT + "/tag/v" + info.version
-      }
-    ];
-  }
-  return items
-    .filter(
-      x => !x.draft && !x.prerelease && /^v?\d+\.\d+\.\d+$/.test(x.tag_name)
-    )
-    .map(x => ({
-      version: x.tag_name.replace(/^v/, ""),
-      title: String(x.name || x.tag_name),
-      body: String(x.body || "暂无更新说明"),
-      date: x.published_at,
-      url: x.html_url
+let releaseLogCache=[],releaseLogAt=0,releaseLogPending;
+export async function launcherReleases(){
+  if(releaseLogCache.length&&Date.now()-releaseLogAt<45000)return releaseLogCache;
+  if(releaseLogPending)return releaseLogPending;
+  releaseLogPending=(async()=>{
+    const signed=discoverRelease().then(({info})=>[{version:info.version,title:info.releaseName,body:info.releaseNotes,date:info.releaseDate,url:RELEASE_ROOT+'/tag/v'+info.version}]);
+    const api=Promise.any(UPDATE_SOURCES.map(async source=>{
+      const batch=await fetchUpdateJSON(source.prefix+'https://api.github.com/repos/0xiaoyun0/HXZ_LAUNCHER/releases?per_page=20&page=1&t='+Math.floor(Date.now()/45000),{timeout:4000});
+      if(!Array.isArray(batch))throw Error('更新日志格式无效');
+      const items=batch.filter(x=>!x.draft&&!x.prerelease&&/^v?\d+\.\d+\.\d+$/.test(x.tag_name)).map(x=>({version:x.tag_name.replace(/^v/,''),title:String(x.name||x.tag_name).slice(0,300),body:String(x.body||'暂无更新说明').slice(0,30000),date:x.published_at,url:RELEASE_ROOT+'/tag/v'+x.tag_name.replace(/^v/,'')}));
+      if(!items.length)throw Error('暂无更新日志');return items;
     }));
+    // Return the first useful response. The signed latest entry continues to refresh
+    // the cache, so a quick but stale API mirror cannot hide a newer release.
+    const merge=items=>{const map=new Map(releaseLogCache.map(x=>[x.version,x]));for(const item of items)map.set(item.version,item);releaseLogCache=[...map.values()].sort((a,b)=>compareVersions(b.version,a.version)).slice(0,40);releaseLogAt=Date.now();return releaseLogCache;};
+    const requests=[signed.then(merge),api.then(merge)];
+    try{return await Promise.any(requests);}catch(e){if(releaseLogCache.length)return releaseLogCache;throw Error('更新日志暂时不可用，请检查网络后刷新');}
+  })().finally(()=>releaseLogPending=null);return releaseLogPending;
 }
 export function createAppUpdate({
   app,

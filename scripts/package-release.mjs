@@ -31,7 +31,7 @@ await fs.copyFile(path.join(root,'LICENSE'),path.join(serverApp,'LICENSE'));
 await fs.copyFile(path.join(root,'server/Node-LICENSE.txt'),path.join(serverApp,'Node-LICENSE.txt'));
 await fs.writeFile(path.join(serverApp,'启动社区服务.bat'),'@echo off\r\nchcp 65001 >nul\r\ncd /d "%~dp0" || exit /b 1\r\nif not exist .env copy .env.example .env >nul\r\n"%~dp0node.exe" --env-file=.env src/server.mjs\r\npause\r\n');
 await fs.writeFile(path.join(serverApp,'使用说明.txt'),'幻想镇社区服务端 '+version+'\n独立运行，不需要客户端。双击 启动社区服务.bat。\n网页管理：http://127.0.0.1:8787/admin/\n账号：admin；初始随机密码在 data/初始管理员密码.txt。\n公告、聊天记录、用户、蓝图审核员、论坛与活动管理在网页管理。\n默认只监听本机。公网部署配置 .env、HTTPS 代理和允许来源。语音使用同一社区连接，无需单独配置。\n升级时先停服，保留自己的 data 与 .env。不要把服务端密码发送给玩家。\n');
-await fs.mkdir(path.join(serverApp,'docs'),{recursive:true});await fs.copyFile(path.join(root,'docs/部署与接入.md'),path.join(serverApp,'docs/部署与接入.md'));
+await fs.mkdir(path.join(serverApp,'docs'),{recursive:true});for(const file of ['部署与接入.md','官网社区接口-v1.md'])await fs.copyFile(path.join(root,'docs',file),path.join(serverApp,'docs',file));
 async function digest(file,algorithm,encoding='hex'){const h=createHash(algorithm);for await(const c of createReadStream(file))h.update(c);return h.digest(encoding);}
 const sha512=await digest(path.join(client,exe),'sha512','base64'),size=(await fs.stat(path.join(client,exe))).size;
 const changelog=await fs.readFile(path.join(root,'CHANGELOG.md'),'utf8');

@@ -1,3 +1,4 @@
+import {createPublicAPI} from './public-api.mjs';
 import {createContent} from "./content.mjs";
 import {createServerPresets} from "./server-presets.mjs";
 import {createBoardMatches} from "./board-matches.mjs";
@@ -11,6 +12,7 @@ import {avatarData} from "./avatars.mjs";
 import http from 'node:http';
 import {createAdmin} from './admin.mjs';
 import {createFeedback} from './feedback.mjs';
+import {createShop} from './shop.mjs';
 import { isIP } from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -78,6 +80,8 @@ export function createCommunity(options={}) {
   const adminRoute=createAdmin({updateSources,data,db,issue,admin,send,body,limit,clients,broadcast,adminIDs});
   const presetsRoute=createServerPresets({data,admin,body,send,broadcast});
   const points=createPoints({db,auth,admin,body,send,limit});
+  const shop=createShop({db,auth,admin,body,send,limit,points});
+  const publicAPI=createPublicAPI({db,send,points,shop});
   const boards=createBoardMatches({db,auth,body,send,limit,points});
   const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast,points});
   const feedbackRoute=createFeedback({db,auth,admin,body,send,limit});
@@ -88,10 +92,12 @@ export function createCommunity(options={}) {
     if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
     try {
       const url=new URL(req.url,'http://localhost'),path=url.pathname;limit('http:'+clientIP(req),240);
+      if(await publicAPI(req,res,url))return;
       if(await arcana(req,res,url))return;
       if(await presetsRoute(req,res,url))return;
       if(await boards.route(req,res,url))return;
       if(await points.route(req,res,url))return;
+      if(await shop.route(req,res,url))return;
       if(await arcadeRoute(req,res,url))return;
       if(await feedbackRoute(req,res,url))return;
       if(await content.route(req,res,url))return;

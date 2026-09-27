@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import PointsWallet from '../components/PointsWallet.vue';
+import {communityRequest} from '../lib/community';
+const pointsRequest=(path:string,method='GET',body?:unknown)=>communityRequest(path,{method,...(body?{headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})},true);
 import SkinPanel from "../components/SkinPanel.vue";
 import PlayerAvatar from "../components/PlayerAvatar.vue";
 import { ref } from "vue";
@@ -60,7 +63,7 @@ async function profile(id: string, uuid: string) {
       :label="managerOpen ? '返回启动器账号' : '皮肤与角色管理'"
       @click="perform(openSkin)"
   /></div>
-  <SkinPanel v-if="managerOpen"/><div v-else class="account-grid"
+  <PointsWallet v-if="state.settings.selectedAccount&&!managerOpen" :key="state.settings.selectedAccount" :request="pointsRequest"/><SkinPanel v-if="managerOpen"/><div v-else class="account-grid"
     ><section class="panel"
       ><div class="section-title"
         ><h2>登录幻想镇</h2><q-icon name="shield" size="25px" /></div

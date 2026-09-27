@@ -51,7 +51,7 @@ const voiceMode = ref(state.settings.voiceMode || "open");
 const voiceKey = ref(state.settings.voiceKey || "KeyT");
 const voiceSounds = ref(state.settings.voiceSounds !== false);
 const capturingVoiceKey = ref(false);
-const downloadConcurrency = ref(state.settings.downloadConcurrency ?? 64);
+const downloadConcurrency = ref(state.settings.downloadConcurrency ?? 32);
 const automatic = ref(state.settings.autoCheckUpdates !== false);
 async function checkUpdate() {
   await invoke("app-update.check");
@@ -140,10 +140,10 @@ async function root() {
 }
 
 </script>
-<template><section class="panel settings-section"><q-btn outline icon="feedback" label="问题反馈与处理" @click="feedbackOpen=!feedbackOpen"/><FeedbackPanel v-if="feedbackOpen" class="q-mt-md" :request="feedbackRequest" :diagnostic-provider="()=>invoke('diagnostics.text')"/></section>
+<template>
   <q-dialog v-model="leavePrompt" persistent><q-card class="dialog-card"><q-card-section><h2>应用设置更改？</h2><p>你还有未保存的设置。</p></q-card-section><q-card-actions align="right"><q-btn flat label="继续编辑" @click="leave('stay')"/><q-btn flat label="放弃更改" @click="leave('discard')"/><q-btn unelevated class="primary-button" label="应用并离开" @click="perform(()=>leave('save'))"/></q-card-actions></q-card></q-dialog>
   <q-dialog v-model="deletedOpen"><q-card class="dialog-card"><q-card-section><h2>已隐藏的实例</h2><p class="subtle">恢复列表显示；已硬删除的默认服务器恢复后需要重新下载。</p><p v-if="!deleted.length">暂无隐藏实例</p><div v-for="item in deleted" :key="item.id" class="row items-center justify-between q-my-sm"><span>{{item.id}}</span><q-btn flat label="恢复显示" @click="perform(()=>restore(item.id))"/></div></q-card-section><q-card-actions align="right"><q-btn flat label="关闭" v-close-popup/></q-card-actions></q-card></q-dialog>
-  <section v-if="state.settings.linkingDiscovered" class="panel q-mb-md"><q-toggle :model-value="!!state.settings.showLinking" label="在左侧显示 Linking" @update:model-value="value=>perform(()=>saveSettings({showLinking:!!value}))"/><q-btn flat label="打开 Linking" to="/signal"/></section>
+
   <div class="page-heading"
     ><div><h1 @click="secretClick">启动器设置</h1></div
     ><q-btn
@@ -163,7 +163,7 @@ async function root() {
     >
   </section>
   <section v-show="section==='display'" class="panel settings-section settings-appearance">
-    <h2>外观</h2><q-toggle v-model="confirmUnsaved" label="离开设置时提醒应用未保存的更改"/>
+      <section v-if="state.settings.linkingDiscovered" class="settings-linking"><q-toggle :model-value="!!state.settings.showLinking" label="在左侧显示 Linking" @update:model-value="value=>perform(()=>saveSettings({showLinking:!!value}))"/><q-btn flat label="打开 Linking" to="/signal"/></section><h2>外观</h2><q-toggle v-model="confirmUnsaved" label="离开设置时提醒应用未保存的更改"/>
     <div class="settings-appearance-actions">
       <q-toggle v-model="simpleHome" label="使用简化版启动游戏界面" />
       <q-btn outline to="/appearance" label="字号、颜色与布局" icon="palette" />
@@ -214,7 +214,7 @@ async function root() {
         label="默认内存（MB）"
         :min="512"
         :max="state.system.memoryMB"
-        hint="建议至少保留一半内存给系统"
+        hint="请为系统及后台程序保留足够内存"
       /><div v-else class="subtle self-center"
         >启动时根据当前剩余内存自动分配，单次启动会重新计算。</div
       ></div
@@ -274,7 +274,7 @@ async function root() {
       :options="[8, 16, 32, 64, 128]"
       :display-value="downloadConcurrency + ' 并发'"
       label="下载并发数"
-      hint="默认 64，开始或继续安装时生效"
+      hint="默认 32，开始或继续安装时生效"
       :disable="task.busy || state.running"
     />
   </section>
@@ -358,4 +358,5 @@ async function root() {
       ></div
     ></section
   >
+<section v-show="section==='community'" class="panel settings-section"><q-btn outline icon="feedback" label="问题反馈与处理" @click="feedbackOpen=!feedbackOpen"/><FeedbackPanel v-if="feedbackOpen" class="q-mt-md" :request="feedbackRequest" :diagnostic-provider="()=>invoke('diagnostics.text')"/></section>
 </template>

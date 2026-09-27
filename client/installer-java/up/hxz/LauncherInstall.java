@@ -10,7 +10,7 @@ public final class LauncherInstall {
   if(args.length!=3)throw new IllegalArgumentException("installer directory, request and settings required");
   Path updater=Paths.get(pathArgument(args[0])).toAbsolutePath().normalize();
   JsonObject profile=IO.read(Paths.get(pathArgument(args[1]))),config=IO.read(Paths.get(pathArgument(args[2])));
-  GameInstaller installer=new GameInstaller(updater,config,new Network(30,3,IO.integer(config,"parallelDownloads",64,2,128)));
+  GameInstaller installer=new GameInstaller(updater,config,new Network(30,3,IO.integer(config,"parallelDownloads",32,2,128)));
   installer.progress(message->System.out.println("[安装] "+message));
   java.util.concurrent.ScheduledExecutorService meter=java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
   meter.scheduleAtFixedRate(installer::report,0,250,java.util.concurrent.TimeUnit.MILLISECONDS);
