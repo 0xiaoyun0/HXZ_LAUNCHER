@@ -173,7 +173,7 @@ onMounted(() => {
       <div v-if="!desktop" class="preview-banner"
         >浏览器预览 · 登录、文件管理与游戏启动请使用桌面版</div
       >
-      <main :class="['page-area', { 'home-area': route.path === '/', 'linking-area': route.path === '/signal' }]"
+      <main :class="['page-area', { 'home-area': route.path === '/', 'chat-area': route.path === '/chat', 'linking-area': route.path === '/signal' }]"
         ><router-view v-slot="{Component}"><Transition name="page-fade" :css="state.settings.animationSpeed !== 0" mode="out-in"><div :key="route.path" class="route-content"><component :is="Component"/></div></Transition></router-view></main>
       <LaunchDock />
       <footer class="status-bar"
