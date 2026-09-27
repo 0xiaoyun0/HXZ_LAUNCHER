@@ -1,4 +1,5 @@
 export function surfaceColor(color: string, opacity: number) {
+  opacity = Math.max(.2, Math.min(1, Number(opacity) || .2));
   if (CSS.supports('color', 'color-mix(in srgb, black, white)'))
     return `color-mix(in srgb, ${color} ${opacity * 100}%, transparent)`;
   const resolved = color.startsWith('var(')

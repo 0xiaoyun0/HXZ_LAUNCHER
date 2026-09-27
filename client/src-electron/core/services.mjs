@@ -155,6 +155,9 @@ export async function createServices({
       ...settings.columns?.dock
     }
   };
+  settings.coverOpacity=Math.max(0.2,Math.min(1,Number(settings.coverOpacity) || 0.2));
+  settings.backgroundOpacity=Math.max(0.2,Math.min(1,Number(settings.backgroundOpacity) || 0.2));
+  for(const column of Object.values(settings.columns))column.opacity=Math.max(0.2,Math.min(1,Number(column.opacity) || 0.2));
   settings.columns.workspace.visible = true;
   settings.downloadConcurrency = normalizeDownloadConcurrency(
     settings.downloadConcurrency
@@ -1121,7 +1124,7 @@ export async function createServices({
       }
       if (input.backgroundOpacity != null)
         nextSettings.backgroundOpacity = Math.max(
-          0,
+          0.2,
           Math.min(1, Number(input.backgroundOpacity) || 0)
         );
       for (const key of ["backgroundPositionX", "backgroundPositionY"])
@@ -1183,7 +1186,7 @@ export async function createServices({
       }
       if (input.voiceSounds != null) nextSettings.voiceSounds = !!input.voiceSounds;
       if(input.blueprintInstance!=null){if(typeof input.blueprintInstance!=="string"||input.blueprintInstance.length>250)throw Error("默认蓝图实例无效");nextSettings.blueprintInstance=input.blueprintInstance;}
-      if(input.coverOpacity!=null){if(!Number.isFinite(input.coverOpacity)||input.coverOpacity<0||input.coverOpacity>1)throw Error("头图透明度无效");nextSettings.coverOpacity=input.coverOpacity;}
+      if(input.coverOpacity!=null){if(!Number.isFinite(input.coverOpacity)||input.coverOpacity<0||input.coverOpacity>1)throw Error("头图透明度无效");nextSettings.coverOpacity=Math.max(0.2,input.coverOpacity);}
       if (input.hiddenLinks != null) {
         if (
           !Array.isArray(input.hiddenLinks) ||
@@ -1214,7 +1217,7 @@ export async function createServices({
           nextSettings.columns[name] = {
             visible: value.visible,
             color: value.color || "",
-            opacity: Math.max(0, Math.min(1, Number(value.opacity) || 0)),
+            opacity: Math.max(0.2, Math.min(1, Number(value.opacity) || 0)),
             label: value.label
           };
         }

@@ -526,6 +526,9 @@ export function applyTheme() {
   const root = document.documentElement,
     cfg = state.settings;
   if (cfg.columns?.workspace) cfg.columns.workspace.visible = true;
+  cfg.coverOpacity = Math.max(.2, Math.min(1, Number(cfg.coverOpacity ?? 1) || .2));
+  cfg.backgroundOpacity = Math.max(.2, Math.min(1, Number(cfg.backgroundOpacity ?? .4) || .2));
+  for (const column of Object.values(cfg.columns || {})) column.opacity = Math.max(.2, Math.min(1, Number(column.opacity ?? 1) || .2));
   root.dataset.background = (cfg.backgroundImage||cfg.backgroundVideo) ? "custom" : "default";
   root.style.setProperty('--cover-opacity',String(cfg.coverOpacity??1));
   root.dataset.motion=cfg.animationSpeed===0?'off':'on';
