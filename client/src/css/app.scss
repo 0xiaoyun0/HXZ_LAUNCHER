@@ -4451,11 +4451,14 @@ button,.q-btn,.nav-link{transition:background-color var(--motion-fast,160ms),box
 .world-detail>.detail-toolbar,.world-detail>.detail-body{background:var(--workspace-surface,var(--panel))}
 :root[data-workspace-custom="true"] .window-bar{background:var(--workspace-surface)!important}
 .main-cover{background:transparent!important;color:var(--text)}
-.cover-visual{position:absolute;inset:0;background:linear-gradient(110deg,#264737,#38594a);opacity:var(--cover-opacity,1);transition:opacity var(--motion-fast,160ms)}
+.cover-visual{position:absolute;inset:0;background:linear-gradient(110deg,#264737,#38594a)}
 .main-cover .preview-caption{color:var(--text);text-shadow:none}
 .main-cover .preview-caption>span,.main-cover .preview-caption p{color:var(--text)}
+.main-cover:not(.without-cover) .cover-visual::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(9,26,19,.8),rgba(9,26,19,.12) 75%);pointer-events:none}
+.main-cover:not(.without-cover) .preview-caption,.main-cover:not(.without-cover) .preview-caption>span,.main-cover:not(.without-cover) .preview-caption p{color:#f1f6ed;text-shadow:none}
+:root[data-workspace-custom="true"] .page-area :is(.arcade-card,.arcade-play,.arcade-board,.arcade-guide,.instance-table,.settings-tabs){background:var(--workspace-surface)!important}
 .q-dialog__backdrop{background:rgba(10,17,14,.72)!important;backdrop-filter:blur(10px)}
-.q-dialog__inner>.q-card,.q-dialog__inner>.panel,.q-menu{background:var(--panel)!important;opacity:1!important;color:var(--text)}
+.q-dialog__inner>.q-card,.q-dialog__inner>.panel,.q-dialog__inner>.dialog-panel,.q-menu{background:var(--panel)!important;opacity:1!important;color:var(--text)}
 :root[data-theme="light"] .q-dialog__inner>.q-card,:root[data-theme="light"] .q-dialog__inner>.panel{background:#fff!important}
 :root[data-theme="dark"] .q-dialog__inner>.q-card,:root[data-theme="dark"] .q-dialog__inner>.panel{background:#1b2621!important}
 .route-content{min-width:0;min-height:0}.home-area>.route-content,.linking-area>.route-content{height:100%}
@@ -4468,7 +4471,16 @@ button,.q-btn,.nav-link{transition:background-color var(--motion-fast,160ms),box
 .settings-linking{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 18px}.settings-section label{line-height:1.6}.forum-card{min-width:0;overflow-wrap:anywhere}
 @media(prefers-reduced-motion:reduce){.page-fade-enter-active,.page-fade-leave-active,.cover-visual,.q-toggle__thumb,.q-toggle__track,.q-tab__indicator{transition:none!important}.page-fade-enter-from,.page-fade-leave-to{transform:none}}
 
-.forum-sort{max-width:220px;margin:0 0 16px auto}.forum-toolbar{gap:16px;flex-wrap:wrap}.forum-card h2{line-height:1.55}.forum-card footer{flex-wrap:wrap;gap:10px 18px}
+.forum-toolbar{grid-template-columns:minmax(140px,1fr) minmax(120px,.45fr) minmax(130px,.45fr) auto;gap:12px}.forum-toolbar>.q-input:first-child{grid-column:auto}.forum-card h2{line-height:1.55}.forum-card footer{flex-wrap:wrap;gap:10px 18px}
+.main-cover.without-cover{min-height:0!important;height:auto!important;aspect-ratio:auto!important;flex:none!important;padding:22px 26px;border-bottom:1px solid var(--border);background:var(--workspace-surface,var(--panel))!important}
+.main-cover.without-cover .preview-caption{position:static;padding:0;margin:0;max-width:100%}
+.main-cover.without-cover .preview-caption h1{margin:6px 0;font-size:1.65rem;overflow-wrap:anywhere}
+.main-cover.without-cover .preview-caption p{margin:0}
+.content-toolbar>.q-field,.content-form-row>.q-field,.section-title>h2{min-width:0}
+.q-dialog__inner>.dialog-panel{border-radius:12px}
+@media(max-width:1050px){.content-toolbar:not(.forum-toolbar){grid-template-columns:repeat(2,minmax(0,1fr))}.content-toolbar:not(.forum-toolbar)>.q-field:first-child{grid-column:1/-1}}
+@media(max-width:820px){.forum-toolbar{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+@media(max-width:650px){.forum-toolbar{grid-template-columns:minmax(0,1fr)}.forum-reply-child{margin-left:16px!important}}
 
 /* Bound the routed chat workspace so history and the voice column scroll independently. */
 .page-area.chat-area{overflow:hidden}
@@ -4480,6 +4492,23 @@ button,.q-btn,.nav-link{transition:background-color var(--motion-fast,160ms),box
 .chat-area .chat-history{min-height:0;min-width:0;overscroll-behavior:contain}
 .chat-area .voice-column{height:100%;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .chat-message header{flex-wrap:wrap;gap:4px 12px}.chat-message header strong{overflow-wrap:anywhere}
+/* Navigation keeps its settings reachable, including with 22 px text. */
+.nav-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media(min-width:821px){
+  .sidebar{width:calc(184px + (var(--ui-font-size,15px) - 15px) * 4);overflow:hidden}
+  .sidebar nav{flex:1 1 auto;overflow-y:auto;overflow-x:hidden}
+  .sidebar-bottom{flex:0 0 auto}
+  .sidebar .brand,.nav-caption{flex-shrink:0}
+}
+@media(min-width:821px) and (max-width:1100px){
+  .large-type .sidebar{width:72px;padding:12px 8px}
+  .large-type .sidebar .nav-label,.large-type .brand-wordmark,.large-type .nav-caption,.large-type .profile-tile{display:none}
+  .large-type .sidebar .brand{padding:6px 0 14px;justify-content:center}
+  .large-type .nav-link{justify-content:center;padding:10px 4px}
+  .large-type .nav-link .online-dot{position:absolute;right:4px;top:6px}
+  .detail-actions .q-btn__content>.block{display:none}
+  .detail-actions .q-btn__content>.on-left{margin-right:0}
+}
 @media(max-width:820px){
   .page-area.chat-area{overflow-y:auto}
   .chat-area>.route-content{height:auto;overflow:visible}

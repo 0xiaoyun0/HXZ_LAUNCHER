@@ -4,15 +4,19 @@ import {normalizeUpdateUrl} from '../../../server/shared/server-presets.mjs';
 export {normalizeUpdateUrl};
 
 // Read status and installation profile from the same source, keeping maintenance authoritative.
-export async function readUpdateSource(urls,{signal,profile=false,log=()=>{},request=remoteJSON}={}){
+export async function readUpdateSource(urls,{signal,profile=false,log=()=>{},request=remoteJSON,timeoutMs=16000}={}){
   if(!Array.isArray(urls)||!urls.length||urls.length>16)throw Error('请设置 1 至 16 个 HXZ UP 地址');
   const sources=[...new Set(urls.map(normalizeUpdateUrl))];
   let failure,onlyNetwork=true;
+  const deadline=Date.now()+timeoutMs;
   for(const [index,base] of sources.entries()){
     signal?.throwIfAborted();
     try{
       log(`[HXZ UP] 连接 ${index+1}/${sources.length} · ${base}`);
-      const attempt={signal:AbortSignal.any([...(signal?[signal]:[]),AbortSignal.timeout(8000)])};
+      const remaining=deadline-Date.now();
+      if(remaining<=0){const error=Error('更新检查超时');error.name='TimeoutError';throw error;}
+      const budget=Math.max(1,Math.min(8000,Math.floor(remaining/(sources.length-index))));
+      const attempt={signal:AbortSignal.any([...(signal?[signal]:[]),AbortSignal.timeout(budget)])};
       const status=await request(base+'/version.json',attempt);
       if(!status||typeof status!=='object'||(!status.maintenance&&typeof status.version!=='string'))throw Error('更新版本信息无效');
       if(status.maintenance)return {base,status};

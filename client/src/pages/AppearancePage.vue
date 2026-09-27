@@ -9,6 +9,8 @@ import {
   perform
 } from "../lib/launcher";
 import PlayerAvatar from "../components/PlayerAvatar.vue";
+const section = ref("basic");
+const sections=[{id:"basic",label:"主题与文字",icon:"palette"},{id:"media",label:"背景与头图",icon:"panorama"},{id:"columns",label:"栏目与面板",icon:"dashboard_customize"},{id:"sound",label:"声音与动效",icon:"graphic_eq"},{id:"avatar",label:"我的头像",icon:"account_circle"}];
 const avatar = ref(selectedAccount.value?.avatar),
   avatarNote = ref("");
 watch(
@@ -33,7 +35,7 @@ async function saveAvatar() {
     : "头像已保存，下次连接社区时同步";
 }
 const form = reactive({
-  coverOpacity:state.settings.coverOpacity??1,
+  showCover:state.settings.showCover!==false,
   theme: state.settings.theme,
   fontSize: state.settings.fontSize,
   accentColor: state.settings.accentColor,
@@ -80,7 +82,7 @@ async function reset() {
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
-    coverOpacity:1,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:.3,videoQuality:"balanced",animationSpeed:1,
+    showCover:true,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:.3,videoQuality:"balanced",animationSpeed:1,
     backgroundImage: "",
     backgroundOpacity: 0.4,
     backgroundPositionX: 50,
@@ -98,212 +100,34 @@ async function reset() {
 }
 </script>
 <template>
-  <div class="page-heading"
-    ><h1>个性化</h1
-    ><q-btn
-      unelevated
-      class="primary-button"
-      icon="check"
-      label="应用外观"
-      @click="perform(save, '外观已保存')"
-  /></div>
-  <section class="panel settings-section"><h2>动态外观与声音</h2><label>头图不透明度 · {{Math.round(form.coverOpacity*100)}}%</label><q-slider v-model="form.coverOpacity" :min="0.2" :max="1" :step=".05"/><p class="subtle">不透明度最低 20%，避免背景干扰文字阅读。</p><div class="install-grid"><div class="row q-gutter-sm"><q-btn outline icon="movie" label="背景图片 / 视频" @click="perform(()=>media('background'))"/><q-btn flat label="清除背景" @click="form.backgroundVideo='';form.backgroundImage=''"/><q-btn outline icon="panorama" label="默认实例头图" @click="perform(()=>media('cover'))"/><q-btn flat label="清除默认头图" @click="form.defaultCover=''"/></div><q-select v-model="form.videoQuality" outlined label="视频绘制质量" emit-value map-options :options="[{label:'原始画质',value:'original'},{label:'均衡 · 最高 1080p / 30 帧',value:'balanced'},{label:'节能 · 最高 720p / 15 帧',value:'efficient'}]"/><div><p class="subtle">视频限 50 MB；后台暂停视频，游戏运行时暂停视频与音乐。解码清晰度取决于原视频。</p><q-btn outline icon="music_note" label="选择背景音乐" @click="perform(()=>media('music'))"/><q-btn flat label="关闭音乐" @click="form.backgroundMusic=''"/><q-btn flat label="刷新播放" @click="refreshMusic"/><label>音乐音量</label><q-slider v-model="form.musicVolume" :min="0" :max="1" :step=".05"/></div><q-select v-model="form.animationSpeed" @update:model-value="perform(()=>saveSettings({animationSpeed:form.animationSpeed}))" outlined label="动画速度" emit-value map-options :options="[{label:'关闭动画',value:0},{label:'舒缓 · 0.5 倍',value:.5},{label:'标准',value:1},{label:'轻快 · 1.5 倍',value:1.5},{label:'快速 · 2 倍',value:2}]"/></div></section>
-  <section class="panel settings-section">
-    <h2>我的头像</h2
-    ><div class="avatar-editor"
-      ><PlayerAvatar
-        class="avatar-preview"
-        :name="selectedAccount?.name"
-        :uid="selectedAccount?.uuid"
-        :image="avatar"
-      /><div
-        ><strong>{{ selectedAccount?.name || "请先登录并选择角色" }}</strong
-        ><p class="subtle">头像用于启动器和聊天大厅，绑定当前角色。</p
-        ><div class="row q-gutter-sm"
-          ><q-btn
-            outline
-            label="选择图片"
-            icon="image"
-            :disable="!selectedAccount?.uuid"
-            @click="perform(chooseAvatar)" /><q-btn
-            flat
-            label="恢复默认"
-            :disable="!selectedAccount?.uuid"
-            @click="avatar = ''" /><q-btn
-            unelevated
-            class="primary-button"
-            label="保存头像"
-            :disable="!selectedAccount?.uuid"
-            @click="perform(saveAvatar)" /></div
-        ><p v-if="avatarNote" class="subtle">{{ avatarNote }}</p></div
-      ></div
-    >
-  </section>
-  <section class="panel settings-section"
-    ><h2>文字与布局</h2
-    ><div class="install-grid"
-      ><div
-        ><label>整体字号 · {{ form.fontSize }} px</label
-        ><q-slider
-          v-model="form.fontSize"
-          :min="13"
-          :max="22"
-          :step="1"
-          label
-          markers
-        /><p :style="{ fontSize: form.fontSize + 'px' }"
-          >幻想镇 · 游戏实例与启动设置</p
-        ></div
-      ><q-select
-        v-model="form.layout"
-        outlined
-        emit-value
-        map-options
-        :options="[
-          { label: '标准', value: 'standard' },
-          { label: '紧凑', value: 'compact' },
-          { label: '宽松', value: 'wide' }
-        ]"
-        label="布局间距" /><q-select
-        v-model="form.theme"
-        outlined
-        emit-value
-        map-options
-        :options="[
-          { label: '深色', value: 'dark' },
-          { label: '浅色', value: 'light' }
-        ]"
-        label="明暗模式" /></div
-  ></section>
-  <section class="panel settings-section"
-    ><h2>颜色与背景</h2
-    ><div class="install-grid"
-      ><label class="color-setting"
-        >主题色 <input v-model="form.accentColor" type="color" /></label
-      ><label class="color-setting"
-        >背景底色
-        <input
-          :value="form.backgroundColor || '#101a18'"
-          type="color"
-          @input="
-            form.backgroundColor = ($event.target as HTMLInputElement).value
-          " /><q-btn
-          flat
-          label="跟随主题"
-          @click="form.backgroundColor = ''" /></label
-      ><div
-        ><q-btn
-          outline
-          icon="image"
-          label="选择背景图片"
-          @click="perform(background)" /><q-btn
-          v-if="form.backgroundImage"
-          flat
-          label="移除图片"
-          @click="form.backgroundImage = ''" /><img
-          v-if="form.backgroundImage"
-          :src="form.backgroundImage"
-          class="background-preview"
-          alt="背景预览" /></div
-      ><div
-        ><label
-          >背景可见度 · {{ Math.round(form.backgroundOpacity * 100) }}%</label
-        ><q-slider
-          v-model="form.backgroundOpacity"
-          :min="0.2"
-          :max="1"
-          :step="0.01"
-          label /></div></div></section
-  ><section class="panel settings-section"
-    ><h2>背景位置与裁剪</h2
-    ><p class="subtle"
-      >调整背景图的焦点和填充方式，让背景图在不同窗口中保持合适的构图。</p
-    ><div class="install-grid"
-      ><div
-        ><label>水平位置 · {{ Math.round(form.backgroundPositionX) }}%</label
-        ><q-slider
-          v-model="form.backgroundPositionX"
-          :min="0"
-          :max="100"
-          :step="1"
-          label /></div
-      ><div
-        ><label>垂直位置 · {{ Math.round(form.backgroundPositionY) }}%</label
-        ><q-slider
-          v-model="form.backgroundPositionY"
-          :min="0"
-          :max="100"
-          :step="1"
-          label /></div
-      ><q-select
-        v-model="form.backgroundFit"
-        outlined
-        emit-value
-        map-options
-        :options="[
-          { label: '覆盖裁剪', value: 'cover' },
-          { label: '完整显示', value: 'contain' },
-          { label: '拉伸填充', value: '100% 100%' }
-        ]"
-        label="背景填充方式" /><img
-        v-if="form.backgroundImage"
-        :src="form.backgroundImage"
-        class="background-preview"
-        alt="背景裁剪预览"
-        :style="
-          'object-position: ' +
-          form.backgroundPositionX +
-          '% ' +
-          form.backgroundPositionY +
-          '%; object-fit: ' +
-          (form.backgroundFit === '100% 100%' ? 'fill' : form.backgroundFit)
-        " /></div></section
-  ><section class="panel settings-section"
-    ><h2>栏目与内容</h2
-    ><p class="subtle"
-      >可隐藏不常用栏目，并分别调整三栏的颜色、透明度和名称。主工作区会始终保留，避免启动器失去主要内容。</p
-    ><div class="column-settings"
-      ><div
-        v-for="(column, name) in form.columns"
-        :key="name"
-        class="column-setting"
-        ><q-toggle
-          v-model="column.visible"
-          :disable="name === 'workspace'"
-          :label="column.label" /><q-input
-          v-model="column.label"
-          outlined
-          dense
-          label="栏目名称" /><label class="color-setting"
-          >颜色 <input v-model="column.color" type="color" /></label
-        ><div
-          ><label>透明度 · {{ Math.round(column.opacity * 100) }}%</label
-          ><q-slider
-            v-model="column.opacity"
-            :min="0.2"
-            :max="1"
-            :step="0.01"
-            label /></div></div></div
-    ><div class="content-form q-mt-md"
-      ><strong>隐藏导航栏目</strong
-      ><q-option-group
-        v-model="form.hiddenLinks"
-        type="checkbox"
-        :options="[
-          { label: '游戏实例', value: '/instances' },
-          { label: '下载与安装', value: '/downloads' },
-          { label: '机械动力蓝图库', value: '/blueprints' },
-          { label: '聊天大厅', value: '/chat' },
-          { label: '幻想镇论坛', value: '/forum' },
-          { label: '小游戏', value: '/games' },{label:'积分商城',value:'/shop'},
-          { label: '通知公告', value: '/notices' }
-        ]"
-        inline
-        class="hidden-links-options" /></div
-    ><div class="appearance-reset-actions"
-      ><q-btn
-        outline
-        label="恢复默认外观"
-        @click="perform(reset, '已恢复默认外观')" /></div
-  ></section>
+  <div class="page-heading appearance-heading"><h1>个性化</h1><q-btn unelevated class="primary-button" icon="check" label="应用外观" @click="perform(save, '外观已保存')"/></div>
+  <nav class="appearance-tabs" aria-label="个性化分类"><q-btn v-for="item in sections" :key="item.id" flat :icon="item.icon" :label="item.label" :class="{selected:section===item.id}" :aria-pressed="section===item.id" @click="section=item.id"/></nav>
+  <div class="appearance-body">
+  <template v-if="section==='basic'">
+    <section class="panel settings-section"><h2>主题</h2><div class="appearance-grid"><q-select v-model="form.theme" outlined label="明暗模式" emit-value map-options :options="[{label:'浅色',value:'light'},{label:'深色',value:'dark'}]"/><q-select v-model="form.layout" outlined label="布局间距" emit-value map-options :options="[{label:'标准',value:'standard'},{label:'紧凑',value:'compact'},{label:'宽松',value:'wide'}]"/><label class="color-setting">主题色<input v-model="form.accentColor" type="color"/></label><label class="color-setting">背景底色<input :value="form.backgroundColor||(form.theme==='light'?'#f4f5ef':'#101a18')" type="color" @input="form.backgroundColor=($event.target as HTMLInputElement).value"/><q-btn flat label="跟随主题" @click="form.backgroundColor=''"/></label></div></section>
+    <section class="panel settings-section"><h2>文字大小</h2><div class="appearance-grid"><div><label>整体字号 · {{form.fontSize}} px</label><q-slider v-model="form.fontSize" :min="13" :max="22" :step="1" label markers/></div><div class="appearance-sample" :style="{fontSize:form.fontSize+'px'}"><strong>幻想镇 · 新的旅程</strong><p>游戏实例、社区消息与日常设置</p></div></div></section>
+  </template>
+  <template v-else-if="section==='media'">
+    <section class="panel settings-section"><div class="section-title"><h2>启动器背景</h2><div class="appearance-actions"><q-btn outline icon="image" label="选择图片 / 视频" @click="perform(()=>media('background'))"/><q-btn flat label="清除" :disable="!form.backgroundImage&&!form.backgroundVideo" @click="form.backgroundImage='';form.backgroundVideo=''"/></div></div>
+      <div class="appearance-media-grid"><div class="appearance-preview" :style="{backgroundColor:form.backgroundColor||undefined}"><img v-if="form.backgroundImage" :src="form.backgroundImage" alt="背景构图预览" :style="{objectPosition:form.backgroundPositionX+'% '+form.backgroundPositionY+'%',objectFit:form.backgroundFit==='100% 100%'?'fill':form.backgroundFit as 'cover'|'contain',opacity:form.backgroundOpacity}"/><video v-else-if="form.backgroundVideo" :src="form.backgroundVideo" muted playsinline preload="metadata" :style="{objectPosition:form.backgroundPositionX+'% '+form.backgroundPositionY+'%',objectFit:form.backgroundFit==='100% 100%'?'fill':form.backgroundFit as 'cover'|'contain',opacity:form.backgroundOpacity}"/><span v-else><q-icon name="panorama" size="36px"/><br>使用默认背景</span></div>
+      <div class="appearance-controls"><label>背景可见度 · {{Math.round(form.backgroundOpacity*100)}}%<q-slider v-model="form.backgroundOpacity" :min=".2" :max="1" :step=".01"/></label><label>水平位置 · {{form.backgroundPositionX}}%<q-slider v-model="form.backgroundPositionX" :min="0" :max="100"/></label><label>垂直位置 · {{form.backgroundPositionY}}%<q-slider v-model="form.backgroundPositionY" :min="0" :max="100"/></label><q-select v-model="form.backgroundFit" outlined label="填充方式" emit-value map-options :options="[{label:'覆盖裁剪',value:'cover'},{label:'完整显示',value:'contain'},{label:'拉伸填充',value:'100% 100%'}]"/></div></div>
+      <q-select v-if="form.backgroundVideo" v-model="form.videoQuality" outlined label="视频绘制质量" emit-value map-options :options="[{label:'原始画质',value:'original'},{label:'均衡 · 1080p / 30 帧',value:'balanced'},{label:'节能 · 720p / 15 帧',value:'efficient'}]"/><p class="subtle">视频最大 50 MB。后台暂停视频，游戏运行时暂停视频与音乐。</p>
+    </section>
+    <section class="panel settings-section"><div class="section-title"><h2>游戏实例头图</h2><q-toggle v-model="form.showCover" label="显示头图"/></div><p class="subtle">关闭后保留实例信息，内容自动收拢，不占用图片空间。</p><template v-if="form.showCover"><div class="appearance-actions"><q-btn outline icon="panorama" label="选择默认头图" @click="perform(()=>media('cover'))"/><q-btn flat label="恢复默认" :disable="!form.defaultCover" @click="form.defaultCover=''"/></div><p class="subtle">实例单独设置的头图优先显示，可在实例页面调整位置。</p></template></section>
+  </template>
+  <template v-else-if="section==='columns'">
+    <section class="panel settings-section"><h2>区域外观</h2><p class="subtle">分别设置底色与不透明度，最低 20%。文字与弹窗保持清晰。</p><div class="appearance-columns"><div v-for="(column,name) in form.columns" :key="name" class="appearance-column"><q-toggle v-model="column.visible" :disable="name==='workspace'" :label="({sidebar:'侧边导航',workspace:'主工作区',dock:'启动与任务栏'})[name]"/><q-input v-model="column.label" outlined label="栏目名称"/><label class="color-setting">底色<input :value="column.color||(form.theme==='light'?'#ffffff':'#1b2621')" type="color" @input="column.color=($event.target as HTMLInputElement).value"/><q-btn flat dense label="重置" @click="column.color=''"/></label><label>不透明度 · {{Math.round(column.opacity*100)}}%<q-slider v-model="column.opacity" :min=".2" :max="1" :step=".01"/></label></div></div></section>
+    <section class="panel settings-section"><h2>隐藏不常用的导航</h2><q-option-group v-model="form.hiddenLinks" type="checkbox" :options="[{label:'游戏实例',value:'/instances'},{label:'下载与安装',value:'/downloads'},{label:'机械动力蓝图库',value:'/blueprints'},{label:'聊天大厅',value:'/chat'},{label:'幻想镇论坛',value:'/forum'},{label:'小游戏',value:'/games'},{label:'积分商城',value:'/shop'},{label:'通知公告',value:'/notices'}]" class="appearance-links"/></section>
+  </template>
+  <template v-else-if="section==='sound'">
+    <section class="panel settings-section"><h2>背景音乐</h2><div class="appearance-actions"><q-btn outline icon="music_note" label="选择音乐" @click="perform(()=>media('music'))"/><q-btn flat label="关闭音乐" :disable="!form.backgroundMusic" @click="form.backgroundMusic=''"/><q-btn flat icon="refresh" label="刷新播放" @click="refreshMusic"/></div><p class="subtle">{{form.backgroundMusic?'已选择自定义音乐':'未设置背景音乐'}}</p><label>音量 · {{Math.round(form.musicVolume*100)}}%</label><q-slider v-model="form.musicVolume" :min="0" :max="1" :step=".05"/></section>
+    <section class="panel settings-section"><h2>界面动效</h2><q-select v-model="form.animationSpeed" @update:model-value="perform(()=>saveSettings({animationSpeed:form.animationSpeed}))" outlined label="动画速度 · 即时生效" emit-value map-options :options="[{label:'关闭动画',value:0},{label:'舒缓 · 0.5 倍',value:.5},{label:'标准',value:1},{label:'轻快 · 1.5 倍',value:1.5},{label:'快速 · 2 倍',value:2}]"/><p class="subtle">影响页面切换、按钮和面板展开；游戏画面保持正常运行。</p></section>
+  </template>
+  <section v-else class="panel settings-section"><h2>我的头像</h2><div class="avatar-editor"><PlayerAvatar class="avatar-preview" :name="selectedAccount?.name" :uid="selectedAccount?.uuid" :image="avatar"/><div><strong>{{selectedAccount?.name||'请先登录并选择角色'}}</strong><p class="subtle">头像绑定当前角色，并在社区中显示。</p><div class="appearance-actions"><q-btn outline icon="image" label="选择图片" :disable="!selectedAccount?.uuid" @click="perform(chooseAvatar)"/><q-btn flat label="恢复默认" :disable="!selectedAccount?.uuid" @click="avatar=''"/><q-btn unelevated class="primary-button" label="保存头像" :disable="!selectedAccount?.uuid" @click="perform(saveAvatar)"/></div><p v-if="avatarNote" role="status" class="subtle">{{avatarNote}}</p></div></div></section>
+  </div><footer class="appearance-footer"><q-btn flat icon="restart_alt" label="恢复默认外观" @click="perform(reset, '已恢复默认外观')"/></footer>
 </template>
+<style scoped>
+.appearance-tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border);padding:0 0 12px;margin-bottom:20px}.appearance-tabs .selected{background:var(--accent-soft,var(--panel-hover));color:var(--text);font-weight:600}.appearance-tabs .q-btn{min-height:40px}.appearance-body{max-width:1120px}.appearance-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px 24px;align-items:center}.appearance-sample{padding:20px;border-left:3px solid var(--accent);background:var(--panel-hover);border-radius:8px}.appearance-sample p{margin:10px 0 0;color:var(--muted)}.appearance-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.appearance-media-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:28px;margin:20px 0}.appearance-preview{min-height:220px;aspect-ratio:16/10;position:relative;display:grid;place-items:center;border:1px solid var(--border);border-radius:10px;background:var(--panel-hover);overflow:hidden}.appearance-preview>img,.appearance-preview>video{position:absolute;width:100%;height:100%;inset:0}.appearance-preview>span{text-align:center;color:var(--muted);line-height:2}.appearance-controls{display:flex;flex-direction:column;gap:12px}.appearance-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}.appearance-column{min-width:0;display:flex;flex-direction:column;gap:16px;padding:0 20px 0 0;border-right:1px solid var(--border)}.appearance-column:last-child{padding-right:0;border:0}.appearance-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.appearance-footer{margin:12px 0;color:var(--muted)}.section-title{gap:16px;flex-wrap:wrap}.settings-section .subtle{line-height:1.7}.settings-section h2{margin-bottom:18px}.section-title h2{margin:0}.color-setting{flex-wrap:wrap;gap:12px}
+@media(max-width:1050px){.appearance-columns{grid-template-columns:minmax(0,1fr)}.appearance-column{border:0;border-bottom:1px solid var(--border);padding:0 0 18px}.appearance-media-grid{grid-template-columns:minmax(0,1fr)}.appearance-preview{max-height:260px;min-height:160px}.appearance-grid{gap:20px}}
+@media(max-width:760px){.appearance-grid,.appearance-links{grid-template-columns:minmax(0,1fr)}.appearance-tabs .q-btn{padding:8px}.avatar-editor{align-items:flex-start;flex-wrap:wrap}}
+</style>

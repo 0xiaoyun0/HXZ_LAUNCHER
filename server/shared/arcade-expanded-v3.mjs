@@ -18,7 +18,7 @@ function move(s,actions){
   let dx=0,dy=0;
   for(const a of actions){if(a==='left')dx=-1;if(a==='right')dx=1;if(a==='up')dy=-1;if(a==='down')dy=1;}
   const target=actions.find(a=>typeof a==='object'&&a!==null);
-  if(target){dx=target.x-s.x;dy=target.y-s.y;}else{const d=Math.hypot(dx,dy)||1;dx=dx/d*v;dy=dy/d*v;}
+  if(target){dx=target.x-s.x;dy=target.y-s.y;const d=Math.hypot(dx,dy);if(d>v){dx*=v/d;dy*=v/d;}}else{const d=Math.hypot(dx,dy)||1;dx=dx/d*v;dy=dy/d*v;}
   s.x=clamp(s.x+dx,12,348);s.y=clamp(s.y+dy,45,456);
 }
 function bullet(s,x,y,angle,speed,r=4,color=0){if(s.bullets.length<600)s.bullets.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r,color});}

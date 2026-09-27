@@ -241,7 +241,7 @@ async function openFolder(
               "
               :loading="!!favoritePending[instance.id]"
               @click="perform(() => toggleFavorite(instance.id))"
-            /><q-btn flat round dense icon="delete_outline" title="删除实例" :disable="task.busy||state.running" @click="deleting=instance.id"/><q-btn flat round dense icon="more_horiz" title="打开实例文件夹"
+            /><q-btn v-if="!instance.builtin" flat round dense icon="delete_outline" title="删除实例" :disable="task.busy||state.running" @click="deleting=instance.id"/><q-btn flat round dense icon="more_horiz" title="打开实例文件夹"
               ><q-menu
                 ><q-list dense
                   ><q-item
@@ -387,7 +387,7 @@ async function openFolder(
 </template>
 <style scoped>
 .instance-table-row > .instance-actions {
-  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 2px;
   min-width: 0;
 }

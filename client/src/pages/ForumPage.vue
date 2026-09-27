@@ -5,6 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import PlayerAvatar from "../components/PlayerAvatar.vue";
 import EmojiPicker from "../components/EmojiPicker.vue";
 import { community, communityRequest } from "../lib/community";
+import {loadForumPage} from '../lib/forum-list.mjs';
 import { perform, errorMessage } from "../lib/launcher";
 import {
   type ForumPost,
@@ -69,14 +70,10 @@ async function load() {
   loading.value = true;
   error.value = "";
   try {
-    const params = new URLSearchParams({
-      sort:sort.value,q: query.value,
-      category: category.value,
-      offset: String((page.value - 1) * 24)
+    const value = await loadForumPage(communityRequest,{
+      sort:sort.value,q:query.value,category:category.value,
+      offset:(page.value-1)*24,isCurrent:()=>generation===listGeneration
     });
-    const value = await communityRequest<{ items: ForumPost[]; total: number }>(
-      "/api/forum/posts?" + params
-    );
     if(generation!==listGeneration)return;
     items.value = value.items;
     total.value = value.total;
@@ -258,7 +255,7 @@ onMounted(() => void permissions());
   /></div>
   <div v-if="error" class="info-note error-note q-mb-md">{{ error }}</div>
   <template v-if="!isDetail"
-    ><div class="forum-sort"><q-select v-model="sort" outlined dense label="排序" emit-value map-options :options="[{label:'最新发布',value:'newest'},{label:'最早发布',value:'oldest'},{label:'最多点赞',value:'likes'},{label:'最多回复',value:'replies'},{label:'最近活跃',value:'active'}]" @update:model-value="page=1;load()"/></div><div class="content-toolbar forum-toolbar panel"
+    ><div class="content-toolbar forum-toolbar panel"
       ><q-input
         v-model="query"
         outlined
@@ -277,7 +274,7 @@ onMounted(() => void permissions());
           { label: '全部分类', value: '' },
           ...forumCategories.map(value => ({ label: value, value }))
         ]"
-        @update:model-value="filter" /><q-btn
+        @update:model-value="filter" /><q-select v-model="sort" outlined dense label="排序" emit-value map-options :options="[{label:'最新发布',value:'newest'},{label:'最早发布',value:'oldest'},{label:'最多点赞',value:'likes'},{label:'最多回复',value:'replies'},{label:'最近活跃',value:'active'}]" @update:model-value="page=1;load()"/><q-btn
         outline
         icon="refresh"
         label="刷新"
@@ -502,19 +499,11 @@ onMounted(() => void permissions());
   ></q-dialog>
 </template>
 <style scoped>
-.forum-replies {
-  --text: #26362c;
-  --muted: #69756c;
-  --border: #dce2d9;
-  --panel: #fff;
-  --panel-hover: #fff;
-  background: #fff;
-  color: var(--text);
-}
-.forum-reply-child, .forum-reply-form { background: #fff; }
+.forum-replies { color: var(--text); }
+.forum-reply-child, .forum-reply-form { background: transparent; }
 .forum-reply-context { margin: 8px 0 0; color: var(--muted); font-size: .9em; }
 .forum-reply-target { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
 .forum-reply-target > div { flex: 1; min-width: 0; }
 .forum-reply-target p { margin: 5px 0 0; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.forum-reply-form :deep(.q-field__control) { background: #fff; }
+.forum-reply-form :deep(.q-field__control) { background: transparent; }
 </style>

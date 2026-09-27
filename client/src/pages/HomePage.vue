@@ -206,12 +206,14 @@ async function chooseRoot() {
             dense
             icon="image"
             label="头图"
+            title="设置实例头图"
             :disable="!selectedInstance"
             @click="perform(() => chooseCover())" /><q-btn
             flat
             dense
             :icon="config.favorite ? 'star' : 'star_border'"
             :label="config.favorite ? '取消收藏' : '收藏'"
+            :title="config.favorite ? '取消收藏' : '收藏实例'"
             :loading="!!favoritePending[state.settings.selectedInstance]"
             :disable="!selectedInstance"
             @click="perform(toggleFavorite)" /><q-btn
@@ -226,6 +228,7 @@ async function chooseRoot() {
             dense
             icon="crop"
             label="裁剪"
+            title="调整头图位置"
             @click="editCoverPlacement" /><q-btn
             flat
             dense
@@ -263,10 +266,10 @@ async function chooseRoot() {
                 ></q-list
               ></q-menu
             ></q-btn
-          ><q-btn flat dense icon="delete_outline" title="删除实例" :disable="!selectedInstance || task.busy || state.running" @click="deleting=state.settings.selectedInstance"/><q-btn flat dense icon="tune" label="配置" to="/instances" /></div
+          ><q-btn v-if="!selectedInstance?.builtin" flat dense icon="delete_outline" title="删除实例" :disable="!selectedInstance || task.busy || state.running" @click="deleting=state.settings.selectedInstance"/><q-btn flat dense icon="tune" label="配置" to="/instances" /></div
       ></div>
-      <div class="world-preview main-cover" :class="{ 'custom-cover': !!cover }"
-        ><div class="cover-visual"><CoverImage v-if="cover" :src="cover" :x="config.coverPositionX" :y="config.coverPositionY" :zoom="config.coverZoom"/><div v-else class="preview-art" aria-hidden="true"
+      <div class="world-preview main-cover" :class="{ 'custom-cover': !!cover, 'without-cover': !state.settings.showCover }"
+        ><div v-if="state.settings.showCover" class="cover-visual"><CoverImage v-if="cover" :src="cover" :x="config.coverPositionX" :y="config.coverPositionY" :zoom="config.coverZoom"/><div v-else class="preview-art" aria-hidden="true"
           ><div class="sun" /><div class="mountain mountain-back" /><div
             class="mountain mountain-front" /><div class="tower"
             ><i /><i /><i /></div></div

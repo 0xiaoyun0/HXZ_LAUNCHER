@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { invoke, reload, perform, task, state } from '../lib/launcher';
 const props = defineProps<{id:string}>();
 const emit = defineEmits<{close:[]}>();
 const mode = ref('logical'), working = ref(false);
+const protectedInstance=computed(()=>state.instances.some(i=>i.id===props.id&&i.builtin));
 watch(()=>props.id,()=>mode.value='logical');
 async function remove() {
+  if(protectedInstance.value)throw Error('默认服务器不能删除');
   working.value=true;
   try { await invoke('instance.delete',{id:props.id,mode:mode.value,confirmed:true}); await reload(); emit('close'); }
   finally {working.value=false;}
 }
 </script>
 <template>
-  <q-dialog :model-value="!!id" :persistent="working" @hide="emit('close')">
+  <q-dialog :model-value="!!id && !protectedInstance" :persistent="working" @hide="emit('close')">
     <q-card class="dialog-card">
       <q-card-section><h2>删除实例</h2><p>{{id}}</p>
         <q-option-group v-model="mode" :options="[{label:'逻辑删除 · 从列表隐藏，保留全部文件',value:'logical'},{label:'硬删除 · 删除此实例目录中的文件和存档',value:'physical'}]"/>

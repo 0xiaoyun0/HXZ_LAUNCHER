@@ -1,4 +1,4 @@
-import {createInstances,importBlueprint} from './blueprint-import.mjs';
+import {listBlueprintInstances,importBlueprint} from './blueprint-import.mjs';
 import {automaticMemory} from './memory-policy.mjs';
 import {diagnoseServer} from './server-diagnostics.mjs';
 import {dependencyStore} from './dependency-store.mjs';
@@ -70,6 +70,7 @@ export async function createServices({
 }) {
   await fs.mkdir(data, { recursive: true });
   const dependencies=await dependencyStore(dependencyRoot,data);
+  let blueprintDownload=null;
   const configFile = path.join(data, "settings.json"),
     accountFile = path.join(data, "accounts.bin");
   let settings = {
@@ -83,7 +84,7 @@ export async function createServices({
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
-    blueprintInstance:"",coverOpacity:1,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
+    blueprintInstance:"",showCover:true,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
     backgroundImage: "",
     backgroundOpacity: 0.4,
     backgroundPositionX: 50,
@@ -155,7 +156,7 @@ export async function createServices({
       ...settings.columns?.dock
     }
   };
-  settings.coverOpacity=Math.max(0.2,Math.min(1,Number(settings.coverOpacity) || 0.2));
+  settings.showCover=settings.showCover!==false;
   settings.backgroundOpacity=Math.max(0.2,Math.min(1,Number(settings.backgroundOpacity) || 0.2));
   for(const column of Object.values(settings.columns))column.opacity=Math.max(0.2,Math.min(1,Number(column.opacity) || 0.2));
   settings.columns.workspace.visible = true;
@@ -384,7 +385,7 @@ export async function createServices({
         shell: false
       });
       log("[进程] "+path.basename(command)+" · 工作目录: "+cwd);
-      let finished = false, failureEvidence = "";
+      let finished = false, failureEvidence = "", updaterOffline=false;
       const started = Date.now();
       const abort = () => {
         if (process.platform === "win32" && child.pid) {
@@ -420,6 +421,7 @@ export async function createServices({
         }
       });
       attachLog(child.stderr, line => {
+        if(line.startsWith('HXZUP_OFFLINE:'))updaterOffline=true;
         if (/^(?:Caused by:|Exception in thread|Error:)|InvalidPathException|UnsupportedClassVersionError/.test(line))
           failureEvidence = redactDiagnostic(line, [...secrets]).slice(0, 800);
         return false;
@@ -436,7 +438,9 @@ export async function createServices({
         if (signal?.aborted) reject(Error("任务已取消"));
         else if (code !== 0) {
           log(`[进程结束] 退出码 ${code} · 耗时 ${Math.round((Date.now()-started)/1000)} 秒`);
-          reject(Error(`任务进程退出（${code}）${failureEvidence ? "：" + failureEvidence : "，请查看任务详情"}`));
+          const error=Error(`任务进程退出（${code}）${failureEvidence ? "：" + failureEvidence : "，请查看任务详情"}`);
+          if(updaterOffline)error.code='HXZUP_OFFLINE';
+          reject(error);
         }
         else resolve();
       });
@@ -456,8 +460,9 @@ export async function createServices({
     if (!urls?.length) {
       throw Error("请为此实例填写 HXZ UP 客户端地址");
     }
+    phase({phase:'正在检查 HXZ UP 版本信息',busy:true});
     const {status,base:availableSource}=await readUpdateSource(urls,{signal,log});
-    if(status.maintenance){log('[HXZ UP] 整合包正在维护，保留已安装版本并跳过本次更新');return;}
+    if(status.maintenance){await assertUpdateComplete(instance);log('[HXZ UP] 整合包正在维护，保留已安装版本并跳过本次更新');return;}
     for (const name of ["updater-1.0.3.jar", "launcher-agent.jar"]) {
       const target = path.join(updater, name);
       if (!(await exists(target)))
@@ -501,12 +506,19 @@ export async function createServices({
         "-Dsun.stdout.encoding=UTF-8",
         "-Dsun.stderr.encoding=UTF-8",
         "-Djava.awt.headless=" + (settings.hxzupPopup === false),
+        "-Dhxz.launcher.managed=true",
         "-jar",
         path.join("updater", "updater-launcher.jar")
       ],
       instance,
       signal
     );
+    await assertUpdateComplete(instance);
+  }
+  async function assertUpdateComplete(instance){
+    const updater=path.join(instance,'updater');
+    if(await exists(path.join(updater,'.updater/transaction.json')))
+      throw Error('上次更新替换尚未完成，请继续更新以恢复文件，不能直接启动');
     if (await exists(path.join(updater, ".updater/local-version.json"))) {
       const version = await json(
         path.join(updater, ".updater/local-version.json")
@@ -615,8 +627,7 @@ export async function createServices({
         try {await updateInstance(id, cfg, controller.signal);}
         catch(error){
           if(updateOnly||error.code!=='HXZUP_OFFLINE'||controller.signal.aborted)throw error;
-          const stateFile=inside(settings.gameRoot,`versions/${id}/updater/.updater/local-version.json`);
-          if(await exists(stateFile)&&(await json(stateFile)).pendingVersion)throw Error('更新文件尚未完成，不能启动不完整的实例，请继续更新');
+          await assertUpdateComplete(inside(settings.gameRoot,`versions/${id}`));
           if(!await askDecision('更新服务暂不可用','当前未连接到 HXZUP 服务。是否使用已安装的游戏继续？当前版本可能无法进入新版服务器。','启动已有版本',controller.signal))throw error;
           log('[HXZ UP] 用户选择启动已有版本：'+error.message);
         }
@@ -1057,7 +1068,7 @@ export async function createServices({
       return {
         settings,
         accounts: accounts.map(accountView),
-        instances: instances.filter(i => !settings.hiddenInstances.includes(instanceKey(settings.gameRoot, i.id))),
+        instances: instances.filter(i => i.builtin || !settings.hiddenInstances.includes(instanceKey(settings.gameRoot, i.id))),
         persistentCredentials: persistent,
         system: {
           memoryMB: Math.floor(os.totalmem() / 1048576),
@@ -1148,7 +1159,7 @@ export async function createServices({
           throw Error("更新弹窗设置无效");
         nextSettings.hxzupPopup = input.hxzupPopup;
       }
-      for (const key of ['chinesePaths','confirmUnsaved','instancesCollapsed','promptJavaDownload'])
+      for (const key of ['chinesePaths','confirmUnsaved','instancesCollapsed','promptJavaDownload','showCover'])
         if (typeof input[key] === 'boolean') nextSettings[key] = input[key];
       if (input.chatHistoryDays != null) {
         if (![0,1,3,5,7,30].includes(input.chatHistoryDays)) throw Error('聊天记录范围无效');
@@ -1186,7 +1197,6 @@ export async function createServices({
       }
       if (input.voiceSounds != null) nextSettings.voiceSounds = !!input.voiceSounds;
       if(input.blueprintInstance!=null){if(typeof input.blueprintInstance!=="string"||input.blueprintInstance.length>250)throw Error("默认蓝图实例无效");nextSettings.blueprintInstance=input.blueprintInstance;}
-      if(input.coverOpacity!=null){if(!Number.isFinite(input.coverOpacity)||input.coverOpacity<0||input.coverOpacity>1)throw Error("头图透明度无效");nextSettings.coverOpacity=Math.max(0.2,input.coverOpacity);}
       if (input.hiddenLinks != null) {
         if (
           !Array.isArray(input.hiddenLinks) ||
@@ -1318,7 +1328,7 @@ export async function createServices({
     },
     async "instance.deleted"() {
       const prefix = instanceKey(settings.gameRoot, '');
-      return settings.hiddenInstances.filter(k=>k.startsWith(prefix)).map(k=>({id:k.slice(prefix.length)}));
+      return settings.hiddenInstances.filter(k=>k.startsWith(prefix)).map(k=>({id:k.slice(prefix.length)})).filter(i=>!presetCatalog.list().some(p=>p.id===i.id));
     },
     async "instance.restore"({id}) {
       busy();
@@ -1328,6 +1338,7 @@ export async function createServices({
     },
     async "instance.delete"({id, mode, confirmed}) {
       busy();
+      if(presetCatalog.list().some(p=>p.id===id))throw Error('默认服务器是固定实例，不能删除或隐藏');
       if (confirmed !== true || !['logical','physical'].includes(mode) || typeof id !== 'string' || !id || /[\\/:]/.test(id) || ['.','..'].includes(id)) throw Error('请确认删除方式与实例');
       if (mode === 'physical') {
         // Restore an interrupted backup before removing only the chosen instance.
@@ -1780,17 +1791,21 @@ export async function createServices({
       await saveAccounts();
       return { synced: await syncAvatar(a) };
     },
-    async "blueprints.instances"(){return createInstances(settings,await scanInstances(settings.gameRoot));},
+    async "blueprints.instances"(){return listBlueprintInstances(settings);},
+    async "blueprints.cancel"(){blueprintDownload?.abort(Error('蓝图下载已取消'));return {ok:true};},
     async "blueprints.download"(input) {
       if (typeof input.id !== "string" || !/^[\w-]{1,64}$/.test(input.id))
         throw Error("蓝图标识无效");
+      if(blueprintDownload)throw Error('已有蓝图正在下载');
+      const controller=new AbortController();blueprintDownload=controller;
+      try {
       const base = endpoint(settings.communityUrl),
         headers =
           community?.base === base
             ? { Authorization: "Bearer " + community.token }
             : {};
       const item = await remoteJSON(base + "/api/blueprints/" + input.id, {
-        headers
+        headers,signal:controller.signal
       });
       if (
         !Number.isInteger(item.size) ||
@@ -1802,11 +1817,13 @@ export async function createServices({
       const staged=path.join(dependencies,'blueprints',randomUUID()+'.nbt');
       await noLinks(staged);await fs.mkdir(path.dirname(staged),{recursive:true});
       try{
-        await download(base+'/api/blueprints/'+input.id+'/file',staged,{headers,size:item.size,sha256:item.sha256,maxSize:8*1024*1024});
+        await download(base+'/api/blueprints/'+input.id+'/file',staged,{headers,size:item.size,sha256:item.sha256,maxSize:8*1024*1024,signal:controller.signal});
         if(input.instance){const file=await importBlueprint(settings,input.instance,staged,item.filename);return {ok:true,file,instance:input.instance};}
         const result=await dialog.showSaveDialog(window(),{defaultPath:String(item.filename||'blueprint.nbt').replace(/[\\/:*?"<>|]/g,'_'),filters:[{name:'机械动力蓝图',extensions:['nbt']}]});
         if(result.canceled||!result.filePath)return {canceled:true};await noLinks(result.filePath);await fs.copyFile(staged,result.filePath);return {ok:true,file:result.filePath};
       }finally{await fs.rm(staged,{force:true}).catch(()=>{});}
+      } catch(e) {if(controller.signal.aborted)throw controller.signal.reason;throw e;}
+      finally {if(blueprintDownload===controller)blueprintDownload=null;}
     },
     async "notices.list"() {
       return remoteJSON(endpoint(settings.communityUrl) + "/api/notices");
@@ -1907,6 +1924,7 @@ export async function createServices({
       }
     },
     dispose() {
+      blueprintDownload?.abort();
       offlineSession?.close();
       presetCatalog.dispose();
       task?.abort();

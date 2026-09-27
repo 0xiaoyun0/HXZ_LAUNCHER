@@ -25,6 +25,8 @@ public final class Updater {
     private final List<String> warnings=new ArrayList<>();
     private final List<String> serverAttempts=new ArrayList<>();
     private String selectedServer="尚未连接";
+    private final boolean managed=Boolean.getBoolean("hxz.launcher.managed");
+    private boolean offlineFailure;
     public static void premain(String args,Instrumentation instrumentation)throws Exception{new Updater().run();}
     public static void main(String[] args)throws Exception{new Updater().run();}
     private void run()throws Exception{
@@ -41,15 +43,17 @@ public final class Updater {
                 ui=new Progress(config,network);ui.show("正在连接更新服务");if(!ui.platformMessage().isEmpty())log(ui.platformMessage());
                 recover();cleanTemporaryDirectories();
                 try{update();}catch(Exception failure){
-                    if(!forceMode&&!networkFailure(failure)&&!Files.exists(cache.resolve("transaction.json"))&&ui.confirmForce(report(failure))){
+                    if(!managed&&!forceMode&&!networkFailure(failure)&&!Files.exists(cache.resolve("transaction.json"))&&ui.confirmForce(report(failure))){
                         forceMode=true;warnings.add("已由用户选择强制继续；以下列出未完成项目。");ui.show("正在尽可能完成更新");serverAttempts.clear();update();
                     }else throw failure;
                 }
                 cleanupOld();
+                if(managed){log("更新检查已完成，正在返回启动器");ui.close();}
             }finally{lock.release();}
         }catch(Exception e){
             StringWriter trace=new StringWriter();e.printStackTrace(new PrintWriter(trace));String report="HXZ UP · 更新失败\n时间: "+Instant.now()+"\nJava: "+System.getProperty("java.version")+"\nOS: "+System.getProperty("os.name")+"\n客户端: "+(own==null?"未知":own.getFileName())+"\n更新器目录: "+dir+"\n选中服务: "+selectedServer+"\n服务地址状态:\n"+String.join("\n",serverAttempts)+"\n\n"+trace;
-            log(report);System.setProperty("hxz.error.shown","true");if(ui!=null)ui.error(report);else System.err.println(report);throw e;
+            if(offlineFailure)System.err.println("HXZUP_OFFLINE: 更新服务暂不可用");
+            log(report);System.setProperty("hxz.error.shown","true");if(ui!=null){if(managed)ui.close();else ui.error(report);}else System.err.println(report);throw e;
         }
     }
     private JsonObject local(String name)throws IOException{Path p=cache.resolve(name);return Files.exists(p)?IO.read(p):new JsonObject();}
@@ -57,7 +61,7 @@ public final class Updater {
         try{updateOnce();}catch(Exception failure){
             // A server entering maintenance during a transfer is a pause, not a broken pack.
             if(selectedServer.startsWith("http")&&!Files.exists(cache.resolve("transaction.json"))){
-                try{if(IO.bool(network.json(selectedServer+"/version.json"),"maintenance",false)){log("整合包进入维护，已跳过更新，保留当前文件");ui.close();return;}}catch(IOException ignored){}
+                try{if(IO.bool(network.json(selectedServer+"/version.json",3),"maintenance",false)){log("整合包进入维护，已跳过更新，保留当前文件");ui.close();return;}}catch(IOException ignored){}
             }
             throw failure;
         }
@@ -66,24 +70,29 @@ public final class Updater {
         JsonObject old=local("local-manifest.json"),oldVersion=local("local-version.json");
         JsonArray servers=config.getAsJsonArray("servers");if(servers==null||servers.size()==0||servers.size()>16)throw new IOException("servers 需要 1–16 个服务地址");
         String base=null;JsonObject version=null,manifest=null;List<String> failures=new ArrayList<>();
+        long checkDeadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(16);boolean onlyNetwork=true;
         for(int i=0;i<servers.size();i++)serverAttempts.add("["+(i+1)+"] "+servers.get(i).getAsString()+" → 未尝试");
         for(int serverIndex=0;serverIndex<servers.size();serverIndex++){String candidate=servers.get(serverIndex).getAsString().replaceAll("/+$","");try{
-            JsonObject remote=network.json(candidate+"/version.json");String id=IO.str(remote,"version","");if(id.isEmpty())throw new IOException("缺少版本标识");
+            int remaining=(int)Math.ceil((checkDeadline-System.nanoTime())/1e9);if(remaining<=0)break;
+            ui.phase("正在检查更新地址 "+(serverIndex+1)+"/"+servers.size());
+            JsonObject remote=network.json(candidate+"/version.json",Math.min(8,remaining));String id=IO.str(remote,"version","");
             if(IO.bool(remote,"maintenance",false)){selectedServer=candidate;log("整合包正在维护，跳过本次更新，使用现有本地文件");ui.close();return;}
-            if(!id.equals(IO.str(oldVersion,"version",""))||!old.has("files")||IO.bool(config,"repairGameFiles",false))manifest=network.json(candidate+"/manifest.json?version="+encode(id));
+            if(id.isEmpty())throw new IOException("缺少版本标识");
+            if(!id.equals(IO.str(oldVersion,"version",""))||!old.has("files")||oldVersion.has("pendingVersion")||IO.bool(config,"repairGameFiles",false))manifest=network.json(candidate+"/manifest.json?version="+encode(id),8);
             base=candidate;version=remote;selectedServer=candidate;serverAttempts.set(serverIndex,"["+(serverIndex+1)+"] "+candidate+" → 已连接（基准服务）");break;
-        }catch(Exception e){String failure=candidate+" → "+e.getMessage();failures.add(failure);serverAttempts.set(serverIndex,"["+(serverIndex+1)+"] "+failure);}}
-        if(base==null){if(old.has("files")&&!Files.exists(cache.resolve("transaction.json"))){log("服务暂时不可达，使用本地缓存\n"+String.join("\n",failures));ui.close();return;}throw new NetworkFailure("首次启动必须连接更新服务\n"+String.join("\n",failures));}
+        }catch(Exception e){onlyNetwork&=Network.unavailable(e);String failure=candidate+" → "+e.getMessage();failures.add(failure);serverAttempts.set(serverIndex,"["+(serverIndex+1)+"] "+failure);}}
+        if(base==null){offlineFailure=onlyNetwork;if(!managed&&onlyNetwork&&old.has("files")&&!oldVersion.has("pendingVersion")&&!Files.exists(cache.resolve("transaction.json"))){log("服务暂时不可达，使用本地缓存\n"+String.join("\n",failures));ui.close();return;}throw new NetworkFailure("无法完成更新检查\n"+String.join("\n",failures));}
         String id=IO.str(version,"version","");String suffix="?version="+encode(id);
-        if(manifest==null){if(!Files.exists(cache.resolve("local-changelog.json"))){try{IO.write(cache.resolve("local-changelog.json"),network.json(base+"/changelog.json"+suffix));}catch(IOException e){log("日志暂不可用: "+e);}}ui.close();return;}
+        if(manifest==null){log("本地已是最新版本: "+id);ui.close();return;}
         JsonArray entries=manifest.getAsJsonArray("files");if(entries==null||entries.size()>100000)throw new IOException("无效或过大的清单");
         if(portable!=null){
             JsonArray filtered=new JsonArray();
             for(JsonElement e:entries){String mapped=IO.str(e.getAsJsonObject(),"path","");if(mapped.matches("0/(?:updater-[^/]+\\.jar|launcher-agent\\.jar|portable\\.json)")){log("保留外部启动器兼容组件: "+mapped);continue;}filtered.add(e);}
             entries=filtered;manifest.add("files",filtered);
         }
-        Rules rules=new Rules(network.json(base+"/action.json"+suffix));
-        JsonObject game=network.json(base+"/game-profile.json"+suffix);
+        ui.phase("正在读取更新规则与游戏配置");
+        Rules rules=new Rules(network.json(base+"/action.json"+suffix,8));
+        JsonObject game=network.json(base+"/game-profile.json"+suffix,8);
         if(portable!=null)validatePortableGame(game);
         Map<String,JsonObject> previous=new HashMap<>();if(old.has("files"))for(JsonElement e:old.getAsJsonArray("files")){JsonObject f=e.getAsJsonObject();previous.put(f.get("path").getAsString(),f);}
         List<Change> changes=new ArrayList<>();Set<Path> targets=new HashSet<>();Set<String> paths=new HashSet<>();Map<String,JsonObject> newEntries=new LinkedHashMap<>();
@@ -150,7 +159,7 @@ public final class Updater {
                 }
             }
             JsonObject logs;
-            try{logs=network.json(base+"/changelog.json"+suffix);}catch(IOException e){logs=local("local-changelog.json");warnings.add(e.getMessage());}
+            try{logs=network.json(base+"/changelog.json"+suffix,3);}catch(IOException e){logs=local("local-changelog.json");log("更新日志暂不可用，不影响文件更新: "+e.getMessage());}
             version.addProperty("updatedAt",Instant.now().toString());
             if(!optionalFailures.isEmpty()){
                 // Preserve the old per-file baseline and retry incomplete optional files next launch.
@@ -161,14 +170,14 @@ public final class Updater {
             stageMetadata(changes,stage,"local-changelog.json",logs);
             stageMetadata(changes,stage,"local-game-profile.json",game);
             stageMetadata(changes,stage,"local-version.json",version);
-            JsonObject beforeCommit=network.json(base+"/version.json");
+            JsonObject beforeCommit=network.json(base+"/version.json",8);
             if(IO.bool(beforeCommit,"maintenance",false)||!id.equals(IO.str(beforeCommit,"version","")))throw new IOException("服务正在维护或版本已变更，本次暂存文件未应用，请下次启动重试");
             Path backupDirectory=apply(changes);
             Files.deleteIfExists(cache.resolve("transaction.json"));
             Files.deleteIfExists(cache.resolve("transaction-agent"));
             deleteTree(backupDirectory);
             for(String warning:warnings)log(warning);
-            if(warnings.isEmpty())ui.complete(logs);else ui.summary("已尽可能完成更新\n推荐将以下报告发送给管理员。未完成项目将在下次启动重试。\n\n"+String.join("\n\n",warnings));log("更新完成: "+id+", "+(downloads.size()-optionalFailures.size())+" 个下载文件");
+            if(!managed){if(warnings.isEmpty())ui.complete(logs);else ui.summary("已尽可能完成更新\n推荐将以下报告发送给管理员。未完成项目将在下次启动重试。\n\n"+String.join("\n\n",warnings));}log("更新完成: "+id+", "+(downloads.size()-optionalFailures.size())+" 个下载文件");
         }catch(Exception e){recover();throw e;}finally{deleteTree(stage);}
     }
     private static void validateConnectionConfig(JsonObject value)throws IOException{

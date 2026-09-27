@@ -28,7 +28,7 @@ export interface Settings {
   accentColor: string;
   backgroundColor: string;
   blueprintInstance:string;
-  coverOpacity:number;
+  showCover:boolean;
   backgroundVideo:string;defaultCover:string;backgroundMusic:string;musicVolume:number;videoQuality:string;animationSpeed:number;
   backgroundImage: string;
   backgroundOpacity: number;
@@ -184,7 +184,7 @@ export const state = reactive<State>({
     fontSize: 15,
     accentColor: "#a9ce80",
     backgroundColor: "",
-    blueprintInstance:"",coverOpacity:1,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
+    blueprintInstance:"",showCover:true,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
     backgroundImage: "",
     backgroundOpacity: 0.4,
     backgroundPositionX: 50,
@@ -526,11 +526,11 @@ export function applyTheme() {
   const root = document.documentElement,
     cfg = state.settings;
   if (cfg.columns?.workspace) cfg.columns.workspace.visible = true;
-  cfg.coverOpacity = Math.max(.2, Math.min(1, Number(cfg.coverOpacity ?? 1) || .2));
+  cfg.showCover = cfg.showCover !== false;
   cfg.backgroundOpacity = Math.max(.2, Math.min(1, Number(cfg.backgroundOpacity ?? .4) || .2));
   for (const column of Object.values(cfg.columns || {})) column.opacity = Math.max(.2, Math.min(1, Number(column.opacity ?? 1) || .2));
   root.dataset.background = (cfg.backgroundImage||cfg.backgroundVideo) ? "custom" : "default";
-  root.style.setProperty('--cover-opacity',String(cfg.coverOpacity??1));
+
   root.dataset.motion=cfg.animationSpeed===0?'off':'on';
   root.style.setProperty('--motion-duration',(cfg.animationSpeed===0?0:260/(cfg.animationSpeed||1))+'ms');
   root.style.setProperty('--motion-fast',(cfg.animationSpeed===0?0:160/(cfg.animationSpeed||1))+'ms');

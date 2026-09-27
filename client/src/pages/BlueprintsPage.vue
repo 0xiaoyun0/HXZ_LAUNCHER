@@ -11,9 +11,28 @@ import {
   coverImage,
   displayDate
 } from "../lib/content";
-const downloadOpen=ref(false),downloadBusy=ref(false),destinations=ref<{id:string;name:string}[]>([]),destination=ref(''),rememberDestination=ref(false),downloadNote=ref('');
-async function chooseDownload(){destinations.value=await invoke('blueprints.instances');destination.value=destinations.value.some(i=>i.id===state.settings.blueprintInstance)?state.settings.blueprintInstance:'';rememberDestination.value=false;downloadNote.value='';downloadOpen.value=true;}
-async function downloadBlueprint(){if(!detail.value||downloadBusy.value)return;downloadBusy.value=true;try{const result=await invoke<{ok?:boolean;file?:string}>('blueprints.download',{id:detail.value.id,instance:destination.value});if(result.ok){if(rememberDestination.value)await saveSettings({blueprintInstance:destination.value});downloadNote.value='蓝图已保存：'+result.file;downloadOpen.value=false;}}finally{downloadBusy.value=false;}}
+const downloadOpen=ref(false),downloadBusy=ref(false),destinationLoading=ref(false),destinations=ref<{id:string;name:string}[]>([]),destination=ref(''),rememberDestination=ref(false),downloadNote=ref(''),downloadError=ref(''),destinationError=ref(''),downloadItem=ref<Blueprint|null>(null);
+async function chooseDownload(){
+  if(!detail.value)return;
+  downloadItem.value=detail.value;downloadOpen.value=true;destinationLoading.value=true;
+  destination.value='';rememberDestination.value=false;downloadNote.value='';downloadError.value='';destinationError.value='';destinations.value=[];
+  try{destinations.value=await invoke('blueprints.instances');destination.value=destinations.value.some(i=>i.id===state.settings.blueprintInstance)?state.settings.blueprintInstance:'';}
+  catch(e){destinationError.value='暂时无法读取实例：'+errorMessage(e)+'。仍可另存蓝图文件。';}
+  finally{destinationLoading.value=false;}
+}
+async function downloadBlueprint(){
+  if(!downloadItem.value||downloadBusy.value)return;
+  downloadBusy.value=true;downloadError.value='';
+  try{
+    const result=await invoke<{ok?:boolean;file?:string}>('blueprints.download',{id:downloadItem.value.id,instance:destination.value});
+    if(result.ok){
+      downloadNote.value='蓝图已保存：'+result.file;
+      if(rememberDestination.value)try{await saveSettings({blueprintInstance:destination.value});}catch(e){downloadNote.value+='（默认位置未保存：'+errorMessage(e)+'）';}
+      downloadOpen.value=false;
+    }
+  }catch(e){downloadError.value=errorMessage(e);}
+  finally{downloadBusy.value=false;}
+}
 const route = useRoute(),
   router = useRouter();
 const items = ref<Blueprint[]>([]),
@@ -62,13 +81,9 @@ const form = ref({
   create_version: "",
   dependencies: ""
 });
-const detailOpen = computed({
-  get: () => !!detail.value,
-  set: () => {
-    detail.value = null;
-    void router.push("/blueprints");
-  }
-});
+const isDetail = computed(() => typeof route.params.id === 'string');
+const detailLoading=ref(false);
+let detailGeneration=0;
 const canReview = computed(
   () =>
     access.value.reviewer &&
@@ -117,14 +132,19 @@ async function loadVersions() {
   }
 }
 async function openDetail(id: string) {
+  const generation=++detailGeneration;
+  detailLoading.value=true;detail.value=null;
   error.value = "";
   reason.value = "";
   try {
-    detail.value = await communityRequest(
+    const value = await communityRequest<Blueprint>(
       "/api/blueprints/" + encodeURIComponent(id)
     );
+    if(generation===detailGeneration)detail.value=value;
   } catch (e) {
-    error.value = errorMessage(e);
+    if(generation===detailGeneration)error.value = errorMessage(e);
+  } finally {
+    if(generation===detailGeneration)detailLoading.value=false;
   }
 }
 function filter() {
@@ -197,14 +217,14 @@ async function remove() {
     { method: "DELETE" },
     true
   );
-  detailOpen.value = false;
+  await router.push('/blueprints');
   await load();
 }
 watch(
   () => route.params.id,
   id => {
     if (typeof id === "string") void openDetail(id);
-    else detail.value = null;
+    else {detailGeneration++;detailLoading.value=false;detail.value = null;}
   },
   { immediate: true }
 );
@@ -224,10 +244,11 @@ onMounted(() => {
   void loadVersions();
 });
 </script>
-<template><p v-if="downloadNote" role="status">{{downloadNote}}</p><q-dialog v-model="downloadOpen" :persistent="downloadBusy"><q-card class="dialog-card"><q-card-section><h2>保存机械动力蓝图</h2><p>选择安装了 Create 的实例；已有同名蓝图会自动改名保留。</p><q-select v-model="destination" outlined label="保存位置" emit-value map-options :options="[{label:'另存到文件夹',value:''},...destinations.map(i=>({label:i.name,value:i.id}))]"/><p v-if="!destinations.length" class="subtle">未找到已启用 Create 的实例，可以先保存文件。</p><q-toggle v-model="rememberDestination" label="记住默认位置"/></q-card-section><q-card-actions align="right"><q-btn flat label="取消" :disable="downloadBusy" v-close-popup/><q-btn unelevated class="primary-button" :loading="downloadBusy" label="下载并保存" @click="perform(downloadBlueprint)"/></q-card-actions></q-card></q-dialog>
+<template>
+  <q-dialog v-model="downloadOpen" :persistent="downloadBusy"><q-card class="dialog-card blueprint-download"><q-card-section><div class="section-title"><h2>保存蓝图</h2><q-btn flat round icon="close" :disable="downloadBusy" v-close-popup aria-label="关闭下载"/></div><p>{{downloadItem?.title}}</p><q-select v-model="destination" outlined label="保存位置" emit-value map-options :loading="destinationLoading" :disable="downloadBusy||destinationLoading" :options="[{label:'另存为 .nbt 文件',value:''},...destinations.map(i=>({label:i.name,value:i.id}))]"/><p v-if="destinationError" class="info-note">{{destinationError}}</p><p v-else class="subtle">{{destinationLoading?'正在查找已安装机械动力的实例…':destinations.length?'导入所选实例的 schematics 文件夹，同名文件自动保留。':'未找到已启用 Create 的实例，可先另存蓝图文件。'}}</p><q-toggle v-model="rememberDestination" :disable="downloadBusy||destinationLoading" label="记住此保存位置"/><p v-if="downloadError" role="alert" class="info-note error-note">{{downloadError}}</p><div v-if="downloadBusy" class="blueprint-saving" role="status"><q-spinner size="20px"/><span>正在下载、校验并保存蓝图…</span></div></q-card-section><q-card-actions align="right"><q-btn v-if="downloadBusy" flat label="取消下载" @click="perform(()=>invoke('blueprints.cancel'))"/><q-btn v-else flat label="取消" v-close-popup/><q-btn unelevated class="primary-button" :loading="downloadBusy" :disable="destinationLoading" :label="destination?'下载并导入实例':'下载并另存'" @click="downloadBlueprint"/></q-card-actions></q-card></q-dialog>
   <div class="page-heading"
     ><div><h1>机械动力蓝图库</h1></div
-    ><q-btn
+    ><q-btn v-if="isDetail" outline icon="arrow_back" label="蓝图库" to="/blueprints"/><q-btn v-else
       class="primary-button"
       unelevated
       icon="upload"
@@ -235,7 +256,9 @@ onMounted(() => {
       :disable="!community.connected"
       @click="uploadOpen = true"
   /></div>
-  <div class="content-toolbar panel">
+  <p v-if="downloadNote" class="info-note" role="status">{{downloadNote}}</p>
+  <div v-if="error" class="info-note error-note q-mb-md" role="alert">{{error}}</div>
+  <template v-if="!isDetail"><div class="content-toolbar panel">
     <q-input
       v-model="query"
       outlined
@@ -362,7 +385,7 @@ onMounted(() => {
           ><span>{{ item.loader }}</span
           ><span>Create {{ item.create_version }}</span></div
         ><div class="blueprint-foot"
-          ><span>{{ item.metadata.dimensions?.join(" × ") || "等待上传" }}</span
+          ><span>{{ item.metadata?.dimensions?.join(" × ") || "等待上传" }}</span
           ><span><q-icon name="download" /> {{ item.downloads }}</span></div
         ></div
       >
@@ -376,16 +399,17 @@ onMounted(() => {
     class="content-pagination"
     @update:model-value="load"
   />
-  <q-dialog v-model="detailOpen"
-    ><div v-if="detail" class="dialog-panel content-detail"
+  </template>
+  <div v-if="isDetail && detailLoading" class="content-empty"><q-spinner size="30px"/><p>正在读取蓝图详情…</p></div>
+  <article v-if="isDetail && detail" class="panel blueprint-detail content-detail"
       ><div class="section-title"
         ><h2>{{ detail.title }}</h2
         ><q-btn
           flat
           round
-          icon="close"
-          title="关闭蓝图详情"
-          @click="detailOpen = false"
+          icon="arrow_back"
+          title="返回蓝图库"
+          to="/blueprints"
       /></div>
       <img
         v-if="detail.cover"
@@ -405,9 +429,9 @@ onMounted(() => {
       <dl class="blueprint-facts"
         ><div
           ><dt>尺寸</dt
-          ><dd>{{ detail.metadata.dimensions?.join(" × ") || "—" }}</dd></div
+          ><dd>{{ detail.metadata?.dimensions?.join(" × ") || "—" }}</dd></div
         ><div
-          ><dt>方块数</dt><dd>{{ detail.metadata.blocks || "—" }}</dd></div
+          ><dt>方块数</dt><dd>{{ detail.metadata?.blocks || "—" }}</dd></div
         ><div
           ><dt>文件</dt><dd>{{ (detail.size / 1024).toFixed(1) }} KB</dd></div
         ></dl
@@ -415,10 +439,10 @@ onMounted(() => {
       <p v-if="detail.dependencies" class="content-body"
         ><strong>模组依赖</strong><br />{{ detail.dependencies }}</p
       >
-      <details v-if="detail.metadata.materials?.length"
-        ><summary>方块类型（{{ detail.metadata.materials.length }}）</summary
+      <details v-if="detail.metadata?.materials?.length"
+        ><summary>方块类型（{{ detail.metadata?.materials.length }}）</summary
         ><p class="content-body subtle">{{
-          detail.metadata.materials.join("\n")
+          detail.metadata?.materials.join("\n")
         }}</p></details
       >
       <div v-if="detail.reason" class="info-note q-my-md"
@@ -458,8 +482,7 @@ onMounted(() => {
           @click="
             perform(chooseDownload)
           "
-      /></div> </div
-  ></q-dialog>
+      /></div> </article>
   <q-dialog v-model="uploadOpen" :persistent="uploading"
     ><div class="dialog-panel content-detail"
       ><form @submit.prevent="perform(upload)"
@@ -543,3 +566,7 @@ onMounted(() => {
         /></div> </form></div
   ></q-dialog>
 </template>
+
+<style scoped>
+.blueprint-detail{width:100%;max-width:960px;margin:0 auto;padding:24px;max-height:none;overflow:visible;border-radius:12px}.blueprint-detail .section-title{align-items:flex-start;gap:16px}.blueprint-detail h2{overflow-wrap:anywhere;line-height:1.5}.blueprint-detail details{border-top:1px solid var(--border);padding:16px 0}.blueprint-detail details .content-body{max-height:280px;overflow:auto}.blueprint-download{width:540px}.blueprint-download .q-card__section{padding:24px}.blueprint-download .q-card__actions{padding:0 24px 24px}.blueprint-saving{display:flex;align-items:center;gap:12px;margin-top:18px}.blueprint-download p{overflow-wrap:anywhere;line-height:1.7}.blueprint-detail .content-detail-cover{max-height:300px;object-fit:contain;background:var(--panel-hover)}
+</style>

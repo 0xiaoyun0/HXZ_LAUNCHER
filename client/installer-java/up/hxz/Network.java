@@ -104,14 +104,35 @@ final class Network {
         }finally{connection.disconnect();}
     }
     JsonObject json(String url)throws IOException{
-        HttpURLConnection c=connect(url);
+        return json(url,null);
+    }
+    // Small update metadata has its own wall-clock budget, independent of file retries.
+    JsonObject json(String url,int seconds)throws IOException{
+        RaceState state=new RaceState();
+        Network metadata=new Network(Math.max(1,Math.min(seconds,timeout/1000)),0,1);
+        Future<JsonObject> task=SOURCES.submit(()->metadata.json(url,state));
+        try{return task.get(seconds,TimeUnit.SECONDS);}
+        catch(TimeoutException e){throw new SocketTimeoutException("更新信息请求超时: "+url);}
+        catch(InterruptedException e){Thread.currentThread().interrupt();throw new InterruptedIOException("更新检查已取消");}
+        catch(ExecutionException e){if(e.getCause() instanceof IOException)throw (IOException)e.getCause();throw new IOException("更新信息读取失败",e.getCause());}
+        finally{state.cancelled=true;task.cancel(true);for(HttpURLConnection c:state.connections)SOURCES.execute(c::disconnect);}
+    }
+    static boolean unavailable(Throwable failure){
+        for(Throwable e=failure;e!=null;e=e.getCause()){
+            if(e instanceof HttpFailure){int code=((HttpFailure)e).status;return code==408||code==429||code>=500;}
+            if(e instanceof SocketException||e instanceof SocketTimeoutException||e instanceof UnknownHostException||e instanceof javax.net.ssl.SSLException)return true;
+        }
+        return false;
+    }
+    private JsonObject json(String url,RaceState state)throws IOException{
+        HttpURLConnection c=connect(url,state==null?null:state.connections,state);
         try(InputStream in=c.getInputStream();Reader reader=new InputStreamReader(new FilterInputStream(in){
             private long count;
             @Override public int read()throws IOException{int b=super.read();if(b>=0&&++count>IO.MAX_JSON)throw new IOException("服务端元数据过大");return b;}
             @Override public int read(byte[] b,int off,int len)throws IOException{int n=in.read(b,off,len);if(n>0){count+=n;if(count>IO.MAX_JSON)throw new IOException("服务端元数据过大");}return n;}
         },StandardCharsets.UTF_8)){
             return JsonParser.parseReader(reader).getAsJsonObject();
-        }catch(JsonParseException|IllegalStateException e){throw new IOException("服务端返回无效 JSON",e);}finally{c.disconnect();}
+        }catch(JsonParseException|IllegalStateException e){throw new IOException("服务端返回无效 JSON",e);}finally{c.disconnect();if(state!=null)state.connections.remove(c);}
     }
     Path race(List<String> urls,Path directory,String sha1,long expected)throws IOException,InterruptedException{
         String label="";if(!urls.isEmpty())try{String path=new URI(urls.get(0)).getPath();label=path.substring(path.lastIndexOf('/')+1);}catch(Exception ignored){}

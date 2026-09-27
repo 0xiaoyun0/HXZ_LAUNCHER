@@ -363,7 +363,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
               " ORDER BY p.pinned DESC," + ({newest:"p.created DESC",oldest:"p.created ASC",likes:"likes DESC,p.created DESC",replies:"replies DESC,p.created DESC",active:"p.updated DESC"}[url.searchParams.get("sort")]||"p.created DESC") + ",p.id DESC LIMIT ? OFFSET ?",
           )
           .all(...args, size, offset);
-        send(res, 200, { items, total });
+        send(res, 200, { items, total,sortVersion:1,sort:['newest','oldest','likes','replies','active'].includes(url.searchParams.get('sort'))?url.searchParams.get('sort'):'newest' });
         return true;
       }
       if (p === "/api/forum/posts" && method === "POST") {

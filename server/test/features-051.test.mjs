@@ -6,6 +6,7 @@ import os from 'node:os';
 import {once} from 'node:events';
 import {createCommunity} from '../src/server.mjs';
 import {createGame,step,replay} from '../shared/arcade-engine.mjs';
+import * as previous from '../shared/arcade-engine-v3.mjs';
 import {createBoard,botMove,playMove} from '../shared/board-games.mjs';
 
 test('new arcade rules replay deterministically, maze is connected, five-level tactics stay legal',()=>{
@@ -40,4 +41,19 @@ test('public API hides private content, forum sorting works, rules versions stay
  assert.equal((await request('/api/arcade/runner/start',{},token)).rulesVersion,2);
  assert.equal((await request('/api/arcade/runner/start',{rulesVersion:3},token)).rulesVersion,3);
  assert.equal((await request('/api/arcade/fighter/start',{rulesVersion:3},token)).rulesVersion,3);
+ assert.equal((await request('/api/arcade/fighter/start',{rulesVersion:4},token)).rulesVersion,4);
+});
+
+test('new pointer positions follow input immediately while published rules remain unchanged',()=>{
+ for(const id of ['danmaku','fighter']){
+  const old=previous.createGame(id,1),current=createGame(id,1),target={x:300,y:220};
+  previous.step(old,[target]);step(current,[target]);
+  assert.equal(current.x,300);assert.equal(current.y,220);assert.ok(old.x<190);
+  assert.deepEqual(replay(id,1,1,[[1,target]]),current);
+ }
+ const old=previous.createGame('runner',1),current=createGame('runner',1);
+ for(const s of [old,current])s.obstacles=[{x:300,w:20,h:28}];
+ previous.step(old);step(current);
+ assert.ok(Math.abs(300-current.obstacles[0].x-7.2024)<.00001);
+ assert.ok(300-old.obstacles[0].x>12);
 });

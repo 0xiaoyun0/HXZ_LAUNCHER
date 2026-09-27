@@ -1,4 +1,4 @@
-import {EXTRA_GAMES,createExpanded,stepExpanded} from './arcade-expanded.mjs';
+import {EXTRA_GAMES,createExpanded,stepExpanded} from './arcade-expanded-v3.mjs';
 // Pure fixed-step simulation shared by both clients and score verification.
 export const GAMES=[
   {id:'runner',name:'林间疾跑',tag:'反应 · 无尽挑战',description:'穿过晨雾与松林，挑战更远的路途',keys:'空格 / W / ↑ 跳跃',color:'#9dd9a8'},
@@ -39,8 +39,7 @@ export function step(s,actions=[]){
     if(actions.includes('jump')&&s.y===0)s.vy=10.5;
     s.y=Math.max(0,s.y+s.vy);s.vy=s.y? s.vy-.62:0;
     if(--s.next<=0){s.obstacles.push({x:375,w:16+Math.floor(random(s)*15),h:28+Math.floor(random(s)*16)});s.next=45+Math.floor(random(s)*45);}
-    // 600px / 60Hz reference translated to our 360px / 30Hz world.
-    const speed=Math.min(15.6,7.2+s.tick*.0024);
+    const speed=12+Math.min(7,s.tick/720);
     for(const o of s.obstacles){const oldX=o.x;o.x-=speed;if(o.x<70&&oldX+o.w>44&&s.y<o.h)s.over=true;}
     s.obstacles=s.obstacles.filter(o=>o.x+o.w>0);s.score=Math.floor(s.tick/6);
   } else if(s.game==='blocks'){
@@ -55,7 +54,7 @@ export function step(s,actions=[]){
   } else if(s.game==='breakout'){
     let target=s.paddle;
     for(const a of actions){if(a==='left')target-=9;if(a==='right')target+=9;if(typeof a==='object')target=a.x;}
-    s.paddle=Math.max(42,Math.min(318,target));
+    s.paddle=Math.max(42,Math.min(318,s.paddle+Math.max(-9,Math.min(9,target-s.paddle))));
     const b=s.ball;
     if(s.serve>0){s.serve--;b.x=s.paddle;b.y=410;return s;}
     const velocity=4.2+Math.min(6,s.level*.12),wide=s.wideUntil>s.tick?62:42,slow=s.slowUntil>s.tick ? .7 : 1;
