@@ -21,7 +21,6 @@ import PackImport from "../components/PackImport.vue";
 import LaunchDock from "../components/LaunchDock.vue";
 const route = useRoute();
 const links = [
-  { to: "/shop", icon: "storefront", label: "积分商城" },
   { to: "/", icon: "sports_esports", label: "启动游戏" },
   { to: "/instances", icon: "widgets", label: "游戏实例" },
   { to: "/downloads", icon: "download", label: "下载与安装" },
@@ -29,6 +28,7 @@ const links = [
   { to: "/chat", icon: "forum", label: "聊天大厅" },
   { to: "/forum", icon: "article", label: "幻想镇论坛" },
   { to: "/games", icon: "videogame_asset", label: "小游戏" },
+  { to: "/shop", icon: "storefront", label: "积分商城" },
   { to: "/notices", icon: "campaign", label: "通知公告" }
 ];
 const visibleLinks = computed(() =>

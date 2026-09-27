@@ -2990,7 +2990,7 @@ a:focus-visible {
   padding: 24px;
   background: linear-gradient(transparent, #000a);
   color: #fff;
-  text-shadow: 0 1px 8px #0008;
+  text-shadow: none;
 }
 .custom-cover .preview-caption span {
   color: #fff;
@@ -4451,7 +4451,7 @@ button,.q-btn,.nav-link{transition:background-color var(--motion-fast,160ms),box
 :root[data-workspace-custom="true"] .window-bar{background:var(--workspace-surface)!important}
 .main-cover{background:transparent!important;color:var(--text)}
 .cover-visual{position:absolute;inset:0;background:linear-gradient(110deg,#264737,#38594a);opacity:var(--cover-opacity,1);transition:opacity var(--motion-fast,160ms)}
-.main-cover .preview-caption{color:var(--text);text-shadow:0 1px 8px var(--panel)}
+.main-cover .preview-caption{color:var(--text);text-shadow:none}
 .main-cover .preview-caption>span,.main-cover .preview-caption p{color:var(--text)}
 .q-dialog__backdrop{background:rgba(10,17,14,.72)!important;backdrop-filter:blur(10px)}
 .q-dialog__inner>.q-card,.q-dialog__inner>.panel,.q-menu{background:var(--panel)!important;opacity:1!important;color:var(--text)}
