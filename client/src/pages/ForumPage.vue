@@ -157,7 +157,7 @@ async function selectReply(item: ForumReply) {
   if (sending.value) return;
   replyParent.value = item;
   await nextTick();
-  composer.value?.$el.scrollIntoView({ block: "center", behavior: "smooth" });
+  composer.value?.$el.scrollIntoView({ block: "center", behavior: document.documentElement.dataset.motion === 'off' || matchMedia('(prefers-reduced-motion: reduce)').matches ? "auto" : "smooth" });
   composer.value?.focus();
 }
 function parentName(item: ForumReply) {

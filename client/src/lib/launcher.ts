@@ -529,8 +529,8 @@ export function applyTheme() {
   root.dataset.background = (cfg.backgroundImage||cfg.backgroundVideo) ? "custom" : "default";
   root.style.setProperty('--cover-opacity',String(cfg.coverOpacity??1));
   root.dataset.motion=cfg.animationSpeed===0?'off':'on';
-  root.style.setProperty('--motion-duration',(260/(cfg.animationSpeed||1))+'ms');
-  root.style.setProperty('--motion-fast',(160/(cfg.animationSpeed||1))+'ms');
+  root.style.setProperty('--motion-duration',(cfg.animationSpeed===0?0:260/(cfg.animationSpeed||1))+'ms');
+  root.style.setProperty('--motion-fast',(cfg.animationSpeed===0?0:160/(cfg.animationSpeed||1))+'ms');
   root.dataset.layout = cfg.layout || "standard";
   root.style.setProperty("--ui-font-size", (cfg.fontSize || 15) + "px");
   const accent = cfg.accentColor || "#a9ce80";

@@ -4439,7 +4439,8 @@ a:focus-visible {
 :root[data-background="custom"][data-theme="dark"] .panel,:root[data-background="custom"][data-theme="dark"] .world-list,:root[data-background="custom"][data-theme="dark"] .world-detail{background:rgba(27,38,33,.76)}
 .q-dialog__inner>div{transition-duration:var(--motion-duration,260ms)}
 button,.q-btn,.nav-link{transition:background-color var(--motion-fast,160ms),box-shadow var(--motion-fast,160ms),transform var(--motion-fast,160ms)}
-:root[data-motion="off"] *,:root[data-motion="off"] *::before,:root[data-motion="off"] *::after{animation-duration:.001ms!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+:root[data-motion="off"] *,:root[data-motion="off"] *::before,:root[data-motion="off"] *::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+:root[data-motion="off"] .q-ripple{display:none!important}
 :root[data-motion="off"] .spectator-overlay>span{animation:none!important;left:8px}
 
 /* A surface is painted once; dialogs never inherit workspace transparency. */
