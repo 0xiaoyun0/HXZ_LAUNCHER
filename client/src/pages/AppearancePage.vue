@@ -52,6 +52,7 @@ const form = reactive({
   },
   layout: state.settings.layout
 });
+watch(() => state.settings.animationSpeed, value => { form.animationSpeed = value; });
 async function save() {
   form.columns.workspace.visible = true;
   await saveSettings({
