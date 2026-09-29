@@ -1,0 +1,12 @@
+import fs from 'node:fs/promises';import path from 'node:path';import {createPackage} from '@electron/asar';
+import {copyCardLicenses} from './card-licenses.mjs';
+const root=process.cwd(),target=path.join(root,'release','HXZ-NEXT-0.6.0-win-x64'),runtime=path.join(root,'.runtime/electron');
+await fs.mkdir(target,{recursive:true});await fs.cp(runtime,target,{recursive:true,force:true});
+await fs.rename(path.join(target,'electron.exe'),path.join(target,'幻想镇 NEXT.exe')).catch(async e=>{if(e.code!=='EEXIST')throw e;});
+const staging=path.join(root,'.runtime/package');await fs.mkdir(staging,{recursive:true});
+for(const name of ['dist','electron-build','package.json'])await fs.cp(path.join(root,'apps/desktop',name),path.join(staging,name),{recursive:true,force:true});
+await createPackage(staging,path.join(target,'resources/app.asar'));
+for(const name of ['hxzup','installer','direct-lobby'])await fs.cp(path.join(root,'resources',name),path.join(target,'resources',name),{recursive:true,force:true});
+await fs.copyFile(path.join(root,'resources/icon.ico'),path.join(target,'resources/icon.ico'));await fs.writeFile(path.join(target,'使用说明.txt'),'幻想镇 NEXT 0.6.0 · 本地交付版\r\n双击「幻想镇 NEXT.exe」。\r\n本版本使用本目录 profile 保存账号与偏好，launcher-cache 保存依赖。\r\n不会自动读取旧启动器的账号。游戏目录请按自己的需求选择。\r\n安装中可关闭任务面板；程序关闭会在任务进行时最小化，需取消任务后退出。\r\n在线启动器升级在验收版中停用，防止正式版覆盖。游戏及 HXZ UP 更新正常接入。\r\n','utf8');
+console.info(target);
+await copyCardLicenses(root,target);

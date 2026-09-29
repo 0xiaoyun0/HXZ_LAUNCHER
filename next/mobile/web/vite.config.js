@@ -1,0 +1,3 @@
+import {defineConfig} from 'vite';
+import vue from '@vitejs/plugin-vue';
+export default defineConfig({plugins:[vue()],resolve:{dedupe:['vue']},build:{target:'es2019',assetsInlineLimit:0},base:'./'});

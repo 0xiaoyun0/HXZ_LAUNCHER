@@ -1,0 +1,9 @@
+{
+  "name": "fantasy-town-next-desktop",
+  "version": "0.6.0",
+  "main": "electron-build/main.cjs",
+  "description": "幻想镇 NEXT 本地交付版",
+  "author": "幻想镇",
+  "private": true,
+  "type": "module"
+}
