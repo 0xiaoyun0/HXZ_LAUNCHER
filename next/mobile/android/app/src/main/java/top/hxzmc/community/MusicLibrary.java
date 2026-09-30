@@ -26,6 +26,9 @@ final class MusicLibrary {
     }
     Object call(JSONObject input)throws Exception{
         String action=input.optString("action");
+        if(action.startsWith("account."))return new NeteaseSession(app).call(input);
+        if(action.equals("lyrics")){JSONObject r=json("song/lyric?id="+id(input.optString("id"))+"&lv=-1&tv=-1");return CommunityApp.obj("original",r.optJSONObject("lrc")==null?"":r.getJSONObject("lrc").optString("lyric"),"translation",r.optJSONObject("tlyric")==null?"":r.getJSONObject("tlyric").optString("lyric"));}
+
         if(action.equals("search")){String query=input.optString("query").trim();if(query.length()>200)query=query.substring(0,200);JSONObject response=json("search/get/web?s="+URLEncoder.encode(query,"UTF-8")+"&type=1&limit=25&offset=0");JSONArray songs=response.optJSONObject("result")==null?null:response.getJSONObject("result").optJSONArray("songs"),items=new JSONArray();if(songs!=null)for(int i=0;i<songs.length();i++)items.put(track(songs.getJSONObject(i)));return CommunityApp.obj("items",items);}
         if(action.equals("playlist")){
             String value=input.optString("link").trim();if(!value.matches("[0-9]{1,18}")){
@@ -46,6 +49,8 @@ final class MusicLibrary {
         // Only cached online files are evicted. Imported files are never removed here.
         File[] cached=dir.listFiles((d,n)->n.startsWith("cloud-"));if(cached!=null){Arrays.sort(cached,Comparator.comparingLong(File::lastModified));long size=0;for(File f:cached)size+=f.length();for(File f:cached)if(size>150L*1024*1024){size-=f.length();f.delete();}}
         File target=new File(dir,"cloud-"+key+".mp3");if(target.isFile()&&target.length()>0){target.setLastModified(System.currentTimeMillis());return CommunityApp.obj("url","/media/"+target.getName());}
+        String privateUrl=null;try{privateUrl=new NeteaseSession(app).audio(key);}catch(IOException e){if(!e.getMessage().contains("请先"))throw e;}
+        if(privateUrl!=null)return CommunityApp.obj("url",privateUrl,"privateAudio",true);
         for(int turn=0;turn<6;turn++){
             HttpUrl address=HttpUrl.parse(url);if(address==null||!address.isHttps()||!(address.host().equals("music.163.com")||address.host().endsWith(".music.126.net")))throw new IOException("音频地址无效");
             try(Response r=app.http.newCall(new Request.Builder().url(address).header("Referer","https://music.163.com/").build()).execute()){

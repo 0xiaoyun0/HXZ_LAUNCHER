@@ -35,6 +35,7 @@ export const bytes=(n:number)=>n>1048576?(n/1048576).toFixed(1)+' MB':n>1024?(n/
 window.launcher?.subscribe(e=>{
  if(e.type==='log'||e.type==='logs'){task.logs.push(...(e.lines||[e.line]).filter(Boolean));if(task.logs.length>5000)task.logs.splice(0,task.logs.length-5000);}
  if(e.type==='logs-reset'){Object.assign(task,newTaskProgress(),{logs:[]});}
+ if(e.type==='hxzup-window'){ui.hxzup=e; if(e.open)ui.tasks=false;}
  if(e.type==='decision')ui.decision=e;
  if(e.type==='decision-close')ui.decision=null;
  if(e.type==='game-crash'){ui.crash=e.report;ui.dialog='crash';}

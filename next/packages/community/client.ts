@@ -259,6 +259,8 @@ export async function connect() {
         community.id = packet.id!;
         community.user = packet.user!;
         community.messages = packet.messages || [];
+      } else if(packet.type === "inbox-changed"){window.dispatchEvent(new Event("hxz-inbox"));
+      } else if(packet.type === "music-access-changed"){window.dispatchEvent(new Event("hxz-music-access"));
       } else if (packet.type === "presence") {
         const users=packet.users||[];
         const devices=new Map<string,Set<string>>();
@@ -547,3 +549,5 @@ export async function communityAsset(
   }
   return new Blob(chunks, { type: type! });
 }
+
+export function communityAvatar(uid?:string,version?:string){if(!uid||version==='')return '';const base=credentials?.base||state.settings.communityUrl.replace(/\/$/,'');return base+'/api/avatars/'+encodeURIComponent(uid)+(version?'?v='+encodeURIComponent(version):'');}

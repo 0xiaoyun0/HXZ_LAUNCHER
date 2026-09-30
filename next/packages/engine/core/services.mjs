@@ -80,7 +80,8 @@ export async function createServices({
   window,
   emit,
   openSkin,
-  skinPanel
+  skinPanel,
+  netease
 }) {
   await fs.mkdir(data, { recursive: true });
   const dependencies=await dependencyStore(dependencyRoot,data);
@@ -489,7 +490,11 @@ export async function createServices({
       });
     });
   }
-  async function updateInstance(id, cfg, signal) {
+  async function updateInstance(id,cfg,signal){
+    if(settings.hxzupPopup!==false)emit({type:'hxzup-window',open:true,id});
+    try{return await executeInstanceUpdate(id,cfg,signal);}finally{emit({type:'hxzup-window',open:false,id});}
+  }
+  async function executeInstanceUpdate(id, cfg, signal) {
     const instance = inside(settings.gameRoot, `versions/${id}`),
       updater = path.join(instance, "updater");
     await noLinks(updater);
@@ -515,7 +520,7 @@ export async function createServices({
       ...existingConfig,
       servers: [availableSource,...urls.map(normalizeUpdateUrl).filter(url=>url!==availableSource)],
       parallelDownloads: settings.downloadConcurrency,
-      showChangelog: settings.hxzupPopup !== false,
+      showChangelog: false,
       theme: settings.theme
     };
     if (
@@ -534,7 +539,7 @@ export async function createServices({
     phase({
       phase:
         settings.hxzupPopup !== false
-          ? "在 HXZ UP 窗口中更新"
+          ? "正在更新整合包"
           : "正在执行 HXZ UP 更新",
       busy: true
     });
@@ -548,7 +553,7 @@ export async function createServices({
         "-Dstderr.encoding=UTF-8",
         "-Dsun.stdout.encoding=UTF-8",
         "-Dsun.stderr.encoding=UTF-8",
-        "-Djava.awt.headless=" + (settings.hxzupPopup === false),
+        "-Djava.awt.headless=true",
         "-Dhxz.launcher.managed=true",
         "-jar",
         path.join("updater", "updater-launcher.jar")
@@ -944,14 +949,19 @@ export async function createServices({
     };
   }
   let stopDirectHelper=null;
-  const lobby=createDirectLobby({emit:event=>{if(event.value.mode==='idle'){void stopDirectHelper?.();stopDirectHelper=null;}emit(event);},request:async(route,options={})=>{
+  const lobby=createDirectLobby({relaySession:()=>actions['community.connect']({}),emit:event=>{if(event.value.mode==='idle'){void stopDirectHelper?.();stopDirectHelper=null;}emit(event);},request:async(route,options={})=>{
     const session=await actions['community.connect']({});
     try{return await remoteJSON(session.base+route,{method:options.method||'GET',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json'},...(options.body?{body:JSON.stringify(options.body)}:{}),signal:AbortSignal.timeout(12000)});}
     catch(error){if(error.status===404)throw Error('社区服务端尚未安装联机权限扩展，请联系管理员；加入已有房间不受影响');throw error;}
   }});
   const actions = {
-    ...createMusicService({data,dialog,window}),
+    ...createMusicService({data,dialog,window,netease,identity:async()=>{
+      const s=await actions['community.connect']({});
+      const permission=await remoteJSON(s.base+'/api/music/access',{headers:{Authorization:'Bearer '+s.token},signal:AbortSignal.timeout(12000)});
+      return {base:s.base,uid:s.user.uid,allowed:permission.allowed};
+    }}),
     'lobby.status':()=>lobby.status(),
+    'lobby.adapters':()=>lobby.adapters(),
     'lobby.access':()=>lobby.access(),
     'lobby.rooms':()=>lobby.rooms(),
     'lobby.grants':()=>lobby.grants(),
@@ -1622,7 +1632,7 @@ export async function createServices({
     async "instance.cover"(input) {
       const key=input.id;if(typeof key!=="string"||!key||key.length>100||/[\\/:]/.test(key)||[".","..","__proto__","constructor","prototype"].includes(key))throw Error("无效实例");
       if(input.media){const value=await actions['media.choose']({});if(value){settings.instanceSettings[key]={...settings.instanceSettings[key],coverMedia:value};await writeJSON(configFile,settings);}return value;}
-      if(input.reset&&settings.instanceSettings[key]){delete settings.instanceSettings[key].coverMedia;await writeJSON(configFile,settings);}
+      if(input.reset){settings.instanceSettings[key]={...settings.instanceSettings[key],coverPositionX:50,coverPositionY:50,coverZoom:1};delete settings.instanceSettings[key].coverMedia;await writeJSON(configFile,settings);}
       if(!input.choose&&!input.reset&&settings.instanceSettings[key]?.coverMedia)return settings.instanceSettings[key].coverMedia;
       if (typeof input.id !== "string" || !input.id || input.id.length > 100)
         throw Error("无效实例");

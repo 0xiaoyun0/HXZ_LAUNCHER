@@ -2,7 +2,7 @@ import {proxy} from 'valtio';
 import {invoke,state,notify,saveSettings} from './model';
 import {community,shareRoomMusic} from '../../../packages/community/client';
 
-export const music=proxy<any>({items:[],current:null,playing:false,loading:false,position:0,duration:0,error:'',notice:'',mode:'list',ready:false});
+export const music=proxy<any>({lyrics:[],lyricError:'',lyricCandidates:[],lyricLoading:false,lyricsFloating:false,items:[],current:null,playing:false,loading:false,position:0,duration:0,error:'',notice:'',mode:'list',ready:false});
 let audio:HTMLAudioElement|null=null,context:AudioContext|null=null,localGain:GainNode|null=null,destination:MediaStreamAudioDestinationNode|null=null,generation=0;
 type PlaybackRun={failed:Set<string>;skipped:number};
 function detachMediaHandlers(){if(audio){audio.onerror=null;audio.ontimeupdate=null;}}
@@ -39,6 +39,7 @@ async function attemptTrack(track:any,run:PlaybackRun,resume=false):Promise<void
  }
  function failed(error:any){if(token!==generation)return Promise.resolve();return recovery??(recovery=recover(error));}
  try{
+  if(resume&&track.privateAudio){const status=await invoke('music.account.status');if(!status.allowed||!status.loggedIn)throw Error('网易云账号授权已失效，请重新登录或联系社区管理员');}
   const prepared=resume||track.legacy?track:await invoke('music.prepare',{id:track.id});if(token!==generation)return;
   if(!prepared.url)throw Error('歌曲没有可用的音频地址');
   music.current=prepared;

@@ -15,7 +15,7 @@ export const BLUEPRINT_CATEGORIES = [
   "其他",
 ];
 export const FORUM_CATEGORIES = ["交流讨论", "游戏求助", "作品分享", "建议反馈"];
-export function createContent({ data, db, auth, admin, adminIDs, body, send, limit }) {
+export function createContent({ data, db, auth, admin, adminIDs, body, send, limit, inbox }) {
   const directory = path.join(data, "blueprints");
   mkdirSync(directory, { recursive: true });
   const uploads = new Set();
@@ -34,7 +34,9 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
     db.exec("ALTER TABLE forum_replies ADD COLUMN parent_id TEXT REFERENCES forum_replies(id) ON DELETE SET NULL");
   db.exec("CREATE INDEX IF NOT EXISTS forum_reply_parent ON forum_replies(parent_id)");
   db.exec("CREATE TABLE IF NOT EXISTS forum_reply_likes(reply_id TEXT NOT NULL REFERENCES forum_replies(id) ON DELETE CASCADE,uid TEXT NOT NULL,PRIMARY KEY(reply_id,uid))");
-  function replyView(row,user) { return {...row,parentId:row.parent_id,likes:db.prepare('SELECT COUNT(*) AS n FROM forum_reply_likes WHERE reply_id=?').get(row.id).n,liked:!!user&&!!db.prepare('SELECT 1 FROM forum_reply_likes WHERE reply_id=? AND uid=?').get(row.id,user.uid)}; }
+  db.exec(`CREATE TABLE IF NOT EXISTS forum_favorites(post_id TEXT NOT NULL REFERENCES forum_posts(id) ON DELETE CASCADE,uid TEXT NOT NULL,PRIMARY KEY(post_id,uid));
+    CREATE TABLE IF NOT EXISTS blueprint_reactions(blueprint_id TEXT NOT NULL REFERENCES blueprints(id) ON DELETE CASCADE,uid TEXT NOT NULL,kind TEXT NOT NULL,PRIMARY KEY(blueprint_id,uid,kind));`);
+  function replyView(row,user) { return {...row,avatarVersion:db.prepare("SELECT version FROM profiles WHERE uid=?").get(row.uid)?.version||"",parentId:row.parent_id,likes:db.prepare('SELECT COUNT(*) AS n FROM forum_reply_likes WHERE reply_id=?').get(row.id).n,liked:!!user&&!!db.prepare('SELECT 1 FROM forum_reply_likes WHERE reply_id=? AND uid=?').get(row.id,user.uid)}; }
   const fail = (message, status = 400) => {
     throw Object.assign(Error(message), { status });
   };
@@ -66,8 +68,10 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
   function visible(item, user) {
     return item.status === "approved" || user?.uid === item.uid || reviewer(user);
   }
-  function presented(item) {
-    return { ...item, metadata: JSON.parse(item.metadata) };
+  function presented(item,user) {
+    const reactions=db.prepare('SELECT kind,COUNT(*) AS n FROM blueprint_reactions WHERE blueprint_id=? GROUP BY kind').all(item.id);
+    const mine=user?db.prepare('SELECT kind FROM blueprint_reactions WHERE blueprint_id=? AND uid=?').all(item.id,user.uid).map(r=>r.kind):[];
+    return {...item,likes:reactions.find(r=>r.kind==='like')?.n||0,favorites:reactions.find(r=>r.kind==='favorite')?.n||0,liked:mine.includes('like'),favorited:mine.includes('favorite'), metadata: JSON.parse(item.metadata) };
   }
   function cover(value = "") {
     if (!value) return "";
@@ -110,13 +114,15 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
   function post(id, user, manage = false) {
     const item = db
       .prepare(
-        "SELECT p.*, (SELECT COUNT(*) FROM forum_likes WHERE post_id=p.id) AS likes, (SELECT COUNT(*) FROM forum_replies WHERE post_id=p.id AND hidden=0) AS replies FROM forum_posts p WHERE p.id=?",
+        "SELECT p.*, (SELECT version FROM profiles WHERE uid=p.uid) AS avatarVersion, (SELECT COUNT(*) FROM forum_likes WHERE post_id=p.id) AS likes, (SELECT COUNT(*) FROM forum_replies WHERE post_id=p.id AND hidden=0) AS replies FROM forum_posts p WHERE p.id=?",
       )
       .get(id);
     if (!item || (item.hidden && !(manage && isAdmin(user)))) fail("帖子不存在或已被管理", 404);
     item.liked =
       !!user &&
       !!db.prepare("SELECT 1 FROM forum_likes WHERE post_id=? AND uid=?").get(id, user.uid);
+    item.favorites=db.prepare('SELECT COUNT(*) AS n FROM forum_favorites WHERE post_id=?').get(id).n;
+    item.favorited=!!user&&!!db.prepare('SELECT 1 FROM forum_favorites WHERE post_id=? AND uid=?').get(id,user.uid);
     return item;
   }
   return {
@@ -215,7 +221,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
             "SELECT * FROM blueprints WHERE " + where + " ORDER BY updated DESC LIMIT ? OFFSET ?",
           )
           .all(...args, size, offset)
-          .map(presented);
+          .map(item=>presented(item,user));
         send(res, 200, { items, total });
         return true;
       }
@@ -252,17 +258,25 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
         send(res, 201, { id });
         return true;
       }
-      const match = p.match(/^\/api\/blueprints\/([\w-]+)(?:\/(file|review))?$/);
+      const match = p.match(/^\/api\/blueprints\/([\w-]+)(?:\/(file|review|like|favorite))?$/);
       if (match) {
         const item = blueprint(match[1]),
           user = optionalUser(req);
+        if(['like','favorite'].includes(match[2])&&method==='PUT'){
+          const user=auth(req);if(item.status!=='approved')fail('只能操作已发布的蓝图',403);limit('blueprint-reaction:'+user.uid,60);
+          const input=await body(req);if(typeof input.enabled!=='boolean')fail('操作无效');
+          if(input.enabled)db.prepare('INSERT OR IGNORE INTO blueprint_reactions VALUES(?,?,?)').run(item.id,user.uid,match[2]);
+          else db.prepare('DELETE FROM blueprint_reactions WHERE blueprint_id=? AND uid=? AND kind=?').run(item.id,user.uid,match[2]);
+          if(input.enabled)inbox?.notify({recipients:[item.uid],actor:user,kind:match[2],title:user.name+(match[2]==='like'?' 赞了':' 收藏了')+'你的蓝图',body:item.title,target:'/workshop/blueprints?item='+item.id,dedupe:'blueprint-'+match[2]+':'+item.id+':'+user.uid});
+          send(res,200,presented(blueprint(item.id),user));return true;
+        }
         if (match[2] === "file" && method === "GET") {
           await downloadFile(req, res, item);
           return true;
         }
         if (!match[2] && method === "GET") {
           if (!visible(item, user)) fail("蓝图尚未通过审核", 403);
-          send(res, 200, presented(item));
+          send(res, 200, presented(item,user));
           return true;
         }
         if (!match[2] && method === "DELETE") {
@@ -270,6 +284,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
           if (uploads.has(item.id)) fail("文件正在上传，请稍后删除");
           await fs.rm(path.join(directory, item.id + ".nbt"), { force: true });
           db.prepare("DELETE FROM blueprints WHERE id=?").run(item.id);
+          inbox?.redact('/workshop/blueprints?item='+item.id);
           audit(user, "blueprint", item.id, "delete");
           send(res, 200, { ok: true });
           return true;
@@ -294,6 +309,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
             Date.now(),
             item.id,
           );
+          if(input.status==='rejected')inbox?.redact('/workshop/blueprints?item='+item.id);
           audit(user, "blueprint", item.id, input.status, reason);
           send(res, 200, { ok: true });
           return true;
@@ -358,7 +374,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
           .get(...args).n;
         const items = db
           .prepare(
-            "SELECT p.*, substr(p.body,1,180) AS body, (SELECT COUNT(*) FROM forum_likes WHERE post_id=p.id) AS likes,(SELECT COUNT(*) FROM forum_replies WHERE post_id=p.id AND hidden=0) AS replies FROM forum_posts p WHERE " +
+            "SELECT p.*, (SELECT version FROM profiles WHERE uid=p.uid) AS avatarVersion, substr(p.body,1,180) AS body, (SELECT COUNT(*) FROM forum_likes WHERE post_id=p.id) AS likes,(SELECT COUNT(*) FROM forum_replies WHERE post_id=p.id AND hidden=0) AS replies FROM forum_posts p WHERE " +
               where +
               " ORDER BY p.pinned DESC," + ({newest:"p.created DESC",oldest:"p.created ASC",likes:"likes DESC,p.created DESC",replies:"replies DESC,p.created DESC",active:"p.updated DESC"}[url.searchParams.get("sort")]||"p.created DESC") + ",p.id DESC LIMIT ? OFFSET ?",
           )
@@ -371,6 +387,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
         limit("forum-post:" + user.uid, 4);
         const input = await body(req);
         if (!FORUM_CATEGORIES.includes(input.category)) fail("请选择帖子分类");
+        inbox?.validateMentions(user,input.body);
         const id = randomUUID(),
           now = Date.now();
         db.prepare(
@@ -385,15 +402,18 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
           now,
           now,
         );
+        inbox?.mentions(user,input.body,{target:"/community/forum/"+id,dedupe:"post:"+id});
         send(res, 201, { id });
         return true;
       }
-      const forum = p.match(/^\/api\/forum\/posts\/([\w-]+)(?:\/(replies|like|moderate))?$/);
+      const forum = p.match(/^\/api\/forum\/posts\/([\w-]+)(?:\/(replies|like|favorite|moderate))?$/);
       if (forum) {
         const user = optionalUser(req),
           item = post(forum[1], user, true);
         if (!forum[2] && method === "GET") {
-          const { offset, size } = pagination(url);
+          let { offset, size } = pagination(url);
+          const focus=url.searchParams.get("reply");
+          if(focus){const row=db.prepare("SELECT created,id FROM forum_replies WHERE id=? AND post_id=?"+(isAdmin(user)?"":" AND hidden=0")).get(focus,item.id);if(!row)fail("该回复已被删除或不可见",404);const n=db.prepare("SELECT COUNT(*) AS n FROM forum_replies WHERE post_id=?"+(isAdmin(user)?"":" AND hidden=0")+" AND (created<? OR (created=? AND id<?))").get(item.id,row.created,row.created,row.id).n;offset=Math.floor(n/size)*size;}
           const items = db
             .prepare(
               "SELECT r.*, r.parent_id AS parentId, (SELECT name FROM forum_replies WHERE id=r.parent_id) AS parentName FROM forum_replies r WHERE post_id=?" +
@@ -408,7 +428,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
             known.add(parent);context.push(ancestor);parent=ancestor.parent_id;
           }}
           send(res, 200, {
-            post: item,
+            post: item,offset,
             replies: [...context, ...items].map(row=>replyView(row,user)),
             total: db
               .prepare(
@@ -433,6 +453,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
             input.value ? 1 : 0,
             item.id,
           );
+          if(input.action==='hidden'&&input.value)inbox?.redact('/community/forum/'+item.id,true);
           audit(user, "forum", item.id, input.action, String(input.value));
           send(res, 200, { ok: true });
           return true;
@@ -441,6 +462,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
         if (!forum[2] && method === "DELETE") {
           if (!isAdmin(user) && item.uid !== user.uid) fail("不能删除他人的帖子", 403);
           db.prepare("DELETE FROM forum_posts WHERE id=?").run(item.id);
+          inbox?.redact('/community/forum/'+item.id,true);
           audit(user, "forum", item.id, "delete");
           send(res, 200, { ok: true });
           return true;
@@ -452,6 +474,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
             id = randomUUID(),
             current = post(item.id, user, true);
           if (current.locked || current.hidden) fail("该帖子已关闭回复");
+          inbox?.validateMentions(user,input.body);
           const parentId = input.parentId || null;
           if(parentId && (typeof parentId !== 'string' || !db.prepare("SELECT 1 FROM forum_replies WHERE id=? AND post_id=? AND hidden=0").get(parentId,item.id))) fail("被回复的评论不存在或不属于此帖子");
           let ancestorId=parentId,depth=0;
@@ -460,8 +483,19 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
             "INSERT INTO forum_replies(id,post_id,uid,name,body,created,parent_id) VALUES(?,?,?,?,?,?,?)",
           ).run(id, item.id, user.uid, user.name, text(input.body, 5000), Date.now(), parentId);
           db.prepare("UPDATE forum_posts SET updated=? WHERE id=?").run(Date.now(), item.id);
+          const recipients=[item.uid,parentId?db.prepare("SELECT uid FROM forum_replies WHERE id=?").get(parentId)?.uid:null].filter(Boolean);
+          inbox?.notify({recipients,actor:user,kind:"reply",title:user.name+" 回复了你的内容",body:input.body,target:"/community/forum/"+item.id+"?reply="+id,dedupe:"reply:"+id});
+          inbox?.mentions(user,input.body,{target:"/community/forum/"+item.id+"?reply="+id,dedupe:"reply-mention:"+id,exclude:recipients});
           send(res, 201, { id });
           return true;
+        }
+        if(forum[2]==='favorite'&&method==='PUT'){
+          const user=auth(req);if(item.hidden)fail('帖子不可操作');limit('forum-favorite:'+user.uid,60);
+          const input=await body(req);if(typeof input.enabled!=='boolean')fail('操作无效');
+          if(input.enabled)db.prepare('INSERT OR IGNORE INTO forum_favorites VALUES(?,?)').run(item.id,user.uid);
+          else db.prepare('DELETE FROM forum_favorites WHERE post_id=? AND uid=?').run(item.id,user.uid);
+          if(input.enabled)inbox?.notify({recipients:[item.uid],actor:user,kind:'favorite',title:user.name+' 收藏了你的帖子',body:item.title,target:'/community/forum/'+item.id,dedupe:'post-favorite:'+item.id+':'+user.uid});
+          send(res,200,post(item.id,user));return true;
         }
         if (forum[2] === "like" && method === "PUT") {
           if (item.hidden) fail("帖子不可操作");
@@ -473,6 +507,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
             db.prepare("INSERT OR IGNORE INTO forum_likes VALUES(?,?)").run(item.id, user.uid);
           else
             db.prepare("DELETE FROM forum_likes WHERE post_id=? AND uid=?").run(item.id, user.uid);
+          if(input.liked)inbox?.notify({recipients:[item.uid],actor:user,kind:"like",title:user.name+" 赞了你的帖子",body:item.title,target:"/community/forum/"+item.id,dedupe:"post-like:"+item.id+":"+user.uid});
           send(res, 200, post(item.id, user));
           return true;
         }
@@ -486,6 +521,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
         if(typeof input.liked!=='boolean')fail('点赞状态无效');
         if(input.liked)db.prepare('INSERT OR IGNORE INTO forum_reply_likes VALUES(?,?)').run(item.id,user.uid);
         else db.prepare('DELETE FROM forum_reply_likes WHERE reply_id=? AND uid=?').run(item.id,user.uid);
+        if(input.liked)inbox?.notify({recipients:[item.uid],actor:user,kind:"like",title:user.name+" 赞了你的回复",body:item.body,target:"/community/forum/"+item.post_id+"?reply="+item.id,dedupe:"reply-like:"+item.id+":"+user.uid});
         send(res,200,replyView(item,user));return true;
       }
       const reply = p.match(/^\/api\/forum\/replies\/([\w-]+)$/);
@@ -495,6 +531,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
         if (!item) fail("回复不存在", 404);
         if (item.uid !== user.uid && !isAdmin(user)) fail("不能删除他人的回复", 403);
         db.prepare("DELETE FROM forum_replies WHERE id=?").run(item.id);
+        inbox?.redact('/community/forum/'+item.post_id+'?reply='+item.id);
         audit(user, "reply", item.id, "delete");
         send(res, 200, { ok: true });
         return true;

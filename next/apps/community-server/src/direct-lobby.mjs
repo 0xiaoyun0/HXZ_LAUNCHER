@@ -33,7 +33,7 @@ export function createDirectLobby({db,auth,admin,body,send,limit}){
    for(const [id,room] of rooms)if(room.seen<Date.now()-90000||room.uid===user.uid&&id!==value.id)rooms.delete(id);
    if(rooms.has(value.id)&&rooms.get(value.id).uid!==user.uid)throw Error('房间不属于当前用户');
    if(rooms.size>=100&&!rooms.has(value.id))throw Error('当前房间列表已满，请使用邀请加入');
-   rooms.set(value.id,{id:value.id,uid:user.uid,owner:user.name,name:value.name,invite:input.invite,ready:input.ready===true,version:String(input.version||'').slice(0,50),loader:String(input.loader||'').slice(0,30),scope:input.scope==='lan'?'lan':'internet',connections:Math.max(0,Math.min(32,Number(input.connections)||0)),created:rooms.get(value.id)?.created||Date.now(),seen:Date.now()});send(res,200,{ok:true});return true;
+   rooms.set(value.id,{id:value.id,uid:user.uid,owner:user.name,name:value.name,invite:input.invite,ready:input.ready===true,version:String(input.version||'').slice(0,50),loader:String(input.loader||'').slice(0,30),scope:input.scope==='lan'?'lan':input.scope==='virtual'?'virtual':'internet',connections:Math.max(0,Math.min(32,Number(input.connections)||0)),created:rooms.get(value.id)?.created||Date.now(),seen:Date.now()});send(res,200,{ok:true});return true;
   }
   if(p==='/api/lobby/lease'&&req.method==='POST'){send(res,200,{allowed:true,uid:user.uid,expiresAt:Date.now()+600000});return true;}
   if(p==='/api/lobby/probe'&&req.method==='POST'){

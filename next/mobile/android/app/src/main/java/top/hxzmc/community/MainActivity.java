@@ -37,6 +37,7 @@ public final class MainActivity extends Activity {
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return true;}
             @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){
                 Uri uri=request.getUrl();
+                if("https".equals(uri.getScheme())&&uri.getHost()!=null&&uri.getHost().endsWith(".music.126.net"))return null;
                 if(!ORIGIN.equals(uri.getScheme()+"://"+uri.getAuthority()))return response(403,"text/plain","外部页面已拦截".getBytes(StandardCharsets.UTF_8));
                 String path=uri.getPath();
                 try{

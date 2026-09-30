@@ -19,12 +19,12 @@ export function parseInvitation(raw){
  if(typeof raw!=='string'||raw.length>5000)throw Error('请粘贴完整的房间邀请');
  const code=raw.trim().replace(/^hxz-room:\/\//,'');let value;
  try{value=JSON.parse(Buffer.from(code,'base64url').toString('utf8'));}catch{throw Error('房间邀请无法解析');}
- if(!value||value.v!==1||!/^[-\w]{16,80}$/.test(value.id)||!/^[-\w]{43}$/.test(value.key)||!validFingerprint(value.fingerprint)||!Array.isArray(value.hosts)||!value.hosts.length||value.hosts.length>8||value.hosts.some(h=>typeof h!=='string'||!net.isIP(h)))throw Error('房间邀请格式无效');
+ if(!value||value.v!==1||!/^[-\w]{16,80}$/.test(value.id)||!/^[-\w]{43}$/.test(value.key)||!validFingerprint(value.fingerprint)||!Array.isArray(value.hosts)||(!value.hosts.length&&!value.relay)||value.hosts.length>8||value.hosts.some(h=>typeof h!=='string'||!net.isIP(h)))throw Error('房间邀请格式无效');
  portNumber(value.port);if(typeof value.name!=='string'||value.name.length>80)throw Error('房间名称无效');
  if(!Number.isFinite(value.expires)||value.expires<Date.now())throw Error('房间邀请已过期，请向房主获取新邀请');
  return value;
 }
-export const invitation=value=>'hxz-room://'+Buffer.from(JSON.stringify({v:1,id:value.id,key:value.key,fingerprint:value.fingerprint,name:value.name,hosts:value.hosts,port:value.port,expires:value.expires})).toString('base64url');
+export const invitation=value=>'hxz-room://'+Buffer.from(JSON.stringify({v:1,id:value.id,key:value.key,fingerprint:value.fingerprint,name:value.name,hosts:value.hosts,relay:value.relay===true,port:value.port,expires:value.expires})).toString('base64url');
 export function readLine(socket,timeout=7000){
  return new Promise((resolve,reject)=>{
   let bytes=Buffer.alloc(0);const timer=setTimeout(()=>finish(Error('房主没有及时响应')),timeout);
@@ -34,10 +34,10 @@ export function readLine(socket,timeout=7000){
   socket.on('data',data);socket.once('error',fail);socket.once('close',closed);socket.resume();
  });
 }
-export async function dialRoom(room,host,operation='probe',timeout=6000){
+export async function dialRoom(room,host,operation='probe',timeout=6000,stream=null){
  if(!validFingerprint(room.fingerprint))throw Error('房间证书指纹无效');
  // The invitation pins this ephemeral certificate. Never send credentials before checking it.
- const socket=tls.connect({...TLS_OPTIONS,host,port:portNumber(room.port),rejectUnauthorized:false});
+ const socket=tls.connect({...TLS_OPTIONS,...(stream?{socket:stream}:{host,port:portNumber(room.port)}),rejectUnauthorized:false});
  socket.on('error',()=>{});socket.setNoDelay(true);socket.setKeepAlive(true,15000);
  try{
   await new Promise((resolve,reject)=>{const timer=setTimeout(()=>{socket.destroy();reject(Error('连接房主超时'));},timeout);const cleanup=()=>{clearTimeout(timer);socket.off('secureConnect',ready);socket.off('error',fail);};const ready=()=>{cleanup();resolve();},fail=e=>{cleanup();reject(e);};socket.once('secureConnect',ready);socket.once('error',fail);});

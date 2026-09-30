@@ -3,7 +3,7 @@ import {useState, useEffect} from 'react';
 import {useSnapshot} from 'valtio';
 import {Link} from 'react-router-dom';
 import {Play, Plus, Search, Settings2, FolderOpen, Star, MoreHorizontal, PackageOpen, RefreshCw, Square, Layers, Download, Image, FileUp, Trash2, ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen, Box, Cpu, Folder, Camera, Terminal, CheckCircle2, UserRound} from 'lucide-react';
-import {state, ui, task, cfg, selected, account, perform, invoke, saveSettings, selectInstance, launch, importPack, reload, chooseRoot, bytes} from './model';
+import {state, ui, task, cfg, mediaFor, selected, account, perform, invoke, saveSettings, selectInstance, launch, importPack, reload, chooseRoot, bytes} from './model';
 import {Button, IconButton, Dropdown, Avatar, Select, Toggle, Empty} from './ui';
 import {InstanceConfig, Mods} from './Dialogs';
 import {connect, disconnect} from '../../../packages/community/client';
@@ -22,9 +22,9 @@ export function InstanceManager() {
   const [query,setQuery]=useState(''), [tab,setTab]=useState('overview'), [officialOpen,setOfficialOpen]=useState(true), [cover,setCover]=useState('');
   const collapsed=!!s.settings.instancesCollapsed;
   useEffect(()=>{let live=true;setCover('');
-    if(active?.id && s.settings.showCover && (current.coverMedia || s.settings.defaultCover)) {
-      if(window.launcher) invoke('instance.cover',{id:active.id}).then(v=>{if(live)setCover(v||state.settings.defaultCover||'');}).catch(()=>{});
-      else setCover(current.coverMedia || s.settings.defaultCover);
+    if(active?.id && s.settings.showCover) {
+      if(window.launcher) invoke('instance.cover',{id:active.id}).then(v=>{if(live)setCover(v||state.settings.defaultCover||mediaFor(active));}).catch(()=>{});
+      else setCover(current.coverMedia || s.settings.defaultCover||mediaFor(active));
     }
     return()=>{live=false;};
   },[active?.id,current.coverMedia,s.settings.defaultCover,s.settings.showCover,u.dialog]);

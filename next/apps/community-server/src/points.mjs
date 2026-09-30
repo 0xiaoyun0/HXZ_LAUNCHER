@@ -136,7 +136,7 @@ export function createPoints({db,auth,admin,body,send,limit,now=()=>Date.now()})
       }
       return true;
     }
-    if(req.method!=='POST')throw Error('不支持的积分操作');const input=await body(req);
+    if(req.method!=='POST')throw Error('不支持的积分操作');const input=req.parsedPointsBody??await body(req);
     if(path==='/api/points/redeem') {
       limit('redeem:'+user.uid,8);
       if(typeof input.code!=='string'||!/^[a-f0-9]{40}$/i.test(input.code.trim()))throw Error('兑换码无效');

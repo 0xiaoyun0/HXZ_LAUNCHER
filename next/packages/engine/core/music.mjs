@@ -1,3 +1,4 @@
+import {lyricLines} from './lyrics.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -21,7 +22,17 @@ async function cloudJSON(route){
  if(data.code!==200)throw Error('网易云暂时限制了该请求，请稍后重试');return data;
 }
 const track=s=>({id:'netease:'+safeId(s.id),netId:safeId(s.id),title:String(s.name||'未命名歌曲').slice(0,200),artist:(s.artists||s.ar||[]).map(a=>a.name).join(' / ').slice(0,200),source:'netease',duration:Number(s.duration||s.dt||0)/1000,cover:s.album?.picUrl||s.al?.picUrl||''});
-export function createMusicService({data,dialog,window}) {
+export function createMusicService({data,dialog,window,netease,identity}) {
+ const consentFile=path.join(data,'music-consent.json'),lyricsCache=new Map();
+ const identityKey=user=>user.base+'|'+user.uid;
+ async function userAccess(required=true){if(!identity||!netease)throw Error('此环境暂不支持网易云账号登录');const user=await identity();if(required&&!user.allowed)throw Error('需要社区管理员授权个人网易云账号功能');return user;}
+ async function consent(user){try{return (JSON.parse(await fs.readFile(consentFile,'utf8')))[identityKey(user)]===1;}catch{return false;}}
+ async function lyrics(id){const item=(await read()).find(t=>t.id===id);if(!item)throw Error('请先选择歌曲');const netId=item.lyricsNetId||item.netId;
+   if(!netId)return {lines:[],candidates:(await cloudJSON('search/get/web?s='+encodeURIComponent(item.title+' '+(item.artist||''))+'&type=1&limit=8')).result?.songs?.map(track)||[]};
+   const old=lyricsCache.get(netId);if(old&&Date.now()-old.at<3600000)return old.value;
+   const value=await cloudJSON('song/lyric?id='+safeId(netId)+'&lv=-1&kv=-1&tv=-1'),result={lines:lyricLines(value.lrc?.lyric,value.tlyric?.lyric),plain:value.lrc?.lyric||'',netId};
+   lyricsCache.set(netId,{at:Date.now(),value:result});if(lyricsCache.size>64)lyricsCache.delete(lyricsCache.keys().next().value);return result;
+ }
  const file=path.join(data,'music-library.json'),pending=new Map();let queue=Promise.resolve();
  const read=async()=>{try{const value=JSON.parse(await fs.readFile(file,'utf8'));return Array.isArray(value.items)?value.items.slice(0,500):[];}catch(e){if(e.code==='ENOENT')return [];throw Error('音乐库读取失败，请保留 music-library.json 并重试');}};
  const mutate=operation=>{const result=queue.then(async()=>{const items=await read();const result=await operation(items);await writeJSON(file,{version:1,items});return result;});queue=result.catch(()=>{});return result;};
@@ -36,6 +47,9 @@ export function createMusicService({data,dialog,window}) {
   if(pending.has(id))return pending.get(id);
   const job=(async()=>{
    const signal=AbortSignal.timeout(90000);let url='https://music.163.com/song/media/outer/url?id='+safeId(item.netId)+'.mp3',response;
+   let privateAudio=false;
+   if(netease&&identity){let user;try{user=await userAccess(false);}catch{}if(user?.allowed&&await consent(user)){const authenticated=await netease.resolve(user,safeId(item.netId));if(authenticated){url=authenticated;privateAudio=true;}}}
+   if(privateAudio)return {...item,url,privateAudio:true};
    for(let n=0;n<5;n++){
     const u=new URL(url);if(u.protocol!=='https:'||!(u.hostname==='music.163.com'||u.hostname.endsWith('.music.126.net')))throw Error('网易云返回了不支持的音频地址');
     response=await fetch(u,{redirect:'manual',signal,headers:{Referer:'https://music.163.com/'}});
@@ -70,6 +84,11 @@ export function createMusicService({data,dialog,window}) {
   });
  }
  return {
+  'music.lyrics':async({id})=>lyrics(id),
+  'music.lyrics.bind':async({id,netId})=>{await mutate(items=>{const item=items.find(t=>t.id===id);if(!item)throw Error('歌曲不存在');item.lyricsNetId=safeId(netId);});return lyrics(id);},
+  'music.account.status':async()=>{const user=await userAccess(false);return {allowed:!!user.allowed,consented:await consent(user),...(user.allowed?await netease.status(user):{loggedIn:false})};},
+  'music.account.login':async({accepted})=>{if(accepted!==true)throw Error('请先阅读并同意登录说明');const user=await userAccess();let record={};try{record=JSON.parse(await fs.readFile(consentFile,'utf8'));}catch{}record[identityKey(user)]=1;await writeJSON(consentFile,record);return netease.login(user);},
+  'music.account.logout':async()=>{const user=await userAccess(false);return netease.logout(user);},
   'music.list':async()=>({items:await read()}),
   'music.adopt':async({url})=>{await fs.access(mediaPath(data,url));return mutate(items=>{const old=items.find(t=>t.url===url);if(old)return old;const item={id:randomUUID(),title:'原背景音乐',artist:'本地音乐',source:'local',url};items.push(item);return item;});},
   'music.search':async({query})=>{const q=String(query||'').trim().slice(0,200);if(!q)return {items:[]};const response=await cloudJSON('search/get/web?s='+encodeURIComponent(q)+'&type=1&offset=0&limit=25');return {items:(response.result?.songs||[]).map(track)};},
