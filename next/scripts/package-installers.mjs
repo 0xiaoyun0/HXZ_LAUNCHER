@@ -1,0 +1,17 @@
+import fs from 'node:fs/promises';import path from 'node:path';
+import {build as bundle} from 'esbuild';import {build,Platform,Arch} from 'electron-builder';
+import {copyCardLicenses} from './card-licenses.mjs';
+import {bundleNetwork} from './bundle-network.mjs';
+const root=process.cwd(),version=JSON.parse(await fs.readFile('package.json','utf8')).version;
+for(const arch of ['x64','ia32']){
+ const base=path.join(root,'.runtime/installers',arch),app=path.join(base,'app'),output=path.join(base,'output'),delivery=path.join(root,'release',version,'windows-'+arch);await fs.mkdir(app,{recursive:true});await fs.mkdir(output,{recursive:true});await fs.mkdir(delivery,{recursive:true});await copyCardLicenses(root,base);
+ await fs.cp('apps/desktop/dist',path.join(app,'dist'),{recursive:true});await fs.mkdir(path.join(app,'electron-build'),{recursive:true});await fs.copyFile('apps/desktop/electron/preload.cjs',path.join(app,'electron-build/preload.cjs'));
+ const contents=(arch==='ia32'?"import './apps/desktop/electron/legacy-polyfills.cjs';":"")+"import './apps/desktop/electron/main.mjs';";
+ await bundle({plugins:[bundleNetwork],stdin:{contents,resolveDir:root},bundle:true,platform:'node',format:'cjs',target:arch==='ia32'?'node16':'node22',outfile:path.join(app,'electron-build/main.cjs'),external:['electron'],define:{'import.meta.dirname':'__dirname','import.meta.url':'__bundleUrl'},banner:{js:'const __bundleUrl=require("node:url").pathToFileURL(__filename).href;'}});
+ await fs.writeFile(path.join(app,'package.json'),JSON.stringify({name:'hxzl',version,productName:'幻想镇启动器',description:'幻想镇游戏与社区启动器',author:'幻想镇',main:'electron-build/main.cjs',type:'commonjs',dependencies:{}},null,2));
+ const marker=path.join(base,'install-channel.json'),update=path.join(base,'app-update.yml');await fs.writeFile(marker,JSON.stringify({channel:'installed',version}));await fs.writeFile(update,'updaterCacheDirName: hxzl-updater\n');
+ const runtime=path.join(root,arch==='ia32'?'.runtime/electron-ia32':'.runtime/electron'),electronVersion=(await fs.readFile(path.join(runtime,'version'),'utf8')).trim();
+ await build({projectDir:root,targets:Platform.WINDOWS.createTarget(['nsis','dir'],arch==='ia32'?Arch.ia32:Arch.x64),publish:'never',config:{appId:'top.hxzmc.launcher',productName:'幻想镇启动器',artifactName:'HXZ-Launcher-${version}-${arch}.${ext}',directories:{app,output},electronDist:runtime,electronVersion,npmRebuild:false,files:['dist/**/*','electron-build/**/*','package.json','!node_modules{,/**/*}','!**/node_modules{,/**/*}'],extraResources:[...['hxzup','installer','direct-lobby'].map(name=>({from:path.join(root,'resources',name),to:name})),{from:marker,to:'install-channel.json'},{from:update,to:'app-update.yml'},{from:path.join(root,'resources/icon.ico'),to:'icon.ico'}],extraFiles:[{from:path.join(base,'licenses'),to:'licenses'},{from:path.join(root,'LICENSE'),to:'LICENSE-HXZ.txt'}],win:{icon:path.join(root,'resources/icon.ico'),executableName:'幻想镇启动器'},nsis:{oneClick:false,allowToChangeInstallationDirectory:true,perMachine:false,allowElevation:true,createDesktopShortcut:true,createStartMenuShortcut:true,runAfterFinish:true,deleteAppDataOnUninstall:false,installerLanguages:['zh_CN','en_US'],language:'2052',displayLanguageSelector:false}}});
+ for(const suffix of ['.exe','.exe.blockmap']){const name=`HXZ-Launcher-${version}-${arch}${suffix}`;await fs.copyFile(path.join(output,name),path.join(delivery,name));}
+ console.log('Built '+arch+' installer in '+delivery);
+}

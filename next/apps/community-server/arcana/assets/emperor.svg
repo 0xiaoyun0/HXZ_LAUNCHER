@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 900">
+  <defs><linearGradient id="g" y2="1"><stop stop-color="#3b2830"/><stop offset=".6" stop-color="#17131e"/><stop offset="1" stop-color="#080a12"/></linearGradient><linearGradient id="gold" x2="1"><stop stop-color="#8e5d32"/><stop offset=".5" stop-color="#f0bf88"/><stop offset="1" stop-color="#754823"/></linearGradient></defs>
+  <rect width="640" height="900" fill="url(#g)"/>
+  <path d="M82 720V274h95v-86h91v86h104v-86h91v86h95v446Z" fill="#100e18" stroke="url(#gold)" stroke-width="4"/>
+  <path d="M114 720V310h412v410M208 720V310M320 720V310M432 720V310" fill="none" stroke="#f0bf88" stroke-opacity=".4"/>
+  <path d="M90 273h460M180 188h280M270 102h100" stroke="#f0bf88" stroke-opacity=".55" stroke-width="5"/>
+  <circle cx="320" cy="468" r="92" fill="none" stroke="#f0bf88" stroke-opacity=".35" stroke-dasharray="6 13"/><path d="M320 388v160M240 468h160" stroke="#f0bf88" stroke-opacity=".5"/>
+  <text x="40" y="72" fill="#f4f1e9" font-family="serif" font-size="25" letter-spacing="4">II</text><text x="40" y="840" fill="#f0bf88" font-family="monospace" font-size="13" letter-spacing="4">THE EMPEROR</text>
+</svg>

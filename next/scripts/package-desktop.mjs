@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';import path from 'node:path';import {createPackage} from '@electron/asar';
 import {copyCardLicenses} from './card-licenses.mjs';
-const root=process.cwd(),target=path.join(root,'release','HXZ-NEXT-0.6.0-win-x64'),runtime=path.join(root,'.runtime/electron');
+const root=process.cwd(),target=path.join(root,'release','0.6.0','windows-x64','portable'),runtime=path.join(root,'.runtime/electron');
 await fs.mkdir(target,{recursive:true});await fs.cp(runtime,target,{recursive:true,force:true});
 await fs.rename(path.join(target,'electron.exe'),path.join(target,'幻想镇 NEXT.exe')).catch(async e=>{if(e.code!=='EEXIST')throw e;});
 const staging=path.join(root,'.runtime/package');await fs.mkdir(staging,{recursive:true});

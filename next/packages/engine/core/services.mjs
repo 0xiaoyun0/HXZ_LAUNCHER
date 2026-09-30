@@ -70,6 +70,7 @@ const LIVE_SETTINGS = new Set([
 ]);
 export async function createServices({
   data,
+  defaultAutoCheckUpdates=false,
   dependencyRoot=data,
   resources,
   safeStorage,
@@ -109,7 +110,7 @@ export async function createServices({
     downloadMode: "domestic",
     downloadConcurrency: 32,
     updateFeed: "",
-    autoCheckUpdates: false,
+    autoCheckUpdates: defaultAutoCheckUpdates,
     memoryMode: "auto",
     defaultMemoryMB: 4096,
     voiceMode: "open",

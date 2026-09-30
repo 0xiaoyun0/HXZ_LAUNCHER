@@ -1,0 +1,10 @@
+import fs from 'node:fs/promises';import path from 'node:path';import {createWriteStream} from 'node:fs';import {pipeline} from 'node:stream/promises';import yazl from 'yazl';
+const root=process.cwd(),source=path.join(root,'apps/community-server'),version=JSON.parse(await fs.readFile(path.join(source,'package.json'),'utf8')).version,output=path.join(root,'release',version,'server'),target=path.join(output,'幻想镇社区服务端');
+for(const name of ['data','.env'])if(await fs.stat(path.join(target,name)).then(()=>true,()=>false))throw Error('发布目录已包含运行数据，请先使用全新目录');
+await fs.mkdir(target,{recursive:true});for(const name of ['src','public','arcana','shared','docs','package.json','pnpm-lock.yaml','.env.example','Dockerfile','compose.yaml','nginx-community.conf.example','README.md','LICENSE','Node-LICENSE.txt'])await fs.cp(path.join(source,name),path.join(target,name),{recursive:true});
+for(const name of ['ws','chess.js'])await fs.cp(await fs.realpath(path.join(source,'node_modules',name)),path.join(target,'node_modules',name),{recursive:true});
+if(process.platform!=='win32'||process.arch!=='x64'||Number(process.versions.node.split('.')[0])<24)throw Error('Windows 服务端包需要 Node.js 24+ x64 构建');
+await fs.copyFile(process.execPath,path.join(target,'node.exe'));
+await fs.writeFile(path.join(target,'启动社区服务.bat'),'@echo off\r\nchcp 65001 >nul\r\ncd /d "%~dp0" || exit /b 1\r\nif not exist .env copy .env.example .env >nul\r\n"%~dp0node.exe" --env-file=.env src/server.mjs\r\npause\r\n');
+const zip=new yazl.ZipFile(),file=path.join(output,`HXZ-Community-${version}-windows-x64.zip`),written=pipeline(zip.outputStream,createWriteStream(file));
+async function add(dir,relative=''){for(const entry of await fs.readdir(dir,{withFileTypes:true})){const rel=relative+entry.name;if(['data','.env','.test'].includes(entry.name))throw Error('Runtime data in server archive');if(entry.isDirectory())await add(path.join(dir,entry.name),rel+'/');else zip.addFile(path.join(dir,entry.name),rel);}}await add(target);zip.end();await written;console.log('Complete independent server package: '+file);

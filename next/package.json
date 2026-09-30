@@ -14,7 +14,9 @@
     "typecheck": "tsc --noEmit",
     "build": "npm run desktop:build && npm run website:build",
     "package:desktop": "node scripts/package-desktop.mjs",
-    "package:legacy": "node scripts/package-legacy.mjs"
+    "package:legacy": "node scripts/package-legacy.mjs",
+    "package:installers": "node scripts/package-installers.mjs",
+    "package:server": "node scripts/package-community.mjs"
   },
   "dependencies": {
     "@achingbrain/nat-port-mapper": "1.0.18",
@@ -41,6 +43,7 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.0",
     "chess.js": "1.4.0",
+    "electron-builder": "26.17.0",
     "esbuild": "0.28.0",
     "playwright-core": "^1.63.0",
     "typescript": "^5.9.0",

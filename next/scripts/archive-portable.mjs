@@ -6,13 +6,15 @@ import {createHash} from 'node:crypto';
 import yazl from 'yazl';
 import yauzl from 'yauzl';
 
-const root=path.resolve('release'),version=JSON.parse(await fs.readFile('package.json','utf8')).version,sums=[];
+const version=JSON.parse(await fs.readFile('package.json','utf8')).version,root=path.resolve('release',version);
 for(const arch of ['x64','ia32']){
- const folder=path.join(root,`HXZ-NEXT-${version}-win-${arch}`),name=`HXZ-NEXT-${version}-windows-${arch}-portable.zip`,target=path.join(root,name),temp=target+'.building';
+ const folder=path.join(root,'windows-'+arch,'portable'),name=`HXZ-NEXT-${version}-windows-${arch}-portable.zip`,target=path.join(root,'windows-'+arch,name),temp=target+'.building';
  const zip=new yazl.ZipFile();
  const writing=pipeline(zip.outputStream,createWriteStream(temp));
  async function add(directory,relative=''){
   for(const entry of (await fs.readdir(directory,{withFileTypes:true})).sort((a,b)=>a.name.localeCompare(b.name))){
+   // User data can exist beside a local build. Never read, modify or archive it.
+   if(!relative&&['profile','launcher-cache'].includes(entry.name))continue;
    if(entry.isSymbolicLink())throw Error('Release contains a symbolic link: '+entry.name);
    if(/^(profile|\.runtime|\.git|Cache|logs)$/i.test(entry.name))throw Error('Release contains a data directory: '+entry.name);
    const source=path.join(directory,entry.name),key=relative+entry.name;
@@ -30,10 +32,6 @@ for(const arch of ['x64','ia32']){
  if(!names.includes('幻想镇 NEXT.exe')||!names.includes('使用说明.txt')||!names.includes('resources/app.asar'))throw Error('Archive is missing required UTF-8 entries');
  await fs.rename(temp,target);
  const hash=createHash('sha256');for await(const chunk of createReadStream(target))hash.update(chunk);
- sums.push(`${hash.digest('hex')}  ${name}`);
+ console.log('SHA256 '+hash.digest('hex'));
  console.log(`${name}: ${(await fs.stat(target)).size} bytes, ${names.length} files, UTF-8 names verified, no personal data`);
 }
-await fs.writeFile(path.join(root,`${version}-SHA256SUMS.txt`),sums.join('\n')+'\n');
-const extension=`HXZ-NEXT-${version}-community-direct-lobby.zip`,hash=createHash('sha256');
-for await(const chunk of createReadStream(path.join(root,extension)))hash.update(chunk);
-await fs.appendFile(path.join(root,`${version}-SHA256SUMS.txt`),`${hash.digest('hex')}  ${extension}\n`);

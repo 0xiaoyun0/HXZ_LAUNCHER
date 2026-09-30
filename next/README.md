@@ -4,10 +4,11 @@
 
 ## 使用
 
-- Windows x64 / ia32：从 Release 下载对应 portable.zip，完整解压后运行「幻想镇 NEXT.exe」。不能只移动 exe。
+- Windows x64 / ia32：推荐下载 HXZ-Launcher-0.6.0-x64.exe / HXZ-Launcher-0.6.0-ia32.exe 安装器，可选目录并创建快捷方式。也保留 portable.zip，完整解压后运行「幻想镇 NEXT.exe」。
 - Android：安装 HXZ-Community-Android-0.6.0-60001.apk，支持 Android 10 及以上。沿用正式应用身份和签名，可覆盖旧版，保留数据。
-- Windows 账号与偏好保存在程序旁 profile。迁移旧 NEXT 时先退出两个程序，备份后复制整个 profile；游戏仍使用原 .minecraft，不必重复复制。
-- 本次 Windows 为独立便携版，使用完整包手动升级，未接入旧版自动替换通道。
+- 安装版沿用旧正式版的 %APPDATA%/幻想镇启动器，首次启动备份旧设置；便携版保存在程序旁 profile。迁移便携版时先退出程序并备份，再复制整个 profile 到对应的数据目录。游戏仍使用原 .minecraft，不必重复复制。
+- 安装版支持 GitHub 与备用源的签名自动更新，可在设置关闭；正式 0.5.2 安装版可通过原通道升级。便携版仍使用完整包手动升级。
+- 管理员只需下载一个 HXZ-Community-0.6.0-windows-x64.zip 完整社区服务端，包含网页后台和直连授权。部署及保留旧数据见 [服务端说明](apps/community-server/README.md)。
 
 ## 功能
 
@@ -15,7 +16,7 @@
 
 Android 以社区为中心，提供聊天、语音、论坛、蓝图、公告、账号、积分、小游戏、音乐和联机房间列表。手机端不运行 Minecraft，平板和横屏独立适配。详见 [Android 说明](mobile/README.md)。
 
-MC 直连大厅使用社区验证开房权限、展示目录及探测连通性，游戏流量直接连接房主。管理员需安装单独交付的社区扩展；现有社区服务与客户端分开部署。使用条件和边界见 [联机说明](docs/MC直连大厅.md)。
+MC 直连大厅使用社区验证开房权限、展示目录及探测连通性，游戏流量直接连接房主。完整社区服务端已集成直连模块，与客户端分开部署。使用条件和边界见 [联机说明](docs/MC直连大厅.md)。
 
 ## 源码与构建
 
@@ -27,7 +28,8 @@ MC 直连大厅使用社区验证开房权限、展示目录及探测连通性�
 | packages/engine | 游戏、下载、Java、音频和直连业务 |
 | packages/community、packages/mobile-ui | 社区模块与共享游戏规则 |
 | mobile | Android 原生容器与 Vue 社区界面 |
-| community-extension | 可独立安装的直连大厅服务扩展 |
+| apps/community-server | 完整社区服务端、网页后台及直连权限 |
+| community-extension | 旧社区的可选增量迁移源码，新完整包无需使用 |
 | apps/website | 独立官网与内容管理后台 |
 
 Node.js 22.12+，在本项目目录运行 npm ci。
@@ -40,9 +42,11 @@ Node.js 22.12+，在本项目目录运行 npm ci。
 | 桌面运行 | npm run desktop:start |
 | Windows x64 封包 | npm run package:desktop |
 | Windows ia32 封包 | npm run package:legacy |
+| Windows 双架构安装器 | npm run package:installers |
+| 完整社区服务端 | npm run package:server |
 | 官网构建 / 运行 | npm run website:build / npm run website:start |
 
-Windows 封包需在 .runtime/electron 放置 Electron 44.3.0 x64，在 .runtime/electron-ia32 放置 Electron 22.3.27 ia32 的完整运行时；随后执行对应封包命令。原生扩展随构建脚本打包。JDK 21 可编译 resources/direct-lobby 中的 Java 助手。Android 构建见其独立说明；私钥、账号和生成物不提交源码。
+Windows 封包需在 .runtime/electron 放置 Electron 44.3.0 x64，在 .runtime/electron-ia32 放置 Electron 22.3.27 ia32 的完整运行时；随后执行对应封包命令。输出按 release/版本/windows-x64、windows-ia32、android、server、source 分类。构建安装器使用 electron-builder 26.17.0 与 NSIS；安装版保持原 appId、产品名与卸载身份，不删除用户数据。完整服务端需先在 apps/community-server 安装依赖，并使用 Windows x64 Node.js 24+ 打包。原生扩展随构建脚本打包。JDK 21 可编译 resources/direct-lobby 中的 Java 助手。Android 构建见其独立说明；私钥、账号和生成物不提交源码。
 
 卡片开发须遵循 [UI 规范](docs/UI卡片规范.md)。本轮功能和验证范围见 [0.6.0 发布说明](docs/0.6.0发布说明.md)。
 
