@@ -73,7 +73,7 @@ export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfa
     hosting.hosts=adapters.filter(v=>v.family===4).map(v=>v.address).slice(0,8);if(!hosting.hosts.length)throw Error('没有可用的局域网地址');note('局域网模式',true,'仅适用于同一网络，未标记为异地可用');
    }else{
     update({phase:'检查公网 IPv6 / IPv4 直连'});
-    for(const host of candidates.slice(0,3)){current();try{const result=await request('/api/lobby/probe',{method:'POST',body:{host,port:hosting.port,id:hosting.id,key:hosting.key,fingerprint:hosting.fingerprint}});current();if(result.reachable){hosting.hosts.push(host);note('公网直连',true,host);}else note('公网直连',false,result.reason||host+' 未能连通');}catch(e){current();note('公网直连',false,e.message);}}
+    for(const host of [...new Set(candidates)].slice(0,3)){current();const label='公网 IPv'+net.isIP(host)+' 直连';try{const result=await request('/api/lobby/probe',{method:'POST',body:{host,port:hosting.port,id:hosting.id,key:hosting.key,fingerprint:hosting.fingerprint}});current();if(result.reachable){hosting.hosts.push(host);note(label,true,host);}else note(label,false,host+' · '+(result.reason||'未能连通'));}catch(e){current();note(label,false,host+' · '+e.message);}}
     if(!hosting.hosts.some(net.isIPv4)){
      update({phase:'尝试路由器自动映射'});nat=makeMapper({description:'FantasyTown direct room',ttl:1200,keepAlive:true,discoveryTimeout:5000});
      try{

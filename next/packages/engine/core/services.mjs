@@ -721,7 +721,7 @@ export async function createServices({
       }
       phase({ phase: "正在启动游戏", busy: true });
       const gameStarted=Date.now(),gameLogs=[];stoppedByUser=false;lastCrash=null;
-      const capture=line=>{if(direct?.mode==='host'){const ready=line.match(/\[HXZ-DIRECT\] READY (\d+)/);if(ready)lobby.markReady(ready[1]);if(line.includes('[HXZ-DIRECT] WAITING'))lobby.markWaiting();const helperError=line.match(/\[HXZ-DIRECT\] ERROR (.+)/);if(helperError)lobby.markError(helperError[1]);}gameLogs.push(redactDiagnostic(line,[...secrets]));if(gameLogs.length>5000)gameLogs.splice(0,gameLogs.length-5000);return false;};
+      const capture=line=>{if(direct?.mode==='host'){const ready=line.match(/\[HXZ-DIRECT\] READY (\d+)/);if(ready)lobby.markReady(ready[1]);if(line.includes('[HXZ-DIRECT] WAITING'))lobby.markWaiting();const helperError=line.match(/\[HXZ-DIRECT\] ERROR (.+)/);if(helperError)lobby.markError(helperError[1].split(']]>')[0].replace(/<\/?log4j:[^>]*>/g,'').trim());}gameLogs.push(redactDiagnostic(line,[...secrets]));if(gameLogs.length>5000)gameLogs.splice(0,gameLogs.length-5000);return false;};
       log("[启动] 实例: "+id+" · 目录: "+command.cwd+" · Java: "+command.command+" · 内存: "+cfg.memoryMB+" MB");
       const child = spawn(command.command, command.args, {
         cwd: command.cwd,

@@ -17,13 +17,13 @@ public final class DirectLobbyAgent {
     private static void watch(Instrumentation instrumentation) {
         File control = new File(".hxzl/direct-lobby.properties");
         Class<?> clientClass = null;
-        Object previous = null;
+        Attempt previous = null;
         AtomicBoolean pending = new AtomicBoolean(false);
         boolean warned = false;
         while (true) {
             try {
                 Thread.sleep(2000);
-                if (!control.isFile() || System.currentTimeMillis() - control.lastModified() > 35000) continue;
+                if (!control.isFile() || System.currentTimeMillis() - control.lastModified() > 35000) { previous = null; continue; }
                 Properties settings = new Properties();
                 try (InputStream stream = new FileInputStream(control)) { settings.load(stream); }
                 int port = Integer.parseInt(settings.getProperty("port"));
@@ -51,24 +51,27 @@ public final class DirectLobbyAgent {
                     if (previous != null) System.out.println("[HXZ-DIRECT] WAITING");
                     previous = null; continue;
                 }
-                if (server == previous || !pending.compareAndSet(false, true)) continue;
+                if (previous == null || previous.world != server || previous.port != port) previous = new Attempt(server, port);
+                if (previous.opened || System.currentTimeMillis() < previous.retryAt || !pending.compareAndSet(false, true)) continue;
                 final Object world = server;
                 final int target = port;
-                previous = server;
+                final Attempt attempt = previous;
                 ((Executor)client).execute(() -> {
                     try {
-                        Method publish = null;
-                        for (Method method : world.getClass().getMethods()) {
-                            Class<?>[] args = method.getParameterTypes();
-                            if (method.getReturnType() == boolean.class && args.length == 3 && args[0].isEnum() && args[1] == boolean.class && args[2] == int.class) { publish = method; break; }
-                        }
-                        if (publish == null) throw new IllegalStateException("This game version has no supported LAN publish method");
-                        publish.setAccessible(true);
-                        // Preserve the world's game mode; joining players do not receive cheats.
-                        boolean opened = Boolean.TRUE.equals(publish.invoke(world, null, false, target));
-                        System.out.println(opened ? "[HXZ-DIRECT] READY " + target : "[HXZ-DIRECT] ERROR World could not open; it may already be open to LAN");
+                        // A cancelled room must not open a world after an enqueued client task resumes.
+                        Properties current = new Properties();
+                        if (!control.isFile() || System.currentTimeMillis() - control.lastModified() > 35000) return;
+                        try (InputStream stream = new FileInputStream(control)) { current.load(stream); }
+                        if (!String.valueOf(target).equals(current.getProperty("port"))) return;
+                        if (!publishWorld(world, target)) throw new IOException("World could not open its LAN port; re-enter the singleplayer world and retry");
+                        attempt.opened = true;
+                        System.out.println("[HXZ-DIRECT] READY " + target);
                     } catch (Throwable error) {
-                        System.out.println("[HXZ-DIRECT] ERROR " + error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage()));
+                        while (error instanceof InvocationTargetException && error.getCause() != null) error = error.getCause();
+                        attempt.failures++;
+                        attempt.retryAt = System.currentTimeMillis() + Math.min(30000, 2000L << Math.min(4, attempt.failures));
+                        String detail = error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage());
+                        if (!detail.equals(attempt.lastError)) { System.out.println("[HXZ-DIRECT] ERROR " + detail); attempt.lastError = detail; }
                     } finally { pending.set(false); }
                 });
             } catch (InterruptedException stopped) { return; }
@@ -76,5 +79,41 @@ public final class DirectLobbyAgent {
                 if (!warned) { System.out.println("[HXZ-DIRECT] ERROR " + error.getClass().getSimpleName() + ": " + String.valueOf(error.getMessage())); warned = true; }
             }
         }
+    }
+
+    private static final class Attempt {
+        final Object world; final int port;
+        volatile boolean opened; volatile long retryAt; int failures; String lastError = "";
+        Attempt(Object world, int port) { this.world = world; this.port = port; }
+    }
+
+    static boolean publishWorld(Object world, int port) throws Exception {
+        // Named status access is available in recent unobfuscated versions. Already-open worlds
+        // must not be reported ready for a different port than the launcher's local tunnel.
+        try {
+            Method published = world.getClass().getMethod("isPublished");
+            if (Boolean.TRUE.equals(published.invoke(world))) {
+                int actual = ((Number)world.getClass().getMethod("getPort").invoke(world)).intValue();
+                if (actual == port) return true;
+                throw new IOException("World is already open on port " + actual + "; re-enter singleplayer before opening a new room");
+            }
+        } catch (NoSuchMethodException unsupportedStatus) { /* Legacy mapped names are handled by the publish signature. */ }
+        Method legacy = null;
+        for (Method method : world.getClass().getMethods()) {
+            Class<?>[] args = method.getParameterTypes();
+            if (Modifier.isStatic(method.getModifiers()) || method.getReturnType() != boolean.class) continue;
+            if (args.length == 4 && args[0].isEnum() && args[1].isEnum() && args[2] == boolean.class && args[3] == int.class) {
+                Object lan = null;
+                for (Object value : args[0].getEnumConstants()) if (((Enum<?>)value).name().equals("LAN")) lan = value;
+                if (lan != null) {
+                    method.setAccessible(true);
+                    // 26.2: explicit multiplayer scope, unchanged game mode, no guest cheats.
+                    return Boolean.TRUE.equals(method.invoke(world, lan, null, false, port));
+                }
+            }
+            if (args.length == 3 && args[0].isEnum() && args[1] == boolean.class && args[2] == int.class) legacy = method;
+        }
+        if (legacy != null) { legacy.setAccessible(true); return Boolean.TRUE.equals(legacy.invoke(world, null, false, port)); }
+        throw new IllegalStateException("Unsupported LAN publish API in " + world.getClass().getName());
     }
 }
