@@ -1,17 +1,16 @@
-let mode = "domestic";
+let mode = "official";
 export function getDownloadMode() {
   return mode;
 }
 export function setDownloadMode(value) {
-  mode = value === "official" ? "official" : "domestic";
+  mode = value === "domestic" ? "domestic" : "official";
 }
 export function downloadSources(raw) {
   const u = new URL(raw),
     out = [],
     base = "https://bmclapi2.bangbang93.com",
     p = u.pathname + u.search;
-  if (mode === "domestic")
-    switch (u.hostname) {
+  switch (u.hostname) {
       case "piston-meta.mojang.com":
       case "piston-data.mojang.com":
       case "launchermeta.mojang.com":
@@ -41,6 +40,6 @@ export function downloadSources(raw) {
         out.push("https://mod.mcimirror.top" + p);
         break;
     }
-  out.push(raw);
+  if(mode==='official')out.unshift(raw);else out.push(raw);
   return [...new Set(out)];
 }

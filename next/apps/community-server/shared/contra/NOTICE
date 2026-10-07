@@ -1,0 +1,15 @@
+ContraRun
+Copyright 2026 pstarwars2026 and contributors.
+
+Project source and original project materials are distributed under the
+Apache License 2.0.
+
+This repository includes vendored portions of Three.js r161 under `lib/`.
+Three.js is Copyright 2010-2024 Three.js Authors and is distributed under
+the MIT License. A copy of that license is included at
+docs/licenses/THREEJS-LICENSE.txt. Upstream license headers are retained in
+the vendored source where provided.
+
+Development dependencies installed from npm retain their respective
+upstream licenses. No recorded commercial soundtrack or proprietary game
+assets are included in this repository.

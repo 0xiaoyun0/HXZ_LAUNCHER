@@ -1,9 +1,10 @@
+import {playerError} from '../../../packages/engine/core/player-errors.mjs';
 import {newTaskProgress,updateTaskProgress} from '../../../packages/engine/core/task-progress.mjs';
 import {proxy,subscribe} from 'valtio';
 import {normalizeCardLayouts,normalizeCardStyle} from '../../../packages/engine/core/card-layout.mjs';
 declare global {interface Window {launcher?:{invoke:(action:string,input?:any)=>Promise<any>;subscribe:(fn:(event:any)=>void)=>()=>void;filePath:(file:File)=>string}}}
 export const desktop=!!window.launcher;
-export const defaults={theme:'light',fontSize:16,accentColor:'#5668bc',cardLayouts:{},cardStyle:{color:'',opacity:1,gap:14,radius:10},animationSpeed:1,gameRoot:'',javaPath:'',selectedAccount:'',selectedInstance:'',communityUrl:'https://qqbot.hxzmc.top',memoryMode:'auto',defaultMemoryMB:8192,downloadConcurrency:32,downloadMode:'domestic',hxzupPopup:true,promptJavaDownload:true,chinesePaths:true,confirmUnsaved:true,chatHistoryDays:0,voiceMode:'open',voiceKey:'KeyT',voiceSounds:true,showCover:true,backgroundImage:'',backgroundVideo:'',backgroundMusic:'',musicVolume:.3,videoQuality:'balanced',backgroundOpacity:.4,defaultCover:'',instanceSettings:{},hiddenInstances:[],hiddenLinks:[],pinnedLinks:[],columns:{sidebar:{color:'',opacity:1,visible:true,label:'导航'},workspace:{color:'',opacity:1,visible:true,label:'工作区'},dock:{color:'',opacity:1,visible:true,label:'任务'}},showLinking:false,linkingDiscovered:false};
+export const defaults={theme:'light',fontSize:16,accentColor:'#5668bc',cardLayouts:{},cardStyle:{color:'',opacity:1,gap:14,radius:10},animationSpeed:1,gameRoot:'',javaPath:'',selectedAccount:'',selectedInstance:'',communityUrl:'https://qqbot.hxzmc.top',memoryMode:'auto',defaultMemoryMB:8192,downloadConcurrency:32,downloadMode: "official",hxzupPopup:true,promptJavaDownload:true,chinesePaths:true,confirmUnsaved:true,chatHistoryDays:0,voiceMode:'open',voiceKey:'KeyT',voiceSounds:true,showCover:true,backgroundImage:'',backgroundVideo:'',backgroundMusic:'',musicVolume:.3,videoQuality:'balanced',backgroundOpacity:.4,defaultCover:'',instanceSettings:{},hiddenInstances:[],hiddenLinks:[],pinnedLinks:[],columns:{sidebar:{color:'',opacity:1,visible:true,label:'导航'},workspace:{color:'',opacity:1,visible:true,label:'工作区'},dock:{color:'',opacity:1,visible:true,label:'任务'}},showLinking:false,linkingDiscovered:false};
 export const state=proxy<any>({settings:{...defaults},accounts:[],instances:[],system:{memoryMB:0,freeMemoryMB:0},running:false,ready:false,error:''});
 export const ui=proxy<any>({dialog:'',instance:'',pack:null,toast:'',toastError:false,tasks:false,decision:null,crash:null,pending:false});
 export const task=proxy<any>({...newTaskProgress(),logs:[]});
@@ -25,7 +26,7 @@ export const account=(source:any=state)=>source.accounts.find((a:any)=>a.id===so
 export const cfg=(id:string,source:any=state)=>{const game=source.instances.find((i:any)=>i.id===id)||{};const value={javaMode:'inherit',javaPath:'',memoryMode:'inherit',memoryMB:4096,autoUpdate:false,updateUrls:[],autoJoin:false,isolated:true,width:1280,height:720,fullscreen:false,jvmArgs:[],favorite:false,coverPositionX:50,coverPositionY:50,coverZoom:1,...game,serverAddress:game.address||'',...source.settings.instanceSettings[id]};if(game.builtin){value.updateUrls=game.updateUrls||[];value.serverAddress=game.address||'';if(game.updateRequired)value.autoUpdate=true;}return value;};
 export async function chooseRoot(){const gameRoot=await invoke('directory.choose');if(gameRoot)await saveSettings({gameRoot});return !!gameRoot;}
 export async function selectInstance(id:string){if(task.busy||state.running)return;await saveSettings({selectedInstance:id});}
-export async function launch(id=selected()?.id,updateOnly=false){if(!id)return;if(!account()){ui.dialog='account';return;}if(!state.settings.gameRoot&&!await chooseRoot())return;ui.tasks=true;await invoke(updateOnly?'game.update':'game.launch',{id});await reload();}
+export async function launch(id=selected()?.id,updateOnly=false){if(!id)return;if(!account()){ui.dialog='account';return;}if(!state.settings.gameRoot&&!await chooseRoot())return;ui.launchTarget=id;ui.launchUpdateOnly=updateOnly;ui.tasks=true;await invoke(updateOnly?'game.update':'game.launch',{id});await reload();}
 export async function importPack(file?:File){const pack=await invoke(file?'pack.inspect':'pack.choose',file?{file:window.launcher?.filePath(file)}:{});if(pack){ui.pack=pack;ui.dialog='import';}}
 export async function loadNotices(){for(const fn of listeners)fn();}
 export function onNotices(fn:()=>void){listeners.add(fn);return()=>{listeners.delete(fn);};}
@@ -39,5 +40,5 @@ window.launcher?.subscribe(e=>{
  if(e.type==='decision')ui.decision=e;
  if(e.type==='decision-close')ui.decision=null;
  if(e.type==='game-crash'){ui.crash=e.report;ui.dialog='crash';}
- if(e.type==='task'){updateTaskProgress(task,e);if(e.running!=null)state.running=e.running;if(e.error||e.failure)notify(e.error||e.failure,true);if(e.busy===false)void reload().catch(()=>{});}
+ if(e.type==='task'){updateTaskProgress(task,e);if(e.running!=null)state.running=e.running;if(e.error||e.failure)notify(playerError(e.error||e.failure).title,true);if(e.busy===false)void reload().catch(()=>{});}
 });

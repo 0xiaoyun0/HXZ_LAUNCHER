@@ -1,5 +1,6 @@
+import {drawNew} from './arcade-new-renderer.mjs';
 import {drawExpanded} from './arcade-expanded-renderer.mjs';
-import {shapes,ghostRow} from '../../../server/shared/arcade-engine.mjs';
+import {shapes,ghostRow,runnerSpeed} from '../../../server/shared/arcade-engine.mjs';
 const COLORS=['','#75cbd4','#e5c573','#b3a0e2','#8bb2e2','#e9aa7d','#94cbaa','#dc969c'];
 function box(c,x,y,w,h,r,fill){c.fillStyle=fill;c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.fill();}
 function label(c,text,x,y,size=12,color='#a4b9b0',align='left'){c.fillStyle=color;c.font=`${size}px "Segoe UI","Microsoft YaHei",sans-serif`;c.textAlign=align;c.fillText(text,x,y);}
@@ -7,7 +8,7 @@ function tree(c,x,y,size,color){c.fillStyle=color;c.fillRect(x-size*.055,y-size*
 function block(c,x,y,size,color,ghost=false){if(ghost){c.strokeStyle=color+'70';c.lineWidth=1;c.strokeRect(x+2,y+2,size-4,size-4);return;}box(c,x+1,y+1,size-2,size-2,3,color);c.fillStyle='#ffffff35';c.fillRect(x+4,y+3,size-8,2);c.fillStyle='#00000019';c.fillRect(x+3,y+size-5,size-6,2);}
 export function drawPiece(c,color,x,y,size=12){if(!color)return;const shape=shapes[color-1];for(let dy=0;dy<shape.length;dy++)for(let dx=0;dx<shape[dy].length;dx++)if(shape[dy][dx])block(c,x+dx*size,y+dy*size,size,COLORS[color]);}
 export function createRenderer(canvas,id,{preview=false}={}){
- const c=canvas.getContext('2d',{alpha:false}),height=id==='runner'?260:480,dpr=Math.min(2,globalThis.devicePixelRatio||1);
+ const c=canvas.getContext('2d',{alpha:false}),height=id==='runner'?260:id==='contra'?338:480,dpr=Math.min(2,globalThis.devicePixelRatio||1);
  canvas.width=360*dpr;canvas.height=height*dpr;c.setTransform(dpr,0,0,dpr,0,0);
  const background=document.createElement('canvas');background.width=360*dpr;background.height=height*dpr;const b=background.getContext('2d');b.scale(dpr,dpr);
  const sky=b.createLinearGradient(0,0,0,height);sky.addColorStop(0,id==='blocks'?'#171b30':id==='runner'?'#1b3c40':'#242237');sky.addColorStop(1,id==='runner'?'#386b5d':'#111d25');b.fillStyle=sky;b.fillRect(0,0,360,height);
@@ -29,7 +30,7 @@ export function createRenderer(canvas,id,{preview=false}={}){
     const time=s.tick+alpha;
     for(const [speed,size,y,color] of [[.65,57,173,'#284d45'],[1.35,70,186,'#1c4138']])for(let i=0;i<9;i++)tree(c,((i*61-time*speed)%550+550)%550-65,y,size+(i%3)*9,color);
     c.fillStyle='#244238';c.fillRect(0,202,360,58);c.fillStyle='#83a475';c.fillRect(0,201,360,3);c.fillStyle='#152e2960';for(let i=0;i<12;i++)c.fillRect(((i*43-time*3)%520+520)%520-40,218+i%3*11,12+i%3*5,2);
-    const speed=12+Math.min(7,s.tick/720);
+    const speed=runnerSpeed(s.tick);
     for(const o of s.obstacles){const x=o.x+speed*(1-alpha),y=202-o.h;box(c,x,y,o.w,o.h,4,'#a78359');c.fillStyle='#d3b081';c.fillRect(x+3,y+3,o.w-6,3);c.strokeStyle='#674f3b';c.beginPath();c.moveTo(x+o.w*.65,y+10);c.lineTo(x+o.w*.5,y+o.h-3);c.stroke();c.fillStyle='#466f46';c.fillRect(x-2,y-4,o.w+4,6);}
     const y=172-mix(prev.y,s.y),stride=s.y?0:Math.sin(time*.8)*4;
     // Small explorer with scarf and a backpack; body retains the collision rectangle.
@@ -59,6 +60,7 @@ export function createRenderer(canvas,id,{preview=false}={}){
     for(const p of particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=65*dt;c.globalAlpha=Math.max(0,p.life/.45);c.fillStyle='#f0d7b5';c.fillRect(p.x,p.y,2,2);}c.globalAlpha=1;particles=particles.filter(p=>p.life>0);
    }
    if(['danmaku','maze','fighter'].includes(id))drawExpanded(c,s,alpha,reduce);
+   if(['contra','garden'].includes(id))drawNew(c,s);
    if(!preview){c.fillStyle='#ffffff08';c.fillRect(0,0,360,1);}
   },
   dispose(){particles=[];trail=[];background.width=background.height=1;}

@@ -170,3 +170,9 @@
 .lobby-room-list{max-height:410px;overflow:auto;align-items:stretch}
 .lobby-room-list .content-card-body{padding:16px}
 .lobby-room-list .content-card-copy>p{margin:0 0 10px}
+
+/* 0.6.3: session canvas dimensions follow their simulation, controls wrap independently. */
+.air-shell .arcade-session .canvas-stage.contra{width:min(100%,540px,calc((100dvh - 350px)*1.065));aspect-ratio:360/338;max-height:none}.arcade-session .canvas-stage.contra canvas{width:100%;height:100%;aspect-ratio:360/338}
+.air-shell .game-touchpad button{border-radius:10px}.air-shell .game-lobby-tools{flex-wrap:wrap;gap:12px}.air-shell .game-lobby-tools .segments{flex-wrap:wrap;height:auto}.air-shell .workspace-tabs{flex-wrap:wrap;gap:8px}.air-shell .game-heading{flex-wrap:wrap;gap:12px}
+@media(max-width:1050px){.air-shell .game-workspace.arcade-session{grid-template-columns:minmax(0,1fr)}.air-shell .arcade-session .game-aside{position:static;display:flex;max-height:none;width:100%}.air-shell .arcade-session .canvas-stage{min-width:0;max-width:100%}}
+@media(max-width:600px){.air-shell .game-lobby-tools>.search{max-width:none;width:100%;flex-basis:100%}}

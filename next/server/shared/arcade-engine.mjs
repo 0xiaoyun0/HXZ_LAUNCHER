@@ -1,9 +1,10 @@
+import {NEW_GAMES,createNew,stepNew,validNewAction} from './arcade-new063.mjs';
 import {EXTRA_GAMES,createExpanded,stepExpanded} from './arcade-expanded.mjs';
 // Pure fixed-step simulation shared by both clients and score verification.
 export const GAMES=[
   {id:'runner',name:'林间疾跑',tag:'反应 · 无尽挑战',description:'穿过晨雾与松林，挑战更远的路途',keys:'空格 / W / ↑ 跳跃',color:'#9dd9a8'},
   {id:'blocks',name:'俄罗斯方块',tag:'益智 · 逐级加速',description:'七种方块，无数种解法',keys:'A D / ← → 移动 · W / ↑ 旋转 · S / ↓ 加速 · 空格落下 · C 暂存',color:'#baa6eb'},
-  {id:'breakout',name:'打砖块',tag:'街机 · 百关挑战',description:'穿过百道防线，借助增益突破坚壁',keys:'A D / ← → 移动，也可拖动挡板',color:'#f1c18d'}, ...EXTRA_GAMES
+  {id:'breakout',name:'打砖块',tag:'街机 · 百关挑战',description:'穿过百道防线，借助增益突破坚壁',keys:'A D / ← → 移动，也可拖动挡板',color:'#f1c18d'}, ...EXTRA_GAMES,...NEW_GAMES
 ];
 export const MAX_TICKS=18000;
 export const runnerSpeed=tick=>Math.min(15.6,7.2+tick*.0024);
@@ -16,6 +17,7 @@ export function createGame(game,seed){
   if(game==='blocks'){Object.assign(s,{board:Array.from({length:20},()=>Array(10).fill(0)),lines:0,level:1,bag:[],next:[],held:0,canHold:true,combo:0,event:null});piece(s);}
   if(game==='breakout'){Object.assign(s,{paddle:180,ball:{x:180,y:410,vx:2.6,vy:-3.8},lives:3,level:1,serve:45,combo:0,event:null});bricks(s);}
   if(EXTRA_GAMES.some(g=>g.id===game))createExpanded(s);
+  if(NEW_GAMES.some(g=>g.id===game))createNew(s);
   return s;
 }
 function nextColor(s){if(!s.bag.length){s.bag=[1,2,3,4,5,6,7];for(let i=6;i>0;i--){const j=Math.floor(random(s)*(i+1));[s.bag[i],s.bag[j]]=[s.bag[j],s.bag[i]];}}return s.bag.pop();}
@@ -76,6 +78,7 @@ export function step(s,actions=[]){
     if(s.bricks.every(b=>!b.alive||b.stone)){s.score+=100*s.level;if(s.level%5===0)s.lives=Math.min(3,s.lives+1);if(s.level>=100){s.over=true;s.won=true;}else{s.level++;bricks(s);s.serve=60;Object.assign(b,{x:s.paddle,y:410,vx:2.6,vy:-velocity});}}
   }
   if(EXTRA_GAMES.some(g=>g.id===s.game))stepExpanded(s,actions);
+  if(NEW_GAMES.some(g=>g.id===s.game))stepNew(s,actions);
   if(s.game==='blocks'&&s.tick>=MAX_TICKS)s.over=true;
   return s;
 }
@@ -85,7 +88,7 @@ export function replay(game,seed,ticks,inputs){
 export function replaySegment(previous,ticks,inputs){
   if(!Number.isSafeInteger(ticks)||ticks<=previous.tick||ticks-previous.tick>MAX_TICKS||!Array.isArray(inputs)||inputs.length>MAX_TICKS*4)throw Error('游戏记录无效');
   let last=previous.tick,perTick=0;const game=previous.game;
-  for(const e of inputs){if(!Array.isArray(e)||e.length!==2||!Number.isInteger(e[0])||e[0]<=previous.tick||e[0]>ticks||e[0]<last)throw Error('操作顺序无效');perTick=e[0]===last?perTick+1:1;last=e[0];if(perTick>4)throw Error('操作过于频繁');const a=e[1];if(typeof a==='object'&&a!==null){if(!Number.isFinite(a.x)||a.x<0||a.x>360||(game==='breakout'?Object.keys(a).length!==1:!['danmaku','fighter'].includes(game)||Object.keys(a).length!==2||!Number.isFinite(a.y)||a.y<0||a.y>480))throw Error('操作坐标无效');}else if(!['left','right','up','down','focus','rotate','drop','jump','hold','upgrade:power','upgrade:rapid','upgrade:wings','upgrade:shield','upgrade:repair','upgrade:speed'].includes(a))throw Error('操作无效');}
+  for(const e of inputs){if(!Array.isArray(e)||e.length!==2||!Number.isInteger(e[0])||e[0]<=previous.tick||e[0]>ticks||e[0]<last)throw Error('操作顺序无效');perTick=e[0]===last?perTick+1:1;last=e[0];if(perTick>4)throw Error('操作过于频繁');const a=e[1];if(typeof a==='object'&&a!==null){if(!Number.isFinite(a.x)||a.x<0||a.x>360||(game==='breakout'?Object.keys(a).length!==1:!['danmaku','fighter'].includes(game)||Object.keys(a).length!==2||!Number.isFinite(a.y)||a.y<0||a.y>480))throw Error('操作坐标无效');}else if(!validNewAction(game,a)&&!['left','right','up','down','focus','rotate','drop','jump','hold','upgrade:power','upgrade:rapid','upgrade:wings','upgrade:shield','upgrade:repair','upgrade:speed'].includes(a))throw Error('操作无效');}
   const s=structuredClone(previous);let i=0;
   while(s.tick<ticks&&!s.over){const actions=[];while(i<inputs.length&&inputs[i][0]===s.tick+1)actions.push(inputs[i++][1]);step(s,actions);}
   if(s.tick!==ticks||i!==inputs.length)throw Error('游戏结束后的记录无效');

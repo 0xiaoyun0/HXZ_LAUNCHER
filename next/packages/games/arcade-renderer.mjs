@@ -1,3 +1,4 @@
+import {drawNew} from './arcade-new-renderer.mjs';
 import {drawExpanded} from './arcade-expanded-renderer.mjs';
 import {shapes,ghostRow,runnerSpeed} from '../../server/shared/arcade-engine.mjs';
 const COLORS=['','#75cbd4','#e5c573','#b3a0e2','#8bb2e2','#e9aa7d','#94cbaa','#dc969c'];
@@ -7,7 +8,7 @@ function tree(c,x,y,size,color){c.fillStyle=color;c.fillRect(x-size*.055,y-size*
 function block(c,x,y,size,color,ghost=false){if(ghost){c.strokeStyle=color+'70';c.lineWidth=1;c.strokeRect(x+2,y+2,size-4,size-4);return;}box(c,x+1,y+1,size-2,size-2,3,color);c.fillStyle='#ffffff35';c.fillRect(x+4,y+3,size-8,2);c.fillStyle='#00000019';c.fillRect(x+3,y+size-5,size-6,2);}
 export function drawPiece(c,color,x,y,size=12){if(!color)return;const shape=shapes[color-1];for(let dy=0;dy<shape.length;dy++)for(let dx=0;dx<shape[dy].length;dx++)if(shape[dy][dx])block(c,x+dx*size,y+dy*size,size,COLORS[color]);}
 export function createRenderer(canvas,id,{preview=false}={}){
- const c=canvas.getContext('2d',{alpha:false}),height=id==='runner'?260:480,dpr=Math.min(2,globalThis.devicePixelRatio||1);
+ const c=canvas.getContext('2d',{alpha:false}),height=id==='runner'?260:id==='contra'?338:480,dpr=Math.min(2,globalThis.devicePixelRatio||1);
  canvas.width=360*dpr;canvas.height=height*dpr;c.setTransform(dpr,0,0,dpr,0,0);
  const background=document.createElement('canvas');background.width=360*dpr;background.height=height*dpr;const b=background.getContext('2d');b.scale(dpr,dpr);
  const sky=b.createLinearGradient(0,0,0,height);sky.addColorStop(0,id==='blocks'?'#171b30':id==='runner'?'#1b3c40':'#242237');sky.addColorStop(1,id==='runner'?'#386b5d':'#111d25');b.fillStyle=sky;b.fillRect(0,0,360,height);
@@ -59,6 +60,7 @@ export function createRenderer(canvas,id,{preview=false}={}){
     for(const p of particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=65*dt;c.globalAlpha=Math.max(0,p.life/.45);c.fillStyle='#f0d7b5';c.fillRect(p.x,p.y,2,2);}c.globalAlpha=1;particles=particles.filter(p=>p.life>0);
    }
    if(['danmaku','maze','fighter'].includes(id))drawExpanded(c,s,alpha,reduce);
+   if(['contra','garden'].includes(id))drawNew(c,s);
    if(!preview){c.fillStyle='#ffffff08';c.fillRect(0,0,360,1);}
   },
   dispose(){particles=[];trail=[];background.width=background.height=1;}

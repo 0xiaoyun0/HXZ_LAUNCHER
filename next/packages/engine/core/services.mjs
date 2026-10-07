@@ -108,7 +108,7 @@ export async function createServices({
     backgroundPositionY: 50,
     backgroundFit: "cover",
     layout: "standard",
-    downloadMode: "domestic",
+    downloadMode: "official",
     downloadConcurrency: 32,
     updateFeed: "",
     autoCheckUpdates: defaultAutoCheckUpdates,
@@ -429,7 +429,7 @@ export async function createServices({
         shell: false
       });
       log("[进程] "+path.basename(command)+" · 工作目录: "+cwd);
-      let finished = false, failureEvidence = "", updaterOffline=false;
+      let finished = false, failureEvidence = "", failureRoot = "", updaterOffline=false;
       const started = Date.now();
       const abort = () => {
         if (process.platform === "win32" && child.pid) {
@@ -465,9 +465,13 @@ export async function createServices({
         }
       });
       attachLog(child.stderr, line => {
+        if(line.startsWith("[下载节点]"))emit({type:"task",detail:line.replace("[下载节点] ","")});
         if(line.startsWith('HXZUP_OFFLINE:'))updaterOffline=true;
-        if (/^(?:Caused by:|Exception in thread|Error:)|InvalidPathException|UnsupportedClassVersionError/.test(line))
-          failureEvidence = redactDiagnostic(line, [...secrets]).slice(0, 800);
+        if (/^(?:Caused by:|Exception in thread|Error:)|InvalidPathException|UnsupportedClassVersionError/.test(line)) {
+          const evidence=redactDiagnostic(line, [...secrets]).slice(0,800);
+          if(!failureRoot)failureRoot=evidence;
+          failureEvidence=evidence;
+        }
         return false;
       });
       child.on("error", error => {
@@ -482,7 +486,7 @@ export async function createServices({
         if (signal?.aborted) reject(Error("任务已取消"));
         else if (code !== 0) {
           log(`[进程结束] 退出码 ${code} · 耗时 ${Math.round((Date.now()-started)/1000)} 秒`);
-          const error=Error(`任务进程退出（${code}）${failureEvidence ? "：" + failureEvidence : "，请查看任务详情"}`);
+          const error=Error(`任务进程退出（${code}）${failureRoot ? "：" + failureRoot+(failureEvidence!==failureRoot?'\n'+failureEvidence:'') : "，请查看任务详情"}`);
           if(updaterOffline)error.code='HXZUP_OFFLINE';
           reject(error);
         }
@@ -555,11 +559,13 @@ export async function createServices({
         "-Dsun.stderr.encoding=UTF-8",
         "-Djava.awt.headless=true",
         "-Dhxz.launcher.managed=true",
+        "-Dhxz.launcher.official=" + (settings.downloadMode === "official"),
         "-jar",
         path.join("updater", "updater-launcher.jar")
       ],
       instance,
-      signal
+      signal,
+      true
     );
     await assertUpdateComplete(instance);
   }
@@ -594,6 +600,8 @@ export async function createServices({
   }
   async function launch(id, updateOnly = false, joinServer = false, direct = null) {
     busy();
+    logs = [];
+    emit({ type: "logs-reset" });
     const preset = (await presetCatalog.refresh()).find(p => p.id === id);
     if (preset && !preset.enabled) throw Error("管理员暂时关闭了此服务器入口");
     if (preset) {
@@ -636,7 +644,7 @@ export async function createServices({
           }
         } catch(error){phase({phase:'服务器安装未开始',busy:false,failed:true,failure:error.message});throw error;}
         finally {task=null;}
-        await installGame(input,pack);
+        await installGame(input,pack,true);
       }
     }
     if (
@@ -654,8 +662,6 @@ export async function createServices({
       throw Error("此实例尚未安装完成，请在下载页面使用同一名称重试");
     const controller = new AbortController();
     task = controller;
-    logs = [];
-    emit({ type: "logs-reset" });
     try {
       const cfg = {
         memoryMB: settings.defaultMemoryMB,
@@ -790,7 +796,7 @@ export async function createServices({
       task = null;
     }
   }
-  async function installGame(input, pack = null) {
+  async function installGame(input, pack = null, continuation = false) {
     busy();
     if (!settings.gameRoot) throw Error("先选择游戏目录");
     const id = String(input.name || "").trim();
@@ -818,8 +824,7 @@ export async function createServices({
       throw Error("游戏或加载器版本无效");
     const controller = new AbortController();
     task = controller;
-    logs = [];
-    emit({ type: "logs-reset" });
+    if(!continuation){logs = [];emit({ type: "logs-reset" });}
     phase({ phase: "准备安装 " + id, busy: true });
     let job;
     try {
@@ -827,7 +832,7 @@ export async function createServices({
       const instance = job.stage;
       const marker = path.join(instance, ".hxzl/install-request.json");
       await writeJSON(marker, { request, pack: pack?.file || "" });
-      const metadata = await catalog.gameMetadata(request.gameVersion,{signal:controller.signal,retryBudgetMs:30*60*1000});
+      const metadata = await catalog.gameMetadata(request.gameVersion,{signal:controller.signal,retryBudgetMs:120000});
       const java = await selectJava(metadata, controller.signal, settings.instanceSettings[id]||{});
       const configFile = path.join(instance, ".hxzl/installer-settings.json"),
         requestFile = path.join(instance, ".hxzl/game-profile.json");
@@ -913,10 +918,19 @@ export async function createServices({
       controller.signal.throwIfAborted();
       await writeJSON(path.join(data, "settings.json"), settings);
       });
+      // Seed HXZUP's verified game receipt using final paths, so the first
+      // server update does not reinstall the very same loader a second time.
+      const finalInstance=inside(settings.gameRoot,'versions/'+id);
+      await writeJSON(path.join(instance,'updater/.updater/local-game-profile.json'),{
+        ...request,installedVersion:id,gameDirectory:path.resolve(settings.gameRoot),
+        gameRunDirectory:finalInstance,instanceDirectory:finalInstance,
+        installedMetadataHash:await hash(path.join(instance,id+'.json')),
+        installedJarHash:await hash(path.join(instance,id+'.jar'))
+      });
       await job.commit();
       phase({
         phase: "安装完成" + (update.hxzup ? " · 已启用 HXZ UP 自动更新" : ""),
-        busy: false
+        busy: continuation
       });
       return { id, ...update };
     } catch (error) {
