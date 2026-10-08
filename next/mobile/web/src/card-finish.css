@@ -1,0 +1,61 @@
+/* Mobile companion to the desktop card finish. Navigation and game geometry
+   retain their existing ownership; no page transforms on fixed controls. */
+:root {
+  --bg: #f3f5f9; --text: #293349; --muted: #626f84; --line: #dfe5ef;
+  --soft: #edf0f6; --shadow: 0 2px 4px #22334d03, 0 8px 24px #22334d05;
+}
+:root[data-theme=dark] {
+  --bg: #191e29; --surface: #252b38; --elevated: #303849;
+  --text: #e7ecf6; --muted: #aab5c9; --line: #3b4558; --soft: #303849;
+  --surface-rgb: 37,43,56; --shadow: 0 3px 12px #00000018;
+}
+.page-toolbar h1 { font-weight: 650; line-height: 1.4; }
+.page-toolbar { margin-bottom: 4px; }
+.card h2, .section-title { font-weight: 650; line-height: 1.5; }
+.card, .post-card, .settings-group, .voice-room, .detail-card, .reply-card,
+.blueprint-card, .shop-product { border-radius: 16px; }
+.card { padding: 18px; }
+.discover-card { gap: 14px; }
+.discover-icon { border-radius: 11px; }
+.discover-card p { font-size: .8125rem; }
+.soft-button, .primary, .danger-button, .chips button { min-height: 44px; }
+.soft-button, .primary, .danger-button { font-weight: 550; }
+.soft-button:active, .primary:active, .danger-button:active { transform: scale(.98); }
+.chips { gap: 6px; }
+.chips button { padding: 8px 12px; }
+.app-select { font-size: .9375rem; }
+.settings-row { padding: 16px; }
+.settings-row small { font-size: .8125rem; line-height: 1.7; }
+.voice-room-grid { gap: 12px; }
+.voice-room { padding: 16px; }
+.voice-room-caption small { font-size: .8125rem; }
+.bottom-nav button>span { transition: background-color var(--motion-duration), color var(--motion-duration); }
+.bottom-nav button.active { color: var(--accent-text, var(--accent)); }
+.connection, .connection.online { color: var(--text); }
+.avatar { color: var(--accent-text, var(--accent)); }
+.bottom-nav button.active>span { box-shadow: inset 0 0 0 1px var(--accent-border, transparent); }
+.chips button.selected, .segmented .selected, .discover-icon,
+.voice-room.selected { color: var(--accent-text, var(--accent)); }
+.post-card h2 { font-size: 1.0625rem; }
+.post-card .preview { font-size: .9rem; }
+.bubble { line-height: 1.75; }
+.music-song { padding-block: 9px; }
+.sheet-header { padding: 18px; }
+.choice-list .role-choice { border-radius: 10px; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent-text, var(--accent)); outline-offset: 3px;
+}
+@media (max-width: 359px) {
+  .card, .post-card, .voice-room { padding: 14px; }
+  .chips button { padding-inline: 10px; }
+}
+@media (min-width: 760px) {
+  .bottom-nav { overflow-y: auto; overscroll-behavior: contain; }
+}
+@media (min-width: 760px) and (max-height: 540px) {
+  .bottom-nav { padding: 8px 6px; gap: 4px; }
+  .bottom-nav button { min-height: 48px; padding-block: 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

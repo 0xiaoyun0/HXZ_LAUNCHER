@@ -17,5 +17,9 @@ export function Field({label,hint,children}:any){return <label className="field"
 export function Empty({icon:Icon,title,children,action}:any){return <div className="empty">{Icon&&<Icon size={35} strokeWidth={1.4}/>}<h3>{title}</h3>{children&&<p>{children}</p>}{action}</div>}
 export function PageTitle({eyebrow,title,children,actions}:any){return <header className="page-title"><div>{eyebrow&&<span className="eyebrow">{eyebrow}</span>}<h1>{title}</h1>{children&&<p>{children}</p>}</div><div className="actions">{actions}</div></header>}
 export function Avatar({name='',image,size=32}:any){const [failed,setFailed]=useState('');return <span className="avatar" style={{width:size,height:size}}>{image&&image!==failed?<img src={image} alt={name+'的头像'} onError={()=>setFailed(image)}/>:(name?.slice(0,1)||'旅')}</span>}
+export function CoverImage({src,alt='',fallback=null}: {src?:string;alt?:string;fallback?:React.ReactNode}) {
+ const [failed,setFailed]=useState('');
+ return src&&src!==failed?<img src={src} alt={alt} loading="lazy" decoding="async" onError={()=>setFailed(src)}/>:fallback;
+}
 export function Segments({value,onChange,items}:any){return <div className="segments">{items.map((i:any)=><button key={i.id} aria-pressed={value===i.id} className={value===i.id?'selected':''} onClick={()=>onChange(i.id)}>{i.icon&&<i.icon size={16}/>}<span>{i.label}</span>{i.count!=null&&<small>{i.count}</small>}</button>)}</div>}
 export const date=(n:any)=>new Date(n).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});

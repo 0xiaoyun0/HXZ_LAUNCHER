@@ -5,9 +5,9 @@
 ## 使用
 
 - Windows x64 / ia32：推荐下载 HXZ-Launcher-0.6.4-x64.exe / HXZ-Launcher-0.6.4-ia32.exe 安装器，可选目录并创建快捷方式。也保留 portable.zip，完整解压后运行「幻想镇 NEXT.exe」。
-- Android：安装 HXZ-Community-Android-0.6.4-60401.apk，支持 Android 10 及以上。沿用正式应用身份和签名，可覆盖旧版，保留数据。
+- Android：安装 HXZ-Community-Android-0.6.4-60402.apk，支持 Android 10 及以上。沿用正式应用身份和签名，可覆盖旧版，保留数据。
 - 安装版沿用旧正式版的 %APPDATA%/幻想镇启动器，首次启动备份旧设置；便携版保存在程序旁 profile。迁移便携版时先退出程序并备份，再复制整个 profile 到对应的数据目录。游戏仍使用原 .minecraft，不必重复复制。
-- 安装版支持 GitHub 与备用源的签名自动更新，可在设置关闭；正式 0.5.2 安装版可通过原通道升级。便携版仍使用完整包手动升级。
+- 安装版支持 GitHub 与备用源的签名自动更新，可在设置关闭；正式 0.5.2 安装版可通过原通道升级。便携版仍使用完整包手动升级。2026-10-08 的界面修订保留 0.6.4 版本号，已经使用 Windows 0.6.4 的用户需手动下载修订安装器覆盖安装。
 - 管理员只需下载一个 HXZ-Community-0.6.4-windows-x64.zip 完整社区服务端，包含网页后台、收件箱、活动奖励、音乐授权、直连及限速中继。部署及保留旧数据见 [服务端说明](apps/community-server/README.md)。
 
 ## 功能
