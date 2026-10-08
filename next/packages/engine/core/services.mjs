@@ -18,7 +18,7 @@ import {normalizeUpdateUrl,readUpdateSource} from "./hxzup-sources.mjs";
 import { instanceTarget, modPlan } from "./mod-plan.mjs";
 import {
   normalizeDownloadConcurrency,
-  validateDownloadConcurrency
+  validateDownloadConcurrency, normalizeDownloadSpeed, validateDownloadSpeed
 } from "./download-settings.mjs";
 import { chooseJava } from "./zulu-runtime.mjs";
 import { defaultGameRoot, runtimeHome, instanceKey, removeInstanceFiles } from "./game-storage.mjs";
@@ -66,7 +66,7 @@ const LIVE_SETTINGS = new Set([
   'backgroundPositionY','backgroundFit','backgroundVideo','backgroundMusic',
   'defaultCover','musicVolume','videoQuality','linkingDiscovered','showLinking',
   'layout','cardLayouts','cardStyle','columns','hiddenLinks','pinnedLinks','animationSpeed',
-  'showCover','voiceMode','voiceKey','voiceSounds','chatHistoryDays'
+  'showCover','voiceMode','voiceKey','voiceSounds','chatHistoryDays','downloadSpeedMBps'
 ]);
 export async function createServices({
   data,
@@ -110,6 +110,7 @@ export async function createServices({
     layout: "standard",
     downloadMode: "official",
     downloadConcurrency: 32,
+    downloadSpeedMBps: 0,
     updateFeed: "",
     autoCheckUpdates: defaultAutoCheckUpdates,
     memoryMode: "auto",
@@ -190,8 +191,11 @@ export async function createServices({
   settings.downloadConcurrency = normalizeDownloadConcurrency(
     settings.downloadConcurrency
   );
+  settings.downloadSpeedMBps=normalizeDownloadSpeed(settings.downloadSpeedMBps);
+  const downloadLimitFile=path.join(data,"download-limit.json");
+  await writeJSON(downloadLimitFile,{bytesPerSecond:Math.round(settings.downloadSpeedMBps*1048576)});
   setDownloadMode(settings.downloadMode);
-  configureDownloads({concurrency:settings.downloadConcurrency,onStatus:value=>{log('[下载节点] '+value.message);emit({type:'task',detail:value.message});}});
+  configureDownloads({concurrency:settings.downloadConcurrency,speedLimitMBps:settings.downloadSpeedMBps,onStatus:value=>{log('[下载节点] '+value.message);emit({type:'task',detail:value.message});}});
   const persistent =
     safeStorage.isEncryptionAvailable() &&
     !(
@@ -560,6 +564,8 @@ export async function createServices({
         "-Djava.awt.headless=true",
         "-Dhxz.launcher.managed=true",
         "-Dhxz.launcher.official=" + (settings.downloadMode === "official"),
+        "-Dhxz.download.limitBytes=" + Math.round(settings.downloadSpeedMBps*1048576),
+        "-Dhxz.download.limitFile64=" + Buffer.from(downloadLimitFile,"utf8").toString("base64"),
         "-jar",
         path.join("updater", "updater-launcher.jar")
       ],
@@ -858,6 +864,8 @@ export async function createServices({
           "-Dsun.stdout.encoding=UTF-8",
           "-Dsun.stderr.encoding=UTF-8",
           "-Dhxz.launcher.official=" + (settings.downloadMode === "official"),
+        "-Dhxz.download.limitBytes=" + Math.round(settings.downloadSpeedMBps*1048576),
+        "-Dhxz.download.limitFile64=" + Buffer.from(downloadLimitFile,"utf8").toString("base64"),
           "-cp",
           [
             ".hxzl/game-installer.jar",
@@ -1229,6 +1237,7 @@ export async function createServices({
         nextSettings.downloadConcurrency = validateDownloadConcurrency(
           input.downloadConcurrency
         );
+      if(input.downloadSpeedMBps!=null)nextSettings.downloadSpeedMBps=validateDownloadSpeed(input.downloadSpeedMBps);
       if (input.downloadMode) {
         nextSettings.downloadMode =
           input.downloadMode === "official" ? "official" : "domestic";
@@ -1413,7 +1422,8 @@ export async function createServices({
       await writeJSON(configFile, nextSettings);
       settings=nextSettings;
       setDownloadMode(settings.downloadMode);
-      configureDownloads({concurrency:settings.downloadConcurrency});
+      configureDownloads({concurrency:settings.downloadConcurrency,speedLimitMBps:settings.downloadSpeedMBps});
+      await writeJSON(downloadLimitFile,{bytesPerSecond:Math.round(settings.downloadSpeedMBps*1048576)});
       if(input.communityUrl!=null)community=null;
       return settings;
     },

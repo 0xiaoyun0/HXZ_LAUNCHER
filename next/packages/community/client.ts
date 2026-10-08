@@ -125,6 +125,7 @@ function playVoiceTone(action: "join" | "leave") {
   } catch {}
 }
 
+export function sendCoop(value:any){send({...value,type:"coop-control"});}
 function send(value: unknown) {
   if (!socket || socket.readyState !== WebSocket.OPEN || !community.connected)
     throw Error("社区尚未连接");
@@ -259,6 +260,7 @@ export async function connect() {
         community.id = packet.id!;
         community.user = packet.user!;
         community.messages = packet.messages || [];
+      } else if(packet.type === "coop-state"){window.dispatchEvent(new CustomEvent("hxz-coop",{detail:packet}));
       } else if(packet.type === "inbox-changed"){window.dispatchEvent(new Event("hxz-inbox"));
       } else if(packet.type === "music-access-changed"){window.dispatchEvent(new Event("hxz-music-access"));
       } else if (packet.type === "presence") {

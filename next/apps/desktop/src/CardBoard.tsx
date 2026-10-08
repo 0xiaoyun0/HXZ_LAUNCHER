@@ -4,7 +4,7 @@ import {GridLayout, useContainerWidth, verticalCompactor, type Layout, type Layo
 import {Grip, EyeOff, LayoutDashboard, RotateCcw, Lock, Unlock, MoreHorizontal, Undo2, AlignStartVertical, Expand} from 'lucide-react';
 import {state, saveSettings, notify} from './model';
 import {Button, Dropdown, Modal, Toggle} from './ui';
-import {normalizeCardLayouts, normalizeCardStyle} from '../../../packages/engine/core/card-layout.mjs';
+import {normalizeCardLayouts, normalizeCardStyle,filteredCardLayout} from '../../../packages/engine/core/card-layout.mjs';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
@@ -33,16 +33,16 @@ function minimumContent(el:HTMLElement) {
   return {width,height};
 }
 
-export function CardBoard(props:{id:string; cards:CardSpec[]; label?:string; className?:string}) {
+export function CardBoard(props:{id:string; cards:CardSpec[]; label?:string; className?:string; transient?:boolean}) {
   const {width, containerRef, mounted} = useContainerWidth({measureBeforeMount:true});
   const compact=width<780;
   // A breakpoint change must not reuse an in-flight gesture from the other layout.
   return <section ref={containerRef} className={'card-workspace '+(props.className||'')} aria-label={props.label||'卡片布局'}>
-    {mounted&&<Board key={props.id+(compact?'.compact':'.wide')} {...props} width={width} compact={compact}/>}
+    {mounted&&<Board key={props.id+(compact?'.compact':'.wide')+(props.transient?'.results:'+props.cards.map(c=>c.id).join(','):'')} {...props} width={width} compact={compact}/>}
   </section>;
 }
 
-function Board({id,cards,label='卡片布局',width,compact}:{id:string;cards:CardSpec[];label?:string;className?:string;width:number;compact:boolean}) {
+function Board({id,cards,label='卡片布局',width,compact,transient=false}:{id:string;cards:CardSpec[];label?:string;className?:string;width:number;compact:boolean;transient?:boolean}) {
   const s=useSnapshot(state),page=id+(compact?'.compact':'.wide'),style=normalizeCardStyle(s.settings.cardStyle);
   const [drawer,setDrawer]=useState(false),[draft,setDraft]=useState<Saved|null>(null),[previous,setPrevious]=useState<Saved|null>(null);
   const [status,setStatus]=useState(''),[gesture,setGesture]=useState(false),[measured,setMeasured]=useState<Record<string,number>>({});
@@ -61,7 +61,7 @@ function Board({id,cards,label='卡片布局',width,compact}:{id:string;cards:Ca
     });
   },[JSON.stringify(geometry),compact,JSON.stringify(measured)]);
   const saved=normalizeCardLayouts({[page]:s.settings.cardLayouts?.[page]})[page] as Saved|undefined;
-  const active:Saved=draft??saved??{items:initial,hidden:[],locked:[],fixed:[]};
+  const active:Saved=draft??(transient?filteredCardLayout(saved,initial):saved)??{items:initial,hidden:[],locked:[],fixed:[]};
   const hidden=active.hidden,locked=active.locked||[],fixed=active.fixed||[];
   const automatic=(card:string)=>!fixed.includes(card)&&!locked.includes(card);
   const layout=verticalCompactor.compact(initial.filter(i=>!hidden.includes(i.i)).map(base=>{
@@ -76,6 +76,8 @@ function Board({id,cards,label='卡片布局',width,compact}:{id:string;cards:Ca
   async function persist(next:Saved,remember=true) {
     const ticket=++revision.current;
     if(remember)setPrevious(capture());
+    // Filtered collections start at the left without overwriting the full collection's layout.
+    if(transient){setDraft(next);setStatus('仅调整当前筛选结果');return;}
     setDraft(next);setStatus('正在保存…');
     try {
       // Resolve the map when the queued write starts, not at gesture time.
@@ -113,7 +115,7 @@ function Board({id,cards,label='卡片布局',width,compact}:{id:string;cards:Ca
   function stop(value:Layout,resizeId?:string){setGesture(false);setPrevious(beforeGesture.current);const next=merge(value);if(resizeId)next.fixed=[...new Set([...fixed,resizeId])];void persist(next,false);}
   return <div ref={board} className={'card-board '+(gesture?'moving':'')} style={{'--card-gap':style.gap+'px'} as React.CSSProperties}>
     <div className="card-layout-toolbar"><span>{label}</span><div>
-      <button className={'layout-save-status '+(status.startsWith('保存失败')?'error':'')} disabled={!status.startsWith('保存失败')} onClick={()=>draft&&void persist(draft,false)} aria-live="polite">{gesture?'松手即可对齐':status||'拖动手柄整理 · 自动保存'}</button>
+      <button className={'layout-save-status '+(status.startsWith('保存失败')?'error':'')} disabled={!status.startsWith('保存失败')} onClick={()=>draft&&void persist(draft,false)} aria-live="polite">{gesture?'松手即可对齐':status||(transient?'筛选结果 · 独立排列':'拖动手柄整理 · 自动保存')}</button>
       {previous&&<Button icon={Undo2} onClick={()=>{const value=previous;setPrevious(null);rendered.current=[];return persist(value,false);}}>撤销</Button>}
       <Button icon={LayoutDashboard} onClick={()=>setDrawer(true)}>卡片{hidden.length?' · '+hidden.length+' 已隐藏':''}</Button>
     </div></div>

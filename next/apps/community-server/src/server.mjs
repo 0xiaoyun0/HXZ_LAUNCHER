@@ -1,3 +1,4 @@
+import {createTankRooms} from './tank-rooms.mjs';
 import {createWerewolf} from './werewolf.mjs';
 import {createRoomRelay} from './room-relay.mjs';
 import {createServerOnline} from './server-online.mjs';
@@ -95,6 +96,7 @@ export function createCommunity(options={}) {
   const publicAPI=createPublicAPI({db,send,points,shop});
   const boards=createBoardMatches({db,auth,body,send,limit,points});
   const werewolf=createWerewolf({auth,body,send,limit,points,broadcast});
+  const tanks=createTankRooms({auth,body,send,limit,broadcast,points});
   const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast,points});
   const feedbackRoute=createFeedback({db,auth,admin,body,send,limit});
   const directLobby=createDirectLobby({db,auth,admin,body,send,limit});
@@ -110,6 +112,7 @@ export function createCommunity(options={}) {
       if(await arcana(req,res,url))return;
       if(await presetsRoute(req,res,url))return;
       if(await serverOnline(req,res,url))return;
+      if(await tanks.route(req,res,url))return;
       if(await boards.route(req,res,url))return;
       if(await musicAccess(req,res,url))return;
       if(await inbox.route(req,res,url))return;
@@ -177,7 +180,7 @@ export function createCommunity(options={}) {
         for(const [old,p] of clients)if(p.user.uid===user.uid&&p.platform===platform){voiceEvent(p,'leave');clients.delete(old);old.close(4001,'已在另一处登录此设备');}
 
         c={id:randomUUID(),user,platform:message.platform==='android'?'android':'desktop',room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',heartbeatInterval:15000,voiceTransport:'ws-opus-v1',roomLimit,id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
-      verify(c.token);limit('client:'+c.id,120,10000);
+      verify(c.token);if(message.type==='coop-control'){tanks.input(c.user,message,c.id);return;}limit('client:'+c.id,120,10000);
       if(message.type==='ping'){ws.alive=true;packet(ws,{type:'pong'});}
       else if(message.type==='chat'){limit('chat:'+c.user.uid,8,10000);const value=text(message.body,1000);inbox.validateMentions(c.user,value);const created=Date.now();const inserted=db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)').run('lobby',c.user.uid,c.user.name,value,created);
         inbox.mentions(c.user,value,{target:'/community?message='+inserted.lastInsertRowid,dedupe:'chat:'+inserted.lastInsertRowid});
@@ -192,6 +195,6 @@ export function createCommunity(options={}) {
     ws.on('error',()=>{});ws.on('close',()=>{clearTimeout(timer);voiceEvent(clients.get(ws),'leave');clients.delete(ws);presence();});
   });
   const sweep=setInterval(()=>{for(const [id,v] of attempts)if(Date.now()-v.time>60000)attempts.delete(id);for(const ws of wss.clients){const c=clients.get(ws);if(c&&c.user.exp<Date.now()){ws.close(1008,'登录已过期');continue;}if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();}},15000);sweep.unref();
-  return {server,db,async close(){werewolf.close();relay.close();await boards.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
+  return {server,db,async close(){tanks.close();werewolf.close();relay.close();await boards.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const service=createCommunity();const port=Number(process.env.PORT||8787),host=process.env.HOST||'127.0.0.1';service.server.listen(port,host,()=>console.log(`幻想镇社区服务 http://${host}:${port}\n网页管理：http://127.0.0.1:${port}/admin/\n初始密码见数据目录的 初始管理员密码.txt`));for(const sig of ['SIGINT','SIGTERM'])process.on(sig,()=>service.close().then(()=>process.exit()));}

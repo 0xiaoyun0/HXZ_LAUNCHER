@@ -1,3 +1,4 @@
+import {drawClassic} from './arcade-classics-renderer.mjs';
 import {drawNew} from './arcade-new-renderer.mjs';
 import {drawExpanded} from './arcade-expanded-renderer.mjs';
 import {shapes,ghostRow,runnerSpeed} from '../../server/shared/arcade-engine.mjs';
@@ -60,6 +61,7 @@ export function createRenderer(canvas,id,{preview=false}={}){
     for(const p of particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=65*dt;c.globalAlpha=Math.max(0,p.life/.45);c.fillStyle='#f0d7b5';c.fillRect(p.x,p.y,2,2);}c.globalAlpha=1;particles=particles.filter(p=>p.life>0);
    }
    if(['danmaku','maze','fighter'].includes(id))drawExpanded(c,s,alpha,reduce);
+   if(['tanks','merge','snake','mines'].includes(id))drawClassic(c,s,alpha,reduce||document.documentElement.dataset.motion==='off');
    if(['contra','garden'].includes(id))drawNew(c,s);
    if(!preview){c.fillStyle='#ffffff08';c.fillRect(0,0,360,1);}
   },

@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {normalizeCardLayouts,filteredCardLayout} from '../../packages/engine/core/card-layout.mjs';
+const old={'games.wide':{items:[{i:'panel-0',x:6,y:28,w:6,h:18},{i:'panel-11',x:8,y:3,w:4,h:20}],hidden:['panel-0'],locked:['panel-11'],fixed:['panel-11']}};
+const migrated=normalizeCardLayouts(old)['games.wide'];
+assert.equal(migrated.items[0].i,'game-runner');assert.equal(migrated.items[1].i,'game-werewolf');
+assert.deepEqual(migrated.hidden,['game-runner']);assert.deepEqual(migrated.fixed,['game-werewolf']);
+const before=JSON.stringify(migrated);
+const filtered=filteredCardLayout(migrated,[{i:'game-werewolf',x:0,y:0,w:4,h:14},{i:'game-runner',x:4,y:0,w:4,h:14}]);
+assert.deepEqual(filtered.items[0],{i:'game-werewolf',x:0,y:0,w:4,h:20});
+assert.deepEqual(filtered.locked,['game-werewolf']);assert.deepEqual(filtered.hidden,['game-runner']);
+assert.equal(filtered.items[1].w,6);assert.equal(JSON.stringify(migrated),before);
+assert.deepEqual(normalizeCardLayouts({'games.wide':migrated})['games.wide'],migrated);
+console.log('PASS legacy game IDs migrate once; filtered positions preserve width, sizing, locks, hidden cards and full layout');

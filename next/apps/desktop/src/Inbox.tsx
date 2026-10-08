@@ -9,7 +9,7 @@ import {request,useData} from './data';
 import {perform,notify} from './model';
 
 export function useInboxCount(){const c=useSnapshot(community),[count,setCount]=useState(0);useEffect(()=>{let active=true;const load=()=>{if(c.connected)void request('/api/inbox/unread').then(v=>active&&setCount(v.unread)).catch(()=>{});else setCount(0);};load();window.addEventListener('hxz-inbox',load);return()=>{active=false;window.removeEventListener('hxz-inbox',load);};},[c.connected,c.user?.uid]);return count;}
-export function InboxButton(){const n=useInboxCount(),navigate=useNavigate();return <button className="inbox-indicator" title={'收件箱'+(n?' · '+n+' 条未读':'')} aria-label={'收件箱'+(n?'，'+n+' 条未读':'')} onClick={()=>navigate('/community/inbox')}><Mail size={19}/>{n>0&&<b>{n>99?'99+':n}</b>}</button>;}
+export function InboxButton(){const n=useInboxCount(),navigate=useNavigate();return <button className="button icon-button inbox-indicator" title={'收件箱'+(n?' · '+n+' 条未读':'')} aria-label={'收件箱'+(n?'，'+n+' 条未读':'')} onClick={()=>navigate('/community/inbox')}><Mail size={17} strokeWidth={1.8}/>{n>0&&<b>{n>99?'99+':n}</b>}</button>;}
 export function InboxPage(){
  const c=useSnapshot(community),navigate=useNavigate(),[filter,setFilter]=useState('all'),[before,setBefore]=useState<number[]>([]),[sending,setSending]=useState(false),[form,setForm]=useState({title:'',body:'',recipients:'',all:false});
  const list=useData(()=>c.connected?request('/api/inbox?unread='+(filter==='unread'?1:0)+(before.length?'&before='+before.at(-1):'')):Promise.resolve({items:[],unread:0,more:false}),[c.connected,c.user?.uid,filter,before.at(-1)]);

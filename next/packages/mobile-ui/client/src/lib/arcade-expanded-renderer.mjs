@@ -8,7 +8,11 @@ function jet(c,x,y,size,color,enemy=false){
  c.fillStyle=color;c.beginPath();c.moveTo(0,-20);c.lineTo(5,-3);c.lineTo(21,11);c.lineTo(6,8);c.lineTo(4,17);c.lineTo(-4,17);c.lineTo(-6,8);c.lineTo(-21,11);c.lineTo(-5,-3);c.closePath();c.fill();
  c.fillStyle='#f0faff';c.beginPath();c.moveTo(0,-13);c.lineTo(3,2);c.lineTo(-3,2);c.fill();c.fillStyle='#567c92';c.fillRect(-2,4,4,9);c.restore();
 }
+const mazeFrames=new WeakMap();
 function maze(c,s,alpha,reduce){
+ let frame=mazeFrames.get(s);if(!frame){frame={};mazeFrames.set(s,frame);}const now=s.tick+alpha;
+ const position=(id,x,y)=>{let p=frame[id];if(!p||Math.abs(p.tx-x)+Math.abs(p.ty-y)>3)frame[id]=p={x,y,tx:x,ty:y,at:now};const t=reduce?1:Math.min(1,(now-p.at)/3);const current={x:p.x+(p.tx-p.x)*t,y:p.y+(p.ty-p.y)*t};if(p.tx!==x||p.ty!==y)frame[id]={...current,tx:x,ty:y,at:now};return current;};
+ const player=position('player',s.x,s.y);
  const cell=18,left=9,top=42;
  c.fillStyle='#101c29';c.fillRect(left,top,342,414);
  for(let y=0;y<23;y++)for(let x=0;x<19;x++){
@@ -17,8 +21,8 @@ function maze(c,s,alpha,reduce){
   else if(s.pellets[i]){if(s.pellets[i]===2){circle(c,px+9,py+9,7,'#a7d5e322');circle(c,px+9,py+9,4+(reduce?0:Math.sin(s.tick*.14)),'#a5e9e1');}else circle(c,px+9,py+9,1.7,'#e5d9a6');}
  }
  const mouth=reduce?.25:.18+Math.abs(Math.sin((s.tick+alpha)*.4))*.5,angle=[-Math.PI/2,0,Math.PI/2,Math.PI][s.dir];
- if(s.invincible<=s.tick||s.tick%8<5){c.fillStyle='#f4d884';c.beginPath();c.moveTo(left+s.x*cell+9,top+s.y*cell+9);c.arc(left+s.x*cell+9,top+s.y*cell+9,7,angle+mouth,angle+TAU-mouth);c.closePath();c.fill();}
- s.ghosts.forEach((g,i)=>{const x=left+g.x*cell+9,y=top+g.y*cell+9,scared=s.powerUntil>s.tick;c.globalAlpha=g.rest?.45:1;c.fillStyle=scared?'#7ca7d6':ink[i%4];c.beginPath();c.arc(x,y-1,7,Math.PI,0);c.lineTo(x+7,y+7);for(let k=0;k<4;k++)c.lineTo(x+7-k*4.6,y+(k%2?7:4));c.lineTo(x-7,y-1);c.fill();circle(c,x-2.6,y-1,2.2,'#fff');circle(c,x+2.6,y-1,2.2,'#fff');circle(c,x-2.3,y-1,1,'#172b3c');circle(c,x+2.9,y-1,1,'#172b3c');c.globalAlpha=1;});
+ if(s.invincible<=s.tick||s.tick%8<5){c.fillStyle='#f4d884';c.beginPath();c.moveTo(left+player.x*cell+9,top+player.y*cell+9);c.arc(left+player.x*cell+9,top+player.y*cell+9,7,angle+mouth,angle+TAU-mouth);c.closePath();c.fill();}
+ s.ghosts.forEach((g,i)=>{const p=position(i,g.x,g.y),x=left+p.x*cell+9,y=top+p.y*cell+9,scared=s.powerUntil>s.tick;c.globalAlpha=g.rest?.45:1;c.fillStyle=scared?'#7ca7d6':ink[i%4];c.beginPath();c.arc(x,y-1,7,Math.PI,0);c.lineTo(x+7,y+7);for(let k=0;k<4;k++)c.lineTo(x+7-k*4.6,y+(k%2?7:4));c.lineTo(x-7,y-1);c.fill();circle(c,x-2.6,y-1,2.2,'#fff');circle(c,x+2.6,y-1,2.2,'#fff');circle(c,x-2.3,y-1,1,'#172b3c');circle(c,x+2.9,y-1,1,'#172b3c');c.globalAlpha=1;});
  text(c,'月光迷宫 · '+String(s.level).padStart(2,'0')+'/100',12,25);text(c,'◆ '+s.remaining,347,25,12,'#e9d291','right');
  text(c,'● '.repeat(s.lives),12,474,12,'#efc8a0');if(s.powerUntil>s.tick)text(c,'光核 '+Math.ceil((s.powerUntil-s.tick)/30)+'s',345,474,11,'#a4e2d9','right');
 }

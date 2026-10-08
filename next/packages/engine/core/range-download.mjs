@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 
 // Fixed, independently retriable ranges with a work queue: a fast connection
 // takes another block instead of waiting for a slow quarter of the file.
-export async function downloadRanges(urls,file,options,{slot,hash,noLinks,writeJSON,limit,active=()=>1,report}){
+export async function downloadRanges(urls,file,options,{slot,hash,noLinks,writeJSON,limit,active=()=>1,report,throttle=()=>Promise.resolve()}){
  const identity=createHash('sha256').update(JSON.stringify([options.size,options.sha1,options.sha256,options.sha512])).digest('hex').slice(0,20);
  const temp=file+'.'+identity+'.ranges.partial',index=temp+'.json';
  const block=Math.max(2*1024*1024,Math.ceil(options.size/1024));
@@ -32,6 +32,7 @@ export async function downloadRanges(urls,file,options,{slot,hash,noLinks,writeJ
       if(res.status!==206||res.headers.get('content-range')!==`bytes ${start}-${end}/${options.size}`){await res.body?.cancel();throw Error('节点不支持可靠的分段下载');}
       received[part]=0;let position=start,paceTime=Date.now(),paceBytes=0;
       for await(const chunk of res.body){touch();paceBytes+=chunk.length;const window=options.stallWindowMs??10000;if(Date.now()-paceTime>=window){const minimum=end-position>256*1024&&active()<=Math.max(1,limit/4)?32:2;if(paceBytes<Math.max(512,window*minimum))throw Error('下载节点持续低速，切换备用来源');paceTime=Date.now();paceBytes=0;}if(position+chunk.length>end+1)throw Error('分段长度超出范围');let offset=0;
+       clearTimeout(timer);const waiting=Date.now();await throttle(chunk.length,transfer);paceTime+=Date.now()-waiting;touch();
        while(offset<chunk.length){const {bytesWritten}=await handle.write(chunk,offset,chunk.length-offset,position);if(!bytesWritten)throw Error('无法写入下载文件');offset+=bytesWritten;position+=bytesWritten;}
        received[part]+=chunk.length;options.onProgress?.(chunk.length);options.onTransfer?.({bytes:received.reduce((a,b)=>a+b,0),total:options.size,source:new URL(url).hostname});
       }

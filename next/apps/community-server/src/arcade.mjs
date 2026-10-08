@@ -1,3 +1,4 @@
+import * as v5 from '../shared/arcade-engine-v5.mjs';
 import * as v4 from '../shared/arcade-engine-v4.mjs';
 import * as legacy from '../shared/arcade-engine-v2.mjs';
 import * as previous from '../shared/arcade-engine-v3.mjs';
@@ -11,7 +12,7 @@ export function createArcade({db,auth,admin,body,send,limit,broadcast,points}){
   return async(req,res,url)=>{
     if(!url.pathname.startsWith('/api/arcade/')&&!url.pathname.startsWith('/api/admin/arcade/'))return false;
     const parts=url.pathname.split('/'),game=parts[3]==='arcade'?parts[4]:parts[3];
-    if(![...GAMES,...BOARD_GAMES].some(g=>g.id===game))throw Error('小游戏不存在');
+    if(![...GAMES,...v5.GAMES,...BOARD_GAMES].some(g=>g.id===game))throw Error('小游戏不存在');
     if(url.pathname.startsWith('/api/admin/')){admin(req);if(req.method!=='DELETE')throw Error('不支持的操作');const input=await body(req);if(typeof input.uid!=='string')throw Error('请选择玩家');db.prepare('DELETE FROM arcade_scores WHERE game=? AND uid=?').run(game,input.uid);db.prepare('DELETE FROM game_alltime WHERE game=? AND uid=?').run(game,input.uid);db.prepare('DELETE FROM game_weekly WHERE game=? AND uid=?').run(game,input.uid);broadcast({type:'arcade-ranking',game});send(res,200,{ok:true});return true;}
     if(req.method==='GET'){let user;try{user=auth(req);}catch{}send(res,200,points?points.gameBoard(game,user,url.searchParams.get('period')):{items:board(game)});return true;}
     if(BOARD_GAMES.some(g=>g.id===game))throw Error('请通过棋桌进行对局');
@@ -22,8 +23,8 @@ export function createArcade({db,auth,admin,body,send,limit,broadcast,points}){
     if(url.pathname.endsWith('/start')){
       const now=Date.now();for(const [id,r] of runs)if(now-r.updated>20*60000||r.uid===user.uid)runs.delete(id);
       if(runs.size>=5000)throw Error('游戏服务繁忙');
-      const rulesVersion=input.rulesVersion==null?2:input.rulesVersion;if(![2,3,4,5].includes(rulesVersion))throw Error('小游戏规则版本不受支持，请更新社区服务端');if(rulesVersion===2&&!legacy.GAMES.some(g=>g.id===game))throw Error('请升级至 0.5.1 以游玩此游戏');
-      const id=randomUUID(),seed=randomBytes(4).readUInt32LE();runs.set(id,{uid:user.uid,game,seed,started:now,updated:now,rulesVersion,state:(rulesVersion===5?createGame:rulesVersion===4?v4.createGame:rulesVersion===3?previous.createGame:legacy.createGame)(game,seed)});send(res,200,{id,seed,maxTicks:game==='blocks'?MAX_TICKS:null,checkpoint:true,rulesVersion});
+      const rulesVersion=input.rulesVersion==null?2:input.rulesVersion;if(![2,3,4,5,6].includes(rulesVersion))throw Error('小游戏规则版本不受支持，请更新社区服务端');if(rulesVersion===2&&!legacy.GAMES.some(g=>g.id===game))throw Error('请升级至 0.5.1 以游玩此游戏');
+      const id=randomUUID(),seed=randomBytes(4).readUInt32LE();runs.set(id,{uid:user.uid,game,seed,started:now,updated:now,rulesVersion,state:(rulesVersion===6?createGame:rulesVersion===5?v5.createGame:rulesVersion===4?v4.createGame:rulesVersion===3?previous.createGame:legacy.createGame)(game,seed)});send(res,200,{id,seed,maxTicks:game==='blocks'?MAX_TICKS:null,checkpoint:true,rulesVersion});
     }else if(url.pathname.endsWith('/finish')||url.pathname.endsWith('/checkpoint')){
       limit('arcade-submit:'+user.uid,12);
       const run=runs.get(input.id);if(!run||run.uid!==user.uid||run.game!==game)throw Error('本局已过期，请重新开始');
@@ -33,7 +34,7 @@ export function createArcade({db,auth,admin,body,send,limit,broadcast,points}){
         const from=input.from||0;if(!Number.isSafeInteger(from)||from<0||from>run.state.tick||!Array.isArray(input.inputs))throw Error('成绩分段顺序不一致，请重试同步');
         // A lost acknowledgement can resend an already verified prefix. Never
         // reapply that prefix or trust a client state; replay only new inputs.
-        run.state=(run.rulesVersion===5?replaySegment:run.rulesVersion===4?v4.replaySegment:run.rulesVersion===3?previous.replaySegment:legacy.replaySegment)(run.state,input.ticks,input.inputs.filter(e=>!Array.isArray(e)||e[0]>run.state.tick));
+        run.state=(run.rulesVersion===6?replaySegment:run.rulesVersion===5?v5.replaySegment:run.rulesVersion===4?v4.replaySegment:run.rulesVersion===3?previous.replaySegment:legacy.replaySegment)(run.state,input.ticks,input.inputs.filter(e=>!Array.isArray(e)||e[0]>run.state.tick));
       }
       run.updated=Date.now();
       if(url.pathname.endsWith('/checkpoint')){send(res,200,{ticks:run.state.tick,score:run.state.score});return true;}

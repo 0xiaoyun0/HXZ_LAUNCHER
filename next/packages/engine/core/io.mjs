@@ -9,6 +9,7 @@ import {downloadRanges} from "./range-download.mjs";
 import { downloadSources, getDownloadMode } from "./sources.mjs";
 import { setTimeout as delay } from "node:timers/promises";
 import { networkFailure, networkAdvice } from './network-errors.mjs';
+import {createDownloadLimiter} from './download-limiter.mjs';
 
 export async function json(file) {
   const stat = await fs.stat(file);
@@ -87,7 +88,8 @@ export function endpoint(value) {
 const sourceFailures=new Map();
 let downloadLimit=32,activeDownloads=0,downloadObserver=()=>{};
 const downloadQueue=[];
-export function configureDownloads({concurrency,onStatus}={}){if([8,16,32,64,128].includes(concurrency))downloadLimit=concurrency;if(onStatus)downloadObserver=onStatus;drainDownloads();}
+const downloadLimiter=createDownloadLimiter();let configuredSpeed=0;
+export function configureDownloads({concurrency,speedLimitMBps,onStatus}={}){if([8,16,32,64,128].includes(concurrency))downloadLimit=concurrency;if(speedLimitMBps!=null&&speedLimitMBps!==configuredSpeed){configuredSpeed=speedLimitMBps;downloadLimiter.configure(speedLimitMBps);}if(onStatus)downloadObserver=onStatus;drainDownloads();}
 function drainDownloads(){while(activeDownloads<downloadLimit&&downloadQueue.length){const entry=downloadQueue.shift();if(entry.signal?.aborted){entry.reject(entry.signal.reason);continue;}activeDownloads++;entry.resolve(()=>{activeDownloads--;drainDownloads();});}}
 async function downloadSlot(signal){signal?.throwIfAborted();return new Promise((resolve,reject)=>{const entry={signal,resolve:release=>{signal?.removeEventListener('abort',abort);resolve(release);},reject};const abort=()=>{const i=downloadQueue.indexOf(entry);if(i>=0)downloadQueue.splice(i,1);reject(signal.reason);};signal?.addEventListener('abort',abort,{once:true});downloadQueue.push(entry);drainDownloads();});}
 const statusTimes=new Map();
@@ -243,7 +245,7 @@ async function downloadFile(url, file, options = {}) {
   }finally{if(committed){const identity=createHash('sha256').update(JSON.stringify([options.size,options.sha1,options.sha256,options.sha512])).digest('hex').slice(0,20);await Promise.all([...partials,file+'.'+identity+'.ranges.partial',file+'.'+identity+'.ranges.partial.json'].map(p=>fs.rm(p,{force:true}).catch(()=>{})));}}
 }
 async function segmentedDownload(urls,file,options){
- return downloadRanges(urls,file,options,{slot:downloadSlot,hash,noLinks,writeJSON,limit:downloadLimit,active:()=>pendingDownloads.size,report:downloadObserver});
+ return downloadRanges(urls,file,options,{slot:downloadSlot,hash,noLinks,writeJSON,limit:downloadLimit,active:()=>pendingDownloads.size,report:downloadObserver,throttle:(bytes,signal)=>downloadLimiter.wait(bytes,signal)});
 }
 async function downloadOne(
   url,
@@ -341,21 +343,20 @@ async function downloadOne(
     const meter = new Transform({
       transform(chunk, _, done) {
         touch();
-        bytes += chunk.length;
         paceBytes+=chunk.length;
         if(Date.now()-paceTime>=stallWindowMs){const minimum=size-bytes>256*1024&&pendingDownloads.size<=Math.max(1,downloadLimit/4)?32:2;if(paceBytes<Math.max(512,stallWindowMs*minimum)){const error=Error('下载节点持续低速，正在切换备用来源');error.network=true;done(error);return;}paceTime=Date.now();paceBytes=0;}
-        if (bytes > maxSize) {
+        if (bytes+chunk.length > maxSize) {
           done(Error("文件超过下载上限"));
           return;
         }
-        for (const check of sums) check.sum.update(chunk);
-        onProgress(chunk.length);
-        onTransfer({
-          bytes,
-          total: size || (Number(r.headers.get("content-length"))||0)+initialBytes,
-          source: u.hostname
-        });
-        done(null, chunk);
+        // Backpressure is deliberate while throttling, not an idle/slow-source failure.
+        clearTimeout(idle);const waiting=Date.now();
+        downloadLimiter.wait(chunk.length,transferSignal).then(()=>{
+          paceTime+=Date.now()-waiting;touch();bytes+=chunk.length;
+          for(const check of sums)check.sum.update(chunk);
+          onProgress(chunk.length);onTransfer({bytes,total:size||(Number(r.headers.get('content-length'))||0)+initialBytes,source:u.hostname});
+          done(null,chunk);
+        },done);
       }
     });
     await pipeline(

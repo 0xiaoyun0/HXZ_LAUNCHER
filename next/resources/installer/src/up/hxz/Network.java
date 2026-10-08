@@ -17,6 +17,7 @@ import java.util.concurrent.atomic.*;
 
 /** Verified multi-source transfers with a shared connection budget and cancellable retries. */
 final class Network {
+    private static final DownloadRateLimiter RATE_LIMIT=new DownloadRateLimiter();
     final int timeout,retries;
     private volatile Semaphore slots;
     private Semaphore extraRanges;
@@ -325,7 +326,7 @@ final class Network {
                         try{slots.acquire();acquired=true;checkCancelled();if(state.cancelled)throw new InterruptedIOException("下载已取消");String url=urls.get(official()?attempt:(part+attempt)%urls.size());conn=connect(url,state.connections,state,start,end);
                             if(conn.getResponseCode()!=206||!("bytes "+start+"-"+end+"/"+size).equals(conn.getHeaderField("Content-Range")))throw new IOException("节点不支持可靠的分段下载");
                             Pace pace=new Pace();byte[] buffer=new byte[128*1024];try(InputStream in=conn.getInputStream();RandomAccessFile out=new RandomAccessFile(file.toFile(),"rw")){
-                                out.seek(start);int n;while((n=in.read(buffer))!=-1){checkCancelled();if(state.cancelled)throw new InterruptedIOException("下载已取消");pace.add(n,end-start+1-progress-n);if(progress+n>end-start+1)throw new IOException("分段长度不匹配");out.write(buffer,0,n);progress+=n;received.addAndGet(n);state.bytes.addAndGet(n);}
+                                out.seek(start);int n;while((n=in.read(buffer))!=-1){checkCancelled();if(state.cancelled)throw new InterruptedIOException("下载已取消");pace.add(n,end-start+1-progress-n);pace.mark+=RATE_LIMIT.consume(n,()->state.cancelled);if(progress+n>end-start+1)throw new IOException("分段长度不匹配");out.write(buffer,0,n);progress+=n;received.addAndGet(n);state.bytes.addAndGet(n);}
                             }
                             if(progress!=end-start+1)throw new IOException("分段下载不完整");
                             synchronized(journal){done[part]=true;Path pending=index.resolveSibling(index.getFileName()+".new");IO.noLinks(pending);
@@ -365,7 +366,7 @@ final class Network {
             MessageDigest digest=IO.digest();Pace pace=new Pace();long count=offset;byte[] buffer=new byte[128*1024];
             if(offset>0)try(InputStream prefix=Files.newInputStream(temp)){int n;while((n=prefix.read(buffer))!=-1){checkCancelled();digest.update(buffer,0,n);}}
             try(InputStream in=c.getInputStream();OutputStream out=Files.newOutputStream(temp,offset>0?StandardOpenOption.APPEND:StandardOpenOption.TRUNCATE_EXISTING)){
-                int n;while((n=in.read(buffer))!=-1){checkCancelled();if(state.cancelled)throw new InterruptedIOException("下载已取消");pace.add(n,expected-count-n);count+=n;if((expected>=0&&count>expected)||count>maximum)throw new IOException("文件超过大小限制");out.write(buffer,0,n);digest.update(buffer,0,n);received.addAndGet(n);state.bytes.set(count);}
+                int n;while((n=in.read(buffer))!=-1){checkCancelled();if(state.cancelled)throw new InterruptedIOException("下载已取消");pace.add(n,expected-count-n);pace.mark+=RATE_LIMIT.consume(n,()->state.cancelled);count+=n;if((expected>=0&&count>expected)||count>maximum)throw new IOException("文件超过大小限制");out.write(buffer,0,n);digest.update(buffer,0,n);received.addAndGet(n);state.bytes.set(count);}
             }
             checkCancelled();
             if(expected>=0&&count!=expected)throw new IOException("下载不完整");
