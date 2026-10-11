@@ -1,0 +1,17 @@
+{
+  "version": "0.7.0",
+  "previous": "0.6.4",
+  "tag": "v0.7.0",
+  "date": "2026-10-12",
+  "source": "next",
+  "platforms": [
+    "windows-x64",
+    "windows-ia32",
+    "android"
+  ],
+  "androidVersionCode": 70000,
+  "communityVersion": "0.7.0",
+  "release": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.7.0",
+  "notes": "next/docs/0.7.0发布说明.md",
+  "deployment": "next/docs/0.7.0部署与验收.md"
+}

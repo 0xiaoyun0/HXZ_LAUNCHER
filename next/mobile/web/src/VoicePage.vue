@@ -7,11 +7,11 @@ defineEmits(['join','change','leave','press','speaker','login']);
 
 <template>
   <section class="content-page voice-page">
-    <div class="page-toolbar"><h1>语音大厅</h1><span class="muted">每房最多 20 人</span></div>
+    <div class="page-toolbar"><h1>语音大厅</h1><span class="muted">{{rooms.length}} 个房间</span></div>
     <div class="voice-room-grid" aria-label="语音房间">
       <button v-for="r in rooms" :key="r.id" class="voice-room" :class="{selected:(state.room||state.recoveringRoom)===r.id}" :aria-pressed="(state.room||state.recoveringRoom)===r.id" :disabled="!state.connected||busy" @click="state.room!==r.id&&$emit('join',r.id)">
         <Icon name="headphones"/><strong>{{r.name}}</strong>
-        <div class="voice-room-caption"><small>{{state.room===r.id?'已加入':state.recoveringRoom===r.id?'重连中':'点击加入'}}</small><span>{{members(r.id).length}} <small>/ 20</small></span></div>
+        <div class="voice-room-caption"><small>{{state.room===r.id?'已加入':state.recoveringRoom===r.id?'重连中':'点击加入'}}</small><span>{{members(r.id).length}} <small>/ {{r.capacity||20}}</small></span></div>
       </button>
     </div>
 
@@ -23,7 +23,7 @@ defineEmits(['join','change','leave','press','speaker','login']);
         <button :class="{selected:speaker}" :aria-pressed="speaker" @click="$emit('speaker')"><Icon name="speaker"/><span>{{speaker?'扬声器':'听筒 / 耳机'}}</span></button>
       </div>
       <button v-if="settings.ptt" class="ptt-button" :disabled="!state.room||state.muted" @pointerdown.prevent="$emit('press',true)" @pointerup="$emit('press',false)" @pointercancel="$emit('press',false)" @pointerleave="$emit('press',false)" @contextmenu.prevent><Icon name="mic"/>按住说话</button>
-      <div class="voice-members-heading">频道成员 <span>{{members(state.room).length}} / 20</span></div>
+      <div class="voice-members-heading">频道成员 <span>{{members(state.room).length}} / {{rooms.find(r=>r.id===state.room)?.capacity||20}}</span></div>
       <div class="voice-members">
         <div v-for="u in members(state.room)" :key="u.id"><span class="avatar"><img v-if="avatar(u.uid,u.avatarVersion)" :src="avatar(u.uid,u.avatarVersion)" alt=""><span v-else>{{u.name.slice(0,1)}}</span></span><span>{{u.name}}</span><Icon v-if="u.muted" name="mute"/></div>
       </div>

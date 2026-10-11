@@ -25,7 +25,9 @@ interface Session {
   base: string;
   user: { uid: string; name: string; admin: boolean; avatarVersion?: string };
 }
+interface VoiceRoom {id:string;name:string;capacity:number;kind:string}
 interface Packet {
+  rooms?:VoiceRoom[];
   heartbeatInterval?: number;
   voiceTransport?: string;
   roomLimit?: number;
@@ -72,6 +74,7 @@ export const community = reactive({
   voiceError: "",
   peers: 0,
   roomLimit: 20,
+  rooms:[] as VoiceRoom[],
   voiceTransport: "",
   musicSharing: false,
   listenOnly: false,
@@ -257,9 +260,11 @@ export async function connect() {
         community.status = "社区在线";
         community.voiceTransport = packet.voiceTransport || "";
         community.roomLimit = packet.roomLimit || 20;
+        community.rooms=packet.rooms||[];
         community.id = packet.id!;
         community.user = packet.user!;
         community.messages = packet.messages || [];
+      } else if(packet.type === "voice-rooms"){community.rooms=packet.rooms||[];
       } else if(packet.type === "coop-state"){window.dispatchEvent(new CustomEvent("hxz-coop",{detail:packet}));
       } else if(packet.type === "inbox-changed"){window.dispatchEvent(new Event("hxz-inbox"));
       } else if(packet.type === "music-access-changed"){window.dispatchEvent(new Event("hxz-music-access"));
@@ -552,4 +557,5 @@ export async function communityAsset(
   return new Blob(chunks, { type: type! });
 }
 
+export function communityAssetURL(path:string){if(!/^\/api\/(media\/[a-f0-9]{64}|avatars\/\w+)$/.test(path))return '';return (credentials?.base||state.settings.communityUrl.replace(/\/$/,''))+path;}
 export function communityAvatar(uid?:string,version?:string){if(!uid||version==='')return '';const base=credentials?.base||state.settings.communityUrl.replace(/\/$/,'');return base+'/api/avatars/'+encodeURIComponent(uid)+(version?'?v='+encodeURIComponent(version):'');}

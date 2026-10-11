@@ -321,8 +321,12 @@ final class GameInstaller {
         if(!result.isEmpty())return result;
         boolean official=Boolean.parseBoolean(System.getProperty("hxz.launcher.official","true"));String path=url.getFile();String mirror="https://bmclapi2.bangbang93.com";
         switch(url.getHost()){
-            case "piston-meta.mojang.com":case "piston-data.mojang.com":case "launchermeta.mojang.com":case "launcher.mojang.com":result.add(mirror+path);break;
-            case "libraries.minecraft.net":result.add(mirror+"/maven"+path);break;
+            case "piston-meta.mojang.com":result.add("https://launchermeta.mojang.com"+path);result.add(mirror+path);break;
+            case "piston-data.mojang.com":result.add("https://launcher.mojang.com"+path);result.add(mirror+path);break;
+            case "launcher.mojang.com":result.add("https://piston-data.mojang.com"+path);result.add(mirror+path);break;
+            case "launchermeta.mojang.com":result.add("https://piston-meta.mojang.com"+path);result.add(mirror+path);break;
+            case "libraries.minecraft.net":result.add(mirror+"/libraries"+path);result.add("https://repo.maven.apache.org/maven2"+path);result.add("https://maven.aliyun.com/repository/public"+path);result.add("https://repo.huaweicloud.com/repository/maven"+path);break;
+            case "repo.maven.apache.org":case "repo1.maven.org":if(path.startsWith("/maven2/")){String artifact=path.substring(7);result.add("https://maven.aliyun.com/repository/public"+artifact);result.add("https://repo.huaweicloud.com/repository/maven"+artifact);}break;
             case "resources.download.minecraft.net":result.add(mirror+"/assets"+path);break;
             case "meta.fabricmc.net":result.add(mirror+"/fabric-meta"+path);break;
             case "maven.fabricmc.net":case "maven.minecraftforge.net":result.add(mirror+"/maven"+path);break;

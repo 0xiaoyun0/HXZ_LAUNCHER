@@ -1,14 +1,17 @@
-import React, {Children, Fragment, isValidElement, useEffect, useMemo, useRef, useState} from 'react';
+import React, {Children, Fragment, isValidElement, useContext, useEffect, useMemo, useRef, useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {GridLayout, useContainerWidth, verticalCompactor, type Layout, type LayoutItem} from 'react-grid-layout';
-import {Grip, EyeOff, LayoutDashboard, RotateCcw, Lock, Unlock, MoreHorizontal, Undo2, AlignStartVertical, Expand} from 'lucide-react';
-import {state, saveSettings, notify} from './model';
+import {Grip, EyeOff, LayoutDashboard, RotateCcw, Lock, Unlock, MoreHorizontal, Undo2, AlignStartVertical, Expand,MoveUpRight,Pencil,Check,Plus,Trash2} from 'lucide-react';
+import {state,ui,saveSettings,notify} from './model';
+import {CardHarvest,useCardRegistry,ForeignCard,MoveCardDialog,startCardTravel,MovedCardRecovery} from './PortableCards';
+import {Widget,AddWidget,widgetKinds} from './Widgets';
+import {CARD_PAGES,normalizeCardPlacements,normalizeWidgets} from '../../../packages/engine/core/card-extras.mjs';
 import {Button, Dropdown, Modal, Toggle} from './ui';
 import {normalizeCardLayouts, normalizeCardStyle,filteredCardLayout} from '../../../packages/engine/core/card-layout.mjs';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
-export type CardSpec = {id:string; title:string; content:React.ReactNode; x?:number; y?:number; w?:number; h?:number; minW?:number; minH?:number; maxH?:number; className?:string; plain?:boolean; fit?:boolean};
+export type CardSpec = {id:string; title:string; content:React.ReactNode; x?:number; y?:number; w?:number; h?:number; minW?:number; minH?:number; maxH?:number; className?:string; plain?:boolean; fit?:boolean; origin?:{source:string;card:string;title:string;w?:number;minW?:number;widget?:boolean}};
 type Saved = {items:LayoutItem[]; hidden:string[]; locked?:string[]; fixed?:string[]};
 const clone = <T,>(value:T):T => JSON.parse(JSON.stringify(value));
 const ROW = 22;
@@ -34,16 +37,26 @@ function minimumContent(el:HTMLElement) {
 }
 
 export function CardBoard(props:{id:string; cards:CardSpec[]; label?:string; className?:string; transient?:boolean}) {
+  const s=useSnapshot(state),u=useSnapshot(ui),harvest=useContext(CardHarvest);
+  useCardRegistry(props.id,props.cards);
   const {width, containerRef, mounted} = useContainerWidth({measureBeforeMount:true});
   const compact=width<780;
+  if(harvest)return null;
+  const portable=CARD_PAGES.some(p=>p[0]===props.id),placements=normalizeCardPlacements(s.settings.cardPlacements);
+  const cards:CardSpec[]=props.cards.filter(c=>!placements[props.id+'.'+c.id]).map(c=>({...c,origin:portable?{source:props.id,card:c.id,title:c.title,w:c.w,minW:c.minW}:undefined}));
+  if(portable){
+   for(const v of Object.values(placements) as any[])if(v.target===props.id)cards.push({id:'moved.'+v.source+'.'+v.card,title:v.title,w:v.w,minW:v.minW,content:<ForeignCard source={v.source} card={v.card}/>,origin:v});
+   for(const w of normalizeWidgets(s.settings.widgets))if(w.page===props.id)cards.push({id:'widget.'+w.id,title:w.title||widgetKinds.find(k=>k.id===w.type)!.name,w:w.type==='note'||w.type==='search'?6:4,minW:3,content:<Widget id={w.id} editing={!!u.cardEdit}/>,origin:{source:props.id,card:w.id,title:w.title,widget:true}});
+  }
   // A breakpoint change must not reuse an in-flight gesture from the other layout.
   return <section ref={containerRef} className={'card-workspace '+(props.className||'')} aria-label={props.label||'卡片布局'}>
-    {mounted&&<Board key={props.id+(compact?'.compact':'.wide')+(props.transient?'.results:'+props.cards.map(c=>c.id).join(','):'')} {...props} width={width} compact={compact}/>}
+    {mounted&&<Board key={props.id+(compact?'.compact':'.wide')+(props.transient?'.results:'+props.cards.map(c=>c.id).join(','):'')} {...props} cards={cards} width={width} compact={compact}/>}
   </section>;
 }
 
 function Board({id,cards,label='卡片布局',width,compact,transient=false}:{id:string;cards:CardSpec[];label?:string;className?:string;width:number;compact:boolean;transient?:boolean}) {
-  const s=useSnapshot(state),page=id+(compact?'.compact':'.wide'),style=normalizeCardStyle(s.settings.cardStyle);
+  const s=useSnapshot(state),u=useSnapshot(ui),page=id+(compact?'.compact':'.wide'),style=normalizeCardStyle(s.settings.cardStyle);
+  const [moving,setMoving]=useState<CardSpec['origin']>(),[adding,setAdding]=useState(false),portable=CARD_PAGES.some(p=>p[0]===id);
   const [drawer,setDrawer]=useState(false),[draft,setDraft]=useState<Saved|null>(null),[previous,setPrevious]=useState<Saved|null>(null);
   const [status,setStatus]=useState(''),[gesture,setGesture]=useState(false),[measured,setMeasured]=useState<Record<string,number>>({});
   const [minimum,setMinimum]=useState<Record<string,{width:number;height:number}>>({});
@@ -113,10 +126,12 @@ function Board({id,cards,label='卡片布局',width,compact,transient=false}:{id
   }
   function start(){beforeGesture.current=capture();setGesture(true);}
   function stop(value:Layout,resizeId?:string){setGesture(false);setPrevious(beforeGesture.current);const next=merge(value);if(resizeId)next.fixed=[...new Set([...fixed,resizeId])];void persist(next,false);}
-  return <div ref={board} className={'card-board '+(gesture?'moving':'')} style={{'--card-gap':style.gap+'px'} as React.CSSProperties}>
+  return <div ref={board} data-card-board={id} className={'card-board '+(gesture?'moving ':'')+(u.cardEdit?'editing':'')} style={{'--card-gap':style.gap+'px'} as React.CSSProperties}>
     <div className="card-layout-toolbar"><span>{label}</span><div>
       <button className={'layout-save-status '+(status.startsWith('保存失败')?'error':'')} disabled={!status.startsWith('保存失败')} onClick={()=>draft&&void persist(draft,false)} aria-live="polite">{gesture?'松手即可对齐':status||(transient?'筛选结果 · 独立排列':'拖动手柄整理 · 自动保存')}</button>
       {previous&&<Button icon={Undo2} onClick={()=>{const value=previous;setPrevious(null);rendered.current=[];return persist(value,false);}}>撤销</Button>}
+      {portable&&<Button icon={u.cardEdit?Check:Pencil} onClick={async()=>{if(u.cardEdit)await ui.layoutUnsaved?.save();ui.cardEdit=!ui.cardEdit;}}>{u.cardEdit?'完成编辑':'编辑卡片'}</Button>}
+      {portable&&u.cardEdit&&<Button icon={Plus} onClick={()=>setAdding(true)}>添加卡片</Button>}
       <Button icon={LayoutDashboard} onClick={()=>setDrawer(true)}>卡片{hidden.length?' · '+hidden.length+' 已隐藏':''}</Button>
     </div></div>
     <GridLayout width={width} layout={layout} gridConfig={{cols:12,rowHeight:ROW,margin:[style.gap,0],containerPadding:[0,0]}}
@@ -125,6 +140,7 @@ function Board({id,cards,label='卡片布局',width,compact,transient=false}:{id
       onLayoutChange={v=>{rendered.current=v;}} onDragStart={start} onResizeStart={start} onDragStop={v=>stop(v)} onResizeStop={(v,_old,item)=>stop(v,item?.i)}>
       {cards.filter(c=>!hidden.includes(c.id)).map(c=><article key={c.id} data-card={c.id} data-min-w={layout.find(item=>item.i===c.id)?.minW} data-min-h={layout.find(item=>item.i===c.id)?.minH} data-sizing={automatic(c.id)?'auto':'fixed'} className={'card-slot '+(automatic(c.id)?'auto-sized ':'')+(locked.includes(c.id)?'locked ':'')+(c.className||'')}>
         <div className="air-card"><header className="card-heading"><h2>{c.title}</h2><div>
+          {u.cardEdit&&c.origin&&<button className="card-travel-handle" aria-label={'跨页拖动'+c.title} title="按住拖到其他栏目" disabled={locked.includes(c.id)} onPointerDown={e=>startCardTravel(e,c.origin!,id)} onKeyDown={e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();setMoving(c.origin);}}}><MoveUpRight size={15}/></button>}
           <button className="card-drag-handle" aria-label={'拖动'+c.title} title={locked.includes(c.id)?'已锁定，可在菜单解锁':'拖动位置；方向键也可移动'} disabled={locked.includes(c.id)} onKeyDown={e=>{
             if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key))return;e.preventDefault();
             const next=capture(),item=next.items.find(i=>i.i===c.id);if(!item)return;
@@ -140,6 +156,8 @@ function Board({id,cards,label='卡片布局',width,compact,transient=false}:{id
             {label:'按内容自动调整',checked:!fixed.includes(c.id),disabled:locked.includes(c.id),action:()=>change(c.id,'auto')},
             {label:'适应内容高度',icon:Expand,disabled:locked.includes(c.id),action:()=>change(c.id,'fit')},
             {label:'与同排卡片等高',icon:AlignStartVertical,disabled:locked.includes(c.id),action:()=>change(c.id,'align')},
+            ...(c.origin?[{separator:true},{label:'移动到其他页面',icon:MoveUpRight,disabled:locked.includes(c.id),action:()=>setMoving(c.origin)}]:[]),
+            ...(c.origin?.widget&&u.cardEdit?[{label:'删除通用卡片',icon:Trash2,danger:true,action:()=>{ui.confirm={title:'删除这张卡片？',message:'卡片中保存的内容也会删除。',action:()=>saveSettings((s:any)=>({widgets:normalizeWidgets(s.widgets).filter((w:any)=>w.id!==c.origin!.card)}))};}}]:[]),
             {separator:true},{label:'恢复这张卡片',icon:RotateCcw,action:()=>change(c.id,'reset')},
             {label:'隐藏卡片',icon:EyeOff,action:()=>change(c.id,'hide')}
           ]}/></div></header>
@@ -150,8 +168,11 @@ function Board({id,cards,label='卡片布局',width,compact,transient=false}:{id
     {!layout.length&&<div className="all-cards-hidden"><LayoutDashboard/><p>这里的卡片都已隐藏</p><Button onClick={()=>setDrawer(true)}>找回卡片</Button></div>}
     <Modal open={drawer} onClose={()=>setDrawer(false)} title="这个页面的卡片" description="默认按内容调整高度，宽度保持网格对齐。长列表保留滚动；手动拉伸后固定尺寸，可在卡片菜单重新开启自动调整。">
       <div className="card-palette">{cards.map(c=><section key={c.id}><Toggle label={c.title} checked={!hidden.includes(c.id)} onChange={(visible:boolean)=>change(c.id,visible?'show':'hide')}/></section>)}</div>
+      {portable&&<MovedCardRecovery board={id}/>}
       <footer className="modal-actions"><Button icon={Expand} onClick={()=>{const next=capture();next.fixed=[];void persist(next);}}>全部按内容调整</Button><Button icon={RotateCcw} onClick={()=>{rendered.current=[];void persist({items:clone(initial),hidden:[],locked:[],fixed:[]});setDrawer(false);}}>恢复默认布局</Button><Button onClick={()=>setDrawer(false)}>完成</Button></footer>
     </Modal>
+    {moving&&<MoveCardDialog card={moving} current={id} onClose={()=>setMoving(undefined)}/>}
+    {adding&&<AddWidget page={id} onClose={()=>setAdding(false)}/>}
   </div>;
 }
 function CardContents({fit,paused,gap,onHeight,onMinimum,children}:{fit:boolean;paused:boolean;gap:number;onHeight:(n:number)=>void;onMinimum:(value:{width:number;height:number})=>void;children:React.ReactNode}) {

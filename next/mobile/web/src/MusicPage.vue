@@ -1,10 +1,12 @@
 <script setup>
 import {ref,computed,watch,onMounted,onBeforeUnmount} from 'vue';
-import {native,state,rooms,on} from './native.js';
+import {native,state,rooms as fallbackRooms,on} from './native.js';
+const rooms=computed(()=>state.voiceRooms.length?state.voiceRooms:fallbackRooms);
 import Icon from './Icon.vue';
 import AppSelect from './AppSelect.vue';import AppOverlay from './AppOverlay.vue';import {lyricLines} from '../../../packages/engine/core/lyrics.mjs';
 const props=defineProps({visible:Boolean,settings:Object});
-const items=ref([]),results=ref([]),query=ref(''),link=ref(''),notice=ref(''),busy=ref(false),active=ref(''),playing=ref(false),loading=ref(false),position=ref(0),duration=ref(0),volume=ref(.5),room=ref('lobby'),sharing=ref(false),mode=ref('list');
+const items=ref([]),results=ref([]),query=ref(''),link=ref(''),notice=ref(''),busy=ref(false),active=ref(''),playing=ref(false),loading=ref(false),position=ref(0),duration=ref(0),volume=ref(.5),room=ref('music'),sharing=ref(false),mode=ref('list');
+watch(rooms,v=>{if(v.length&&!v.some(r=>r.id===room.value))room.value=v.find(r=>r.kind==='music')?.id||v[0].id;},{immediate:true});
 const lyrics=ref([]),lyricError=ref(''),candidates=ref([]),lyricBusy=ref(false),floating=ref(false),consent=ref(false),account=ref({allowed:false,loggedIn:false}),accountError=ref(''),privateAudio=ref(false),lyricList=ref();let lyricRun=0;
 const lyricIndex=computed(()=>lyrics.value.findLastIndex(line=>line.time<=position.value)),line=computed(()=>lyrics.value[Math.max(0,lyricIndex.value)]);
 async function accountStatus(){try{account.value=await native('music',{action:'account.status'});accountError.value='';}catch(e){accountError.value=e.message;account.value={allowed:false,loggedIn:false};}}

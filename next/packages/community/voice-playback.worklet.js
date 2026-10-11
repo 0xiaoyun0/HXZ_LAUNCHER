@@ -16,12 +16,12 @@ class VoicePlayback extends AudioWorkletProcessor {
       if (this.deafened) return;
       let p = this.peers.get(data.id);
       if (!p) {
-        if (this.peers.size >= 19) return;
-        p = { queue: [], offset: 0, playing: false };
+        if (this.peers.size >= 49) return;
+        p = { queue: [], offset: 0, playing: false, last:0 };
         this.peers.set(data.id, p);
       }
       if (p.queue.length >= 12) {
-        p.queue = [];
+        p.queue = p.queue.slice(-3);
         p.offset = 0;
         p.playing = false;
       }
@@ -36,9 +36,10 @@ class VoicePlayback extends AudioWorkletProcessor {
       for (let i = 0; i < output.length; i++) {
         if (!p.queue.length) {
           p.playing = false;
+          for(let j=i;j<output.length;j++){p.last*=.96;output[j]+=p.last;}
           break;
         }
-        output[i] += p.queue[0][p.offset++];
+        p.last=p.queue[0][p.offset++];output[i] += p.last;
         if (p.offset >= p.queue[0].length) {
           p.queue.shift();
           p.offset = 0;

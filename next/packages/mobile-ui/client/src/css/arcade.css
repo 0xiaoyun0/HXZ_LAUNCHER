@@ -36,3 +36,9 @@
 
 /* All game cover art uses the same safe crop on phones and tablets. */
 .arcade-cards .arcade-art{height:auto;min-height:0;aspect-ratio:8/5}.arcade-cards .arcade-art img{width:100%;height:100%;object-fit:cover;object-position:50% 50%}.arcade-cards .arcade-card-number{top:12px;left:12px;letter-spacing:0;display:grid;place-items:center;min-width:30px;height:26px;padding:0 7px;background:#f8fbfff0;color:#405777;border:1px solid #d9e5f4;border-radius:7px;font-size:12px;font-weight:650}.arcade-cards .arcade-art:after{background:linear-gradient(0deg,#23456f12,transparent 30%)}
+/* 0.7: focus is a viewport, with proportional playfield and reachable controls. */
+.arcade-page.arcade-focus{box-sizing:border-box;padding:8px max(8px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));height:100dvh}
+.arcade-focus .arcade-layout{max-width:1200px;height:100%;min-height:0}
+.arcade-focus .arcade-play{box-sizing:border-box;height:100%;min-height:0;padding:8px;gap:10px;overflow:auto}
+.arcade-focus .arcade-status{min-height:44px;gap:10px}.arcade-focus .arcade-status strong{font-size:22px}.arcade-focus .arcade-stage{min-width:0;min-height:0;max-width:none;align-self:center}.arcade-focus .game-touchpad{margin-top:0}
+@media(orientation:landscape){.arcade-focus .arcade-play{grid-template-columns:minmax(0,1fr) minmax(150px,min(29vw,210px));grid-template-rows:auto minmax(0,1fr) auto;gap:8px 16px}.arcade-focus .arcade-status{grid-column:1/-1;min-height:40px}.arcade-focus .arcade-stage{grid-row:2/4;min-height:0}.arcade-focus .game-touchpad{align-content:center;gap:8px}.arcade-focus .arcade-vitals{align-self:end}.arcade-focus .game-touchpad>.game-gesture-hint{display:none}.arcade-focus .arcade-upgrade-panel{grid-row:2/4;max-height:100%}}

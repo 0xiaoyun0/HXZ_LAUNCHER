@@ -1,7 +1,7 @@
 import {reactive} from 'vue';
 const pending=new Map(), listeners=new Map();
 let serial=0;
-export const state=reactive({server:'https://qqbot.hxzmc.top',user:{},profiles:[],selectedProfile:null,hasAccount:false,connected:false,connection:'未登录',users:[],messages:[],room:'',muted:false,deafened:false,ptt:false,id:'',version:'0.6.4'});
+export const state=reactive({server:'https://qqbot.hxzmc.top',user:{},profiles:[],selectedProfile:null,hasAccount:false,connected:false,connection:'未登录',users:[],messages:[],room:'',muted:false,deafened:false,ptt:false,id:'',version:'0.7.0',voiceRooms:[]});
 export function on(name,handler){if(!listeners.has(name))listeners.set(name,new Set());listeners.get(name).add(handler);return()=>listeners.get(name)?.delete(handler);}
 window.HXZEvent=(name,data)=>{
   if(name==='result'){const task=pending.get(data.id);if(!task)return;pending.delete(data.id);clearTimeout(task.timer);data.error?task.reject(new Error(data.error)):task.resolve(data.data);return;}
@@ -21,5 +21,5 @@ export function native(op,input={}){
 export const api=(path,method='GET',body)=>native('api',{path,method,body});
 export const avatar=(uid,version)=>uid&&version?`/community/api/avatars/${encodeURIComponent(uid)}?v=${encodeURIComponent(version)}`:'';
 export const groups=[{id:'survival',name:'原版生存群组',short:'原版生存'},{id:'mod-1',name:'模组一服',short:'模组一服'},{id:'mod-2',name:'模组二服',short:'模组二服'}];
-export const rooms=[{id:'lobby',name:'旅人休息室'},...groups];
+export const rooms=[{id:'lobby',name:'旅人休息室',capacity:20},...groups.map(r=>({...r,capacity:20})),{id:'music',name:'一起听歌',kind:'music',capacity:20}];
 export const date=value=>new Date(value).toLocaleString('zh-CN',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});

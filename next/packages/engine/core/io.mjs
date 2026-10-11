@@ -106,8 +106,9 @@ export async function remoteJSON(url, options = {}) {
 async function remoteJSONAttempt(url, options = {}) {
   const candidates=preferHealthy(!options.method||options.method==='GET'?downloadSources(url):[url]);
   if(candidates.length===1)return remoteJSONOnce(candidates[0],options);
+  const read=async(candidate,settings)=>{let failure;for(let n=1;n<=5;n++){try{return await remoteJSONOnce(candidate,{...settings,timeoutMs:settings.timeoutMs??6000});}catch(error){settings.signal?.throwIfAborted();failure=error;sourceStatus(error,candidate,n);if(!networkFailure(error)||error.status===429||n===5)throw error;await delay(settings.retryDelay??Math.min(2000,250*2**(n-1)),undefined,{signal:settings.signal});}}throw failure;};
   if(getDownloadMode()==='official'){
-    let failure;for(const candidate of candidates)try{return await remoteJSONOnce(candidate,options);}catch(error){options.signal?.throwIfAborted();failure=error;sourceStatus(error,candidate,1);sourceFailures.set(new URL(candidate).host,Date.now()+15000);}throw failure;
+    let failure;for(const candidate of candidates)try{return await read(candidate,options);}catch(error){options.signal?.throwIfAborted();failure=error;sourceStatus(error,candidate,1);sourceFailures.set(new URL(candidate).host,Date.now()+15000);}throw failure;
   }
   const controller=new AbortController(),signal=options.signal?AbortSignal.any([options.signal,controller.signal]):controller.signal;
   let failure;
@@ -115,7 +116,7 @@ async function remoteJSONAttempt(url, options = {}) {
     for(let at=0;at<candidates.length;at+=2){
       const tasks=candidates.slice(at,at+2).map(async(candidate,index)=>{
         if(index)await delay(250,undefined,{signal});
-        try{return await remoteJSONOnce(candidate,{...options,signal});}catch(error){if(!signal.aborted){failure=error;sourceStatus(error,candidate,1);sourceFailures.set(new URL(candidate).host,Date.now()+15000);}throw error;}
+        try{return await read(candidate,{...options,signal});}catch(error){if(!signal.aborted){failure=error;sourceStatus(error,candidate,1);sourceFailures.set(new URL(candidate).host,Date.now()+15000);}throw error;}
       });
       try{return await Promise.any(tasks);}catch(error){if(options.signal?.aborted)throw options.signal.reason;failure ||= error;}
     }
@@ -124,8 +125,8 @@ async function remoteJSONAttempt(url, options = {}) {
 }
 async function remoteJSONOnce(url, options = {}) {
   const signal = options.signal
-    ? AbortSignal.any([options.signal, AbortSignal.timeout(20000)])
-    : AbortSignal.timeout(20000);
+    ? AbortSignal.any([options.signal, AbortSignal.timeout(options.timeoutMs??20000)])
+    : AbortSignal.timeout(options.timeoutMs??20000);
   const r = await fetch(url, {
     ...options,
     signal,
@@ -198,14 +199,15 @@ async function downloadFile(url, file, options = {}) {
   const partials=candidates.map(candidate=>file+'.'+createHash('sha256').update(candidate+JSON.stringify([options.sha1,options.sha256,options.sha512])).digest('hex').slice(0,20)+'.partial');
   let committed=false;
   try {
-  let until=Infinity;const retained=new Map(),budget=options.retryBudgetMs??120000;
+  let until=Infinity;const retained=new Map(),budget=options.retryBudgetMs??120000,unavailable=new Set(),cooldowns=new Map();
   for(const partial of partials)retained.set(partial,await fs.stat(partial).then(s=>s.size,()=>0));
   for (let attempt = 0; ; attempt++) {
     let retryable = false, retryAfter = 0;
     // Two independent streams at most per file; all files share the same budget.
     // The first fully verified file wins. Other streams write to separate staging
     // paths and are cancelled before the winner is atomically committed.
-    const ordered=preferHealthy(candidates);
+    const ordered=preferHealthy(candidates.filter(candidate=>!unavailable.has(candidate)&&(cooldowns.get(candidate)||0)<=Date.now()));
+    if(!ordered.length){const remaining=candidates.filter(candidate=>!unavailable.has(candidate));if(!remaining.length)break;const wait=Math.max(1,Math.min(...remaining.map(candidate=>(cooldowns.get(candidate)||0)-Date.now())));if(!Number.isFinite(until)||Date.now()+wait>=until)break;await delay(wait,undefined,{signal:options.signal});continue;}
     const groupSize=getDownloadMode()==='official'?1:2;
     for (let start=0;start<ordered.length;start+=groupSize) {
       const group=ordered.slice(start,start+groupSize), controller=new AbortController(),signal=options.signal?AbortSignal.any([options.signal,controller.signal]):controller.signal;
@@ -215,8 +217,23 @@ async function downloadFile(url, file, options = {}) {
         let release;
         try{
           if(index)await delay(options.hedgeDelay??300,undefined,{signal});
-          release=await downloadSlot(signal);
-          await downloadOne(candidate,staged[index],{...options,signal,resumeFile:resumable?partials[candidates.indexOf(candidate)]:undefined});
+          for(let localAttempt=1;localAttempt<=5;localAttempt++){
+            signal.throwIfAborted();
+            try{
+              release=await downloadSlot(signal);
+              await downloadOne(candidate,staged[index],{...options,signal,resumeFile:resumable?partials[candidates.indexOf(candidate)]:undefined});
+              break;
+            }catch(error){
+              if(signal.aborted)throw signal.reason;
+              sourceStatus(error,candidate,localAttempt);
+              if(error.retryable===false){unavailable.add(candidate);throw error;}
+              if(error.retryAfter>2000){cooldowns.set(candidate,Date.now()+error.retryAfter);throw error;}
+              if(error.slowSource||localAttempt===5||!(error.retryable||networkFailure(error)))throw error;
+              release?.();release=undefined;
+              options.onTransfer?.({source:new URL(candidate).hostname,retrying:true,attempt:localAttempt,maxAttempts:5});
+              await delay(Math.max(error.retryAfter||0,options.retryDelay??Math.min(2000,250*2**(localAttempt-1))),undefined,{signal});
+            }finally{release?.();release=undefined;}
+          }
           if(signal.aborted)throw signal.reason;
           sourceFailures.delete(new URL(candidate).host);return staged[index];
         }catch(error){if(!signal.aborted){failures.push(error);sourceStatus(error,candidate,attempt+1);if(error.retryable!==false)sourceFailures.set(new URL(candidate).host,Date.now()+15000);}throw error;}
@@ -227,16 +244,15 @@ async function downloadFile(url, file, options = {}) {
         options.signal?.throwIfAborted();await noLinks(file);await fs.rename(winner,file);committed=true;return;
       } catch (error) {
         if (options.signal?.aborted) throw error;
-        failure=failures[failures.length-1]||error;
+        failure=failures.find(e=>e.retryable||networkFailure(e))||failure||failures[0]||error;
         let advanced=false;for(const candidate of group){const partial=partials[candidates.indexOf(candidate)],bytes=await fs.stat(partial).then(s=>s.size,()=>0);advanced||=bytes>(retained.get(partial)||0);retained.set(partial,bytes);}
         if(!Number.isFinite(until)||advanced)until=Date.now()+budget;
         retryable ||= failures.some(e=>e.retryable===true||networkFailure(e));
-        retryAfter=Math.max(retryAfter,...failures.map(e=>e.retryAfter||0));
       }finally{controller.abort();await Promise.allSettled(requests);await Promise.all(staged.map(p=>fs.rm(p,{force:true}).catch(()=>{})));}
     }
-    if (!retryable || attempt>0&&Date.now()>=until) break;
-    const wait=Math.max(retryAfter,options.retryDelay ?? Math.min(30000,1000 * 2 ** Math.min(attempt,5)) + Math.floor(Math.random()*250));
-    if(attempt>0&&Date.now()+wait>=until)break;
+    if (!retryable || Date.now()>=until) break;
+    const wait=options.retryDelay ?? Math.min(10000,1000 * 2 ** Math.min(attempt,5)) + Math.floor(Math.random()*250);
+    if(Date.now()+wait>=until)break;
     await delay(wait, undefined, {
       signal: options.signal
     });
@@ -245,7 +261,9 @@ async function downloadFile(url, file, options = {}) {
   }finally{if(committed){const identity=createHash('sha256').update(JSON.stringify([options.size,options.sha1,options.sha256,options.sha512])).digest('hex').slice(0,20);await Promise.all([...partials,file+'.'+identity+'.ranges.partial',file+'.'+identity+'.ranges.partial.json'].map(p=>fs.rm(p,{force:true}).catch(()=>{})));}}
 }
 async function segmentedDownload(urls,file,options){
- return downloadRanges(urls,file,options,{slot:downloadSlot,hash,noLinks,writeJSON,limit:downloadLimit,active:()=>pendingDownloads.size,report:downloadObserver,throttle:(bytes,signal)=>downloadLimiter.wait(bytes,signal)});
+ let until=Date.now()+(options.retryBudgetMs??120000),completed=-1;
+ for(;;)try{return await downloadRanges(urls,file,options,{slot:downloadSlot,hash,noLinks,writeJSON,limit:downloadLimit,active:()=>pendingDownloads.size,report:downloadObserver,throttle:(bytes,signal)=>downloadLimiter.wait(bytes,signal)});}
+ catch(error){options.signal?.throwIfAborted();if(!error.partialRanges)throw error;if(error.completedRanges>completed){completed=error.completedRanges;until=Date.now()+(options.retryBudgetMs??120000);}if(Date.now()>=until)throw error;downloadObserver({source:new URL(urls[0]).hostname,message:'正在继续未完成的分段，已校验部分保留'});await delay(options.retryDelay??1000,undefined,{signal:options.signal});}
 }
 async function downloadOne(
   url,
@@ -261,7 +279,8 @@ async function downloadOne(
     signal,
     onProgress = () => {},
     onTransfer = () => {},
-    stallWindowMs = 10000
+    stallWindowMs = 10000,
+    connectTimeoutMs = 6000
   } = {}
 ) {
   await noLinks(file);
@@ -306,7 +325,7 @@ async function downloadOne(
       expected: expected.toLowerCase()
     }));
   const controller = new AbortController();
-  let idle = setTimeout(() => controller.abort(Error("下载连接超时")), 20000);
+  let idle = setTimeout(() => controller.abort(Error("下载连接超时")), connectTimeoutMs);
   const transferSignal = signal
     ? AbortSignal.any([signal, controller.signal])
     : controller.signal;
@@ -344,7 +363,7 @@ async function downloadOne(
       transform(chunk, _, done) {
         touch();
         paceBytes+=chunk.length;
-        if(Date.now()-paceTime>=stallWindowMs){const minimum=size-bytes>256*1024&&pendingDownloads.size<=Math.max(1,downloadLimit/4)?32:2;if(paceBytes<Math.max(512,stallWindowMs*minimum)){const error=Error('下载节点持续低速，正在切换备用来源');error.network=true;done(error);return;}paceTime=Date.now();paceBytes=0;}
+        if(Date.now()-paceTime>=stallWindowMs){const minimum=size-bytes>256*1024&&pendingDownloads.size<=Math.max(1,downloadLimit/4)?32:2;if(paceBytes<Math.max(512,stallWindowMs*minimum)){const error=Error('下载节点持续低速，正在切换备用来源');error.network=true;error.slowSource=true;done(error);return;}paceTime=Date.now();paceBytes=0;}
         if (bytes+chunk.length > maxSize) {
           done(Error("文件超过下载上限"));
           return;

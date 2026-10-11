@@ -187,3 +187,6 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+.onboarding-card{display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:12px 4px}.onboarding-card>svg{padding:12px;box-sizing:content-box;border-radius:18px;background:var(--accent-soft);color:var(--accent-text)}.onboarding-card>h2{margin:0;font-size:22px}.onboarding-card>p{margin:0;line-height:1.9;color:var(--muted)}.onboarding-steps{display:flex;gap:10px;margin-top:12px}.onboarding-steps button{border:0;width:30px;height:5px;border-radius:9px;background:var(--line);cursor:pointer}.onboarding-steps button[aria-current]{background:var(--accent)}.sleep-card{margin:80px auto;padding:32px;max-width:420px;border:1px solid var(--line);border-radius:var(--card-radius);background:var(--card-surface)}
+.game-statistics{display:flex;flex-direction:column;gap:14px;min-width:0}.game-statistics .segments{flex-wrap:wrap}.game-statistics .input-action>input{min-width:0;width:100%}.game-stat-list{max-height:360px;overflow:auto}.game-stat-list>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:12px 0;border-bottom:1px solid var(--line)}.game-stat-list span{overflow-wrap:anywhere}.game-stat-list small{grid-column:1/-1;color:var(--muted);font-size:12px}

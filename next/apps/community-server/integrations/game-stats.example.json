@@ -1,0 +1,8 @@
+{
+  "community": "https://qqbot.hxzmc.top",
+  "server": "mod-2",
+  "world": "../world",
+  "token": "从管理后台生成后填入，仅保存在对应游戏服务器",
+  "interval": 60,
+  "uuid_map": {}
+}

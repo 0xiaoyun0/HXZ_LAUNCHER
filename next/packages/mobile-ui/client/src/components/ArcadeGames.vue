@@ -1,5 +1,5 @@
 <script setup>
-import {ref,watch,nextTick} from 'vue';
+import {ref,watch,nextTick,onBeforeUnmount} from 'vue';
 const pageRoot=ref(),focused=ref(false);const beginGame=async()=>{await start();if(playing.value)focused.value=true;};
 import ArcadeIcon from './ArcadeIcon.vue';
 import Werewolf from './Werewolf.vue';
@@ -19,6 +19,10 @@ const {mode,flagMode,detail,tool,coins,lives,choices,rankPeriod,changeRank,syncP
 watch(selected,()=>{tankSolo.value=false;});
 watch([selected,boardGame,social,pointsOpen],async()=>{await nextTick();const scroll=pageRoot.value?.closest('.games-scroll');if(scroll)scroll.scrollTop=0;});
 const catalog=[...GAMES.map((item,index)=>({...item,number:item.number||index+1,board:false})),...BOARD_GAMES.map((item,index)=>({...item,number:index+4,board:true})),WEREWOLF].sort((a,b)=>a.number-b.number);
+// Size the real canvas from the remaining space, rather than a phone-specific subtraction.
+let fitObserver,fitFrame=0;function fitFocus(){cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(()=>{const play=document.querySelector('.arcade-focus .arcade-play'),stage=play?.querySelector('.arcade-stage');if(!play||!stage)return;const css=getComputedStyle(play),gap=parseFloat(css.rowGap)||10,padding=parseFloat(css.paddingTop)+parseFloat(css.paddingBottom),ratioText=getComputedStyle(stage).aspectRatio.split('/'),ratio=Number(ratioText[0])/Number(ratioText[1]||1),landscape=window.innerWidth>window.innerHeight;const children=[...play.children].filter(e=>e!==stage&&getComputedStyle(e).display!=='none');const occupied=landscape?(play.querySelector('.arcade-status')?.getBoundingClientRect().height||44)+gap:children.reduce((n,e)=>n+e.getBoundingClientRect().height,0)+children.length*gap;const height=Math.max(170,play.clientHeight-padding-occupied),width=landscape?play.clientWidth-parseFloat(css.paddingLeft)-parseFloat(css.paddingRight)-Math.min(210,window.innerWidth*.29)-16:play.clientWidth-parseFloat(css.paddingLeft)-parseFloat(css.paddingRight);stage.style.width=Math.min(width,height*ratio)+'px';stage.style.maxWidth='none';});}
+watch([focused,playing,paused,selected,()=>choices.value.length],async()=>{fitObserver?.disconnect();await nextTick();if(!focused.value){for(const stage of document.querySelectorAll('.arcade-play-portal .arcade-stage')){stage.style.removeProperty('width');stage.style.removeProperty('max-width');}return;}fitObserver=new ResizeObserver(fitFocus);const play=document.querySelector('.arcade-focus .arcade-play');if(play){fitObserver.observe(play);for(const el of play.querySelectorAll('.arcade-status,.game-touchpad,.arcade-vitals'))fitObserver.observe(el);}fitFocus();});
+window.addEventListener('resize',fitFocus);onBeforeUnmount(()=>{window.removeEventListener('resize',fitFocus);fitObserver?.disconnect();cancelAnimationFrame(fitFrame);});
 </script>
 <template>
  <section ref="pageRoot" class="arcade-page" :data-arcade-playing="playing" :style="{'--game-color':selected?.color||'#9dd9a8'}">

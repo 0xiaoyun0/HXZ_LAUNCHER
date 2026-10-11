@@ -11,6 +11,7 @@ export function createArcade({db,auth,admin,body,send,limit,broadcast,points}){
   const board=game=>db.prepare('SELECT uid,name,score,updated FROM arcade_scores WHERE game=? ORDER BY score DESC,updated ASC LIMIT 10').all(game);
   return async(req,res,url)=>{
     if(!url.pathname.startsWith('/api/arcade/')&&!url.pathname.startsWith('/api/admin/arcade/'))return false;
+    if(url.pathname==='/api/arcade/catalog'&&req.method==='GET'){send(res,200,{items:[...GAMES,...BOARD_GAMES].map(g=>({id:g.id,name:g.name||g.title||g.id}))});return true;}
     const parts=url.pathname.split('/'),game=parts[3]==='arcade'?parts[4]:parts[3];
     if(![...GAMES,...v5.GAMES,...BOARD_GAMES].some(g=>g.id===game))throw Error('小游戏不存在');
     if(url.pathname.startsWith('/api/admin/')){admin(req);if(req.method!=='DELETE')throw Error('不支持的操作');const input=await body(req);if(typeof input.uid!=='string')throw Error('请选择玩家');db.prepare('DELETE FROM arcade_scores WHERE game=? AND uid=?').run(game,input.uid);db.prepare('DELETE FROM game_alltime WHERE game=? AND uid=?').run(game,input.uid);db.prepare('DELETE FROM game_weekly WHERE game=? AND uid=?').run(game,input.uid);broadcast({type:'arcade-ranking',game});send(res,200,{ok:true});return true;}

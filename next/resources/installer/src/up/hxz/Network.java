@@ -72,7 +72,7 @@ final class Network {
     private HttpURLConnection connect(String raw,Set<HttpURLConnection> tracked,RaceState state,long offset,long end)throws IOException{
         URL url=new URL(raw);if(!url.getProtocol().equals("https")&&!url.getProtocol().equals("http"))throw new IOException("只允许 HTTP(S) 下载");
         for(int i=0;i<6;i++){
-            HttpURLConnection c=(HttpURLConnection)url.openConnection();c.setConnectTimeout(Math.min(timeout,10000));c.setReadTimeout(Math.min(timeout,10000));c.setInstanceFollowRedirects(false);c.setRequestProperty("User-Agent","HXZ-UP/1.0");
+            HttpURLConnection c=(HttpURLConnection)url.openConnection();c.setConnectTimeout(Math.min(timeout,6000));c.setReadTimeout(Math.min(timeout,10000));c.setInstanceFollowRedirects(false);c.setRequestProperty("User-Agent","HXZ-UP/1.0");
             c.setRequestProperty("Accept-Encoding","identity");if(offset>0||end>=0)c.setRequestProperty("Range","bytes="+offset+"-"+(end>=0?end:""));
             if(state!=null&&state.cancelled)throw new InterruptedIOException("下载已取消");
             if(tracked!=null)tracked.add(c);
@@ -191,7 +191,7 @@ final class Network {
     private Path race(List<String> urls,Path directory,String sha1,long expected,String label,String requiredArray)throws IOException,InterruptedException{
         List<String> unique=new ArrayList<>(new LinkedHashSet<>(urls));if(unique.isEmpty())throw new IOException("没有下载地址");if(unique.size()>12)throw new IOException("单文件下载源超过 12 个");
         if(sha1!=null&&expected>=4L*1024*1024&&expected<=8L*1024*1024*1024){
-            try{return segments(unique,directory,sha1,expected,label);}catch(IOException e){if(Thread.currentThread().isInterrupted())throw e;System.err.println("[下载] "+label+" · 分段不可用，回退完整文件校验："+e.getMessage());}
+            try{return segments(unique,directory,sha1,expected,label);}catch(IOException e){if(Thread.currentThread().isInterrupted()||e instanceof NetworkFailure||e instanceof FileSystemException)throw e;System.err.println("[下载] "+label+" · 分段不可用，回退完整文件校验："+e.getMessage());}
         }
         if(official()){
             Path ready=sequentialSources(unique,directory,sha1,expected,label,requiredArray);
@@ -279,29 +279,49 @@ final class Network {
             long pause=0;
             for(String url:urls){
                 checkCancelled();if(permanent.contains(url))continue;
-                long cool=cooldown.getOrDefault(host(url),0L)-System.currentTimeMillis();if(cool>0){pause=Math.max(pause,cool);continue;}
+                long cool=cooldown.getOrDefault(host(url),0L)-System.currentTimeMillis();if(cool>0){pause=pause==0?cool:Math.min(pause,cool);continue;}
+                for(int localAttempt=1;localAttempt<=5;localAttempt++){
+                long localWait=0;boolean moveOn=false;
                 slots.acquire();try{
                     Path file=downloadSource(url,directory,sha1,size,requiredArray,state);verified.addAndGet(Files.size(file));synchronized(state.partials){for(Path stale:state.partials.values())Files.deleteIfExists(stale);state.partials.clear();}if(state.persistent){Path ready=Files.createTempFile(directory,"verified-",".part");Files.move(file,ready,StandardCopyOption.REPLACE_EXISTING);file=ready;}return file;
                 }catch(IOException failure){
-                    if(Thread.currentThread().isInterrupted())throw failure;last=failure;long retry=retryDelay(failure,round);
+                    if(Thread.currentThread().isInterrupted()||failure instanceof FileSystemException)throw failure;last=failure;long retry=retryDelay(failure,localAttempt-1);
                     // Retry time measures failed attempts, not minutes spent making useful progress.
                     long retained=0;synchronized(state.partials){Path p=state.partials.get(url);if(p!=null&&Files.isRegularFile(p))retained=Files.size(p);}
                     if(deadline==Long.MAX_VALUE||retained>savedBytes.getOrDefault(url,0L))deadline=System.currentTimeMillis()+budget;
                     savedBytes.put(url,retained);
-                    if(retry<0||failure.getMessage().contains("校验失败")||failure.getMessage().contains("长度不匹配"))permanent.add(url);
-                    else{pause=Math.max(pause,retry);if(failure instanceof HttpFailure&&(((HttpFailure)failure).status==429||((HttpFailure)failure).status==503))cooldown.put(host(url),System.currentTimeMillis()+retry);}
-                    long stamp=System.currentTimeMillis(),prior=reported.getOrDefault(host(url),0L);if(stamp-prior>5000){reported.put(host(url),stamp);System.err.println("[下载节点] "+label+" · "+host(url)+" · "+failure.getMessage()+"；自动尝试备用节点");}
+                    if(retry<0||failure.getMessage().contains("校验失败")||failure.getMessage().contains("长度不匹配")){permanent.add(url);moveOn=true;}
+                    else if(retry>2500||failure.getMessage().contains("持续低速")){if(retry>2500)cooldown.put(host(url),System.currentTimeMillis()+retry);moveOn=true;}
+                    else localWait=retry;
+                    long stamp=System.currentTimeMillis(),prior=reported.getOrDefault(host(url),0L);if(stamp-prior>5000){reported.put(host(url),stamp);System.err.println("[下载节点] "+label+" · "+host(url)+" · "+failure.getMessage()+" · "+localAttempt+"/5，进度已保留");}
                 }finally{slots.release();}
+                if(moveOn||localAttempt==5)break;if(localWait>0)Thread.sleep(localWait);checkCancelled();
+                }
             }
-            if(permanent.size()==urls.size()||retries==0||(round>=retries&&System.currentTimeMillis()>=deadline))throw new NetworkFailure(label+" · 下载节点暂时无法完成传输，已保留下载进度，可继续任务",last);
-            Thread.sleep(Math.min(Math.max(250,pause),30000));
+            if(permanent.size()==urls.size()||retries==0||System.currentTimeMillis()>=deadline)throw new NetworkFailure(label+" · 下载节点暂时无法完成传输，已保留下载进度，可继续任务",last);
+            Thread.sleep(Math.min(Math.min(Math.max(250,pause),10000),Math.max(1,deadline-System.currentTimeMillis())));
         }}finally{state.cancelled=true;for(HttpURLConnection c:state.connections)c.disconnect();if(!state.persistent)synchronized(state.partials){for(Path p:state.partials.values())Files.deleteIfExists(p);}transfers.remove(state);}
     }
     private static final ConcurrentHashMap<String,Object> rangeLocks=new ConcurrentHashMap<>();
     private Path segments(List<String> urls,Path directory,String sha1,long size,String label)throws IOException,InterruptedException{
         Path cache=directory.toAbsolutePath().getParent().resolve("verified-ranges");IO.noLinks(cache);Files.createDirectories(cache);
         String key=sha1.toLowerCase(Locale.ROOT)+"-"+size;Object lock=rangeLocks.computeIfAbsent(cache.resolve(key).toString(),k->new Object());
-        synchronized(lock){return segmentsLocked(urls,directory,cache,key,sha1,size,label);}
+        synchronized(lock){
+            int previous=0;long deadline=0;
+            for(;;){
+                try{return segmentsLocked(urls,directory,cache,key,sha1,size,label);}
+                catch(IOException e){
+                    if(Thread.currentThread().isInterrupted()||e instanceof FileSystemException)throw e;
+                    int completed=0;Path index=cache.resolve(key+".index");
+                    if(Files.isRegularFile(index))try(DataInputStream in=new DataInputStream(Files.newInputStream(index))){in.readLong();in.readLong();int count=in.readInt();if(count>0&&count<=1024)for(int i=0;i<count;i++)if(in.readBoolean())completed++;}
+                    catch(IOException ignored){}
+                    if(completed==0)throw e;
+                    long now=System.currentTimeMillis();if(deadline==0||completed>previous)deadline=now+Long.getLong("hxz.download.retryMillis",120000L);previous=completed;
+                    if(retries==0||now>=deadline)throw new NetworkFailure(label+" · 剩余分段暂未完成，已保留 "+completed+" 个分段，可继续任务",e);
+                    System.err.println("[下载] "+label+" · 保留 "+completed+" 个已完成分段，正在重试剩余部分");Thread.sleep(1000);checkCancelled();
+                }
+            }
+        }
     }
     private Path segmentsLocked(List<String> urls,Path directory,Path cache,String key,String sha1,long size,String label)throws IOException,InterruptedException{
         RaceState state=new RaceState();state.label=label;state.expected=size;transfers.add(state);
@@ -321,9 +341,10 @@ final class Network {
                 CountDownLatch exit=new CountDownLatch(1);exits.add(exit);
                 futures.add(SOURCES.submit((Callable<Void>)()->{try{while(true){int part=next.getAndIncrement();if(part>=count)return null;checkCancelled();if(state.cancelled)throw new InterruptedIOException("下载已取消");if(done[part])continue;
                     long start=part*block,end=Math.min(size,start+block)-1;IOException failure=null;
-                    for(int attempt=0;attempt<urls.size();attempt++){
+                    for(int attempt=0;attempt<urls.size()*5;attempt++){
                         boolean acquired=false,complete=false;HttpURLConnection conn=null;long progress=0;
-                        try{slots.acquire();acquired=true;checkCancelled();if(state.cancelled)throw new InterruptedIOException("下载已取消");String url=urls.get(official()?attempt:(part+attempt)%urls.size());conn=connect(url,state.connections,state,start,end);
+                        long delay=0;boolean nextSource=false;
+                        try{slots.acquire();acquired=true;checkCancelled();if(state.cancelled)throw new InterruptedIOException("下载已取消");String url=urls.get(official()?attempt/5:(part+attempt/5)%urls.size());conn=connect(url,state.connections,state,start,end);
                             if(conn.getResponseCode()!=206||!("bytes "+start+"-"+end+"/"+size).equals(conn.getHeaderField("Content-Range")))throw new IOException("节点不支持可靠的分段下载");
                             Pace pace=new Pace();byte[] buffer=new byte[128*1024];try(InputStream in=conn.getInputStream();RandomAccessFile out=new RandomAccessFile(file.toFile(),"rw")){
                                 out.seek(start);int n;while((n=in.read(buffer))!=-1){checkCancelled();if(state.cancelled)throw new InterruptedIOException("下载已取消");pace.add(n,end-start+1-progress-n);pace.mark+=RATE_LIMIT.consume(n,()->state.cancelled);if(progress+n>end-start+1)throw new IOException("分段长度不匹配");out.write(buffer,0,n);progress+=n;received.addAndGet(n);state.bytes.addAndGet(n);}
@@ -334,8 +355,9 @@ final class Network {
                                 Files.move(pending,index,StandardCopyOption.REPLACE_EXISTING);
                             }
                             complete=true;failure=null;break;
-                        }catch(IOException e){if(Thread.currentThread().isInterrupted()||state.cancelled)throw new InterruptedIOException("下载已取消");failure=e;}
+                        }catch(IOException e){if(Thread.currentThread().isInterrupted()||state.cancelled)throw new InterruptedIOException("下载已取消");if(e instanceof FileSystemException)throw e;failure=e;delay=retryDelay(e,attempt%5);nextSource=delay<0||delay>2500||e.getMessage().contains("持续低速")||e.getMessage().contains("不支持可靠")||e.getMessage().contains("不匹配");}
                         finally{if(!complete)state.bytes.addAndGet(-progress);if(conn!=null){state.connections.remove(conn);if(!complete)conn.disconnect();}if(acquired)slots.release();}
+                        if(nextSource)attempt=(attempt/5+1)*5-1;else if(attempt%5<4&&delay>0)Thread.sleep(delay);
                     }
                     if(failure!=null)throw failure;
                 }}finally{if(extra)extraRanges.release();exit.countDown();} }));

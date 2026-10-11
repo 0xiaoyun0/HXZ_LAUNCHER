@@ -9,14 +9,15 @@ import {Button,IconButton,Select,Empty,Field,Modal,Avatar} from './ui';
 import {state,ui,invoke,perform,account,notify,saveSettings} from './model';
 import {community,connect,joinVoice,leaveVoice} from '../../../packages/community/client';
 import {music,musicTime,loadMusic,playTrack,toggleMusic,nextTrack,seekMusic,setMusicVolume,shareMusic,removeTrack} from './music-player';
-const rooms=[{id:'lobby',name:'旅人休息室'},{id:'survival',name:'原版生存群组'},{id:'mod-1',name:'模组一服'},{id:'mod-2',name:'模组二服'}];
 
 export function MusicMini(){const m=useSnapshot(music);if(!m.current)return null;return <div className="music-mini"><Link to="/music" title={m.current.title}><Music2 size={14}/><span>{m.current.title}</span></Link><IconButton icon={m.playing?Pause:Play} label={m.playing?'暂停音乐':'播放音乐'} disabled={m.loading} onClick={toggleMusic}/><IconButton icon={AlignLeft} label={m.lyricsFloating?'收回歌词':'显示悬浮歌词'} onClick={()=>music.lyricsFloating=!m.lyricsFloating}/></div>;}
 export function MusicHost(){const s=useSnapshot(state),loaded=useRef(false);useEffect(()=>{if(!s.ready||loaded.current||!window.launcher)return;loaded.current=true;void (async()=>{if(s.settings.backgroundMusic){await invoke('music.adopt',{url:s.settings.backgroundMusic});await saveSettings({backgroundMusic:''});}await loadMusic();})().catch(()=>{});},[s.ready,s.settings.backgroundMusic]);return <LyricsHost/>;}
 export function MusicPage(){
  const s=useSnapshot(state),m=useSnapshot(music),c=useSnapshot(community);
- const [query,setQuery]=useState(''),[results,setResults]=useState<any[]>([]),[searching,setSearching]=useState(false),[error,setError]=useState(''),[room,setRoom]=useState('lobby'),[issues,setIssues]=useState<any[]>([]),[playlistOpen,setPlaylistOpen]=useState(false),[playlistLink,setPlaylistLink]=useState(''),[playlistResult,setPlaylistResult]=useState<any>(null);
+ const rooms=c.rooms.length?c.rooms:[{id:"music",name:"一起听歌",kind:"music",capacity:20}];
+ const [query,setQuery]=useState(''),[results,setResults]=useState<any[]>([]),[searching,setSearching]=useState(false),[error,setError]=useState(''),[room,setRoom]=useState('music'),[issues,setIssues]=useState<any[]>([]),[playlistOpen,setPlaylistOpen]=useState(false),[playlistLink,setPlaylistLink]=useState(''),[playlistResult,setPlaylistResult]=useState<any>(null);
  useEffect(()=>{if(!music.ready)void perform(loadMusic);},[]);
+ useEffect(()=>{if(rooms.length&&!rooms.some(r=>r.id===room))setRoom(rooms.find(r=>r.kind==='music')?.id||rooms[0].id);},[rooms,room]);
  async function search(){if(searching)return;setSearching(true);setError('');try{const input=query.trim(),id=input.match(/(?:id=|^)(\d{1,18})(?:&|$)/)?.[1];if(id){const item=await invoke('music.add',{id});setResults([item]);await loadMusic();}else setResults((await invoke('music.search',{query:input})).items);}catch(e:any){setError(e.message);}finally{setSearching(false);}}
  const cards:CardSpec[]=[
  {id:'lyrics',title:'歌词',w:12,minW:4,x:0,y:39,h:15,minH:12,content:<LyricsCard/>},

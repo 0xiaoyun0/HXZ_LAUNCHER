@@ -3,7 +3,8 @@ function message(text,error=false){$('message').hidden=false;$('message').textCo
 async function api(url,method='GET',body){const r=await fetch(url,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined});const value=await r.json();if(!r.ok)throw Error(value.error||'操作失败');return value;}
 function row(container,heading,body,button,action){const el=document.createElement('div');el.className='row';const content=document.createElement('div'),title=document.createElement('strong'),p=document.createElement('p');title.textContent=heading;p.textContent=body;content.append(title,p);el.append(content);if(button){const b=document.createElement('button');b.textContent=button;b.className='danger';b.onclick=()=>run(action);el.append(b);}container.append(el);}
 async function run(fn){try{await fn();}catch(e){message(e.message,true);}}
-function tab(value){current=value;if(value==='music')void run(loadMusicGrants);if(value==='inbox')void run(loadInboxAudit);if(value==='points')void run(loadActivityCodes);if(value==='lobby'){void run(loadLobby);void run(loadRelay);}if(value==='shop')void run(loadShop);if(value==='servers'){void run(loadServers);void run(loadServerOnline);}if(value==='arcade')void run(loadArcade);if(value==='points')void run(loadPoints);if(value==='arcana')void run(loadArcana);if(value==='blueprints')void run(loadBlueprints);if(value==='forum')void run(loadForum);if(value==='users')void run(loadReviewers);document.querySelectorAll('[data-view]').forEach(el=>el.hidden=el.dataset.view!==value);document.querySelectorAll('[data-tab]').forEach(el=>{el.classList.toggle('active',el.dataset.tab===value);if(el.dataset.tab===value)$('heading').textContent=el.textContent;});}
+let disposeGuild;
+function tab(value){if(value==='updates')void run(async()=>{const m=await import('/admin/operations.js');await m.serverUpdates($('service-updates'),api,message);});if(value==='voice')void run(async()=>{const m=await import('/admin/operations.js');await m.voiceSettings($('voice-config'),api,message);});if(value==='servers')void run(async()=>{const m=await import('/admin/operations.js');await m.gameBridges($('game-bridges'),api,message);});if(value==='guild')void run(async()=>{disposeGuild?.();const {mountGuild}=await import('/admin/guild.js');disposeGuild=mountGuild($('guild-admin'),{request:api,admin:true});});current=value;if(value==='music')void run(loadMusicGrants);if(value==='inbox')void run(loadInboxAudit);if(value==='points')void run(loadActivityCodes);if(value==='lobby'){void run(loadLobby);void run(loadRelay);}if(value==='shop')void run(loadShop);if(value==='servers'){void run(loadServers);void run(loadServerOnline);}if(value==='arcade')void run(loadArcade);if(value==='points')void run(loadPoints);if(value==='linking')loadLinking();if(value==='blueprints')void run(loadBlueprints);if(value==='forum')void run(loadForum);if(value==='users')void run(loadReviewers);document.querySelectorAll('[data-view]').forEach(el=>el.hidden=el.dataset.view!==value);document.querySelectorAll('[data-tab]').forEach(el=>{el.classList.toggle('active',el.dataset.tab===value);if(el.dataset.tab===value)$('heading').textContent=el.textContent;});}
 async function refresh(){const [state,notices]=await Promise.all([api('/api/admin/overview'),api('/api/notices')]);$('online-count').textContent=state.online.length;$('voice-count').textContent=state.online.filter(p=>p.room).length;$('version').textContent=state.version;
  for(const id of ['online-list','notice-list','message-list','ban-list'])$(id).replaceChildren();
  for(const p of state.online)row($('online-list'),p.name,p.uid+(p.room?' · 语音 '+p.room:''),'封禁',async()=>{await api('/api/moderation','POST',{uid:p.uid,banned:true});await refresh();});
@@ -38,8 +39,8 @@ async function loadForum(){const value=await api('/api/forum/posts?manage=1&q='+
 async function showPost(id,offset=0){const value=await api('/api/forum/posts/'+id+'?offset='+offset),p=value.post,container=contentDialog(p.title);container.append(paragraph(p.name+' · '+p.uid),paragraph(p.body,'pre'));const actions=document.createElement('div');actions.className='content-buttons';container.append(actions);for(const [label,key] of [[p.pinned?'取消置顶':'置顶','pinned'],[p.locked?'开放回复':'锁定回复','locked'],[p.hidden?'恢复公开':'隐藏帖子','hidden']])action(actions,label,async()=>{await api('/api/forum/posts/'+id+'/moderate','POST',{action:key,value:!p[key]});await showPost(id,offset);await loadForum();});action(actions,'删除帖子',async()=>{if(!confirm('删除帖子及全部回复？'))return;await api('/api/forum/posts/'+id,'DELETE');$('content-dialog').close();await loadForum();},true);container.append(paragraph('回复 · '+value.total,'h3'));for(const r of value.replies)row(container,r.name,r.body,'删除回复',async()=>{await api('/api/forum/replies/'+r.id,'DELETE');await showPost(id,offset);});const pagination=document.createElement('div');pagination.className='content-buttons';container.append(pagination);if(offset)action(pagination,'上一页回复',()=>showPost(id,Math.max(0,offset-24)));if(offset+24<value.total)action(pagination,'下一页回复',()=>showPost(id,offset+24));}
 $('load-forum').onclick=()=>{forumOffset=0;void run(loadForum);};$('forum-prev').onclick=()=>{forumOffset=Math.max(0,forumOffset-24);void run(loadForum);};$('forum-next').onclick=()=>{forumOffset+=24;void run(loadForum);};
 
-let arcanaConfig;
-function arcanaField(container,label,value,set,{large=false,lines=false,check=false}={}) {
+
+function formField(container,label,value,set,{large=false,lines=false,check=false}={}) {
  const wrapper=document.createElement('label');wrapper.textContent=label;
  const input=document.createElement(large?'textarea':'input');
  if(check){input.type='checkbox';input.checked=value;}else{input.value=lines?JSON.stringify(value,null,2):value||'';input.maxLength=large?60000:2000;}
@@ -47,20 +48,6 @@ function arcanaField(container,label,value,set,{large=false,lines=false,check=fa
  input.oninput=()=>{input.setCustomValidity('');try{set(check?input.checked:lines?JSON.parse(input.value):input.value);}catch{input.setCustomValidity('请输入有效 JSON，每行包含 speaker 与 text');}};
  wrapper.append(input);container.append(wrapper);
 }
-async function loadArcana(){
- arcanaConfig=await api('/api/admin/arcana');const root=$('arcana-fields');root.replaceChildren();
- arcanaField(root,'开启活动',arcanaConfig.enabled,v=>arcanaConfig.enabled=v,{check:true});
- for(const [key,label] of [['title','活动名称'],['subtitle','副标题'],['accessCode','入口代码']])arcanaField(root,label,arcanaConfig[key],v=>arcanaConfig[key]=v);
- for(const card of [...arcanaConfig.cards,arcanaConfig.center]){
-  const box=document.createElement('details'),heading=document.createElement('summary');heading.textContent=card.name;box.append(heading);root.append(box);
-  for(const [key,label] of [['name','牌名'],['activity','对应活动'],['unlockCode','点亮代码']])arcanaField(box,label,card[key],v=>card[key]=v);
-  arcanaField(box,'开放时间',card.unlockAt,v=>card.unlockAt=v);
-  for(const [key,label] of [['eyebrow','章节标识'],['title','详情标题'],['line','章节描述']])arcanaField(box,label,card.detail[key],v=>card.detail[key]=v,{large:key==='line'});
-  arcanaField(box,card.id?'对话（JSON）':'最终长剧情（JSON）',card.dialogue,v=>card.dialogue=v,{large:true,lines:true});
-  if(!card.id){arcanaField(box,'卡牌短对话（JSON）',card.cardDialogue,v=>card.cardDialogue=v,{large:true,lines:true});for(const key of ['english','signal','line'])arcanaField(box,key,card[key],v=>card[key]=v);}
- }
-}
-$('arcana-form').onsubmit=event=>{event.preventDefault();void run(async()=>{if(!arcanaConfig)return;await api('/api/admin/arcana','PUT',arcanaConfig);message('活动已保存，玩家再次进入或刷新牌库后生效');});};
 
 let serverPresets;
 function updateLinksField(root,preset){
@@ -78,21 +65,22 @@ function selectField(root,label,value,options,set){const wrapper=document.create
 async function loadServers(){
  serverPresets=(await api('/api/admin/server-presets')).servers;const root=$('servers-fields');root.replaceChildren();
  for(const preset of serverPresets){const box=document.createElement('fieldset'),title=document.createElement('legend');title.textContent=preset.name;box.append(title);root.append(box);
-  arcanaField(box,'显示名称',preset.name,v=>preset.name=v);
+  formField(box,'显示名称',preset.name,v=>preset.name=v);
   selectField(box,'首次安装来源',preset.profileSource,[['manual','指定游戏版本与加载器'],['hxzup','读取 HXZ UP 的游戏配置'],['package','下载整合包文件']],v=>preset.profileSource=v);
-  arcanaField(box,'Minecraft 版本（指定版本时必填）',preset.version,v=>preset.version=v);
+  formField(box,'Minecraft 版本（指定版本时必填）',preset.version,v=>preset.version=v);
   selectField(box,'加载器',preset.loader,[['','原版'],['fabric','Fabric'],['quilt','Quilt'],['forge','Forge'],['neoforge','NeoForge']],v=>preset.loader=v);
-  arcanaField(box,'加载器版本（留空选择可用稳定版）',preset.loaderVersion,v=>preset.loaderVersion=v);
-  arcanaField(box,'自动安装 Fabric API',preset.fabricAPI,v=>preset.fabricAPI=v,{check:true});
+  formField(box,'加载器版本（留空选择可用稳定版）',preset.loaderVersion,v=>preset.loaderVersion=v);
+  formField(box,'自动安装 Fabric API',preset.fabricAPI,v=>preset.fabricAPI=v,{check:true});
   updateLinksField(box,preset);
-  arcanaField(box,'整合包下载地址（整合包文件模式）',preset.packageUrl,v=>preset.packageUrl=v);
-  arcanaField(box,'整合包 SHA256',preset.packageSha256,v=>preset.packageSha256=v);
-  arcanaField(box,'进入游戏服务器地址（域名:端口）',preset.address,v=>preset.address=v);
-  for(const [key,label] of [['enabled','开放此服务器入口'],['autoUpdate','默认启动前更新（玩家可关闭）'],['updateRequired','每次启动必须更新（玩家不可跳过）'],['autoJoin','默认自动进入服务器（玩家可关闭）']])arcanaField(box,label,preset[key],v=>preset[key]=v,{check:true});
+  formField(box,'整合包下载地址（整合包文件模式）',preset.packageUrl,v=>preset.packageUrl=v);
+  formField(box,'整合包 SHA256',preset.packageSha256,v=>preset.packageSha256=v);
+  formField(box,'进入游戏服务器地址（域名:端口）',preset.address,v=>preset.address=v);
+  for(const [key,label] of [['enabled','开放此服务器入口'],['autoUpdate','默认启动前更新（玩家可关闭）'],['updateRequired','每次启动必须更新（玩家不可跳过）'],['autoJoin','默认自动进入服务器（玩家可关闭）']])formField(box,label,preset[key],v=>preset[key]=v,{check:true});
  }
 }
 $('servers-form').onsubmit=event=>{event.preventDefault();void run(async()=>{await api('/api/admin/server-presets','PUT',{servers:serverPresets});message('默认服务器已保存');});};
-async function loadArcade(){const game=$('arcade-game').value,value=await api('/api/arcade/'+game);$('arcade-list').replaceChildren();for(const [i,p] of value.items.entries())row($('arcade-list'),(i+1)+'. '+p.name,p.score+' 分 · '+p.uid,'移除成绩',async()=>{if(!confirm('移除此玩家的排行榜成绩？'))return;await api('/api/admin/arcade/'+game,'DELETE',{uid:p.uid});await loadArcade();});if(!value.items.length)$('arcade-list').append(paragraph('暂无成绩'));}
+let arcadeCatalogLoaded=false;
+async function loadArcade(){if(!arcadeCatalogLoaded){const catalog=await api('/api/arcade/catalog'),previous=$('arcade-game').value;$('arcade-game').replaceChildren(...catalog.items.map(g=>{const option=document.createElement('option');option.value=g.id;option.textContent=g.name;return option;}));if(catalog.items.some(g=>g.id===previous))$('arcade-game').value=previous;arcadeCatalogLoaded=true;}const game=$('arcade-game').value,value=await api('/api/arcade/'+game);$('arcade-list').replaceChildren();for(const [i,p] of value.items.entries())row($('arcade-list'),(i+1)+'. '+p.name,p.score+' 分 · '+p.uid,'移除成绩',async()=>{if(!confirm('移除此玩家的排行榜成绩？'))return;await api('/api/admin/arcade/'+game,'DELETE',{uid:p.uid});await loadArcade();});if(!value.items.length)$('arcade-list').append(paragraph('暂无成绩'));}
 $('arcade-refresh').onclick=()=>run(loadArcade);$('arcade-game').onchange=()=>run(loadArcade);
 
 let pointsOffset=0,adjustId='';
@@ -104,12 +92,13 @@ $('points-code').onsubmit=e=>{e.preventDefault();void run(async()=>{const value=
 let shopOffset=0;
 const shopDate=value=>value?new Date(value-new Date(value).getTimezoneOffset()*60000).toISOString().slice(0,16):'';
 function shopValues(form){const v=Object.fromEntries(new FormData(form));for(const key of ['starts','ends'])v[key]=v[key]?new Date(v[key]).getTime():0;v.enabled=form.elements.enabled.checked;if('stock'in v)v.stock=Number(v.stock);if('updated'in v)v.updated=Number(v.updated);if(!v.id)delete v.id;return v;}
-async function loadShop(){const [catalog,orders]=await Promise.all([api('/api/admin/shop'),api('/api/admin/shop/orders?offset='+shopOffset)]),form=$('shop-settings');form.elements.enabled.checked=!!catalog.settings.enabled;for(const key of ['starts','ends'])form.elements[key].value=shopDate(catalog.settings[key]);$('shop-items').replaceChildren();for(const item of catalog.items){const box=document.createElement('article');box.className='panel';box.append(paragraph(item.title+' · '+item.price+' 积分','h3'),paragraph(item.description),paragraph('库存 '+(item.stock<0?'不限':item.stock)+' · '+(item.enabled?'上架':'下架')));action(box,'编辑',()=>{const f=$('shop-item');for(const key of ['id','updated','title','description','price','stock'])f.elements[key].value=item[key];f.elements.enabled.checked=!!item.enabled;for(const key of ['starts','ends'])f.elements[key].value=shopDate(item[key]);f.scrollIntoView({behavior:'smooth',block:'center'});});action(box,'删除商品',async()=>{if(!confirm('下架并删除此商品？历史订单仍保留。'))return;await api('/api/admin/shop/items/'+item.id,'DELETE');await loadShop();},true);$('shop-items').append(box);}
+async function previewShopImage(url){const preview=$('shop-image-preview');preview.hidden=!url;if(url){const data=await api(url+'/data');preview.src=data.image;}}
+async function loadShop(){const [catalog,orders]=await Promise.all([api('/api/admin/shop'),api('/api/admin/shop/orders?offset='+shopOffset)]),form=$('shop-settings');form.elements.enabled.checked=!!catalog.settings.enabled;for(const key of ['starts','ends'])form.elements[key].value=shopDate(catalog.settings[key]);$('shop-items').replaceChildren();for(const item of catalog.items){const box=document.createElement('article');box.className='panel';box.append(paragraph(item.title+' · '+item.price+' 积分','h3'),paragraph(item.description),paragraph('库存 '+(item.stock<0?'不限':item.stock)+' · '+(item.enabled?'上架':'下架')));action(box,'编辑',()=>{const f=$('shop-item');for(const key of ['id','updated','title','description','price','stock','image'])f.elements[key].value=item[key];f.elements.enabled.checked=!!item.enabled;for(const key of ['starts','ends'])f.elements[key].value=shopDate(item[key]);void previewShopImage(item.image);f.scrollIntoView({behavior:'smooth',block:'center'});});action(box,'删除商品',async()=>{if(!confirm('下架并删除此商品？历史订单仍保留。'))return;await api('/api/admin/shop/items/'+item.id,'DELETE');await loadShop();},true);$('shop-items').append(box);}
 $('shop-orders').replaceChildren();for(const order of orders.items){const box=document.createElement('article');box.className='panel';box.append(paragraph(order.title+' · '+order.price+' 积分','h3'),paragraph(order.name+' · '+order.uid),paragraph(new Date(order.created).toLocaleString()+' · '+({pending:'待交付',fulfilled:'已交付',refunded:'已退款'})[order.status]),paragraph('订单 '+order.id));const delivery=document.createElement('textarea');delivery.value=order.delivery;delivery.placeholder='交付说明（仅管理员与购买者可见）';delivery.maxLength=4000;box.append(delivery);if(order.status==='pending')action(box,'确认交付',async()=>{await api('/api/admin/shop/orders/'+order.id,'POST',{status:'fulfilled',delivery:delivery.value});await loadShop();});if(order.status!=='refunded')action(box,'退款',async()=>{if(!confirm('退还积分并恢复该件库存？'))return;await api('/api/admin/shop/orders/'+order.id,'POST',{status:'refunded',delivery:delivery.value});await loadShop();},true);$('shop-orders').append(box);}
 $('shop-page').textContent=`${Math.floor(shopOffset/30)+1} / ${Math.max(1,Math.ceil(orders.total/30))}`;$('shop-prev').disabled=!shopOffset;$('shop-next').disabled=shopOffset+30>=orders.total;}
 $('shop-settings').onsubmit=e=>{e.preventDefault();void run(async()=>{await api('/api/admin/shop/settings','POST',shopValues(e.target));await loadShop();message('商城时间已保存');});};
-$('shop-item').onsubmit=e=>{e.preventDefault();void run(async()=>{await api('/api/admin/shop/items','POST',shopValues(e.target));e.target.reset();e.target.elements.id.value='';e.target.elements.updated.value='';await loadShop();message('商品已保存');});};
-$('shop-new').onclick=()=>{$('shop-item').reset();$('shop-item').elements.id.value='';$('shop-item').elements.updated.value='';};
+$('shop-item').onsubmit=e=>{e.preventDefault();void run(async()=>{await api('/api/admin/shop/items','POST',shopValues(e.target));e.target.reset();e.target.elements.id.value='';e.target.elements.updated.value='';e.target.elements.image.value='';$('shop-image-preview').hidden=true;await loadShop();message('商品已保存');});};
+$('shop-new').onclick=()=>{$('shop-item').reset();$('shop-item').elements.id.value='';$('shop-item').elements.updated.value='';$('shop-item').elements.image.value='';$('shop-image-preview').hidden=true;};
 $('shop-prev').onclick=()=>{shopOffset=Math.max(0,shopOffset-30);void run(loadShop);};$('shop-next').onclick=()=>{shopOffset+=30;void run(loadShop);};
 
 async function loadLobby(){
@@ -135,3 +124,20 @@ $('server-online-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await
 
 async function loadRelay(){const v=await api('/api/admin/lobby/relay'),f=$('relay-form');f.elements.enabled.checked=v.enabled;f.elements.kbps.value=v.kbps;$('relay-rooms').replaceChildren();for(const r of v.rooms)row($('relay-rooms'),r.uid,r.connections+' 条连接 · 已转发 '+(r.bytes/1024/1024).toFixed(2)+' MB');}
 $('relay-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await api('/api/admin/lobby/relay','PUT',{enabled:e.target.elements.enabled.checked,kbps:Number(e.target.elements.kbps.value)});await loadRelay();message('中继配置已保存');});};
+
+function loadLinking(){const frame=$('linking-admin-frame');if(!frame.src)frame.src=frame.dataset.src;}
+window.addEventListener('message',async event=>{
+ const frame=$('linking-admin-frame'),data=event.data;
+ if(event.source!==frame?.contentWindow||event.origin!==location.origin||data?.channel!=='hxz-linking-v1'||typeof data.id!=='string'||data.id.length>64)return;
+ try{
+  if(data.kind!=='preferences'&&(!/^\/api\/(?:admin\/)?linking(?:\/[a-z0-9-]+)*(?:\?offset=\d+)?$/.test(data.path)||!['GET','POST','PUT'].includes(data.method||'GET')||JSON.stringify(data.body??null).length>1048576))throw Error('活动请求无效');
+  const value=data.kind==='preferences'?{theme:'light',reducedMotion:matchMedia('(prefers-reduced-motion:reduce)').matches}:await api(data.path,data.method,data.body);
+  event.source.postMessage({channel:'hxz-linking-v1',id:data.id,value},location.origin);
+ }catch(e){event.source.postMessage({channel:'hxz-linking-v1',id:data.id,error:e.message},location.origin);}
+});
+
+$('shop-image-file').onchange=()=>run(async()=>{const input=$('shop-image-file');if(!input.files[0])return;const buttons=[...$('shop-item').querySelectorAll('button')];input.disabled=true;buttons.forEach(b=>b.disabled=true);try{const {communityImage}=await import('/admin/image-upload.js');const value=await api('/api/media/upload','POST',{scope:'shop',image:await communityImage(input.files[0])});$('shop-item').elements.image.value=value.url;await previewShopImage(value.url);message('图片已上传，请保存商品');}finally{input.disabled=false;input.value='';buttons.forEach(b=>b.disabled=false);}});
+$('shop-image-clear').onclick=()=>{$('shop-item').elements.image.value='';$('shop-image-preview').hidden=true;};
+
+// Stable groups keep related administration actions together.
+{const side=document.querySelector('#workspace>aside'),groups=[['社区内容',['notices','messages','forum','blueprints','inbox']],['活动与积分',['guild','linking','arcade','shop','points']],['连接与成员',['voice','lobby','music','users','servers']],['服务维护',['overview','settings','updates']]];const search=document.createElement('input');search.placeholder='查找管理功能';search.setAttribute('aria-label','查找管理功能');search.className='admin-search';side.querySelector('h2').after(search);const sections=[];for(const [name,ids]of groups){const section=document.createElement('section'),heading=document.createElement('h3');section.className='admin-nav-group';heading.textContent=name;section.append(heading);for(const id of ids){const button=side.querySelector('[data-tab="'+id+'"]');if(button)section.append(button);}side.insertBefore(section,$('logout'));sections.push(section);}search.oninput=()=>{const q=search.value.trim();for(const section of sections){let shown=false;section.querySelectorAll('button').forEach(b=>{b.hidden=!b.textContent.includes(q);shown||=!b.hidden;});section.hidden=!shown;}};}

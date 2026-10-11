@@ -1,4 +1,5 @@
 import {javaHeapLimit} from './memory-policy.mjs';
+import {prepareLogging} from './logging-config.mjs';
 import { normalizeDownloadConcurrency } from "./download-settings.mjs";
 import { serverAddress } from "./instances.mjs";
 import { fileProgress } from "./progress.mjs";
@@ -244,7 +245,8 @@ export async function prepareLaunch({
   authAgent,
   authServer="https://skin.hxzmc.top/api/yggdrasil",authMetadata,
   signal,
-  onProgress = () => {}
+  onProgress = () => {},
+  onLog = () => {}
 }) {
   const downloadFiles = (values, fn) =>
     parallel(values, fn, normalizeDownloadConcurrency(downloadConcurrency));
@@ -446,7 +448,7 @@ export async function prepareLaunch({
     classpath,
     classpath_separator: path.delimiter,
     launcher_name: "HXZ Launcher",
-    launcher_version: "0.5.2-air",
+    launcher_version: "0.7.0",
     resolution_width: String(settings.width || 1280),
     resolution_height: String(settings.height || 720),
     clientid: "",
@@ -473,18 +475,7 @@ export async function prepareLaunch({
   if (!jvm.some(arg => arg.startsWith("-Djava.library.path=")))
     jvm.push("-Djava.library.path=" + natives);
   if (version.logging?.client?.file?.url) {
-    const l = version.logging.client,
-      file = inside(root, "assets/log_configs/" + l.file.id);
-    onProgress({
-      phase: "准备日志配置",
-      activeFiles: [path.relative(root, file)]
-    });
-    await download(l.file.url, file, {
-      sha1: l.file.sha1,
-      size: l.file.size,
-      signal
-    });
-    jvm.push(l.argument.replace("${path}", file));
+    jvm.push(await prepareLogging(root,version.logging.client,{signal,onProgress,onLog}));
   }
   const memory = javaHeapLimit(settings.memoryMB,os.totalmem()/1048576,j.architecture);
   jvm.unshift(

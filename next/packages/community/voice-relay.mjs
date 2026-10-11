@@ -8,6 +8,8 @@ export function createRelayVoice({ send, onError, canTransmit = () => true }) {
     playback,
     silent,
     microphoneGain,
+    microphoneFilter,
+    microphoneCompressor,
     musicInput,
     musicGain,
     encoder,
@@ -16,7 +18,8 @@ export function createRelayVoice({ send, onError, canTransmit = () => true }) {
     muted = false,
     deafened = false,
     sequence = 0,
-    timestamp = 0;
+    timestamp = 0,
+    lastSilence = 0;
   const epoch = crypto.getRandomValues(new Uint32Array(1))[0],
     peers = new Map();
   function remove(id) {
@@ -70,6 +73,7 @@ export function createRelayVoice({ send, onError, canTransmit = () => true }) {
         },
         output: chunk => {
           if (disposed || (muted && !musicInput) || chunk.byteLength > 4000) return;
+          if(!musicInput&&chunk.byteLength<=3){const now=performance.now();if(now-lastSilence<400)return;lastSilence=now;}
           const bytes = new Uint8Array(9 + chunk.byteLength),
             view = new DataView(bytes.buffer);
           bytes[0] = 1;
@@ -109,7 +113,9 @@ export function createRelayVoice({ send, onError, canTransmit = () => true }) {
       silent.gain.value = 0;
       microphoneGain = context.createGain();
       microphoneGain.gain.value = muted || !canTransmit() ? 0 : 1;
-      microphoneGain.connect(capture);
+      microphoneFilter=context.createBiquadFilter();microphoneFilter.type='highpass';microphoneFilter.frequency.value=75;
+      microphoneCompressor=context.createDynamicsCompressor();microphoneCompressor.threshold.value=-18;microphoneCompressor.knee.value=14;microphoneCompressor.ratio.value=4;microphoneCompressor.attack.value=.003;microphoneCompressor.release.value=.16;
+      microphoneGain.connect(microphoneFilter).connect(microphoneCompressor).connect(capture);
       if(stream.getAudioTracks().length){input = context.createMediaStreamSource(stream);input.connect(microphoneGain);}
       capture.connect(silent);
       silent.connect(context.destination);
@@ -136,7 +142,7 @@ export function createRelayVoice({ send, onError, canTransmit = () => true }) {
         peer = null;
       }
       if (!peer) {
-        if (peers.size >= 19) return;
+        if (peers.size >= 49) return;
         const decoder = new AudioDecoder({
           error: e => {
             remove(id);
@@ -208,7 +214,7 @@ export function createRelayVoice({ send, onError, canTransmit = () => true }) {
         capture.port.close();
       }
       input?.disconnect();
-      microphoneGain?.disconnect();musicInput?.disconnect();musicGain?.disconnect();
+      microphoneGain?.disconnect();microphoneFilter?.disconnect();microphoneCompressor?.disconnect();musicInput?.disconnect();musicGain?.disconnect();
       silent?.disconnect();
       playback?.disconnect();
       playback?.port.close();

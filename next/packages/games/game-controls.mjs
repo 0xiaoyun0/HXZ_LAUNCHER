@@ -4,8 +4,8 @@ const paths={left:'m14 6-6 6 6 6',right:'m10 6 6 6-6 6',up:'m6 14 6-6 6 6',down:
 const titles={left:'向左',right:'向右',up:'向上',down:'向下',jump:'跳跃',fire:'开火',dash:'冲刺',rotate:'旋转',drop:'落下',hold:'暂存',focus:'精准'};
 const svg=action=>`<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[action]}"/></svg>`;
 export function mountGameControls(root,api,id){
- root.classList.add('game-touchpad');root.dataset.game=id;root.replaceChildren();const clean=[],pressed=new Map();
- const releaseAll=()=>{for(const a of pressed.values())api.release(a);pressed.clear();root.querySelectorAll('.held').forEach(b=>b.classList.remove('held'));};
+ root.classList.add('game-touchpad');root.dataset.game=id;root.replaceChildren();const clean=[],pressed=new Map(),stickActions=new Set();let stickPointer=null;
+ const releaseAll=()=>{stickPointer=null;for(const a of pressed.values())api.release(a);pressed.clear();for(const a of stickActions)api.release(a);stickActions.clear();root.querySelectorAll('.held').forEach(b=>b.classList.remove('held'));root.querySelectorAll('.joystick-nub').forEach(n=>n.style.transform='translate(0,0)');};
  function button(action,parent,continuous=false){const b=document.createElement('button');b.type='button';b.dataset.action=action;b.setAttribute('aria-label',titles[action]);b.innerHTML=svg(action)+(!['left','right','up','down'].includes(action)?`<span>${titles[action]}</span>`:'');parent.append(b);
   b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);b.classList.add('held');if(continuous){pressed.set(e.pointerId,action);api.hold(action);}else api.input(action);};
   const end=e=>{if(pressed.has(e.pointerId)){const a=pressed.get(e.pointerId);pressed.delete(e.pointerId);if(![...pressed.values()].includes(a))api.release(a);}b.classList.remove('held');};b.onpointerup=b.onpointercancel=b.onlostpointercapture=end;
@@ -27,6 +27,13 @@ export function mountGameControls(root,api,id){
   if(id==='contra')for(const a of ['jump','dash','fire'])button(a,actions,true);
   if(['danmaku','fighter'].includes(id))button('focus',actions,true);
   if(id==='breakout'){const note=document.createElement('small');note.textContent='也可直接拖动挡板';actions.append(note);}
+ }
+ if(['tanks','maze','snake','fighter','danmaku'].includes(id)){
+  const pad=root.querySelector('.direction-pad'),stick=document.createElement('div'),nub=document.createElement('span'),toggle=document.createElement('button');
+  stick.className='game-joystick';stick.setAttribute('role','group');stick.setAttribute('aria-label','拖动摇杆控制方向');nub.className='joystick-nub';stick.append(nub);pad.after(stick);toggle.className='control-mode';toggle.type='button';let mode='buttons';try{mode=localStorage.getItem('hxz-control-'+id)||mode;}catch{}
+  const render=()=>{releaseAll();pad.hidden=mode==='stick';stick.hidden=mode!=='stick';toggle.textContent=mode==='stick'?'切换方向键':'切换摇杆';toggle.setAttribute('aria-pressed',String(mode==='stick'));};toggle.onclick=()=>{mode=mode==='stick'?'buttons':'stick';try{localStorage.setItem('hxz-control-'+id,mode);}catch{}render();};root.prepend(toggle);render();
+  const update=e=>{if(stickPointer!==e.pointerId)return;const b=stick.getBoundingClientRect(),radius=b.width*.34,x=e.clientX-b.left-b.width/2,y=e.clientY-b.top-b.height/2,length=Math.hypot(x,y),scale=Math.min(1,radius/Math.max(1,length));nub.style.transform=`translate(${x*scale}px,${y*scale}px)`;const next=new Set();if(length>radius*.2){if(['maze','snake','tanks'].includes(id))next.add(Math.abs(x)>Math.abs(y)?x<0?'left':'right':y<0?'up':'down');else{if(Math.abs(x)>length*.32)next.add(x<0?'left':'right');if(Math.abs(y)>length*.32)next.add(y<0?'up':'down');}}for(const a of stickActions)if(!next.has(a)){api.release(a);stickActions.delete(a);}for(const a of next)if(!stickActions.has(a)){api.hold(a);stickActions.add(a);}};
+  stick.onpointerdown=e=>{if(stickPointer!==null)return;e.preventDefault();stickPointer=e.pointerId;stick.setPointerCapture(stickPointer);update(e);};stick.onpointermove=update;const end=e=>{if(stickPointer===e.pointerId){stickPointer=null;releaseAll();}};stick.onpointerup=stick.onpointercancel=stick.onlostpointercapture=end;
  }
  if(GESTURE_HINTS[id]&&id!=='mines'&&id!=='breakout'){const note=document.createElement('small');note.className='game-gesture-hint';note.textContent=GESTURE_HINTS[id];root.append(note);}
  const hidden=()=>{if(document.hidden)releaseAll();};window.addEventListener('blur',releaseAll);document.addEventListener('visibilitychange',hidden);

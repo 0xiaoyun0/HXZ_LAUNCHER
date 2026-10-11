@@ -1,6 +1,7 @@
 import {createMusicService} from './music.mjs';
 import {createDirectLobby} from './direct-lobby.mjs';
 import {prepareDirectHelper} from './direct-helper.mjs';
+import {normalizeCardPlacements,normalizeWidgets} from './card-extras.mjs';
 import {normalizeCardLayouts,normalizeCardStyle} from './card-layout.mjs';
 import {listBlueprintInstances,importBlueprint} from './blueprint-import.mjs';
 import {automaticMemory} from './memory-policy.mjs';
@@ -65,8 +66,8 @@ const LIVE_SETTINGS = new Set([
   'backgroundColor','backgroundImage','backgroundOpacity','backgroundPositionX',
   'backgroundPositionY','backgroundFit','backgroundVideo','backgroundMusic',
   'defaultCover','musicVolume','videoQuality','linkingDiscovered','showLinking',
-  'layout','cardLayouts','cardStyle','columns','hiddenLinks','pinnedLinks','animationSpeed',
-  'showCover','voiceMode','voiceKey','voiceSounds','chatHistoryDays','downloadSpeedMBps'
+  'cardPlacements','widgets','layout','cardLayouts','cardStyle','columns','hiddenLinks','pinnedLinks','animationSpeed',
+  'onboardingDone','gameSleep','memoryOptimization','showCover','voiceMode','voiceKey','voiceSounds','chatHistoryDays','downloadSpeedMBps'
 ]);
 export async function createServices({
   data,
@@ -98,7 +99,7 @@ export async function createServices({
     theme: "light",
     fontSize: 16,
     accentColor: "#5668bc",
-    cardLayouts: {},
+    cardLayouts: {},cardPlacements:{},widgets:[],gameSleep:true,memoryOptimization:true,onboardingDone:false,
     cardStyle: {color:'',opacity:1,gap:14,radius:10},
     backgroundColor: "",
     blueprintInstance:"",showCover:true,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
@@ -147,6 +148,7 @@ export async function createServices({
   // Extend old settings without resetting the player's appearance.
   settings.appearanceVersion = APPEARANCE_VERSION;
   settings.cardLayouts = normalizeCardLayouts(settings.cardLayouts);
+  settings.cardPlacements=normalizeCardPlacements(settings.cardPlacements);settings.widgets=normalizeWidgets(settings.widgets);
   settings.cardStyle = normalizeCardStyle(settings.cardStyle);
   settings.hiddenLinks = Array.isArray(settings.hiddenLinks)
     ? settings.hiddenLinks.filter(
@@ -154,7 +156,7 @@ export async function createServices({
           value !== "/" && value !== "/settings" && value !== "/appearance"
       )
     : [];
-  const pinnable = ['/library','/arcade','/arcade/shop','/music','/account','/linking'];
+  const pinnable = ['/guild','/library','/arcade','/arcade/shop','/music','/account','/linking'];
   settings.pinnedLinks = [...new Set((Array.isArray(settings.pinnedLinks)?settings.pinnedLinks:[]).filter(value=>pinnable.includes(value)))];
   settings.columns = {
     sidebar: {
@@ -1188,6 +1190,8 @@ export async function createServices({
     async "settings.save"(input) {
       if (Object.keys(input).some(k => !LIVE_SETTINGS.has(k))) busy();
       const nextSettings={...settings,columns:Object.fromEntries(Object.entries(settings.columns).map(([key,value])=>[key,{...value}])),instanceSettings:{...settings.instanceSettings}};
+      if(input.cardPlacements!=null)nextSettings.cardPlacements=normalizeCardPlacements(input.cardPlacements);
+      if(input.widgets!=null)nextSettings.widgets=normalizeWidgets(input.widgets);
       if(input.cardLayouts!=null)nextSettings.cardLayouts=normalizeCardLayouts(input.cardLayouts);
       if(input.cardStyle!=null){nextSettings.cardStyle=normalizeCardStyle(input.cardStyle);nextSettings.columns.workspace.opacity=nextSettings.cardStyle.opacity;}
       if (input.fontSize != null) {
@@ -1248,7 +1252,7 @@ export async function createServices({
           throw Error("更新弹窗设置无效");
         nextSettings.hxzupPopup = input.hxzupPopup;
       }
-      for (const key of ['chinesePaths','confirmUnsaved','instancesCollapsed','promptJavaDownload','showCover'])
+      for (const key of ['gameSleep','memoryOptimization','onboardingDone','chinesePaths','confirmUnsaved','instancesCollapsed','promptJavaDownload','showCover'])
         if (typeof input[key] === 'boolean') nextSettings[key] = input[key];
       if (input.chatHistoryDays != null) {
         if (![0,1,3,5,7,30].includes(input.chatHistoryDays)) throw Error('聊天记录范围无效');

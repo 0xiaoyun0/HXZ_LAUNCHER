@@ -17,3 +17,8 @@ local.properties
 *.keystore
 *.pem
 *.p12
+*.pfx
+*.pepk
+*.idsig
+__pycache__/
+*.pyc

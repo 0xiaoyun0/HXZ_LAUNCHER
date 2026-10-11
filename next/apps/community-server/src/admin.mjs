@@ -2,7 +2,7 @@ import {VERSION} from "./version.mjs";
 import {normalizeSources} from "./update-logs.mjs";
 import {randomBytes,scryptSync,timingSafeEqual} from 'node:crypto';
 import {existsSync,readFileSync,writeFileSync,renameSync,unlinkSync} from 'node:fs';
-import {join} from 'node:path';
+import {join,resolve,sep,extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 export function createAdmin({data,db,issue,admin,send,body,limit,clients,broadcast,adminIDs,updateSources,redact}){
  const credentials=join(data,'admin.json'),configFile=join(data,'community-settings.json');
@@ -10,9 +10,15 @@ export function createAdmin({data,db,issue,admin,send,body,limit,clients,broadca
  let config=existsSync(configFile)?JSON.parse(readFileSync(configFile,'utf8')):{};
  const apply=()=>{Object.assign(updateSources,normalizeSources(config.hxzSources||{}));for(const id of config.adminIDs||[])adminIDs.add(id);for(const key of ['HXZ_TURN_URL','HXZ_TURN_SECRET'])if(config[key])process.env[key]=config[key];};apply();
  const save=(file,value)=>{writeFileSync(file+'.tmp',JSON.stringify(value,null,2),{mode:0o600});renameSync(file+'.tmp',file);};
- const assets=new Map([['/admin/',['index.html','text/html; charset=utf-8']],['/admin/app.js',['app.js','text/javascript; charset=utf-8']],['/admin/style.css',['style.css','text/css; charset=utf-8']]]);
+ const assets=new Map([['/admin/',['index.html','text/html; charset=utf-8']],['/admin/app.js',['app.js','text/javascript; charset=utf-8']],['/admin/style.css',['style.css','text/css; charset=utf-8']],...['guild.js','image-upload.js','guild.css','operations.js'].map(name=>['/admin/'+name,[name,name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8']])]);
  return async(req,res,url)=>{
   if(url.pathname==='/'||url.pathname==='/admin'){res.writeHead(302,{Location:'/admin/'});res.end();return true;}
+  if(url.pathname.startsWith('/admin/linking/')){
+   const base=resolve(fileURLToPath(new URL('../public/linking/',import.meta.url))),target=resolve(base,url.pathname.slice('/admin/linking/'.length)||'index.html');
+   if(!target.startsWith(base+sep)||!existsSync(target)){send(res,404,{error:'活动资源不存在'});return true;}
+   const mime={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.woff2':'font/woff2','.glb':'model/gltf-binary','.ogg':'audio/ogg','.txt':'text/plain; charset=utf-8','.pdf':'application/pdf'}[extname(target)]||'application/octet-stream';
+   res.writeHead(200,{'Content-Type':mime,'Cache-Control':'no-cache','X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; font-src 'self'; frame-ancestors 'self'"});res.end(readFileSync(target));return true;
+  }
   const asset=assets.get(url.pathname);if(asset){res.writeHead(200,{'Content-Type':asset[1],'Content-Security-Policy':"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'",'X-Content-Type-Options':'nosniff','Cache-Control':'no-cache'});res.end(readFileSync(join(fileURLToPath(new URL('../public/',import.meta.url)),asset[0])));return true;}
   if(!url.pathname.startsWith('/api/admin/'))return false;
   if(url.pathname==='/api/admin/login'&&req.method==='POST'){limit('admin-login:'+req.socket.remoteAddress,6);const input=await body(req),saved=JSON.parse(readFileSync(credentials,'utf8'));if(input.username!=='admin'||typeof input.password!=='string'||input.password.length>512||!timingSafeEqual(scryptSync(input.password,saved.salt,64),Buffer.from(saved.hash,'hex')))throw Error('账号或密码错误');send(res,200,{token:issue({uid:'@console',name:'管理员',consoleAdmin:true})});return true;}

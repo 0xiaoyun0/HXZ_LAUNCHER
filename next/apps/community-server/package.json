@@ -1,6 +1,6 @@
 {
   "name": "hxz-launcher-community",
-  "version": "0.6.4",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,7 +8,7 @@
   },
   "packageManager": "pnpm@11.1.2",
   "scripts": {
-    "start": "node --env-file-if-exists=.env src/server.mjs",
+    "start": "node --env-file-if-exists=.env supervisor.mjs",
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {

@@ -23,13 +23,14 @@ public final class CommunityApp extends Application {
     WeakReference<MainActivity> activity = new WeakReference<>(null);
     Vault vault;
     AppUpdater updater;
+    GameEngine gameEngine;
     volatile JSONObject credentials = new JSONObject(), user = new JSONObject();
     volatile String base, token = "", connection = "未登录", selfId = "", room = "";
     volatile boolean connected, foreground, musicSharing, muted, deafened, ptt, pressing;
     volatile WebSocket socket;
     volatile VoiceEngine audio;
     volatile String recoveryRoom="";
-    JSONArray users = new JSONArray(), messages = new JSONArray();
+    JSONArray users = new JSONArray(), messages = new JSONArray(), voiceRooms = new JSONArray();
     private volatile long expires, generation, lastSeen;
     private int retries;
     private boolean connecting;
@@ -42,7 +43,7 @@ public final class CommunityApp extends Application {
         }
     }};
     @Override public void onCreate() {
-        super.onCreate(); vault = new Vault(this);updater=new AppUpdater(this);
+        super.onCreate(); vault = new Vault(this);updater=new AppUpdater(this);gameEngine=new GameEngine(this);
         base = getSharedPreferences("settings",0).getString("server","https://qqbot.hxzmc.top");
         try { credentials = vault.read(); } catch(Exception e) { vault.clear(); }
     }
@@ -55,7 +56,7 @@ public final class CommunityApp extends Application {
         JSONObject selected = credentials.optJSONObject("selectedProfile");
         return obj("server",base,"user",user,"profiles",profiles==null?new JSONArray():profiles,"selectedProfile",selected==null?JSONObject.NULL:selected,
             "hasAccount",credentials.has("accessToken"),"connected",connected,"connection",connection,"users",users,"messages",messages,
-            "room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.6.4",
+            "voiceRooms",voiceRooms,"room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.7.0",
             "systemDark",(getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)==android.content.res.Configuration.UI_MODE_NIGHT_YES);
     }
     void event(String name, Object value) { MainActivity a=activity.get(); if(a!=null)a.emit(name,value); }
@@ -132,7 +133,7 @@ public final class CommunityApp extends Application {
         String path=input.getString("path"), method=input.optString("method","GET");
         if(!Arrays.asList("GET","POST","PUT","DELETE").contains(method))throw new IOException("请求方式无效");
         String url=apiUrl(path), auth=session();
-        if(path.equals("/api/session")||(path.startsWith("/api/admin/")&&!path.matches("/api/admin/(inbox/send|music|lobby/(grants|relay)|server-online)")))throw new IOException("此接口不向页面开放");
+        if(path.equals("/api/session")||(path.startsWith("/api/admin/")&&!path.matches("/api/admin/(guild(?:/[a-z0-9-]+)*|inbox/send|music|lobby/(grants|relay)|server-online|linking(?:/[a-z0-9-]+)*(?:\\?offset=[0-9]+)?)")))throw new IOException("此接口不向页面开放");
         return request(url,method,input.optJSONObject("body"),auth);
     }}
     void logout() { synchronized(authLock) {
@@ -179,9 +180,10 @@ public final class CommunityApp extends Application {
     synchronized void receive(JSONObject message) throws Exception {
         lastSeen=System.currentTimeMillis();String type=message.optString("type");
         if(type.equals("ready")){
-            connected=true;connecting=false;retries=0;connection="已连接";selfId=message.getString("id");user=message.getJSONObject("user");messages=message.getJSONArray("messages");
+            connected=true;connecting=false;retries=0;connection="已连接";selfId=message.getString("id");user=message.getJSONObject("user");messages=message.getJSONArray("messages");if(message.optJSONArray("rooms")!=null)voiceRooms=message.getJSONArray("rooms");
             main.removeCallbacks(heartbeat);main.postDelayed(heartbeat,15000);event("state",state());
             if(!recoveryRoom.isEmpty())voiceJoin(recoveryRoom);
+        }else if(type.equals("voice-rooms")){voiceRooms=message.getJSONArray("rooms");changed();
         }else if(type.equals("presence")){
             users=message.getJSONArray("users");String current="";
             for(int i=0;i<users.length();i++){JSONObject u=users.getJSONObject(i);if(u.optString("id").equals(selfId)&&!u.isNull("room"))current=u.optString("room");}
@@ -203,7 +205,8 @@ public final class CommunityApp extends Application {
     synchronized void chat(String body) throws Exception {if(!connected)throw new IOException("尚未连接社区");if(body.trim().isEmpty()||body.length()>1000)throw new IOException("消息需为 1–1000 字");send(obj("type","chat","body",body));}
     void voiceJoin(String requested) throws Exception {
         if(!connected)throw new IOException("请先连接社区");
-        if(!Arrays.asList("lobby","survival","mod-1","mod-2").contains(requested))throw new IOException("语音房间不存在");
+        boolean valid=false;for(int i=0;i<voiceRooms.length();i++)if(voiceRooms.getJSONObject(i).optString("id").equals(requested))valid=true;
+        if(!valid&&!Arrays.asList("lobby","survival","mod-1","mod-2").contains(requested))throw new IOException("语音房间不存在");
         send(obj("type","voice-join","room",requested,"transport","ws-opus-v1"));
         main.postDelayed(()->{if(room.isEmpty()){recoveryRoom="";stopAudio();}},12000);
     }

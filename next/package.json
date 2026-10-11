@@ -1,10 +1,11 @@
 {
   "name": "fantasy-town-next",
-  "version": "0.6.4",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "description": "幻想镇 · 全新桌面启动器与服务器官网",
   "scripts": {
+    "linking:build": "node scripts/build-linking.mjs",
     "desktop:dev": "vite --config apps/desktop/vite.config.ts",
     "website:dev": "vite --config apps/website/vite.config.ts",
     "desktop:build": "vite build --config apps/desktop/vite.config.ts && node scripts/build-electron.mjs",

@@ -15,9 +15,19 @@ export function downloadSources(raw) {
       case "piston-data.mojang.com":
       case "launchermeta.mojang.com":
       case "launcher.mojang.com":
+        if(u.hostname==='piston-data.mojang.com')out.push('https://launcher.mojang.com'+p);
+        if(u.hostname==='launcher.mojang.com')out.push('https://piston-data.mojang.com'+p);
+        if(u.hostname==='piston-meta.mojang.com')out.push('https://launchermeta.mojang.com'+p);
         out.push(base + p);
         break;
       case "libraries.minecraft.net":
+        out.push(base+'/libraries'+p);
+        out.push('https://repo.maven.apache.org/maven2'+p,'https://maven.aliyun.com/repository/public'+p,'https://repo.huaweicloud.com/repository/maven'+p);
+        break;
+      case "repo.maven.apache.org":
+      case "repo1.maven.org":
+        if(u.pathname.startsWith('/maven2/'))out.push('https://maven.aliyun.com/repository/public'+p.slice(7),'https://repo.huaweicloud.com/repository/maven'+p.slice(7));
+        break;
       case "maven.fabricmc.net":
       case "maven.minecraftforge.net":
         out.push(base + "/maven" + p);

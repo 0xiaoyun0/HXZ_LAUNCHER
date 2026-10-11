@@ -1,9 +1,10 @@
 import fs from 'node:fs/promises';import path from 'node:path';import {createPackage} from '@electron/asar';
 import {copyCardLicenses} from './card-licenses.mjs';
+import {freshStaging} from './build-staging.mjs';
 const root=process.cwd(),version=JSON.parse(await fs.readFile('package.json','utf8')).version,target=path.join(root,'release',version,'windows-x64','portable'),runtime=path.join(root,'.runtime/electron');
 await fs.mkdir(target,{recursive:true});await fs.cp(runtime,target,{recursive:true,force:true});
 await fs.rename(path.join(target,'electron.exe'),path.join(target,'幻想镇 NEXT.exe')).catch(async e=>{if(e.code!=='EEXIST')throw e;});
-const staging=path.join(root,'.runtime/package');await fs.mkdir(staging,{recursive:true});
+const staging=path.join(root,'.runtime/package');await freshStaging(root,staging);
 for(const name of ['dist','electron-build','package.json'])await fs.cp(path.join(root,'apps/desktop',name),path.join(staging,name),{recursive:true,force:true});
 await createPackage(staging,path.join(target,'resources/app.asar'));
 for(const name of ['hxzup','installer','direct-lobby'])await fs.cp(path.join(root,'resources',name),path.join(target,'resources',name),{recursive:true,force:true});

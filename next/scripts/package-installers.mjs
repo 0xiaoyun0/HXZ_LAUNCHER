@@ -2,9 +2,10 @@ import fs from 'node:fs/promises';import path from 'node:path';
 import {build as bundle} from 'esbuild';import {build,Platform,Arch} from 'electron-builder';
 import {copyCardLicenses} from './card-licenses.mjs';
 import {bundleNetwork} from './bundle-network.mjs';
+import {freshStaging} from './build-staging.mjs';
 const root=process.cwd(),version=JSON.parse(await fs.readFile('package.json','utf8')).version;
 for(const arch of ['x64','ia32']){
- const base=path.join(root,'.runtime/installers',arch),app=path.join(base,'app'),output=path.join(base,'output'),delivery=path.join(root,'release',version,'windows-'+arch);await fs.mkdir(app,{recursive:true});await fs.mkdir(output,{recursive:true});await fs.mkdir(delivery,{recursive:true});await copyCardLicenses(root,base);
+ const base=path.join(root,'.runtime/installers',arch),app=path.join(base,'app'),output=path.join(base,'output'),delivery=path.join(root,'release',version,'windows-'+arch);await freshStaging(root,app);await fs.mkdir(output,{recursive:true});await fs.mkdir(delivery,{recursive:true});await copyCardLicenses(root,base);
  await fs.cp('apps/desktop/dist',path.join(app,'dist'),{recursive:true});await fs.mkdir(path.join(app,'electron-build'),{recursive:true});await fs.copyFile('apps/desktop/electron/preload.cjs',path.join(app,'electron-build/preload.cjs'));
  await fs.copyFile('apps/desktop/electron/lyrics-preload.cjs',path.join(app,'electron-build/lyrics-preload.cjs'));
  const contents=(arch==='ia32'?"import './apps/desktop/electron/legacy-polyfills.cjs';":"")+"import './apps/desktop/electron/main.mjs';";

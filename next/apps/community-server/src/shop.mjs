@@ -6,13 +6,14 @@ const windowOpen=(row,time)=>!row.starts||row.starts<=time;
 const inWindow=(row,time)=>windowOpen(row,time)&&(!row.ends||time<row.ends);
 function schedule(input){const starts=date(input.starts),ends=date(input.ends);if(ends&&ends<=starts)throw Error('结束时间必须晚于开始时间');return {starts,ends};}
 
-export function createShop({db,auth,admin,body,send,limit,points,now=()=>Date.now()}){
+export function createShop({db,auth,admin,body,send,limit,points,media,now=()=>Date.now()}){
   db.exec(`CREATE TABLE IF NOT EXISTS shop_settings(id INTEGER PRIMARY KEY CHECK(id=1),enabled INTEGER NOT NULL,starts INTEGER NOT NULL,ends INTEGER NOT NULL);
     INSERT OR IGNORE INTO shop_settings VALUES(1,0,0,0);
     CREATE TABLE IF NOT EXISTS shop_items(id TEXT PRIMARY KEY,title TEXT NOT NULL,description TEXT NOT NULL,price TEXT NOT NULL,stock INTEGER NOT NULL,enabled INTEGER NOT NULL,starts INTEGER NOT NULL,ends INTEGER NOT NULL,deleted INTEGER NOT NULL DEFAULT 0,created INTEGER NOT NULL,updated INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS shop_orders(id TEXT PRIMARY KEY,uid TEXT NOT NULL,name TEXT NOT NULL,request_key TEXT NOT NULL,item TEXT NOT NULL,title TEXT NOT NULL,price TEXT NOT NULL,status TEXT NOT NULL,delivery TEXT NOT NULL DEFAULT '',created INTEGER NOT NULL,updated INTEGER NOT NULL,UNIQUE(uid,request_key));
     CREATE INDEX IF NOT EXISTS shop_orders_user ON shop_orders(uid,created DESC,id);
     CREATE TABLE IF NOT EXISTS shop_audit(id INTEGER PRIMARY KEY AUTOINCREMENT,actor TEXT NOT NULL,action TEXT NOT NULL,target TEXT NOT NULL,created INTEGER NOT NULL);`);
+  if(!db.prepare('PRAGMA table_info(shop_items)').all().some(c=>c.name==='image'))db.exec("ALTER TABLE shop_items ADD COLUMN image TEXT NOT NULL DEFAULT ''");
   const settings=()=>db.prepare('SELECT enabled,starts,ends FROM shop_settings WHERE id=1').get();
   const audit=(user,action,target)=>db.prepare('INSERT INTO shop_audit(actor,action,target,created) VALUES(?,?,?,?)').run(user.uid,action,target,now());
   function catalog(management=false){
@@ -52,7 +53,8 @@ export function createShop({db,auth,admin,body,send,limit,points,now=()=>Date.no
         if(input.id&&(!old||old.deleted))throw Error('商品不存在');
         if(old&&input.updated!==old.updated)throw Error('商品已变化，请刷新后重试');
         if(!old&&db.prepare('SELECT COUNT(*) AS n FROM shop_items WHERE deleted=0').get().n>=300)throw Error('最多同时展示300件商品');
-        db.prepare(`INSERT INTO shop_items VALUES(?,?,?,?,?,?,?,?,0,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,description=excluded.description,price=excluded.price,stock=excluded.stock,enabled=excluded.enabled,starts=excluded.starts,ends=excluded.ends,updated=excluded.updated`).run(id,title,description,String(BigInt(input.price)),input.stock,+input.enabled,starts,ends,now(),Math.max(now(),(old?.updated||0)+1));audit(user,'save',id);
+        const image=input.image===undefined?(db.prepare('SELECT image FROM shop_items WHERE id=?').get(id)?.image||''):media.validate(input.image,user,'shop');
+        db.prepare(`INSERT INTO shop_items(id,title,description,price,stock,enabled,starts,ends,deleted,created,updated,image) VALUES(?,?,?,?,?,?,?,?,0,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,description=excluded.description,price=excluded.price,stock=excluded.stock,enabled=excluded.enabled,starts=excluded.starts,ends=excluded.ends,updated=excluded.updated,image=excluded.image`).run(id,title,description,String(BigInt(input.price)),input.stock,+input.enabled,starts,ends,now(),Math.max(now(),(old?.updated||0)+1),image);audit(user,'save',id);
       });send(res,200,{id});
     }else if(path==='/api/shop/buy'){
       if(user.consoleAdmin)throw Error('请使用玩家角色兑换商品');

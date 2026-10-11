@@ -20,6 +20,7 @@ import org.json.*;
 public final class MainActivity extends Activity {
     private static final String ORIGIN="https://appassets.androidplatform.net";
     private WebView web;
+    private ValueCallback<Uri[]> imageSelection;
     private CommunityApp app;
     private String permissionId, permissionRoom, fileId, fileKind;
     private File selectedBlueprint, download;
@@ -32,9 +33,19 @@ public final class MainActivity extends Activity {
         settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setMediaPlaybackRequiresUserGesture(true);settings.setTextZoom(100);
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG);
+        web.setWebChromeClient(new WebChromeClient(){
+            @Override public boolean onShowFileChooser(WebView view,ValueCallback<Uri[]> callback,FileChooserParams params){
+                if(imageSelection!=null)imageSelection.onReceiveValue(null);imageSelection=callback;
+                try{startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE,params.getMode()==FileChooserParams.MODE_OPEN_MULTIPLE),44);}catch(Exception e){imageSelection=null;callback.onReceiveValue(null);}return true;
+            }
+        });
         web.addJavascriptInterface(new Bridge(),"HXZNative");
         web.setWebViewClient(new WebViewClient(){
-            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){return true;}
+            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
+                Uri uri=request.getUrl();
+                // Only the bundled activity frame can navigate between its own chapters.
+                return request.isForMainFrame() || !ORIGIN.equals(uri.getScheme()+"://"+uri.getAuthority()) || uri.getPath()==null || !uri.getPath().startsWith("/linking/");
+            }
             @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){
                 Uri uri=request.getUrl();
                 if("https".equals(uri.getScheme())&&uri.getHost()!=null&&uri.getHost().endsWith(".music.126.net"))return null;
@@ -61,7 +72,7 @@ public final class MainActivity extends Activity {
                     }
                     if(path.contains("..")||path.contains("\\"))return response(403,"text/plain",new byte[0]);
                     if(path.equals("/"))path="/index.html";
-                    String mime=path.endsWith(".js")?"text/javascript":path.endsWith(".css")?"text/css":path.endsWith(".svg")?"image/svg+xml":path.endsWith(".png")?"image/png":path.endsWith(".webp")?"image/webp":path.endsWith(".jpg")?"image/jpeg":path.endsWith(".woff2")?"font/woff2":"text/html";
+                    String mime=path.endsWith(".js")?"text/javascript":path.endsWith(".css")?"text/css":path.endsWith(".svg")?"image/svg+xml":path.endsWith(".png")?"image/png":path.endsWith(".webp")?"image/webp":path.endsWith(".jpg")?"image/jpeg":path.endsWith(".woff2")?"font/woff2":path.endsWith(".glb")?"model/gltf-binary":path.endsWith(".ogg")?"audio/ogg":path.endsWith(".json")?"application/json":path.endsWith(".pdf")?"application/pdf":path.endsWith(".txt")?"text/plain":"text/html";
                     Map<String,String> headers=new HashMap<>();headers.put("Cache-Control","no-cache");headers.put("X-Content-Type-Options","nosniff");
                     return new WebResourceResponse(mime,"UTF-8",200,"OK",headers,getAssets().open(path.substring(1)));
                 }catch(Exception e){return response(404,"text/plain",new byte[0]);}
@@ -90,7 +101,7 @@ public final class MainActivity extends Activity {
     @Override public void onConfigurationChanged(android.content.res.Configuration config){super.onConfigurationChanged(config);app.changed();}
     @Override protected void onPause(){super.onPause();app.pressing=false;app.musicSharing=false;if(app.audio!=null)app.audio.clearMusic();app.voiceSettings(CommunityApp.obj("pressing",false));}
     @Override protected void onStop(){super.onStop();app.foreground=false;app.main.postDelayed(()->{if(!app.foreground&&app.room.isEmpty()&&app.recoveryRoom.isEmpty()){app.disconnect(false);app.connection="已暂停";app.changed();}},1500);}
-    @Override protected void onDestroy(){if(app.activity.get()==this)app.activity.clear();if(selectedBlueprint!=null)selectedBlueprint.delete();if(download!=null)download.delete();web.removeJavascriptInterface("HXZNative");web.destroy();web=null;super.onDestroy();}
+    @Override protected void onDestroy(){if(app.activity.get()==this)app.activity.clear();if(selectedBlueprint!=null)selectedBlueprint.delete();if(download!=null)download.delete();if(imageSelection!=null){imageSelection.onReceiveValue(null);imageSelection=null;}web.removeJavascriptInterface("HXZNative");web.destroy();web=null;super.onDestroy();}
     @Override public void onBackPressed(){emit("back",true);}
     private void beginVoice(String id,String room){
         if(permissionId!=null){result(id,null,"麦克风权限请求尚未完成");return;}
@@ -110,7 +121,7 @@ public final class MainActivity extends Activity {
         try{startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/octet-stream").putExtra(Intent.EXTRA_TITLE,info.optString("filename","blueprint.nbt")),43);}catch(Exception e){fileId=null;staged.delete();result(id,null,"系统无法打开保存窗口");}
     }
     @Override protected void onActivityResult(int request,int code,Intent data){
-        super.onActivityResult(request,code,data);if(request!=43)return;
+        super.onActivityResult(request,code,data);if(request==44){ValueCallback<Uri[]> callback=imageSelection;imageSelection=null;if(callback!=null){java.util.ArrayList<Uri> images=new java.util.ArrayList<>();if(code==RESULT_OK&&data!=null){if(data.getClipData()!=null){for(int i=0;i<Math.min(3,data.getClipData().getItemCount());i++)images.add(data.getClipData().getItemAt(i).getUri());}else if(data.getData()!=null)images.add(data.getData());}callback.onReceiveValue(images.isEmpty()?null:images.toArray(new Uri[0]));}return;}if(request!=43)return;
         String id=fileId,kind=fileKind;fileId=null;
         if(code!=RESULT_OK||data==null){if(download!=null){download.delete();download=null;}result(id,null,"已取消");return;}
         Uri uri=data.getData();
@@ -206,6 +217,7 @@ public final class MainActivity extends Activity {
                 try{app.jobs.execute(()->{try{
                     Object output;
                     switch(op){
+                        case "gameEngine":output=app.gameEngine.call(value);break;
                         case "music":output=new MusicLibrary(app).call(value);break;
                         case "state":output=app.state();break;
                         case "login":output=app.login(value);break;

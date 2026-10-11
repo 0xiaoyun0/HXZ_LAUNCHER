@@ -1,0 +1,9 @@
+<script setup>
+import {ref,onMounted} from 'vue';import {api} from './native.js';import AppSelect from './AppSelect.vue';
+const open=ref(false),server=ref('survival'),items=ref([]),error=ref(''),busy=ref(false);
+const names={'minecraft:custom/minecraft:play_time':'游戏时间','minecraft:custom/minecraft:deaths':'死亡次数','minecraft:custom/minecraft:mob_kills':'击败生物','minecraft:custom/minecraft:jump':'跳跃次数','minecraft:custom/minecraft:walk_one_cm':'步行距离'};
+async function load(){busy.value=true;error.value='';try{items.value=(await api('/api/game-stats')).items;}catch(e){error.value=e.message;}finally{busy.value=false;}}
+function show(){open.value=!open.value;if(open.value&&!items.value.length)load();}
+</script>
+<template><section class="card mobile-game-stats"><button class="soft-button" :aria-expanded="open" @click="show">我的游戏记录 {{open?'收起':'展开'}}</button><template v-if="open"><AppSelect v-model="server" label="查看服务器记录" :options="[{value:'survival',label:'原版生存群组'},{value:'mod-1',label:'模组一服'},{value:'mod-2',label:'模组二服'}]"/><p v-if="error" class="inline-error">{{error}}</p><p v-else-if="!items.some(v=>v.server===server)" class="muted">{{busy?'正在读取':'暂无服务器记录'}}</p><dl v-else><template v-for="v in items.filter(v=>v.server===server).slice(0,40)" :key="v.metric"><dt>{{names[v.metric]||v.metric.replace('advancement:','成就 · ')}}</dt><dd>{{v.metric.endsWith(':play_time')?(v.value/72000).toFixed(1)+' 小时':v.metric.startsWith('advancement:')?'已完成':v.value.toLocaleString()}}</dd></template></dl><button class="soft-button" :disabled="busy" @click="load">刷新</button></template></section></template>
+<style scoped>.mobile-game-stats{display:grid;gap:14px}.mobile-game-stats dl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px}.mobile-game-stats dt{overflow-wrap:anywhere}.mobile-game-stats dd{margin:0;font-weight:600}</style>
