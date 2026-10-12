@@ -4,6 +4,16 @@ import java.nio.file.*;
 import java.util.*;
 import java.io.*;
 public final class AndroidPack {
+    public static void preflight(List<String> urls,java.util.function.Consumer<String> progress)throws Exception{
+        progress.accept("正在检查安卓模组适配");Network network=new Network(8,1,8);Exception last=null;
+        for(String raw:urls){valid(raw);String base=raw.replaceAll("/+$","");try{
+            JsonObject version=network.json(base+"/version.json",6);if(IO.bool(version,"maintenance",false))return;
+            String id=IO.str(version,"version","");JsonObject manifest=network.json(base+"/manifest.json?version="+java.net.URLEncoder.encode(id,"UTF-8"),12);
+            JsonArray files=manifest.getAsJsonArray("files");if(files==null||files.size()>100000)throw new IOException("整合包文件清单无效");
+            AndroidCompatibility.filter(AndroidPaths.manifest(files));return;
+        }catch(IOException e){if(Thread.currentThread().isInterrupted())throw e;if(e instanceof NetworkFailure||Network.unavailable(e))last=e;else throw e;}}
+        throw new IOException("无法完成安卓适配检查，请稍后继续安装",last);
+    }
     private static void valid(String raw)throws Exception{java.net.URI uri=new java.net.URI(raw);if(!Arrays.asList("https","http").contains(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null||uri.getFragment()!=null||uri.getQuery()!=null)throw new IOException("更新地址无效");}
     public static JsonObject profile(List<String> urls)throws Exception{
         Network network=new Network(8,1,8);Exception last=null;
