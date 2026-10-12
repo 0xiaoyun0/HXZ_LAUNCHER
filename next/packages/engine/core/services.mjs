@@ -82,7 +82,8 @@ export async function createServices({
   emit,
   openSkin,
   skinPanel,
-  netease
+  netease,
+  p2pRuntime
 }) {
   await fs.mkdir(data, { recursive: true });
   const dependencies=await dependencyStore(dependencyRoot,data);
@@ -973,7 +974,7 @@ export async function createServices({
     };
   }
   let stopDirectHelper=null;
-  const lobby=createDirectLobby({relaySession:()=>actions['community.connect']({}),emit:event=>{if(event.value.mode==='idle'){void stopDirectHelper?.();stopDirectHelper=null;}emit(event);},request:async(route,options={})=>{
+  const lobby=createDirectLobby({p2pRuntime,p2pSession:()=>actions['community.connect']({}),emit:event=>{if(event.value.mode==='idle'){void stopDirectHelper?.();stopDirectHelper=null;}emit(event);},request:async(route,options={})=>{
     const session=await actions['community.connect']({});
     try{return await remoteJSON(session.base+route,{method:options.method||'GET',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json'},...(options.body?{body:JSON.stringify(options.body)}:{}),signal:AbortSignal.timeout(12000)});}
     catch(error){if(error.status===404)throw Error('社区服务端尚未安装联机权限扩展，请联系管理员；加入已有房间不受影响');throw error;}

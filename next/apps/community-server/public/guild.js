@@ -19,7 +19,7 @@ async function communityImage(file) {
 }
 
 // packages/guild/ui.mjs
-var labels = { review: "\u7B49\u5F85\u5BA1\u6838", open: "\u53EF\u8BA4\u9886", active: "\u8FDB\u884C\u4E2D", submitted: "\u5F85\u786E\u8BA4", completed: "\u5DF2\u5B8C\u6210", rejected: "\u672A\u901A\u8FC7", cancelled: "\u5DF2\u64A4\u9500" };
+var labels = { review: "\u7B49\u5F85\u5BA1\u6838", open: "\u53EF\u8BA4\u9886", active: "\u8FDB\u884C\u4E2D", submitted: "\u5F85\u786E\u8BA4", completed: "\u5DF2\u5B8C\u6210", rejected: "\u672A\u901A\u8FC7", cancelled: "\u5DF2\u64A4\u9500", withdrawn: "\u5DF2\u653E\u5F03" };
 function mountGuild(root, { request, uid = "", initialTask = "", admin = false }) {
   let alive = true, sequence = 0, scope = "public", offset = 0, manager = admin, consoleAdmin = false, selected = initialTask;
   const overlays = /* @__PURE__ */ new Set();
@@ -31,13 +31,15 @@ function mountGuild(root, { request, uid = "", initialTask = "", admin = false }
   };
   function error(e) {
     if (!alive) return;
-    let status = root.querySelector(".guild-error");
+    const target = [...overlays].reverse().find((d) => d.open) || root;
+    let status = target.querySelector(".guild-error");
     if (!status) {
       status = el("p", "", "guild-error");
       status.role = "alert";
-      root.prepend(status);
+      target.prepend(status);
     }
     status.textContent = e.message || String(e);
+    status.scrollIntoView({ block: "nearest" });
   }
   const button = (name, action, primary = false) => {
     const b = el("button", name, "button" + (primary ? " guild-primary" : ""));
@@ -99,40 +101,100 @@ function mountGuild(root, { request, uid = "", initialTask = "", admin = false }
     form.append(label);
     return selected2;
   };
+  function confirm(title, message, action) {
+    const dialog = el("dialog", "", "guild-choice-dialog");
+    dialog.setAttribute("aria-label", title);
+    const close = () => {
+      dialog.close();
+      dialog.remove();
+      overlays.delete(dialog);
+    };
+    dialog.append(el("h3", title), el("p", message), button("\u786E\u8BA4", async () => {
+      await action();
+      close();
+    }, true), button("\u53D6\u6D88", close));
+    dialog.addEventListener("cancel", (e) => {
+      e.preventDefault();
+      close();
+    });
+    document.body.append(dialog);
+    overlays.add(dialog);
+    dialog.showModal();
+  }
+  function lightbox(src) {
+    const dialog = el("dialog", "", "guild-choice-dialog guild-lightbox"), img = el("img");
+    img.src = src;
+    img.alt = "\u59D4\u6258\u56FE\u7247";
+    const close = () => {
+      dialog.close();
+      dialog.remove();
+      overlays.delete(dialog);
+    };
+    dialog.append(img, button("\u5173\u95ED", close));
+    dialog.addEventListener("cancel", close);
+    document.body.append(dialog);
+    overlays.add(dialog);
+    dialog.showModal();
+  }
   async function image(parent, url) {
     try {
       const v = await request(url + "/data");
       if (!alive || !parent.isConnected) return;
+      const item = button("\u67E5\u770B\u59D4\u6258\u56FE\u7247", () => lightbox(v.image));
+      item.className = "guild-picture";
+      item.setAttribute("aria-label", "\u67E5\u770B\u59D4\u6258\u56FE\u7247");
       const img = el("img");
       img.src = v.image;
       img.alt = "\u59D4\u6258\u56FE\u7247";
       img.loading = "lazy";
-      parent.append(img);
+      item.replaceChildren(img);
+      parent.append(item);
     } catch {
+      if (alive && parent.isConnected) parent.append(button("\u56FE\u7247\u672A\u8F7D\u5165 \xB7 \u91CD\u8BD5", async () => {
+        parent.replaceChildren();
+        await image(parent, url);
+      }));
     }
   }
   function pictures(parent, urls) {
     const box = el("div", "", "guild-images");
     parent.append(box);
-    for (const url of urls) void image(box, url);
+    for (const url of urls) {
+      const tile = el("div");
+      box.append(tile);
+      void image(tile, url);
+    }
   }
-  function uploader(parent) {
-    const urls = [], previews = el("div", "", "guild-images"), pick = input(parent, "\u56FE\u7247\uFF08\u6700\u591A\u4E09\u5F20\uFF09");
+  function uploader(parent, initial = []) {
+    const urls = [...initial], previews = el("div", "", "guild-images"), pick = input(parent, "\u56FE\u7247\uFF08\u6700\u591A\u4E09\u5F20\uFF09");
     pick.type = "file";
     pick.accept = "image/png,image/jpeg,image/webp";
     pick.multiple = true;
     parent.append(previews);
+    const addPreview = (url, src) => {
+      const tile = el("div", "", "guild-upload-preview");
+      if (src) {
+        const img = el("img");
+        img.src = src;
+        img.alt = "\u5DF2\u4E0A\u4F20\u56FE\u7247";
+        tile.append(img);
+      } else void image(tile, url);
+      tile.append(button("\u79FB\u9664", () => {
+        urls.splice(urls.indexOf(url), 1);
+        tile.remove();
+      }));
+      previews.append(tile);
+    };
+    initial.forEach((url) => addPreview(url));
     pick.onchange = async () => {
       pick.disabled = true;
       try {
         for (const file of [...pick.files]) {
-          if (urls.length >= 3) throw Error("\u6700\u591A\u4E09\u5F20\u56FE\u7247");
+          if (urls.length >= 3) throw Error("\u6700\u591A\u4E09\u5F20\u56FE\u7247\uFF0C\u8BF7\u5148\u79FB\u9664\u4E0D\u9700\u8981\u7684\u56FE\u7247");
           const data = await communityImage(file), v = await request("/api/media/upload", "POST", { scope: "guild", image: data });
+          if (!alive) return;
           urls.push(v.url);
-          const preview = el("img");
-          preview.src = data;
-          preview.alt = "\u5DF2\u4E0A\u4F20\u56FE\u7247";
-          previews.append(preview);
+          addPreview(v.url, data);
         }
       } catch (e) {
         error(e);
@@ -142,6 +204,19 @@ function mountGuild(root, { request, uid = "", initialTask = "", admin = false }
       }
     };
     return { urls, pick };
+  }
+  function progress(parent, t, mine) {
+    const stage = mine?.status === "completed" || t.status === "completed" ? 4 : mine?.status === "submitted" || t.status === "submitted" ? 3 : mine?.status === "active" || t.status === "active" ? 2 : t.status === "open" ? 1 : 0;
+    const steps = el("ol", "", "guild-progress");
+    ["\u5BA1\u6838\u53D1\u5E03", "\u8BA4\u9886\u4EFB\u52A1", "\u63D0\u4EA4\u51ED\u8BC1", "\u786E\u8BA4\u4EA4\u4ED8", "\u5B8C\u6210\u7ED3\u7B97"].forEach((label, index) => {
+      const step = el("li", label, index < stage ? "done" : index === stage ? "current" : "");
+      step.setAttribute("aria-current", index === stage ? "step" : "false");
+      steps.append(step);
+    });
+    parent.append(steps);
+    const messages = { active: mine?.note ? "\u9A8C\u6536\u4EBA\u8981\u6C42\u8865\u5145\uFF1A" + mine.note : "\u6309\u59D4\u6258\u8981\u6C42\u5B8C\u6210\u4EFB\u52A1\uFF0C\u7136\u540E\u63D0\u4EA4\u8BF4\u660E\u4E0E\u622A\u56FE\u3002", submitted: "\u51ED\u8BC1\u5DF2\u63D0\u4EA4\uFF0C\u7B49\u5F85\u59D4\u6258\u4EBA\u6216\u7BA1\u7406\u5458\u9A8C\u6536\u3002", completed: t.reward_type === "points" ? "\u4EFB\u52A1\u5DF2\u5B8C\u6210\uFF0C\u79EF\u5206\u5DF2\u5165\u8D26\u3002" : t.reward_type === "items" ? "\u4EFB\u52A1\u5DF2\u5B8C\u6210\uFF0C\u9A8C\u6536\u4EBA\u5DF2\u786E\u8BA4\u4EA4\u4ED8\u9053\u5177\u3002" : "\u4EFB\u52A1\u5DF2\u5B8C\u6210\u3002", withdrawn: "\u4F60\u5DF2\u653E\u5F03\u6B64\u59D4\u6258\uFF1B\u4ECD\u5F00\u653E\u65F6\u53EF\u4EE5\u91CD\u65B0\u8BA4\u9886\u3002" };
+    const status = el("p", messages[mine?.status] || (t.status === "submitted" ? "\u6709\u51ED\u8BC1\u7B49\u5F85\u4F60\u9A8C\u6536\u3002" : t.status === "review" ? "\u7B49\u5F85\u7BA1\u7406\u5458\u5BA1\u6838\uFF1B\u901A\u8FC7\u540E\u624D\u4F1A\u51FA\u73B0\u5728\u5E7F\u573A\u3002" : t.status === "open" ? "\u4EFB\u52A1\u5DF2\u5F00\u653E\uFF0C\u53EF\u4EE5\u8BA4\u9886\u3002" : t.status === "active" ? "\u5DF2\u6709\u65C5\u4EBA\u6B63\u5728\u5B8C\u6210\u4EFB\u52A1\u3002" : labels[t.status]), "guild-status-note");
+    parent.append(status);
   }
   function header(title) {
     root.replaceChildren();
@@ -177,7 +252,7 @@ function mountGuild(root, { request, uid = "", initialTask = "", admin = false }
       root.append(grid);
       for (const t of data.items) {
         const card = el("article", "", "guild-card"), meta = el("div", "", "guild-meta");
-        meta.append(el("span", t.kind === "main" ? "\u4E3B\u7EBF\u4EFB\u52A1" : "\u73A9\u5BB6\u59D4\u6258"), el("span", labels[t.status] || t.status));
+        meta.append(el("span", t.kind === "main" ? "\u4E3B\u7EBF\u4EFB\u52A1" : "\u73A9\u5BB6\u59D4\u6258"), el("span", t.ownClaim ? "\u6211\u7684\u8FDB\u5EA6 \xB7 " + labels[t.ownClaim.status] : labels[t.status] || t.status));
         card.append(meta, el("h3", t.title), el("p", t.description.slice(0, 120), "guild-excerpt"), el("small", "\u59D4\u6258\u4EBA \xB7 " + t.name));
         const foot = el("footer");
         foot.append(el("strong", t.reward_type === "points" ? t.reward + " \u79EF\u5206" : t.reward_type === "items" ? "\u6E38\u620F\u5185\u9053\u5177" : "\u65E0\u79EF\u5206\u5956\u52B1"), button("\u67E5\u770B\u59D4\u6258", () => detail(t.id)));
@@ -246,10 +321,11 @@ function mountGuild(root, { request, uid = "", initialTask = "", admin = false }
       const actions = el("div", "", "guild-actions");
       card.append(actions);
       const mine = t.ownClaim || t.claims.find((c) => c.uid === uid);
-      if (t.status === "open" && !t.mine && !mine) actions.append(button("\u8BA4\u9886\u59D4\u6258", async () => {
+      progress(card, t, mine);
+      if (t.status === "open" && !t.mine && (!mine || mine.status === "withdrawn")) actions.append(button("\u8BA4\u9886\u59D4\u6258", () => confirm("\u8BA4\u9886\u59D4\u6258", t.reward_type === "items" ? "\u9053\u5177\u7531\u59D4\u6258\u4EBA\u6E38\u620F\u5185\u4EA4\u4ED8\uFF0C\u5B8C\u6210\u540E\u9700\u8981\u59D4\u6258\u4EBA\u786E\u8BA4\u3002" : "\u8BA4\u9886\u540E\u5B8C\u6210\u76EE\u6807\u5E76\u63D0\u4EA4\u51ED\u8BC1\uFF0C\u901A\u8FC7\u9A8C\u6536\u540E\u83B7\u5F97\u5956\u52B1\u3002", async () => {
         await request("/api/guild/" + id + "/accept", "POST", {});
         await detail(id);
-      }, true));
+      }), true));
       if (manager && t.status === "review") {
         const note = input(card, "\u5BA1\u6838\u8BF4\u660E", "", true);
         actions.append(button("\u901A\u8FC7\u5E76\u53D1\u5E03", async () => {
@@ -263,7 +339,7 @@ function mountGuild(root, { request, uid = "", initialTask = "", admin = false }
       if (mine?.status === "active") {
         const form = el("section", "", "guild-card guild-form");
         form.append(el("h3", "\u63D0\u4EA4\u5B8C\u6210\u51ED\u8BC1"));
-        const evidence = input(form, "\u5B8C\u6210\u8BF4\u660E", "", true), upload = uploader(form);
+        const evidence = input(form, "\u5B8C\u6210\u8BF4\u660E", mine.body || "", true), upload = uploader(form, mine.images || []);
         evidence.maxLength = 8e3;
         form.append(button("\u63D0\u4EA4\u9A8C\u6536", async () => {
           if (upload.pick.disabled) throw Error("\u8BF7\u7B49\u5F85\u4E0A\u4F20\u5B8C\u6210");
@@ -271,6 +347,14 @@ function mountGuild(root, { request, uid = "", initialTask = "", admin = false }
           await detail(id);
         }, true));
         root.append(form);
+        const withdraw = el("details", "", "guild-card");
+        withdraw.append(el("summary", "\u653E\u5F03\u6B64\u6B21\u8BA4\u9886"));
+        const note = input(withdraw, "\u653E\u5F03\u539F\u56E0");
+        withdraw.append(button("\u653E\u5F03\u5E76\u91CD\u65B0\u5F00\u653E", () => confirm("\u653E\u5F03\u6B64\u6B21\u8BA4\u9886", "\u4E0D\u4F1A\u83B7\u5F97\u672C\u6B21\u5956\u52B1\u3002\u59D4\u6258\u5C06\u91CD\u65B0\u5F00\u653E\uFF0C\u6258\u7BA1\u79EF\u5206\u4ECD\u5F52\u59D4\u6258\u4EBA\u6240\u6709\u3002", async () => {
+          await request("/api/guild/" + id + "/withdraw", "POST", { note: note.value });
+          await detail(id);
+        })));
+        root.append(withdraw);
       }
       for (const c of t.claims) {
         const claim = el("article", "", "guild-card");
@@ -279,10 +363,10 @@ function mountGuild(root, { request, uid = "", initialTask = "", admin = false }
         if (c.note) claim.append(el("p", "\u786E\u8BA4\u610F\u89C1\uFF1A" + c.note));
         if (c.status === "submitted" && (manager || t.mine)) {
           const note = input(claim, "\u9A8C\u6536\u8BF4\u660E", "", true), bar = el("div", "", "guild-actions");
-          bar.append(button("\u786E\u8BA4\u5B8C\u6210\u5E76\u7ED3\u7B97", async () => {
-            await request("/api/guild/" + id + "/resolve", "POST", { claim: c.id, approved: true, note: note.value });
+          bar.append(button(t.reward_type === "items" ? "\u786E\u8BA4\u9053\u5177\u5DF2\u4EA4\u4ED8" : "\u786E\u8BA4\u5B8C\u6210\u5E76\u7ED3\u7B97", () => confirm("\u786E\u8BA4\u5B8C\u6210", t.reward_type === "points" ? "\u9A8C\u6536\u901A\u8FC7\u540E\u5C06\u5411 " + c.name + " \u53D1\u653E " + t.reward + " \u79EF\u5206\u3002" : t.reward_type === "items" ? "\u8BF7\u786E\u8BA4\u5DF2\u5728\u6E38\u620F\u4E2D\u5411 " + c.name + " \u4EA4\u4ED8\uFF1A" + t.reward : "\u786E\u8BA4\u8BE5\u4EFB\u52A1\u5DF2\u7ECF\u5B8C\u6210\u3002", async () => {
+            await request("/api/guild/" + id + "/resolve", "POST", { claim: c.id, approved: true, delivered: t.reward_type === "items", note: note.value });
             await detail(id);
-          }, true), button("\u8981\u6C42\u8865\u5145", async () => {
+          }), true), button("\u8981\u6C42\u8865\u5145", async () => {
             await request("/api/guild/" + id + "/resolve", "POST", { claim: c.id, approved: false, note: note.value });
             await detail(id);
           }));

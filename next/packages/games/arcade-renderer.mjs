@@ -1,4 +1,5 @@
 import {drawClassic} from './arcade-classics-renderer.mjs';
+import {BREAKOUT_BUFFS} from '../../server/shared/arcade-breakout.mjs';
 import {drawNew} from './arcade-new-renderer.mjs';
 import {drawExpanded} from './arcade-expanded-renderer.mjs';
 import {shapes,ghostRow,runnerSpeed} from '../../server/shared/arcade-engine.mjs';
@@ -50,7 +51,8 @@ export function createRenderer(canvas,id,{preview=false}={}){
    }
    if(id==='breakout'){
     label(c,'SECTOR '+String(s.level).padStart(2,'0'),16,29,11,'#c4b4df');label(c,'● '.repeat(s.lives),344,29,13,'#e6b28d','right');
-    for(const brick of s.bricks)if(brick.alive){const row=Math.round((brick.y-62)/24),colors=['#c4a6dc','#bdafd9','#8dbfce','#91c9b6','#d8c598'];box(c,brick.x,brick.y,31,17,3,brick.stone?'#60717f':colors[row%colors.length]);c.fillStyle='#ffffff40';c.fillRect(brick.x+3,brick.y+2,25,2);if(brick.stone||brick.buff){label(c,brick.stone?'◆':{wide:'↔',slow:'↓',shield:'◈'}[brick.buff],brick.x+15,brick.y+13,12,'#18232b','center');}if(brick.hp>1){c.strokeStyle='#ffffffb0';c.lineWidth=1;c.strokeRect(brick.x+4,brick.y+5,23,7);}}
+    if(s.lastBuff?.until>s.tick)label(c,BREAKOUT_BUFFS.find(v=>v.id===s.lastBuff.key)?.name||'',180,41,12,'#c1eee5','center');
+    for(const brick of s.bricks)if(brick.alive){const row=Math.round((brick.y-62)/24),colors=['#c4a6dc','#bdafd9','#8dbfce','#91c9b6','#d8c598'];box(c,brick.x,brick.y,31,17,3,brick.stone?'#60717f':colors[row%colors.length]);c.fillStyle='#ffffff40';c.fillRect(brick.x+3,brick.y+2,25,2);if(brick.stone||brick.buff){label(c,brick.stone?'◆':BREAKOUT_BUFFS.find(v=>v.id===brick.buff)?.mark||'★',brick.x+15,brick.y+13,12,'#18232b','center');}if(brick.hp>1){c.strokeStyle='#ffffffb0';c.lineWidth=1;c.strokeRect(brick.x+4,brick.y+5,23,7);}}
     const x=mix(prev.ballX,s.ball.x),y=mix(prev.ballY,s.ball.y),px=mix(prev.paddle,s.paddle);
     if(!reduce&&dt&&(!trail.length||Math.abs(trail[trail.length-1].x-x)+Math.abs(trail[trail.length-1].y-y)>1)){trail.push({x,y});if(trail.length>10)trail.shift();}
     for(let i=0;i<trail.length;i++){c.globalAlpha=i/trail.length*.18;c.fillStyle='#fff0cb';c.beginPath();c.arc(trail[i].x,trail[i].y,2+i/trail.length*3,0,Math.PI*2);c.fill();}c.globalAlpha=1;

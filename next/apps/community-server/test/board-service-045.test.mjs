@@ -22,5 +22,7 @@ test('community chess tables authorize turns, resume, settle wins and run bot wo
  assert.equal((await request('/api/boards/'+m.id,a)).state.winner,'a');assert.equal((await request('/api/points',a)).balance,'1');
  let bot=await request('/api/boards',a,{game:'chess',mode:'bot',level:2});
  bot=await request('/api/boards/'+bot.id,a,{action:'move',ply:0,move:{from:52,to:36}});
- assert.equal(bot.status,200);assert.equal(bot.state.ply,2);assert.equal(bot.state.turn,'a');
+ assert.equal(bot.status,200);assert.equal(bot.state.ply,1);assert.equal(bot.thinking,true);
+ const deadline=Date.now()+5000;while(bot.state.ply<2&&Date.now()<deadline){await new Promise(r=>setTimeout(r,50));bot=await request('/api/boards/'+bot.id,a);}
+ assert.equal(bot.state.ply,2);assert.equal(bot.state.turn,'a');
 });

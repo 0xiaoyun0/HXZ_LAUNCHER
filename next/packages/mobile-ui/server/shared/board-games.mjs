@@ -1,4 +1,3 @@
-import {chessBot} from './chess-bot.mjs';
 import { Chess } from 'chess.js';
 import { BOARD_GAMES } from './board-catalog.mjs';
 export { BOARD_GAMES, DIFFICULTIES } from './board-catalog.mjs';
@@ -74,66 +73,4 @@ export function playMove(s,move,validate=true){
   const key=position(n);n.positions[key]=(n.positions[key]||0)+1;
   if(!n.winner&&(n.positions[key]>=3||n.ply>=600))n.winner='draw';
   return n;
-}
-const values={p:100,n:320,h:320,b:330,e:200,a:180,r:520,c:360,q:950,k:20000};
-function gomokuPoint(board,to,who){
-  const x=to%15,y=Math.floor(to/15);let score=0;
-  for(const [dx,dy] of [[1,0],[0,1],[1,1],[1,-1]]){
-    let count=1,open=0;let line='';for(let k=-4;k<=4;k++){const xx=x+dx*k,yy=y+dy*k;line+=xx<0||xx>=15||yy<0||yy>=15?'#':k===0||board[yy*15+xx]===who?'X':board[yy*15+xx]?'#':'.';}if(/XXXXX/.test(line))score+=2000000;else if(/\.XXXX\./.test(line))score+=100000;else if(/XXX\.X|XX\.XX|X\.XXX/.test(line))score+=18000;else if(/\.XXX\.|\.XX\.X\.|\.X\.XX\./.test(line))score+=2500;
-    for(const sign of [-1,1])for(let k=1;k<=5;k++){
-      const xx=x+dx*k*sign,yy=y+dy*k*sign;if(xx<0||xx>=15||yy<0||yy>=15)break;
-      const piece=board[yy*15+xx];if(piece===who)count++;else{if(!piece)open++;break;}
-    }
-    score+=count>=5?1000000:([0,1,15,220,9000][count]||0)*(open===2?4:open);
-  }
-  return score;
-}
-function candidates(s,level){
-  if(s.game!=='gomoku')return legalMoves(s).sort((a,b)=>(values[s.board[b.to]?.[1]]||0)-(values[s.board[a.to]?.[1]]||0));
-  if(!s.ply)return [{to:112}];
-  const choices=[],wins=[],blocks=[];
-  for(let i=0;i<225;i++)if(!s.board[i]){
-    const x=i%15,y=Math.floor(i/15);let nearby=false;
-    for(let dy=-2;dy<=2&&!nearby;dy++)for(let dx=-2;dx<=2;dx++)if(x+dx>=0&&x+dx<15&&y+dy>=0&&y+dy<15&&s.board[(y+dy)*15+x+dx]){nearby=true;break;}
-    if(nearby){if(gomokuPoint(s.board,i,s.turn)>=2000000)wins.push({to:i});if(gomokuPoint(s.board,i,opponent(s.turn))>=2000000)blocks.push({to:i});}if(nearby)choices.push({to:i,priority:gomokuPoint(s.board,i,s.turn)*1.12+gomokuPoint(s.board,i,opponent(s.turn))});
-  }
-  if(wins.length)return wins;if(blocks.length)return blocks;
-  return choices.sort((a,b)=>b.priority-a.priority).slice(0,6+level*3).map(({to})=>({to}));
-}
-function evaluate(s,who){
-  if(s.winner)return s.winner==='draw'?0:s.winner===who?10000000-s.ply:-10000000+s.ply;
-  if(s.game==='gomoku'){
-    const choices=candidates(s,1);let own=0,enemy=0;
-    for(const {to} of choices){own=Math.max(own,gomokuPoint(s.board,to,who));enemy=Math.max(enemy,gomokuPoint(s.board,to,opponent(who)));}
-    return own-enemy*1.08;
-  }
-  const width=s.game==='chess'?8:9;
-  return s.board.reduce((total,p,i)=>{if(!p)return total;const center=width/2-Math.abs(i%width-(width-1)/2);const advance=p[0]==='a'?(s.board.length/width-1-Math.floor(i/width)):Math.floor(i/width);return total+(p[0]===who?1:-1)*((values[p[1]]||0)+center*4+(p[1]==='p'?advance*6:0));},0);
-}
-// Called only in a worker. Iterative deepening keeps a legal fallback on a time budget.
-export function botMove(state,level=1){
-  level=Math.max(1,Math.min(5,Math.trunc(level)||1));
-  if(state.game==='chess')return chessBot(state.fen,level);
-  const deadline=Date.now()+[90,280,650,1400,3000][level-1],who=state.turn;
-  let best=candidates(state,level)[0],nodes=0;
-  if(!best)return null;
-  const timeout={};
-  function search(s,depth,alpha,beta){
-    if(++nodes%4===0&&Date.now()>deadline)throw timeout;
-    if(depth===0||s.winner)return evaluate(s,who);
-    const maximize=s.turn===who;let value=maximize?-Infinity:Infinity;
-    for(const m of candidates(s,level)){
-      const score=search(playMove(s,m,false),depth-1,alpha,beta);
-      value=maximize?Math.max(value,score):Math.min(value,score);
-      if(maximize)alpha=Math.max(alpha,value);else beta=Math.min(beta,value);
-      if(beta<=alpha)break;
-    }
-    return Number.isFinite(value)?value:evaluate(s,who);
-  }
-  for(let depth=1;depth<=[1,2,3,4,6][level-1];depth++){
-    let next=best,score=-Infinity;
-    try{for(const m of candidates(state,level)){const n=search(playMove(state,m,false),depth-1,score,Infinity);if(n>score){score=n;next=m;}if(Date.now()>deadline)throw timeout;}best=next;}
-    catch(e){if(e!==timeout)throw e;break;}
-  }
-  return best;
 }

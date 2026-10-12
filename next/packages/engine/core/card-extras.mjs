@@ -7,6 +7,22 @@ export const CARD_PAGES = [
  ['multiplayer','/multiplayer','联机大厅'],['install','/workshop/install','下载与安装']
 ];
 export const WIDGET_TYPES = ['note','clock','calendar','search','assistant'];
+// Move preferences as a unit; the destination grid still enforces measured content minima.
+export function placeTransferredCard(layouts,card,target,current,drop){
+ const result={...layouts},sourceId=card.widget?'widget.'+card.card:current===card.source?card.card:'moved.'+card.source+'.'+card.card;
+ const targetId=card.widget?'widget.'+card.card:target===card.source?card.card:'moved.'+card.source+'.'+card.card;
+ for(const mode of ['wide','compact']){
+  const from=layouts?.[current+'.'+mode],key=target+'.'+mode,original=layouts?.[key],existing=original?.items?.find(v=>v.i===targetId);
+  const before=from?.items?.find(v=>v.i===sourceId),w=Math.max(card.minW||3,Math.min(12,before?.w||card.w||6));
+  // Returning a card restores the original slot. A pointer drop explicitly chooses a new one.
+  const point=drop?.mode===mode?drop:null;
+  const item=existing&&!point?existing:{i:targetId,w,h:before?.h||14,x:Math.max(0,Math.min(12-w,point?.x||0)),y:Math.min(500,point?.y??Math.max(0,...(original?.items||[]).filter(v=>v.i!==targetId).map(v=>v.y+v.h)))};
+  const state={items:[],hidden:[],locked:[],fixed:[],...original};
+  result[key]={...state,items:[...state.items.filter(v=>v.i!==targetId),item],hidden:state.hidden.filter(v=>v!==targetId)};
+  if(!existing)for(const option of ['locked','fixed'])result[key][option]=[...state[option].filter(v=>v!==targetId),...(from?.[option]?.includes(sourceId)?[targetId]:[])];
+ }
+ return result;
+}
 const boards=new Set(CARD_PAGES.map(p=>p[0]));
 const identifier=v=>typeof v==='string'&&/^[a-zA-Z0-9_-]{1,48}$/.test(v)&&!['constructor','prototype','__proto__'].includes(v);
 const text=(v,n)=>typeof v==='string'?v.slice(0,n):'';

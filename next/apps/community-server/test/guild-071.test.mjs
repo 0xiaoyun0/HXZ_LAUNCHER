@@ -1,0 +1,28 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {randomUUID} from 'node:crypto';import {mkdtemp,rm} from 'node:fs/promises';import os from 'node:os';import path from 'node:path';import {once} from 'node:events';
+import {createCommunity} from '../src/server.mjs';
+test('guild escrow survives withdrawal, supplement, delivery and repeated confirmation',async t=>{
+ const dir=await mkdtemp(path.join(os.tmpdir(),'hxz-guild071-'));const service=createCommunity({data:dir,adminIDs:['admin'],exchange:async i=>({selectedProfile:{id:i.uid,name:i.uid}})});
+ service.server.listen(0,'127.0.0.1');await once(service.server,'listening');t.after(async()=>{await service.close();await rm(dir,{recursive:true,force:true});});
+ const base='http://127.0.0.1:'+service.server.address().port,tokens={};
+ async function req(role,p,b,status=200){const r=await fetch(base+p,{method:b?'POST':'GET',headers:{'Content-Type':'application/json',...(tokens[role]?{Authorization:'Bearer '+tokens[role]}:{})},body:b?JSON.stringify(b):undefined}),v=await r.json();assert.equal(r.status,status,JSON.stringify(v));return v;}
+ for(const role of ['admin','owner','player'])tokens[role]=(await req(role,'/api/session',{uid:role})).token;
+ await req('admin','/api/admin/points/adjust',{uid:'owner',name:'owner',amount:'100',operation:'credit',reason:'本地测试',id:randomUUID()});
+ const id=randomUUID(),url='/api/guild/'+id;
+ await req('owner','/api/guild',{requestId:id,title:'建设车站',description:'完成站台，提交坐标。',kind:'request',rewardType:'points',reward:'25',images:[]},201);
+ assert.equal((await req('owner','/api/points')).balance,'75');await req('admin',url+'/review',{status:'approved'});
+ await req('player',url+'/accept',{});assert.equal((await req('player','/api/guild?scope=mine')).items[0].ownClaim.status,'active');
+ await req('player',url+'/withdraw',{note:'暂时无法完成'});await req('player',url+'/withdraw',{note:'重复请求'});
+ assert.equal((await req('player',url)).status,'open');assert.equal((await req('owner','/api/points')).balance,'75');
+ await req('player',url+'/accept',{});await req('player',url+'/submit',{body:'站台已完成',images:[]});
+ await req('player',url+'/withdraw',{note:'不能撤回待验收工作'},400);
+ const claim=(await req('owner',url)).claims[0].id;
+ await req('owner',url+'/resolve',{claim,approved:'false',note:'拒绝隐式转换'},400);
+ await req('owner',url+'/resolve',{claim,approved:false,note:'请补充坐标'});
+ assert.equal((await req('player',url)).ownClaim.body,'站台已完成');
+ await req('player',url+'/submit',{body:'站台已完成，坐标100,64,200',images:[]});
+ await req('owner',url+'/resolve',{claim,approved:true});await req('owner',url+'/resolve',{claim,approved:true});
+ assert.equal((await req('player','/api/points')).balance,'25');assert.equal((await req('owner','/api/points')).balance,'75');
+ const item=randomUUID(),itemurl='/api/guild/'+item;
+ await req('owner','/api/guild',{requestId:item,title:'木材换取',description:'约定游戏内交付',kind:'request',rewardType:'items',reward:'一组钻石',images:[]},201);await req('admin',itemurl+'/review',{status:'approved'});await req('player',itemurl+'/accept',{});await req('player',itemurl+'/submit',{body:'已完成',images:[]});
+ const c=(await req('owner',itemurl)).claims[0].id;await req('owner',itemurl+'/resolve',{claim:c,approved:true},400);await req('owner',itemurl+'/resolve',{claim:c,approved:true,delivered:true});
+});

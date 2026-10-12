@@ -22,3 +22,6 @@ local.properties
 *.idsig
 __pycache__/
 *.pyc
+
+# Rebuildable chess engine outputs
+third_party/maid-board-engine/target/

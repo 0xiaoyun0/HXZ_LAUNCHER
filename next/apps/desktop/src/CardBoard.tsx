@@ -3,7 +3,7 @@ import {useSnapshot} from 'valtio';
 import {GridLayout, useContainerWidth, verticalCompactor, type Layout, type LayoutItem} from 'react-grid-layout';
 import {Grip, EyeOff, LayoutDashboard, RotateCcw, Lock, Unlock, MoreHorizontal, Undo2, AlignStartVertical, Expand,MoveUpRight,Pencil,Check,Plus,Trash2} from 'lucide-react';
 import {state,ui,saveSettings,notify} from './model';
-import {CardHarvest,useCardRegistry,ForeignCard,MoveCardDialog,startCardTravel,MovedCardRecovery} from './PortableCards';
+import {CardHarvest,HarvestedCards,ForeignCard,MoveCardDialog,startCardTravel,MovedCardRecovery} from './PortableCards';
 import {Widget,AddWidget,widgetKinds} from './Widgets';
 import {CARD_PAGES,normalizeCardPlacements,normalizeWidgets} from '../../../packages/engine/core/card-extras.mjs';
 import {Button, Dropdown, Modal, Toggle} from './ui';
@@ -38,10 +38,9 @@ function minimumContent(el:HTMLElement) {
 
 export function CardBoard(props:{id:string; cards:CardSpec[]; label?:string; className?:string; transient?:boolean}) {
   const s=useSnapshot(state),u=useSnapshot(ui),harvest=useContext(CardHarvest);
-  useCardRegistry(props.id,props.cards);
   const {width, containerRef, mounted} = useContainerWidth({measureBeforeMount:true});
   const compact=width<780;
-  if(harvest)return null;
+  if(harvest)return <HarvestedCards source={props.id} cards={props.cards}/>;
   const portable=CARD_PAGES.some(p=>p[0]===props.id),placements=normalizeCardPlacements(s.settings.cardPlacements);
   const cards:CardSpec[]=props.cards.filter(c=>!placements[props.id+'.'+c.id]).map(c=>({...c,origin:portable?{source:props.id,card:c.id,title:c.title,w:c.w,minW:c.minW}:undefined}));
   if(portable){

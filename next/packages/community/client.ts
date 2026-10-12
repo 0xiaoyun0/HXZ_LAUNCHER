@@ -265,6 +265,7 @@ export async function connect() {
         community.user = packet.user!;
         community.messages = packet.messages || [];
       } else if(packet.type === "voice-rooms"){community.rooms=packet.rooms||[];
+      } else if(packet.type === "board-changed"){window.dispatchEvent(new CustomEvent("hxz-board",{detail:packet}));
       } else if(packet.type === "coop-state"){window.dispatchEvent(new CustomEvent("hxz-coop",{detail:packet}));
       } else if(packet.type === "inbox-changed"){window.dispatchEvent(new Event("hxz-inbox"));
       } else if(packet.type === "music-access-changed"){window.dispatchEvent(new Event("hxz-music-access"));

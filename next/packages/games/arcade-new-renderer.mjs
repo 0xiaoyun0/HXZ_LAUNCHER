@@ -32,7 +32,7 @@ export function drawNew(c,s){
  }
  if(s.game!=='garden')return;
  const left=19,top=38,cell=46;rect(c,0,0,360,480,'#e9f0df');
- text(c,'灯塔花园',20,24,13);text(c,s.wave?'守卫中':'准备下一波',240,24,11);
+ text(c,'花园守卫',20,24,13);text(c,s.wave?'守卫中':'准备下一波',240,24,11);
  for(let i=0;i<63;i++){const x=left+i%7*cell,y=top+Math.floor(i/7)*cell,road=gardenRoad(i);rect(c,x+1,y+1,44,44,road?'#dcd4b7':(i%2?'#d4e3c5':'#dce8cf'));if(!road){circle(c,x+9,y+13,2,'#b4cfa6');circle(c,x+33,y+35,1.5,'#b4cfa6');}}
  c.strokeStyle='#c6bca0';c.lineWidth=2;c.setLineDash([2,6]);c.beginPath();GARDEN_PATH.forEach(([x,y],i)=>c[i?'lineTo':'moveTo'](left+(x+.5)*cell,top+(y+.5)*cell));c.stroke();c.setLineDash([]);
  const ex=left+cell*.5,ey=top+7.5*cell;rect(c,ex-10,ey-14,20,30,'#f3ede0');rect(c,ex-14,ey-15,28,5,'#789aad');circle(c,ex,ey-20,8,'#f3d98c');rect(c,ex-3,ey,6,9,'#8ba4b0');

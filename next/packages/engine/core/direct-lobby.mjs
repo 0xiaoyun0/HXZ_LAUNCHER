@@ -1,4 +1,4 @@
-import {createRelayClient} from './room-relay.mjs';
+import {createP2PClient} from './room-p2p.mjs';
 import net from 'node:net';
 import tls from 'node:tls';
 import os from 'node:os';
@@ -14,20 +14,20 @@ const freePort=async()=>{const server=net.createServer();const {port}=await list
 const timed=async(promise,ms,label)=>{let timer;try{return await Promise.race([promise,new Promise((_,reject)=>timer=setTimeout(()=>reject(Error(label)),ms))]);}finally{clearTimeout(timer);}};
 const outboundIPv4=()=>new Promise(resolve=>{const socket=dgram.createSocket('udp4');let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);socket.close();resolve(value);};const timer=setTimeout(()=>finish(''),1000);socket.on('error',()=>finish(''));socket.connect(53,'1.1.1.1',()=>finish(socket.address().address));}); // Route lookup only; no datagrams are sent.
 
-export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfaces,makeMapper=upnpNat,relaySession}){
+export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfaces,makeMapper=upnpNat,p2pSession,p2pRuntime}){
  let server=null,nat=null,room=null,guest=null,generation=0,renewTimer=null,directoryTimer=null,renewing=false,probing=false,publishing=false,publishAgain=false;
  const sockets=new Set(),peers=new Map();
  let state={mode:'idle',phase:'尚未连接',error:'',checks:[],ready:false,connections:0,bytesIn:0,bytesOut:0};
- const relay=relaySession?createRelayClient({session:relaySession,emit:patch=>update(patch)}):null;
- const snapshot=()=>({...state,room:room?{id:room.id,name:room.name,instance:room.instance,port:room.port,gamePort:room.gamePort,hosts:room.hosts,invite:room.hosts.length||room.relay?invitation(room):'',expires:room.expires,leaseExpires:room.leaseExpires}:null,guest:guest?{name:guest.name,instance:guest.instance,address:guest.address,host:guest.host,latency:guest.latency}:null,peers:[...peers.values()]});
+ const p2p=p2pSession&&p2pRuntime?createP2PClient({session:p2pSession,runtime:p2pRuntime,emit:patch=>update(patch)}):null;
+ const snapshot=()=>({...state,room:room?{id:room.id,name:room.name,instance:room.instance,port:room.port,gamePort:room.gamePort,hosts:room.hosts,invite:room.hosts.length||room.p2p?invitation(room):'',expires:room.expires,leaseExpires:room.leaseExpires}:null,guest:guest?{name:guest.name,instance:guest.instance,address:guest.address,host:guest.host,latency:guest.latency}:null,peers:[...peers.values()]});
  const update=patch=>{Object.assign(state,patch);emit({type:'lobby',value:snapshot()});};
  const note=(label,ok,detail='')=>{state.checks=[...state.checks.slice(-15),{label,ok,detail}];update({});};
  async function publish(){const current=room;if(!current?.public||state.mode!=='host')return;if(publishing){publishAgain=true;return;}publishing=true;try{await request('/api/lobby/rooms',{method:'POST',body:{invite:invitation(current),ready:state.ready,connections:peers.size,scope:current.scope,version:current.version,loader:current.loader}});if(room===current)update({listed:true,directoryError:''});else void request('/api/lobby/rooms',{method:'DELETE',body:{id:current.id}}).catch(()=>{});}catch(error){if(room===current)update({listed:false,directoryError:'房间暂未显示在大厅：'+error.message});}finally{publishing=false;if(publishAgain){publishAgain=false;void publish();}}}
  function track(socket){sockets.add(socket);socket.on('error',()=>{});socket.once('close',()=>sockets.delete(socket));return socket;}
  async function close(reason='房间已关闭'){
-  generation++;relay?.close();clearInterval(renewTimer);clearInterval(directoryTimer);renewTimer=null;directoryTimer=null;const oldNat=nat,oldPort=room?.port,oldRoom=room;nat=null;room=null;guest=null;
+  generation++;p2p?.close();clearInterval(renewTimer);clearInterval(directoryTimer);renewTimer=null;directoryTimer=null;const oldNat=nat,oldPort=room?.port,oldRoom=room;nat=null;room=null;guest=null;
   if(server){server.close();server=null;}for(const socket of sockets)socket.destroy();sockets.clear();peers.clear();
-  update({mode:'idle',phase:reason,ready:false,connections:0,listed:false,directoryError:'',relayConnected:false,relayLimit:0,transport:''});
+  update({mode:'idle',phase:reason,ready:false,connections:0,listed:false,directoryError:'',p2pAvailable:false,transport:''});
   if(oldRoom?.public)void request('/api/lobby/rooms',{method:'DELETE',body:{id:oldRoom.id}}).catch(()=>{});
   if(oldNat){try{if(oldPort)await timed(oldNat.unmap({localPort:oldPort,publicPort:oldPort,protocol:'TCP'}),3000,'映射释放超时');}catch{}finally{void oldNat.close().catch(()=>{});}}
  }
@@ -87,13 +87,12 @@ export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfa
     }
     current();
    }
-   if(input.scope!=='lan'&&input.allowRelay!==false&&relay){
-    try{const cfg=await request('/api/lobby/relay');current();if(cfg.enabled){await relay.host(hosting);current();hosting.relay=true;note('社区限速中继',true,'直连优先，不可达时回退；每房间 '+cfg.kbps+' KB/s');}}
-    catch(e){note('社区限速中继',false,e.message);}
+   if(hosting.scope==='internet'&&p2p){
+    try{await p2p.host(hosting);current();hosting.p2p=true;note('P2P 自动穿透',true,'协商已就绪；伙伴加入时检查双方网络，游戏数据直接传输');}
+    catch(e){current();note('P2P 自动穿透',false,e.message);}
    }
-   if(!hosting.hosts.length&&!hosting.relay){throw Error('直连与社区中继均不可用。请检查网络或使用已有虚拟局域网。');
-   }
-   current();update({transport:hosting.hosts.length?(hosting.scope==='virtual'?'virtual':'direct'):'relay',mode:'host',phase:'网络已就绪 · 等待房主进入单人世界'});
+   if(!hosting.hosts.length&&!hosting.p2p)throw Error('当前无法建立直连通道，请检查公网 IPv4/IPv6、路由器或虚拟局域网。社区不再中继游戏流量。');
+   current();update({transport:hosting.hosts.length?(hosting.scope==='virtual'?'virtual':'direct'):'p2p',mode:'host',phase:'网络已就绪 · 等待房主进入单人世界'});
    void publish();directoryTimer=setInterval(()=>void publish(),30000);directoryTimer.unref?.();
    renewTimer=setInterval(async()=>{
     if(room!==hosting||renewing)return;if(hosting.leaseExpires<=Date.now()){void close('开房授权已过期').then(()=>update({error:'请重新连接社区并验证开房权限'}));return;}
@@ -104,16 +103,16 @@ export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfa
  }
  async function inspect(raw){
   if(probing)throw Error('正在检测房主连接，请稍候');probing=true;
-  try{const target=parseInvitation(raw),start=Date.now(),results=await Promise.all(target.hosts.map(async host=>{try{const {socket,info}=await dialRoom(target,host);socket.destroy();return{host,info,latency:Date.now()-start};}catch{return null;}}));let reachable=results.filter(Boolean).sort((a,b)=>a.latency-b.latency)[0];if(!reachable&&target.relay&&relay){const {stream}=await relay.dial(target);try{const {socket,info}=await dialRoom(target,'','probe',10000,stream);socket.destroy();reachable={host:'community-relay',info,latency:Date.now()-start};}catch(e){stream.destroy();throw e;}}if(!reachable)throw Error('直连与可用中继均无法到达房主，请检查房间是否仍在开放。');return {target,...reachable};}finally{probing=false;}
+  try{const target=parseInvitation(raw),start=Date.now(),results=await Promise.all(target.hosts.map(async host=>{try{const {socket,info}=await dialRoom(target,host);socket.destroy();return{host,info,latency:Date.now()-start};}catch{return null;}}));let reachable=results.filter(Boolean).sort((a,b)=>a.latency-b.latency)[0];if(!reachable&&target.p2p&&p2p){const {stream}=await p2p.dial(target);try{const {socket,info}=await dialRoom(target,'','probe',10000,stream);socket.destroy();reachable={host:'p2p',info,latency:Date.now()-start};}catch(e){stream.destroy();throw e;}}if(!reachable)throw Error('公网直连和 P2P 穿透均未成功，请确认房间仍开放，或双方加入同一虚拟局域网。');return {target,...reachable};}finally{probing=false;}
  }
  async function join(input){
   if(state.mode!=='idle')throw Error('请先关闭当前房间或离开连接');const token=++generation;update({mode:'checking',phase:'检测房主网络与世界',error:'',checks:[]});
   try{
    const tested=await inspect(input.invite);if(token!==generation)throw Error('操作已取消');if(!tested.info.ready)throw Error('已连接房主，但房主尚未进入单人世界');
    const {target,host}=tested;
-   server=net.createServer(socket=>{track(socket);socket.pause();void(async()=>{let remote;try{const tunnel=host==='community-relay'?await relay.dial(target):null;let result;try{result=await dialRoom(target,host,'join',10000,tunnel?.stream);}catch(e){tunnel?.stream.destroy();throw e;}remote=track(result.socket);if(socket.destroyed||token!==generation){remote.destroy();return;}socket.once('close',()=>remote.destroy());remote.once('close',()=>socket.destroy());socket.setNoDelay(true);socket.pipe(remote);remote.pipe(socket);socket.resume();remote.resume();}catch(error){remote?.destroy();socket.destroy();update({error:error.message});}})();});
+   server=net.createServer(socket=>{track(socket);socket.pause();void(async()=>{let remote;try{const tunnel=host==='p2p'?await p2p.dial(target):null;let result;try{result=await dialRoom(target,host,'join',10000,tunnel?.stream);}catch(e){tunnel?.stream.destroy();throw e;}remote=track(result.socket);if(socket.destroyed||token!==generation){remote.destroy();return;}socket.once('close',()=>remote.destroy());remote.once('close',()=>socket.destroy());socket.setNoDelay(true);socket.pipe(remote);remote.pipe(socket);socket.resume();remote.resume();}catch(error){remote?.destroy();socket.destroy();update({error:error.message});}})();});
    server.maxConnections=32;server.on('error',e=>update({error:e.message}));const address=await listen(server,{host:'127.0.0.1',port:0});if(token!==generation)throw Error('操作已取消');
-   guest={name:target.name,instance:input.instance,address:'127.0.0.1:'+address.port,host,latency:tested.latency};note(host==='community-relay'?'社区限速中继':'房主直连',true,`${tested.latency} ms · 加密通道`);update({transport:host==='community-relay'?'relay':'direct',mode:'guest',ready:true,phase:'连接就绪 · 可以启动游戏'});return snapshot();
+   guest={name:target.name,instance:input.instance,address:'127.0.0.1:'+address.port,host,latency:tested.latency};note(host==='p2p'?'P2P 点对点':'房主直连',true,`${tested.latency} ms · 加密通道`);update({transport:host==='p2p'?'p2p':'direct',mode:'guest',ready:true,phase:'连接就绪 · 可以启动游戏'});return snapshot();
   }catch(error){if(token===generation){await close('加入未完成');update({error:error.message});}throw error;}
  }
  return {adapters:networkInterfaces,host,join,close,status:snapshot,inspect:async raw=>{const value=await inspect(raw);return {name:value.target.name,ready:value.info.ready,latency:value.latency,host:value.host};},

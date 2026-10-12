@@ -7,9 +7,10 @@ import {once} from 'node:events';
 import {createCommunity} from '../src/server.mjs';
 import {createGame,step,replay} from '../shared/arcade-engine.mjs';
 import * as previous from '../shared/arcade-engine-v3.mjs';
-import {createBoard,botMove,playMove} from '../shared/board-games.mjs';
+import {createBoard,playMove} from '../shared/board-games.mjs';
+import {botMove} from '../src/board-engine.mjs';
 
-test('new arcade rules replay deterministically, maze is connected, five-level tactics stay legal',()=>{
+test('new arcade rules replay deterministically, maze is connected, five-level tactics stay legal',async()=>{
  for(const id of ['runner','maze','danmaku','fighter']){
   const s=createGame(id,194),inputs=[];
   while(s.tick<2400&&!s.over){const a=s.choices?.length?'upgrade:'+s.choices[0]:id==='maze'?['left','up','right','down'][Math.floor(s.tick/20)%4]:id==='runner'?'jump':{x:180+Math.round(Math.sin(s.tick/120)*120),y:410};inputs.push([s.tick+1,a]);step(s,[a]);}
@@ -22,7 +23,7 @@ test('new arcade rules replay deterministically, maze is connected, five-level t
  }
  const bricks=createGame('breakout',1);bricks.level=5;bricks.lives=1;bricks.serve=0;bricks.bricks=[];step(bricks);assert.equal(bricks.lives,2);assert.equal(bricks.level,6);
  const g=createBoard('gomoku');for(const to of [112,0,113,1,114,2,115,3])Object.assign(g,playMove(g,{to}));
- for(let level=1;level<=5;level++){const move=botMove(g,level);assert.equal(playMove(g,move).winner,'a');}
+ for(let level=1;level<=5;level++){const move=await botMove(g,level);assert.equal(playMove(g,move).winner,'a');}
 });
 
 test('public API hides private content, forum sorting works, rules versions stay compatible',async t=>{

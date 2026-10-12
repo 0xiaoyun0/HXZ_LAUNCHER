@@ -15,7 +15,8 @@ export function createGuild({db,auth,admin,body,send,limit,points,media,inbox}){
   function view(t,user,isAdmin,offset=0,summary=false){
     const where='task=?'+(isAdmin||t.owner===user.uid?'':' AND uid=?'),args=isAdmin||t.owner===user.uid?[t.id]:[t.id,user.uid];
     const claims=summary?[]:db.prepare('SELECT * FROM guild_claims WHERE '+where+' ORDER BY created DESC,id LIMIT 30 OFFSET ?').all(...args,offset);
-    const ownClaim=summary?null:db.prepare('SELECT id,status FROM guild_claims WHERE task=? AND uid=?').get(t.id,user.uid);
+    const ownClaim=db.prepare('SELECT id,status,body,images,note FROM guild_claims WHERE task=? AND uid=?').get(t.id,user.uid);
+    if(ownClaim)ownClaim.images=JSON.parse(ownClaim.images);
     return {...t,images:JSON.parse(t.images),claims:claims.map(c=>({...c,images:JSON.parse(c.images)})),ownClaim,claimTotal:summary?0:db.prepare('SELECT COUNT(*) AS n FROM guild_claims WHERE '+where).get(...args).n,claimOffset:offset,mine:t.owner===user.uid};
   }
   function refund(t,actor){if(t.kind==='request'&&t.reward_type==='points')points.credit({id:'guild-refund:'+t.id,user:{uid:t.owner,name:t.name},amount:BigInt(t.reward),earned:0n,weekly:false,reason:'委托撤销退还 · '+t.title,actor:actor.uid});}
@@ -28,7 +29,7 @@ export function createGuild({db,auth,admin,body,send,limit,points,media,inbox}){
       const rows=db.prepare('SELECT * FROM guild_tasks WHERE '+where+' ORDER BY created DESC,id LIMIT 24 OFFSET ?').all(...args,offset);
       send(res,200,{items:rows.map(t=>view(t,user,isAdmin,0,true)),total:db.prepare('SELECT COUNT(*) AS n FROM guild_tasks WHERE '+where).get(...args).n,manager:isAdmin,consoleAdmin:!!user.consoleAdmin,wallet:points.wallet(user)});return true;
     }
-    const match=p.match(/^\/api\/(?:admin\/)?guild\/([\w-]+)(?:\/(review|accept|submit|resolve|cancel))?$/);
+    const match=p.match(/^\/api\/(?:admin\/)?guild\/([\w-]+)(?:\/(review|accept|submit|resolve|cancel|withdraw))?$/);
     if(match&&req.method==='GET'){const t=task(match[1]);if(!['open','active','submitted','completed'].includes(t.status)&&t.owner!==user.uid&&!isAdmin)fail('任务尚未公开',403);const offset=Number(url.searchParams.get('claimsOffset')||0);if(!Number.isSafeInteger(offset)||offset<0)fail('页码无效');send(res,200,{...view(t,user,isAdmin,offset),manager:isAdmin,consoleAdmin:!!user.consoleAdmin});return true;}
     if(req.method!=='POST')fail('不支持的操作');const input=await body(req,40000);
     if(p==='/api/guild'){
@@ -57,19 +58,31 @@ export function createGuild({db,auth,admin,body,send,limit,points,media,inbox}){
         db.prepare('UPDATE guild_tasks SET status=?,note=?,updated=? WHERE id=?').run(input.status==='approved'?'open':'rejected',note,time,id);recipients=[t.owner];notice=input.status==='approved'?'委托已发布':'委托审核未通过';
       }else if(op==='accept'){
         if(user.consoleAdmin||t.owner===user.uid)fail('不能认领自己发布的委托');if(t.status!=='open')fail('任务当前不能认领');
-        if(db.prepare('SELECT 1 FROM guild_claims WHERE task=? AND uid=?').get(id,user.uid))fail('你已认领过此任务');
+        const previous=db.prepare('SELECT * FROM guild_claims WHERE task=? AND uid=?').get(id,user.uid);
+        if(previous&&previous.status!=='withdrawn')fail('你已认领过此任务');
         if(db.prepare("SELECT COUNT(*) AS n FROM guild_claims WHERE uid=? AND status IN ('active','submitted')").get(user.uid).n>=10)fail('请先完成正在进行的任务（最多 10 个）');
-        db.prepare("INSERT INTO guild_claims VALUES(?,?,?,?,'active','','[]','',?,?)").run(randomUUID(),id,user.uid,user.name,time,time);
+        if(previous)db.prepare("UPDATE guild_claims SET status='active',body='',images='[]',note='',updated=? WHERE id=?").run(time,previous.id);
+        else db.prepare("INSERT INTO guild_claims VALUES(?,?,?,?,'active','','[]','',?,?)").run(randomUUID(),id,user.uid,user.name,time,time);
         if(t.kind==='request')db.prepare("UPDATE guild_tasks SET status='active',updated=? WHERE id=?").run(time,id);recipients=[t.owner];notice='有旅人认领了委托';
+      }else if(op==='withdraw'){
+        const c=db.prepare('SELECT * FROM guild_claims WHERE task=? AND uid=?').get(id,user.uid);
+        if(c?.status==='withdrawn')return;
+        if(!c||c.status!=='active'||!['open','active'].includes(t.status))fail('只能放弃进行中的委托，已提交的凭证请先联系委托人退回');
+        const note=text(input.note,2000);
+        db.prepare("UPDATE guild_claims SET status='withdrawn',note=?,updated=? WHERE id=?").run(note,time,c.id);
+        if(t.kind==='request')db.prepare("UPDATE guild_tasks SET status='open',updated=? WHERE id=?").run(time,id);
+        recipients=[t.owner];notice='旅人已放弃委托，任务重新开放';
       }else if(op==='submit'){
         const c=db.prepare('SELECT * FROM guild_claims WHERE task=? AND uid=?').get(id,user.uid);if(!c||c.status!=='active'||!['open','active'].includes(t.status))fail('任务当前不能提交');
         db.prepare("UPDATE guild_claims SET status='submitted',body=?,images=?,updated=? WHERE id=?").run(text(input.body,8000),images(input.images||[],user),time,c.id);
         if(t.kind==='request')db.prepare("UPDATE guild_tasks SET status='submitted',updated=? WHERE id=?").run(time,id);recipients=[t.owner];notice='委托凭证待确认';
       }else if(op==='resolve'){
         if(!isAdmin&&(t.kind==='main'||t.owner!==user.uid))fail('只有委托人或管理员可以确认',403);
+        if(typeof input.approved!=='boolean')fail('请选择通过或要求补充');
         const c=db.prepare('SELECT * FROM guild_claims WHERE task=? AND id=?').get(id,input.claim);if(!c)fail('认领不存在');
         if(c.status==='completed'&&input.approved===true)return;
         if(c.status!=='submitted'||!['open','submitted'].includes(t.status))fail('凭证已处理，请刷新',409);
+        if(input.approved&&t.reward_type==='items'&&input.delivered!==true)fail('请确认已交付承诺的游戏内道具，再完成委托');
         const note=text(input.note||'',2000,false);if(input.approved!==true&&!note)fail('请说明需要补充的内容');
         if(input.approved===true&&t.reward_type==='points')points.credit({id:'guild-reward:'+c.id,user:{uid:c.uid,name:c.name},amount:BigInt(t.reward),earned:t.kind==='main'?BigInt(t.reward):0n,weekly:t.kind==='main',reason:(t.kind==='main'?'主线奖励 · ':'委托结算 · ')+t.title,actor:user.uid});
         db.prepare('UPDATE guild_claims SET status=?,note=?,updated=? WHERE id=?').run(input.approved===true?'completed':'active',note,time,c.id);

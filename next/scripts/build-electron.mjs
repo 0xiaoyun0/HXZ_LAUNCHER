@@ -5,3 +5,5 @@ await build({plugins:[bundleNetwork],entryPoints:['apps/desktop/electron/main.mj
 await fs.copyFile('apps/desktop/electron/preload.cjs','apps/desktop/electron-build/preload.cjs');
 
 await fs.copyFile('apps/desktop/electron/lyrics-preload.cjs','apps/desktop/electron-build/lyrics-preload.cjs');
+
+await fs.copyFile('apps/desktop/electron/p2p-preload.cjs','apps/desktop/electron-build/p2p-preload.cjs');

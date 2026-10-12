@@ -1,17 +1,18 @@
-# 幻想镇 · 0.7.0
+# 幻想镇 · 0.7.1
 
 Windows 卡片启动器、Android 社区与可选游戏组件、完整社区服务端及独立官网。
 
-[下载 0.7.0](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.7.0) · [源码与构建](next/README.md) · [更新内容](next/docs/0.7.0发布说明.md) · [部署与升级](next/docs/0.7.0部署与验收.md)
+[下载 0.7.1](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.7.1) · [源码与构建](next/README.md) · [更新内容](next/docs/0.7.1发布说明.md) · [部署与升级](next/docs/0.7.1部署与验收.md)
 
-- Windows：x64 / ia32 安装器和完整便携包。安装版沿用签名自动更新，0.5.2 及后续安装版可升级；保留原账号、设置和游戏目录。
-- [Android 0.7.0](next/mobile/README.md)：Android 10+，原签名覆盖安装。完整社区、公会、活动和小游戏；可选 ARM64 Minecraft 游戏组件为实验功能，附对应源码与许可，尚未做实体手机三服进服验收。
-- [完整社区服务端](next/apps/community-server/README.md)：一个完整包即可部署。新增冒险者公会、积分托管、主线、可信游戏统计、可编辑 LINKING、语音房间设置和签名自更新。首次升级先停服并备份 data 与 .env，使用新版启动脚本。
-- [LINKING 档案馆](next/docs/LINKING档案馆开发与管理.md)：章节与档案、任务解锁、玩家进度及管理员编辑；主线与可信游戏统计可以作为解锁条件。
-- [卡片规范](next/docs/UI卡片规范.md)：保留卡片拖动、缩放、隐藏、对齐与个性化；新增跨页整理、便利贴、时钟、日历、搜索和快捷助手。
-- [MC 联机大厅](next/docs/MC直连大厅.md) · [官网部署](next/docs/官网部署与内容管理.md)
+- Windows：x64 / ia32 安装器与便携包。安装版沿用签名更新通道，0.5.2 及后续安装版可升级；保留账号、设置和游戏目录。
+- [Android 社区](next/mobile/README.md)：Android 10+，0.7.1 / 70100，原签名覆盖安装。可选 ARM64 游戏组件沿用 0.7.0 / 70003，独立下载；大型 PC 模组兼容性仍取决于设备和整合包。
+- [完整社区服务端](next/apps/community-server/README.md)：聊天、语音、论坛、蓝图、积分、小游戏、公会、活动及后台。升级前备份 data 和 .env；已有 0.7.0 服务可通过后台签名更新。
+- 全部 15 款小游戏调整普通/专注和移动布局，飞行增益 24 种、打砖块增益 9 种；棋类落子实时同步，独立进程计算机器人。
+- [MC 联机大厅](next/docs/MC直连大厅.md)：公网 IPv4/IPv6 优先，失败尝试 P2P。社区只交换握手，不中继游戏数据；网络受限时仍可能无法穿透。
+- [卡片规范](next/docs/UI卡片规范.md)：可拖动、缩放、隐藏、对齐、跨页整理及个性化持久化。
+- [LINKING 档案馆](next/docs/LINKING档案馆开发与管理.md) · [官网部署](next/docs/官网部署与内容管理.md)
 
-当前源码位于 next；根目录 client / server / mobile 保留历史实现。新社区使用 next/apps/community-server，next/server 仅含共享规则。Release 保留历史版本，各平台分别下载。
+当前源码位于 next；根目录 client / server / mobile 保留历史实现。社区使用 next/apps/community-server，next/server 仅含共享规则。棋类第三方引擎来源、许可与重建源码在 [独立模块](next/third_party/maid-board-engine/README.md)。历史 Release 保留。
 
 ---
 

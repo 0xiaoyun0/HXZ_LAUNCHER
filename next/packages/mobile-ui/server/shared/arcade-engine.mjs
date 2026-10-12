@@ -1,3 +1,5 @@
+import {FLIGHT_UPGRADE_MAP} from './arcade-upgrades.mjs';
+import {BREAKOUT_BUFFS,applyBreakoutBuff,awardBrick} from './arcade-breakout.mjs';
 import {CLASSIC_GAMES,createClassic,stepClassic,validClassicAction} from './arcade-classics.mjs';
 import {NEW_GAMES,createNew,stepNew,validNewAction} from './arcade-new063.mjs';
 import {EXTRA_GAMES,createExpanded,stepExpanded} from './arcade-expanded.mjs';
@@ -29,11 +31,11 @@ export function ghostRow(s){let y=s.y;while(fits(s,s.shape,s.x,y+1))y++;return y
 function fits(s,shape,x,y){return shape.every((row,dy)=>row.every((v,dx)=>!v||(x+dx>=0&&x+dx<10&&y+dy<20&&y+dy>=0&&!s.board[y+dy][x+dx])));}
 function drop(s){if(fits(s,s.shape,s.x,s.y+1)){s.y++;return true;}for(let y=0;y<s.shape.length;y++)for(let x=0;x<s.shape[y].length;x++)if(s.shape[y][x])s.board[s.y+y][s.x+x]=s.color;const cleared=[];for(let y=0;y<20;y++)if(s.board[y].every(Boolean))cleared.push(y);const kept=s.board.filter(r=>r.some(v=>!v)),n=20-kept.length;s.combo=n?s.combo+1:0;s.lines+=n;s.score+=(([0,100,300,500,800][n]||0)*s.level)+(n?Math.max(0,s.combo-1)*50:0);s.level=1+Math.floor(s.lines/10);if(n)s.event={tick:s.tick,rows:cleared,text:n===4?'四行消除':n+' 行消除',combo:s.combo};while(kept.length<20)kept.unshift(Array(10).fill(0));s.board=kept;piece(s);return false;}
 export function bricks(s){
- s.wideUntil=0;s.slowUntil=0;s.shields=0;
+ s.wideUntil=0;s.slowUntil=0;s.shields=0;s.heavyUntil=0;s.goldUntil=0;s.guideUntil=0;s.lastBuff=null;
  s.bricks=Array.from({length:(5+Math.min(3,Math.floor((s.level-1)/20)))*9},(_,i)=>{
   const row=Math.floor(i/9),col=i%9;
   const stone=s.level>=5&&row===2&&col%3===1&&(i+s.level)%2===0;
-  const buff=!stone&&(i+s.level*3)%17===0?['wide','slow','shield'][Math.floor(i/9)%3]:'';
+  const buff=!stone&&(i+s.level*3)%17===0?BREAKOUT_BUFFS[(Math.floor(i/9)+s.level-1)%BREAKOUT_BUFFS.length].id:'';
   return {x:14+col*37,y:62+row*24,hp:stone?1:Math.min(5,1+Math.floor(s.level/15))+(i%3===0&&s.level>1?1:0),stone,buff,alive:!(s.level%4===2&&col===4&&row<3)};
  });
 }
@@ -68,10 +70,10 @@ export function step(s,actions=[]){
     for(let n=0;n<substeps;n++){
       const oldX=b.x,oldY=b.y;b.x+=b.vx*slow/substeps;b.y+=b.vy*slow/substeps;
       if(b.x<6||b.x>354){b.x=Math.max(6,Math.min(354,b.x));b.vx=-b.vx;}if(b.y<6){b.y=6;b.vy=Math.abs(b.vy);}
-      if(b.vy>0&&b.y>=424&&b.y<=438&&Math.abs(b.x-s.paddle)<wide+5){b.y=423;b.vy=-velocity;b.vx=(b.x-s.paddle)/wide*6;s.combo=0;s.event={tick:s.tick,x:b.x,y:432,kind:'paddle'};}
+      if(b.vy>0&&b.y>=424&&b.y<=438&&Math.abs(b.x-s.paddle)<wide+5){b.y=423;b.vy=-velocity;b.vx=(b.x-s.paddle)/wide*6;if(s.guideUntil>s.tick){const target=s.bricks.filter(v=>v.alive&&!v.stone).sort((a,c)=>Math.abs(a.x-b.x)-Math.abs(c.x-b.x))[0];if(target)b.vx=Math.max(-6,Math.min(6,(target.x+15-b.x)/Math.max(1,(b.y-target.y)/velocity)));}s.combo=0;s.event={tick:s.tick,x:b.x,y:432,kind:'paddle'};}
       for(const brick of s.bricks)if(brick.alive&&b.x>brick.x-5&&b.x<brick.x+36&&b.y>brick.y-5&&b.y<brick.y+22){
         if(oldY<=brick.y-5||oldY>=brick.y+22){b.vy=-b.vy;b.y=oldY;}else{b.vx=-b.vx;b.x=oldX;}
-        if(!brick.stone){brick.hp--;brick.alive=brick.hp>0;if(!brick.alive){s.combo++;s.score+=10*s.level+Math.min(50,(s.combo-1)*5);if(brick.buff==='wide')s.wideUntil=s.tick+600;if(brick.buff==='slow')s.slowUntil=s.tick+450;if(brick.buff==='shield')s.shields=Math.min(2,s.shields+1);}}
+        if(!brick.stone){brick.hp-=s.heavyUntil>s.tick?3:1;brick.alive=brick.hp>0;if(!brick.alive){awardBrick(s);applyBreakoutBuff(s,brick.buff,brick);}}
         s.event={tick:s.tick,x:brick.x+15,y:brick.y+9,kind:brick.stone?'stone':brick.buff||'brick'};break;
       }
     }
@@ -91,7 +93,7 @@ export function replay(game,seed,ticks,inputs){
 export function replaySegment(previous,ticks,inputs){
   if(!Number.isSafeInteger(ticks)||ticks<=previous.tick||ticks-previous.tick>MAX_TICKS||!Array.isArray(inputs)||inputs.length>MAX_TICKS*4)throw Error('游戏记录无效');
   let last=previous.tick,perTick=0;const game=previous.game;
-  for(const e of inputs){if(!Array.isArray(e)||e.length!==2||!Number.isInteger(e[0])||e[0]<=previous.tick||e[0]>ticks||e[0]<last)throw Error('操作顺序无效');perTick=e[0]===last?perTick+1:1;last=e[0];if(perTick>4)throw Error('操作过于频繁');const a=e[1];if(typeof a==='object'&&a!==null){if(!Number.isFinite(a.x)||a.x<0||a.x>360||(game==='breakout'?Object.keys(a).length!==1:!['danmaku','fighter'].includes(game)||Object.keys(a).length!==2||!Number.isFinite(a.y)||a.y<0||a.y>480))throw Error('操作坐标无效');}else if(!validClassicAction(game,a)&&!validNewAction(game,a)&&!['left','right','up','down','focus','rotate','drop','jump','hold','upgrade:power','upgrade:rapid','upgrade:wings','upgrade:shield','upgrade:repair','upgrade:speed'].includes(a))throw Error('操作无效');}
+  for(const e of inputs){if(!Array.isArray(e)||e.length!==2||!Number.isInteger(e[0])||e[0]<=previous.tick||e[0]>ticks||e[0]<last)throw Error('操作顺序无效');perTick=e[0]===last?perTick+1:1;last=e[0];if(perTick>4)throw Error('操作过于频繁');const a=e[1];if(typeof a==='object'&&a!==null){if(!Number.isFinite(a.x)||a.x<0||a.x>360||(game==='breakout'?Object.keys(a).length!==1:!['danmaku','fighter'].includes(game)||Object.keys(a).length!==2||!Number.isFinite(a.y)||a.y<0||a.y>480))throw Error('操作坐标无效');}else if(!(game==='fighter'&&typeof a==='string'&&a.startsWith('upgrade:')&&Object.hasOwn(FLIGHT_UPGRADE_MAP,a.slice(8)))&&!validClassicAction(game,a)&&!validNewAction(game,a)&&!['left','right','up','down','focus','rotate','drop','jump','hold','upgrade:power','upgrade:rapid','upgrade:wings','upgrade:shield','upgrade:repair','upgrade:speed'].includes(a))throw Error('操作无效');}
   const s=structuredClone(previous);let i=0;
   while(s.tick<ticks&&!s.over){const actions=[];while(i<inputs.length&&inputs[i][0]===s.tick+1)actions.push(inputs[i++][1]);step(s,actions);}
   if(s.tick!==ticks||i!==inputs.length)throw Error('游戏结束后的记录无效');

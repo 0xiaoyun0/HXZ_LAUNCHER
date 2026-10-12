@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import {createPoints,weekOf} from '../src/points.mjs';
-import {createBoard,playMove,legalMoves,botMove} from '../shared/board-games.mjs';
+import {createBoard,playMove,legalMoves} from '../shared/board-games.mjs';
+import {botMove} from '../src/board-engine.mjs';
 
 test('weekly settlement, multiplayer cap, arbitrary precision redemption and spending are idempotent',async t=>{
  const db=new DatabaseSync(':memory:');let time=Date.parse('2026-12-27T23:59:59+08:00');
@@ -51,10 +52,10 @@ test('annual ranking is the sum of settled combined weekly game boards plus podi
  assert.deepEqual(db.prepare('SELECT uid,points FROM points_annual ORDER BY uid').all().map(p=>[p.uid,p.points]),[['a','16'],['b','12'],['c','6']]);
 });
 
-test('board rules reject illegal moves, handle wins/checkmates and five bot levels choose legal moves',()=>{
+test('board rules reject illegal moves, handle wins/checkmates and five bot levels choose legal moves',async()=>{
  let g=createBoard('gomoku');for(const to of [112,0,113,1,114,2,115,3,116])g=playMove(g,{to});assert.equal(g.winner,'a');
  let x=createBoard('xiangqi');x.board[73]='ap';assert(!legalMoves(x).some(m=>m.from===82&&m.to===63));
  assert.throws(()=>playMove(x,{from:85,to:76+1}),/棋规/);
  let c=createBoard('chess');for(const [from,to] of [[53,45],[12,28],[54,38],[3,39]])c=playMove(c,{from,to});assert.equal(c.winner,'b');
- for(const game of ['gomoku','xiangqi','chess'])for(let level=1;level<=5;level++){const s=createBoard(game),move=botMove(s,level);assert(legalMoves(s).some(m=>m.from===move.from&&m.to===move.to));}
+ for(const game of ['gomoku','xiangqi','chess'])for(let level=1;level<=5;level++){const s=createBoard(game),move=await botMove(s,level);assert(legalMoves(s).some(m=>m.from===move.from&&m.to===move.to));}
 });

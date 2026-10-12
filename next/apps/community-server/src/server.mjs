@@ -1,6 +1,6 @@
 import {createTankRooms} from './tank-rooms.mjs';
 import {createWerewolf} from './werewolf.mjs';
-import {createRoomRelay} from './room-relay.mjs';
+import {createLobbySignal} from './lobby-signal.mjs';
 import {createServerOnline} from './server-online.mjs';
 import {createMusicAccess} from './music-access.mjs';
 import {createInbox} from './inbox.mjs';
@@ -104,13 +104,13 @@ export function createCommunity(options={}) {
   const shop=createShop({db,auth,admin,body,send,limit,points,media});
   const updates=communityUpdates({data,admin,send,body});
   const publicAPI=createPublicAPI({db,send,points,shop});
-  const boards=createBoardMatches({db,auth,body,send,limit,points});
+  const boards=createBoardMatches({db,auth,body,send,limit,points,broadcast});
   const werewolf=createWerewolf({auth,body,send,limit,points,broadcast});
   const tanks=createTankRooms({auth,body,send,limit,broadcast,points});
   const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast,points});
   const feedbackRoute=createFeedback({db,auth,admin,body,send,limit});
   const directLobby=createDirectLobby({db,auth,admin,body,send,limit});
-  const relay=createRoomRelay({db,auth,admin,verify,body,send,limit,canHost:user=>!!(user.consoleAdmin||adminIDs.has(user.uid)||db.prepare('SELECT 1 FROM direct_lobby_hosts WHERE uid=?').get(user.uid))});
+  const p2pSignal=createLobbySignal({db,auth,admin,verify,body,send,limit,canHost:user=>!!(user.consoleAdmin||adminIDs.has(user.uid)||db.prepare('SELECT 1 FROM direct_lobby_hosts WHERE uid=?').get(user.uid))});
   const server=http.createServer(async(req,res)=>{
     const origin=req.headers.origin;if(origin&&!origins.has(origin)&&!['http://','https://'].some(protocol=>origin===protocol+req.headers.host)){send(res,403,{error:'来源不允许'});return;}
     if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');}
@@ -137,7 +137,7 @@ export function createCommunity(options={}) {
       if(await shop.route(req,res,url))return;
       if(await werewolf.route(req,res,url))return;
       if(await arcadeRoute(req,res,url))return;
-      if(await relay.route(req,res,url))return;
+      if(url.pathname==='/api/lobby/relay'||url.pathname==='/api/admin/lobby/relay'){send(res,410,{error:'社区游戏中继已移除，请使用 P2P 或 IPv4/IPv6 直连'});return;}
       if(await directLobby(req,res,url))return;
       if(await feedbackRoute(req,res,url))return;
       if(await content.route(req,res,url))return;
@@ -182,7 +182,7 @@ export function createCommunity(options={}) {
   server.requestTimeout=30000;server.headersTimeout=15000;server.maxConnections=1000;
   const wss=new WebSocketServer({noServer:true,maxPayload:32768,perMessageDeflate:false});
   server.on('upgrade',(req,socket,head)=>{
-    if(req.url==='/lobby-relay'){if(req.headers.origin&&!origins.has(req.headers.origin)){socket.destroy();return;}try{limit('relay-upgrade:'+clientIP(req),60);relay.upgrade(req,socket,head);}catch{socket.destroy();}return;}
+    if(req.url==='/lobby-signal'){if(req.headers.origin&&!origins.has(req.headers.origin)){socket.destroy();return;}try{limit('p2p-upgrade:'+clientIP(req),90);p2pSignal.upgrade(req,socket,head);}catch{socket.destroy();}return;}
     if(req.url!=='/ws'||(req.headers.origin&&!origins.has(req.headers.origin))){socket.destroy();return;}
     try{limit('ws:'+clientIP(req),30);if(wss.clients.size>=500)throw Error('服务已满');wss.handleUpgrade(req,socket,head,ws=>wss.emit('connection',ws));}catch{socket.destroy();}
   });
@@ -210,6 +210,6 @@ export function createCommunity(options={}) {
     ws.on('error',()=>{});ws.on('close',()=>{clearTimeout(timer);voiceEvent(clients.get(ws),'leave');clients.delete(ws);presence();});
   });
   const sweep=setInterval(()=>{for(const [id,v] of attempts)if(Date.now()>v.expires)attempts.delete(id);for(const ws of wss.clients){const c=clients.get(ws);if(c&&c.user.exp<Date.now()){ws.close(1008,'登录已过期');continue;}if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();}},15000);sweep.unref();
-  return {server,db,async close(){updates.close();tanks.close();werewolf.close();relay.close();await boards.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
+  return {server,db,async close(){updates.close();tanks.close();werewolf.close();p2pSignal.close();await boards.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const service=createCommunity();const port=Number(process.env.PORT||8787),host=process.env.HOST||'127.0.0.1';service.server.listen(port,host,()=>{process.send?.({type:'hxz-ready',version:VERSION});console.log(`幻想镇社区服务 http://${host}:${port}\n网页管理：http://127.0.0.1:${port}/admin/\n初始密码见数据目录的 初始管理员密码.txt`);});let closing=false;const shutdown=()=>{if(closing)return;closing=true;void service.close().then(()=>process.exit());};process.on('message',message=>{if(message?.type==='hxz-shutdown')shutdown();});for(const sig of ['SIGINT','SIGTERM'])process.on(sig,shutdown);}

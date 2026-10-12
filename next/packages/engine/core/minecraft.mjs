@@ -448,7 +448,7 @@ export async function prepareLaunch({
     classpath,
     classpath_separator: path.delimiter,
     launcher_name: "HXZ Launcher",
-    launcher_version: "0.7.0",
+    launcher_version: "0.7.1",
     resolution_width: String(settings.width || 1280),
     resolution_height: String(settings.height || 720),
     clientid: "",

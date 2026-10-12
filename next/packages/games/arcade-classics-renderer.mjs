@@ -13,7 +13,7 @@ export function drawClassic(c,s,alpha=1,reduce=false){
   text(c,'移动 '+s.moves+' 次',24,442,13,'#717b98');text(c,'最高 '+Math.max(...s.cells),336,442,13,'#717b98','right');text(c,'方向键 · 滑动 · 屏幕方向按钮',180,466,11,'#868da4','center');return;
  }
  if(s.game==='snake'){
-  ground(c,'#edf5e7','#dbe9dd');text(c,'青柠果园',20,33,17,'#425e4c');text(c,'长度 '+s.snake.length,340,33,13,'#637f68','right');
+  ground(c,'#edf5e7','#dbe9dd');text(c,'青柠贪吃蛇',20,33,17,'#425e4c');text(c,'长度 '+s.snake.length,340,33,13,'#637f68','right');
   box(c,12,58,336,336,14,'#94b39b');for(let y=0;y<18;y++)for(let x=0;x<18;x++)box(c,18+x*18,64+y*18,18,18,0,(x+y)%2?'#d9e7cc':'#dfebd5');
   const f=s.fruit;dot(c,27+f.x*18,73+f.y*18,6.7,'#db9578');dot(c,25+f.x*18,70+f.y*18,2,'#f5caaa');box(c,26+f.x*18,64+f.y*18,3,5,1,'#607b4d');
   const t=reduce?1:Math.min(1,(s.tick-(s.moveTick||0)+alpha)/(s.moveInterval||9));
@@ -33,7 +33,7 @@ export function drawClassic(c,s,alpha=1,reduce=false){
   text(c,s.ready?'已点亮 '+s.revealed+' / 88':'首步安全 · 共 20 颗星雷',180,458,12,'#73849c','center');return;
  }
  if(s.game!=='tanks')return;
- ground(c,'#eaf0e7','#d7e3d8');text(c,'星灯防线',24,28,16,'#526c66');text(c,'WAVE '+String(s.level).padStart(2,'0')+' / 20',336,28,12,'#71867e','right');
+ ground(c,'#eaf0e7','#d7e3d8');text(c,'星堡双卫',24,28,16,'#526c66');text(c,'WAVE '+String(s.level).padStart(2,'0')+' / 20',336,28,12,'#71867e','right');
  box(c,18,43,324,389,15,'#9fb5aa');for(let row=0;row<14;row++)for(let col=0;col<12;col++)box(c,24+col*26,50+row*26,26,26,0,(row+col)%2?'#d2decf':'#cbd8c9');
  for(const w of s.walls){box(c,w.x,w.y,24,24,3,w.hp<0?'#829ba5':'#c49f87');box(c,w.x+2,w.y+2,20,3,1,w.hp<0?'#adbec4':'#e1c6ae');c.strokeStyle=w.hp<0?'#667f8a':'#9e7866';c.lineWidth=1;c.strokeRect(w.x+4,w.y+8,16,12);if(w.hp===1){c.beginPath();c.moveTo(w.x+12,w.y);c.lineTo(w.x+8,w.y+11);c.lineTo(w.x+15,w.y+20);c.stroke();}}
  box(c,162,403,36,24,5,'#637f89');dot(c,180,406,10,s.lives?'#ffe6a3':'#8a8e83');text(c,'★',180,411,15,'#b99a60','center');

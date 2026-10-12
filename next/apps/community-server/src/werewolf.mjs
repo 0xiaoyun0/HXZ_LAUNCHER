@@ -3,12 +3,12 @@ const ROLES={wolf:'狼人',seer:'预言家',witch:'女巫',villager:'村民'};
 const DURATIONS={wolves:45000,seer:30000,witch:30000,discussion:90000,vote:45000};
 export function createWerewolf({auth,body,send,limit,points,broadcast=()=>{},now=Date.now}){
  const rooms=new Map();
- const alive=r=>r.players.filter(p=>p.alive),member=(r,uid)=>r.players.find(p=>p.uid===uid);
+ const alive=r=>r.players.filter(p=>p.alive),member=(r,uid)=>r.players.find(p=>p.uid===uid&&!p.left);
  function note(r,text){r.log.push({id:randomUUID(),text,at:now()});r.log=r.log.slice(-80);}
  function change(r,phase){r.phase=phase;r.turn=randomUUID();r.actions={};r.deadline=now()+(DURATIONS[phase]||1800000);r.updated=now();broadcast({type:'werewolf',id:r.id});}
  function check(r){const n=alive(r),wolves=n.filter(p=>p.role==='wolf').length;const result=!wolves?'village':wolves>=n.length-wolves?'wolves':r.day>12?'draw':null;if(!result)return false;
   r.result=result;change(r,'finished');note(r,result==='draw'?'十二轮后仍未分胜负，本局和局。':result==='wolves'?'狼人阵营获胜。':'好人阵营获胜。');
-  if(r.ranked&&!r.settled){r.settled=true;for(const p of r.players)if(!p.bot&&result!=='draw'&&((p.role==='wolf')===(result==='wolves')))points?.win({uid:p.uid,name:p.name},r.id);}
+  if(r.ranked&&!r.settled){r.settled=true;for(const p of r.players)if(!p.bot&&!p.left&&result!=='draw'&&((p.role==='wolf')===(result==='wolves')))points?.win({uid:p.uid,name:p.name},r.id);}
   return true;
  }
  function eligible(r){const list=alive(r);return r.phase==='wolves'?list.filter(p=>p.role==='wolf'):r.phase==='seer'?list.filter(p=>p.role==='seer'):r.phase==='witch'?list.filter(p=>p.role==='witch'):r.phase==='vote'?list:[];}
