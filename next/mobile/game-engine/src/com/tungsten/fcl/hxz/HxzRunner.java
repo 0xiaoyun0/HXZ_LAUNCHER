@@ -26,9 +26,11 @@ import up.hxz.AndroidPack;
 public final class HxzRunner {
     private static JSONObject pending;
     private static boolean running;
+    public static synchronized boolean isBusy(){return running||pending!=null;}
     public static synchronized void offer(JSONObject job){if(running||pending!=null)throw new IllegalStateException("已有游戏准备任务，请完成或取消后重试");pending=job;}
     public static synchronized void consume(Activity activity){
-        if(pending==null||running)return;JSONObject job=pending;pending=null;running=true;
+        if(running)return;if(pending==null){HxzCommunityAccounts.sync(activity);return;}JSONObject job=pending;pending=null;running=true;
+        if(job.optBoolean("accountOnly")){try{HxzAccounts.install(job.getJSONObject("account"));android.widget.Toast.makeText(activity,"已导入社区皮肤站角色",android.widget.Toast.LENGTH_SHORT).show();}catch(Exception e){android.widget.Toast.makeText(activity,e.getMessage(),android.widget.Toast.LENGTH_LONG).show();}finally{job.remove("account");running=false;}return;}
         AtomicReference<TaskExecutor> active=new AtomicReference<>();AtomicReference<Thread> worker=new AtomicReference<>();
         TaskDialog pane=new TaskDialog(activity,new TaskCancellationAction((Runnable)()->{TaskExecutor e=active.get();if(e!=null)e.cancel();Thread t=worker.get();if(t!=null)t.interrupt();}));
         pane.setTitle("幻想镇 · 准备游戏");pane.show();

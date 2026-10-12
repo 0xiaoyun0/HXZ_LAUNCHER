@@ -6,11 +6,50 @@ const here=path.dirname(fileURLToPath(import.meta.url)),root=path.resolve(here,'
 const fork=path.resolve(process.argv[2]||'.runtime/fcl-source/FoldCraftLauncher-efe4dcc5dbc78c55be177c330239e12845ae7ccf');
 const java=path.join(fork,'FCL/src/main/java');
 const gradleFile=path.join(fork,'FCL/build.gradle.kts');
-await fs.writeFile(gradleFile,(await fs.readFile(gradleFile,'utf8')).replace('versionCode = 70000','versionCode = 70001'));
+await fs.writeFile(gradleFile,(await fs.readFile(gradleFile,'utf8')).replace(/versionCode = 7000[0-3]/,'versionCode = 70003'));
+let build=await fs.readFile(gradleFile,'utf8');if(!build.includes('implementation("com.squareup.okhttp3:okhttp:4.12.0")')){build=build.replace('dependencies {','dependencies {\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")');await fs.writeFile(gradleFile,build);}
+build=build.replace('implementation("com.squareup.okhttp3:okhttp:4.12.0")\n','implementation("com.squareup.okhttp3:okhttp:4.12.0") { exclude(group = "org.jetbrains.kotlin") }\n');await fs.writeFile(gradleFile,build);
 await fs.cp(path.join(here,'src'),java,{recursive:true});
 await fs.cp(path.join(here,'assets'),path.join(fork,'FCL/src/main/assets'),{recursive:true});
 const manifestFile=path.join(fork,'FCL/src/main/AndroidManifest.xml');let manifest=await fs.readFile(manifestFile,'utf8');if(!manifest.includes('com.tungsten.fcl.hxz.HxzInstallService')){manifest=manifest.replace('    <application','    <application').replace('        <activity','        <service android:name="com.tungsten.fcl.hxz.HxzInstallService" android:exported="false" android:foregroundServiceType="dataSync" />\n        <activity');await fs.writeFile(manifestFile,manifest);}
+if(!manifest.includes('top.hxzmc.community.permission.GAME_ACCOUNT')){
+ manifest=manifest.replace('    <application','    <uses-permission android:name="top.hxzmc.community.permission.GAME_ACCOUNT" />\n    <queries><package android:name="top.hxzmc.community" /></queries>\n    <application');
+ await fs.writeFile(manifestFile,manifest);
+}
+if(!manifest.includes('com.tungsten.fcl.hxz.HxzGraphicsProbeService')){
+ manifest=manifest.replace('        <service','        <service android:name="com.tungsten.fcl.hxz.HxzGraphicsProbeService" android:exported="false" android:process=":hxz_graphics" />\n        <service');
+ await fs.writeFile(manifestFile,manifest);
+}
 async function patch(relative,changes){const file=path.join(java,relative);let s=await fs.readFile(file,'utf8');for(const [before,after] of changes){if(after&&s.includes(after))continue;if(!s.includes(before)){if(!after)continue;throw Error('Patch anchor absent: '+relative+' / '+before.slice(0,70));}s=s.replace(before,after);}await fs.writeFile(file,s);}
+await patch('com/tungsten/fclcore/download/DownloadProvider.java',[
+ ['return Collections.singletonList(NetworkUtils.toURL(injectURL(baseURL)));','return up.hxz.AndroidDownloadSources.candidates(injectURL(baseURL), baseURL);']
+]);
+await patch('com/tungsten/fclcore/auth/authlibinjector/AuthlibInjectorProvider.java',[
+ ['this.apiRoot = apiRoot;', 'this.apiRoot = apiRoot.replaceAll("/+$", "") + "/";']
+]);
+await patch('com/tungsten/fclcore/auth/authlibinjector/AuthlibInjectorServer.java',[
+ ['    public static AuthlibInjectorServer locateServer(String url) throws IOException {','    public static AuthlibInjectorServer locateServer(String url) throws IOException {\n        String normalized = com.tungsten.fcl.hxz.HxzSkinNetwork.canonicalServer(url);\n        if (com.tungsten.fcl.hxz.HxzSkinNetwork.supports(normalized)) {\n            AuthlibInjectorServer server = new AuthlibInjectorServer(normalized);\n            server.refreshMetadata();\n            return server;\n        }'],
+ ['        this.url = url;\n        this.yggdrasilService = new YggdrasilService(new AuthlibInjectorProvider(url));','        this.url = com.tungsten.fcl.hxz.HxzSkinNetwork.canonicalServer(url);\n        this.yggdrasilService = new YggdrasilService(new AuthlibInjectorProvider(this.url));'],
+ ['        refreshMetadata(HttpRequest.GET(url).getString());','        refreshMetadata(com.tungsten.fcl.hxz.HxzSkinNetwork.supports(url) ? com.tungsten.fcl.hxz.HxzSkinNetwork.request(url, null) : HttpRequest.GET(url).getString());']
+]);
+await patch('com/tungsten/fclcore/auth/yggdrasil/YggdrasilService.java',[
+ ['    private static String request(URL url, Object payload) throws AuthenticationException {\n        try {','    private static String request(URL url, Object payload) throws AuthenticationException {\n        try {\n            if (com.tungsten.fcl.hxz.HxzSkinNetwork.supports(url.toString())) return com.tungsten.fcl.hxz.HxzSkinNetwork.request(url.toString(), payload == null ? null : payload instanceof String ? (String) payload : GSON.toJson(payload));']
+]);
+await patch('com/tungsten/fcl/FCLApp.java',[
+ ['        super.onCreate();','        super.onCreate();\n        com.tungsten.fclauncher.utils.FCLPath.loadPaths(this);']
+]);
+await patch('com/tungsten/fcl/activity/MainActivity.kt',[
+ ['        _uiManager?.onResume()', '        _uiManager?.onResume()\n        if (_uiManager != null) com.tungsten.fcl.hxz.HxzCommunityAccounts.sync(this)']
+]);
+await patch('com/tungsten/fcl/game/LauncherHelper.java',[
+ ['    public void launch() {\n        LOG.info', `    public void launch() {
+        if (com.tungsten.fcl.hxz.HxzLaunch.intercept(context, profile, account, selectedVersion)) return;
+        launchPrepared();
+    }
+
+    public void launchPrepared() {
+        LOG.info`]
+]);
 for(const file of ['neoforge/NeoForgeOldInstallTask.java','forge/ForgeNewInstallTask.java']) {
  await patch('com/tungsten/fclcore/download/'+file,[
   ['runJVMProcess(processor, command, 8, step);','runJVMProcess(processor, command, up.hxz.InstallerRuntime.select(profile.getMinecraft(), jar), step);']

@@ -96,16 +96,19 @@ public final class CommunityApp extends Application {
             return output.toByteArray();
         }
     }
+    JSONObject gameCredentials() throws Exception { synchronized(authLock){return new JSONObject(credentials.toString());} }
     synchronized void saveCredentials(JSONObject next) throws Exception {
         if(!next.has("accessToken"))throw new IOException("皮肤站没有返回有效登录凭据");
         if(!next.has("availableProfiles") && credentials.has("availableProfiles"))next.put("availableProfiles",credentials.get("availableProfiles"));
         if(!next.has("selectedProfile") && credentials.has("selectedProfile"))next.put("selectedProfile",credentials.get("selectedProfile"));
+        if(!next.has("loginUsername") && credentials.has("loginUsername"))next.put("loginUsername",credentials.get("loginUsername"));
+        if(!next.has("clientToken") && credentials.has("clientToken"))next.put("clientToken",credentials.get("clientToken"));
         vault.write(next); credentials=next;
     }
     Object login(JSONObject input) throws Exception { synchronized(authLock) {
         disconnect(true);
         JSONObject next=(JSONObject)request(SKIN+"/authserver/authenticate","POST",obj("agent",obj("name","Minecraft","version",1),"username",input.getString("username"),"password",input.getString("password"),"clientToken",UUID.randomUUID().toString(),"requestUser",true),"");
-        credentials=new JSONObject(); saveCredentials(next); token=""; expires=0;
+        next.put("loginUsername",input.getString("username"));credentials=new JSONObject(); saveCredentials(next); token=""; expires=0;
         long websiteTicket=SkinSession.reset();String websiteUser=input.getString("username"),websitePassword=input.getString("password");jobs.execute(()->SkinSession.login(websiteTicket,websiteUser,websitePassword));
         JSONArray profiles=credentials.optJSONArray("availableProfiles");
         if(credentials.optJSONObject("selectedProfile")==null && profiles!=null && profiles.length()==1) selectProfile(profiles.getJSONObject(0).getString("id"));

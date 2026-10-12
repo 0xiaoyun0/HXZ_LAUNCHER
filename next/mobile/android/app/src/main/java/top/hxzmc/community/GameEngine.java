@@ -43,7 +43,8 @@ final class GameEngine {
             case "cancel":cancelled=true;if(transfer!=null)transfer.cancel();return state();
             case "install":install();return state();
             case "launch":launch(input);return CommunityApp.obj("started",true);
-            case "settings":open(null);return state();
+            case "settings":openSettings(false);return state();
+            case "importAccount":openSettings(true);return state();
             default:return state();
         }
     }
@@ -118,13 +119,19 @@ final class GameEngine {
         if(incoming==null||!PACKAGE.equals(incoming.packageName)||incoming.getLongVersionCode()!=m.getLong("versionCode")||old!=null&&incoming.getLongVersionCode()<old.getLongVersionCode()||incoming.signingInfo==null||!new HashSet<>(Arrays.asList(incoming.signingInfo.getApkContentsSigners())).equals(new HashSet<>(Arrays.asList(self.signingInfo.getApkContentsSigners()))))throw new IOException("运行组件的签名、版本或身份不匹配");
     }
     private void install()throws Exception{eligible();if(busy)throw new IOException("下载仍在进行");JSONObject m=manifest==null?verify(prefs.getString("manifest","")):manifest;PackageInfo current=installed();if(current!=null&&current.getLongVersionCode()>=m.getLong("versionCode")&&app.getPackageManager().checkSignatures(app.getPackageName(),PACKAGE)==PackageManager.SIGNATURE_MATCH){download();return;}validate(apk,m);app.main.post(()->{MainActivity a=app.activity.get();if(a==null)return;try{if(!app.getPackageManager().canRequestPackageInstalls()){a.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+app.getPackageName())));publish("ready","允许此来源安装后，请返回再次点击安装");return;}a.startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse("content://"+app.getPackageName()+".updates/engine.apk"),"application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));}catch(Exception e){publish("error",CommunityApp.reason(e));}});}
+    private void openSettings(boolean required)throws Exception{
+        PackageInfo current=installed();JSONObject c=app.gameCredentials(),profile=c.optJSONObject("selectedProfile");
+        if(required){if(current==null)throw new IOException("请先安装游戏运行组件");if(current.getLongVersionCode()<70002)throw new IOException("请先更新游戏运行组件，再导入社区账号");if(profile==null||c.optString("accessToken").isEmpty()||c.optString("clientToken").isEmpty())throw new IOException("请先在「我的」登录皮肤站并选择角色");}
+        if(current==null||current.getLongVersionCode()<70002||profile==null||c.optString("accessToken").isEmpty()||c.optString("clientToken").isEmpty()){open(null);return;}
+        open(CommunityApp.obj("protocol",1,"created",System.currentTimeMillis(),"accountOnly",true,"account",CommunityApp.obj("name",profile.getString("name"),"username",c.optString("loginUsername",profile.getString("name")),"uuid",profile.getString("id"),"accessToken",c.getString("accessToken"),"clientToken",c.getString("clientToken"))));
+    }
     private void launch(JSONObject input)throws Exception{
         eligible();String id=input.getString("id");if(!Arrays.asList("HXZ-survival","HXZ-mod-1","HXZ-mod-2").contains(id))throw new IOException("实例无效");
         JSONObject response;try{response=(JSONObject)app.request(app.apiUrl("/api/server-presets"),"GET",null,"");prefs.edit().putString("presets",response.toString()).apply();}catch(Exception e){response=new JSONObject(prefs.getString("presets","{}"));}
         JSONArray servers=response.optJSONArray("servers");JSONObject preset=null;if(servers!=null)for(int i=0;i<servers.length();i++)if(id.equals(servers.getJSONObject(i).optString("id")))preset=servers.getJSONObject(i);if(preset==null)throw new IOException("无法读取服务器配置，请先连接社区");
-        JSONObject c=app.credentials,profile=c.optJSONObject("selectedProfile");if(profile==null||c.optString("accessToken").isEmpty())throw new IOException("请先登录皮肤站并选择角色");
+        JSONObject c=app.gameCredentials(),profile=c.optJSONObject("selectedProfile");if(profile==null||c.optString("accessToken").isEmpty()||c.optString("clientToken").isEmpty())throw new IOException("请先登录皮肤站并选择角色");
         JSONObject options=input.optJSONObject("options");if(options==null)options=new JSONObject();if(options.toString().length()>2000)throw new IOException("运行设置过大");
-        open(CommunityApp.obj("protocol",1,"created",System.currentTimeMillis(),"server",preset,"options",options,"account",CommunityApp.obj("name",profile.getString("name"),"uuid",profile.getString("id"),"accessToken",c.getString("accessToken"),"clientToken",c.optString("clientToken"))));
+        open(CommunityApp.obj("protocol",1,"created",System.currentTimeMillis(),"server",preset,"options",options,"account",CommunityApp.obj("name",profile.getString("name"),"username",c.optString("loginUsername",profile.getString("name")),"uuid",profile.getString("id"),"accessToken",c.getString("accessToken"),"clientToken",c.getString("clientToken"))));
     }
     private void open(JSONObject job)throws Exception{eligible();if(installed()==null)throw new IOException("请先安装游戏运行组件");if(app.getPackageManager().checkSignatures(app.getPackageName(),PACKAGE)!=PackageManager.SIGNATURE_MATCH)throw new IOException("运行组件签名不匹配，请安装幻想镇提供的组件");Intent intent=job==null?app.getPackageManager().getLaunchIntentForPackage(PACKAGE):new Intent().setClassName(PACKAGE,"com.tungsten.fcl.hxz.HxzBridgeActivity").putExtra("job",job.toString());if(intent==null)throw new IOException("运行组件入口不可用");app.main.post(()->{try{MainActivity a=app.activity.get();if(a!=null)a.startActivity(intent);}catch(Exception e){publish("error",CommunityApp.reason(e));}});}
 }

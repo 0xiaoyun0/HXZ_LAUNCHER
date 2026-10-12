@@ -10,10 +10,12 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="top.hxzmc.permission.GAME_ENGINE" />
+    <permission android:name="top.hxzmc.community.permission.GAME_ACCOUNT" android:protectionLevel="signature" />
     <queries><package android:name="top.hxzmc.gameengine" /></queries>
     <application android:name=".CommunityApp" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:usesCleartextTraffic="false"
         android:label="幻想镇社区" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:theme="@style/AppTheme" android:supportsRtl="true">
         <provider android:name=".UpdateProvider" android:authorities="${applicationId}.updates" android:exported="false" android:grantUriPermissions="true" />
+        <provider android:name=".GameAccountProvider" android:authorities="${applicationId}.game-account" android:exported="true" android:permission="top.hxzmc.community.permission.GAME_ACCOUNT" />
         <activity android:name=".NeteaseActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".SkinActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize"

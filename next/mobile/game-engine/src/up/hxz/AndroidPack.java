@@ -4,6 +4,11 @@ import java.nio.file.*;
 import java.util.*;
 import java.io.*;
 public final class AndroidPack {
+    public static boolean installed(Path root){
+        Path cache=root.resolve("updater/.updater");
+        try{if(Files.exists(cache.resolve("transaction.json")))return false;JsonObject version=IO.read(cache.resolve("local-version.json")),manifest=IO.read(cache.resolve("local-manifest.json"));return !IO.str(version,"version","").isEmpty()&&!version.has("pendingVersion")&&manifest.has("files")&&manifest.get("files").isJsonArray();}catch(Exception e){return false;}
+    }
+    public static boolean shouldUpdate(Path root,List<String> urls,boolean automatic,boolean required){return !urls.isEmpty()&&(automatic||required||!installed(root));}
     public static void preflight(List<String> urls,java.util.function.Consumer<String> progress)throws Exception{
         progress.accept("正在检查安卓模组适配");Network network=new Network(8,1,8);Exception last=null;
         for(String raw:urls){valid(raw);String base=raw.replaceAll("/+$","");try{

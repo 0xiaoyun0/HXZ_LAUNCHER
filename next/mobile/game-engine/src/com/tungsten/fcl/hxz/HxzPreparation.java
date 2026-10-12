@@ -40,20 +40,27 @@ final class HxzPreparation {
         String id=preset.getString("id");if(!Arrays.asList("HXZ-survival","HXZ-mod-1","HXZ-mod-2").contains(id))throw new IOException("服务器标识无效");
         File parent=activity.getExternalFilesDir(null);if(parent==null)throw new IOException("设备游戏存储暂不可用");
         Path root=new File(parent,"HXZ-minecraft/"+id+"/.minecraft").getCanonicalFile().toPath();Files.createDirectories(root);
-        List<String> urls=new ArrayList<>();JSONArray update=preset.optJSONArray("updateUrls");if(update!=null)for(int i=0;i<Math.min(16,update.length());i++)urls.add(update.getString(i));
+        List<String> urls=new ArrayList<>();JSONArray update=preset.optJSONArray("updateUrls");if(update!=null)for(int i=0;i<Math.min(16,update.length());i++){String url=update.getString(i).trim();if(!url.isEmpty()&&!urls.contains(url))urls.add(url);}
+        String legacy=preset.optString("updateUrl","").trim();if(!legacy.isEmpty()&&!urls.contains(legacy)&&urls.size()<16)urls.add(legacy);
+        if(urls.isEmpty()&&("hxzup".equals(preset.optString("profileSource"))||preset.optBoolean("updateRequired")))throw new IOException("服务器尚未配置 HXZUP 地址，请联系管理员");
         Consumer<String> progress=text->{HxzRunner.record(activity,text);activity.runOnUiThread(()->{if(pane.isShowing())pane.setTitle(text);});HxzInstallService.stage(activity,text);};
+        progress.accept("正在导入社区皮肤站账号");Account account=ui(activity,()->HxzAccounts.install(job.getJSONObject("account")));
+        progress.accept("正在验证幻想镇皮肤站账号");account.logIn();progress.accept("皮肤站验证通过");
+        HxzLaunch.remember(root,preset,options);
+        boolean shouldUpdate=AndroidPack.shouldUpdate(root,urls,options.optBoolean("autoUpdate",preset.optBoolean("autoUpdate",true)),preset.optBoolean("updateRequired"));
         JsonObject game;Path saved=root.resolve("hxz-game-profile.json");
         progress.accept("正在读取服务器游戏配置");
-        if("hxzup".equals(preset.optString("profileSource"))){try{game=AndroidPack.profile(urls);}catch(Exception e){if(!Files.isRegularFile(saved)||preset.optBoolean("updateRequired"))throw e;game=JsonParser.parseString(new String(Files.readAllBytes(saved),StandardCharsets.UTF_8)).getAsJsonObject();progress.accept("更新服务暂不可用，保留已安装的版本");}}
+        if(!shouldUpdate&&Files.isRegularFile(saved))game=JsonParser.parseString(new String(Files.readAllBytes(saved),StandardCharsets.UTF_8)).getAsJsonObject();
+        else if("hxzup".equals(preset.optString("profileSource"))){try{game=AndroidPack.profile(urls);}catch(Exception e){if(!Files.isRegularFile(saved)||preset.optBoolean("updateRequired")||!AndroidPack.installed(root))throw e;game=JsonParser.parseString(new String(Files.readAllBytes(saved),StandardCharsets.UTF_8)).getAsJsonObject();progress.accept("更新服务暂不可用，保留已安装的版本");}}
         else if("package".equals(preset.optString("profileSource")))throw new IOException("此服务器使用归档整合包，请先在运行组件中导入，或请管理员配置 HXZ UP。");
         else{game=new JsonObject();game.addProperty("gameVersion",preset.getString("version"));JsonObject loader=new JsonObject();loader.addProperty("type",preset.optString("loader"));loader.addProperty("version",preset.optString("loaderVersion"));game.add("loader",loader);}
         String minecraft=game.get("gameVersion").getAsString();if(!minecraft.matches("[A-Za-z0-9.+_-]{1,100}"))throw new IOException("游戏版本格式无效");
         JsonObject loader=game.has("loader")?game.getAsJsonObject("loader"):new JsonObject();String type=loader.has("type")?loader.get("type").getAsString():"",lv=loader.has("version")?loader.get("version").getAsString():"";
-        String requested=options.optString("renderer","auto");boolean vulkan=activity.getPackageManager().hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_VERSION,0x400000);
-        final String renderer="auto".equals(requested)?((type.equals("neoforge")||type.equals("forge"))&&vulkan?"zink":"nggl4es"):requested;
+        String requested=options.optString("renderer","auto");
+        final HxzGraphics.Selection graphics=HxzGraphics.select(activity,requested,minecraft,type,progress);
+        final String renderer=graphics.renderer;
         AndroidCompatibility.configure(activity.getAssets().open("hxz/android-compatibility.json"));
         try(AndroidCompatibility.Session compatibility=AndroidCompatibility.open(root,renderer,progress)){
-            boolean shouldUpdate=!urls.isEmpty()&&(options.optBoolean("autoUpdate",true)||preset.optBoolean("updateRequired"));
             if(shouldUpdate)AndroidPack.preflight(urls,progress);
             Profile profile=ui(activity,()->{Profile found=null;for(Profile p:Profiles.getProfiles())if(p.getGameDir().equals(root.toFile())){found=p;break;}if(found==null){found=new Profile("幻想镇 · "+preset.optString("name",id),root.toFile());Profiles.addProfile(found);}Profiles.setSelectedProfile(found);return found;});
             if(!type.isEmpty()&&!type.equals("vanilla")&&lv.isEmpty()){
@@ -70,19 +77,22 @@ final class HxzPreparation {
                 execute(activity,pane,active,builder.buildAsync().executor());profile.getRepository().refreshVersions();install.finish();
             }
             if(Thread.currentThread().isInterrupted())throw new InterruptedException("安装已暂停");
-            if(shouldUpdate)AndroidPack.update(root,urls,game,progress);
+            if(shouldUpdate){progress.accept("正在调用 HXZUP 更新整合包");AndroidPack.update(root,urls,game,progress);if(!AndroidPack.installed(root))throw new IOException("HXZUP 尚未完成首次安装，服务器可能正在维护，请稍后继续");progress.accept("HXZUP 整合包同步完成");}
+            else progress.accept(urls.isEmpty()?"此实例未配置整合包更新":"已按设置跳过更新，使用本地完整整合包");
             progress.accept("正在应用手机兼容配置");compatibility.reconcile();
+            if(AndroidGameDefaults.apply(root))progress.accept("已应用手机画质：关闭默认光影、降低视距；可在游戏设置中调整");
             AndroidNativeFix.apply(root,activity.getAssets().open("hxz/sable-android-patch-2.0.3.jar"),progress);
             if(preset.optBoolean("fabricAPI")&&type.equals("fabric"))AndroidPack.fabricAPI(root,minecraft,progress);
             Path temp=Files.createTempFile(root,"profile-",".tmp");try{Files.write(temp,game.toString().getBytes(StandardCharsets.UTF_8));Files.move(temp,saved,StandardCopyOption.REPLACE_EXISTING);}finally{Files.deleteIfExists(temp);}
-            JSONObject selected=job.getJSONObject("account");Map<Object,Object> storage=new HashMap<>();storage.put("serverBaseURL","https://skin.hxzmc.top/api/yggdrasil");storage.put("username",selected.getString("name"));storage.put("displayName",selected.getString("name"));storage.put("uuid",selected.getString("uuid"));storage.put("accessToken",selected.getString("accessToken"));storage.put("clientToken",selected.getString("clientToken"));Account account=Accounts.FACTORY_AUTHLIB_INJECTOR.fromStorage(storage);
             final JSONObject settings=options;
+            VersionSetting instance=ui(activity,()->profile.getRepository().specializeVersionSetting(version));
+            if(instance==null)throw new IOException("版本尚未就绪，请继续安装");
+            HxzGraphics.firstRunDisplay(activity);
             progress.accept("游戏文件已就绪 · "+renderer);
-            ui(activity,()->{profile.setSelectedVersion(version);VersionSetting setting=profile.getVersionSetting(version);setting.setUsesGlobal(false);setting.setIsolateGameDir(false);setting.setJava("Auto");
-                ActivityManager.MemoryInfo memory=new ActivityManager.MemoryInfo();((ActivityManager)activity.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryInfo(memory);int max=Math.max(512,(int)Math.min(6144,Math.min(memory.totalMem/1048576*.60,memory.availMem/1048576-1024)));
-                setting.setAutoMemory(false);setting.setMaxMemory(settings.optInt("memoryMB",0)<=0?max:Math.max(512,Math.min(max,settings.optInt("memoryMB"))));
-                setting.setServerIp(settings.optBoolean("autoJoin",true)?preset.optString("address",""):"");setting.setRenderer(renderer.equals("zink")?Renderer.ID_ZINK:renderer.equals("virgl")?Renderer.ID_VIRGL:Renderer.ID_NGGL4ES);
-                pane.dismiss();if(settings.optBoolean("prepareOnly"))android.widget.Toast.makeText(activity,"安装完成，安卓适配记录保存在实例 updater/android-compatibility 中",android.widget.Toast.LENGTH_LONG).show();else new LauncherHelper(activity,profile,account,version).launch();return null;});
+            ui(activity,()->{profile.setSelectedVersion(version);VersionSetting setting=profile.getRepository().specializeVersionSetting(version);if(setting==null)throw new IOException("版本尚未就绪，请继续安装");setting.setIsolateGameDir(false);setting.setJava("Auto");
+                if(!settings.optBoolean("prepareOnly"))HxzMemory.configure(activity,setting,settings.optInt("memoryMB",0),!id.equals("HXZ-survival"),renderer.equals("zink"),progress);
+                setting.setServerIp(settings.optBoolean("autoJoin",true)?preset.optString("address",""):"");setting.setRenderer(renderer.equals("zink")?Renderer.ID_ZINK:renderer.equals("virgl")?Renderer.ID_VIRGL:Renderer.ID_NGGL4ES);setting.setVKDriverSystem(graphics.systemDriver);if(renderer.equals("zink")&&!graphics.systemDriver)setting.setDriver("Turnip");
+                pane.dismiss();if(settings.optBoolean("prepareOnly"))android.widget.Toast.makeText(activity,"安装完成，安卓适配记录保存在实例 updater/android-compatibility 中",android.widget.Toast.LENGTH_LONG).show();else new LauncherHelper(activity,profile,account,version).launchPrepared();return null;});
         }
     }
 }
