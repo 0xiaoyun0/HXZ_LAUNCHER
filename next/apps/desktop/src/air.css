@@ -133,6 +133,7 @@
 .field>.select{width:100%;align-self:stretch;max-width:100%}
 .menu{min-width:0;width:max-content;max-width:calc(100vw - 24px);max-height:min(55vh,var(--radix-dropdown-menu-content-available-height));box-sizing:border-box}
 .select-menu{min-width:var(--radix-dropdown-menu-trigger-width)}
+.menu.context-menu{min-width:min(14rem,calc(100vw - 24px));max-width:min(22rem,calc(100vw - 24px));max-height:min(calc(100dvh - 24px),var(--radix-dropdown-menu-content-available-height));overscroll-behavior:contain}
 .menu-item{white-space:normal;max-width:min(480px,calc(100vw - 38px));overflow-wrap:anywhere}
 .menu-item>svg,.menu-check{flex-shrink:0}.menu-item>.menu-label{margin-left:0;flex:1;min-width:0}.menu-item>.menu-check{margin-left:auto;display:flex}.menu-item>small{white-space:nowrap}
 
