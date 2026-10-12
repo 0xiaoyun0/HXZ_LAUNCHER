@@ -26,11 +26,15 @@ final class GameEngine {
     private volatile boolean busy,cancelled;
     private String phase="idle",message="可选安装游戏运行组件";
     private long received,total;
-    private JSONObject manifest;
-    GameEngine(CommunityApp app){this.app=app;prefs=app.getSharedPreferences("game-engine",0);File dir=new File(app.getCacheDir(),"game-engine");dir.mkdirs();apk=new File(dir,"engine.apk");part=new File(dir,"engine.part");}
+    private volatile JSONObject manifest;
+    GameEngine(CommunityApp app){this.app=app;prefs=app.getSharedPreferences("game-engine",0);File dir=new File(app.getCacheDir(),"game-engine");dir.mkdirs();apk=new File(dir,"engine.apk");part=new File(dir,"engine.part");if(apk.isFile())try{manifest=verify(prefs.getString("manifest",""));}catch(Exception ignored){manifest=null;}}
     private boolean supported(){return Arrays.asList(Build.SUPPORTED_ABIS).contains("arm64-v8a");}
     private PackageInfo installed(){try{return app.getPackageManager().getPackageInfo(PACKAGE,PackageManager.GET_SIGNING_CERTIFICATES);}catch(Exception e){return null;}}
-    synchronized JSONObject state(){PackageInfo p=installed();return CommunityApp.obj("phase",phase,"message",message,"received",received,"total",total,"busy",busy,"supported",supported(),"installed",p!=null,"trusted",p!=null&&app.getPackageManager().checkSignatures(app.getPackageName(),PACKAGE)==PackageManager.SIGNATURE_MATCH,"version",p==null?"":p.versionName,"riskAccepted",prefs.getBoolean("riskAccepted",false),"ready",apk.isFile());}
+    synchronized JSONObject state(){
+        PackageInfo p=installed();boolean trusted=p!=null&&app.getPackageManager().checkSignatures(app.getPackageName(),PACKAGE)==PackageManager.SIGNATURE_MATCH;
+        JSONObject cached=manifest;boolean ready=apk.isFile()&&cached!=null&&(!trusted||p.getLongVersionCode()<cached.optLong("versionCode"));
+        return CommunityApp.obj("phase",phase,"message",message,"received",received,"total",total,"busy",busy,"supported",supported(),"installed",p!=null,"trusted",trusted,"version",p==null?"":p.versionName,"riskAccepted",prefs.getBoolean("riskAccepted",false),"ready",ready);
+    }
     private synchronized void publish(String stage,String text){phase=stage;message=text;app.event("gameEngine",state());}
     Object call(JSONObject input)throws Exception{
         switch(input.optString("action","state")){
@@ -113,7 +117,7 @@ final class GameEngine {
         if(file.length()!=m.getLong("size")||!UpdateTrust.sha256(file).equalsIgnoreCase(m.getString("sha256")))throw new IOException("运行组件校验失败");PackageManager pm=app.getPackageManager();PackageInfo incoming=pm.getPackageArchiveInfo(file.getPath(),PackageManager.GET_SIGNING_CERTIFICATES),self=pm.getPackageInfo(app.getPackageName(),PackageManager.GET_SIGNING_CERTIFICATES),old=installed();
         if(incoming==null||!PACKAGE.equals(incoming.packageName)||incoming.getLongVersionCode()!=m.getLong("versionCode")||old!=null&&incoming.getLongVersionCode()<old.getLongVersionCode()||incoming.signingInfo==null||!new HashSet<>(Arrays.asList(incoming.signingInfo.getApkContentsSigners())).equals(new HashSet<>(Arrays.asList(self.signingInfo.getApkContentsSigners()))))throw new IOException("运行组件的签名、版本或身份不匹配");
     }
-    private void install()throws Exception{eligible();if(busy)throw new IOException("下载仍在进行");JSONObject m=manifest==null?verify(prefs.getString("manifest","")):manifest;validate(apk,m);app.main.post(()->{MainActivity a=app.activity.get();if(a==null)return;try{if(!app.getPackageManager().canRequestPackageInstalls()){a.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+app.getPackageName())));publish("ready","允许此来源安装后，请返回再次点击安装");return;}a.startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse("content://"+app.getPackageName()+".updates/engine.apk"),"application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));}catch(Exception e){publish("error",CommunityApp.reason(e));}});}
+    private void install()throws Exception{eligible();if(busy)throw new IOException("下载仍在进行");JSONObject m=manifest==null?verify(prefs.getString("manifest","")):manifest;PackageInfo current=installed();if(current!=null&&current.getLongVersionCode()>=m.getLong("versionCode")&&app.getPackageManager().checkSignatures(app.getPackageName(),PACKAGE)==PackageManager.SIGNATURE_MATCH){download();return;}validate(apk,m);app.main.post(()->{MainActivity a=app.activity.get();if(a==null)return;try{if(!app.getPackageManager().canRequestPackageInstalls()){a.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+app.getPackageName())));publish("ready","允许此来源安装后，请返回再次点击安装");return;}a.startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse("content://"+app.getPackageName()+".updates/engine.apk"),"application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));}catch(Exception e){publish("error",CommunityApp.reason(e));}});}
     private void launch(JSONObject input)throws Exception{
         eligible();String id=input.getString("id");if(!Arrays.asList("HXZ-survival","HXZ-mod-1","HXZ-mod-2").contains(id))throw new IOException("实例无效");
         JSONObject response;try{response=(JSONObject)app.request(app.apiUrl("/api/server-presets"),"GET",null,"");prefs.edit().putString("presets",response.toString()).apply();}catch(Exception e){response=new JSONObject(prefs.getString("presets","{}"));}

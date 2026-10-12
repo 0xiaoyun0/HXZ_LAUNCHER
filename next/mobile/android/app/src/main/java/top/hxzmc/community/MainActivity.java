@@ -97,7 +97,7 @@ public final class MainActivity extends Activity {
     static WebResourceResponse response(int status,String mime,byte[] bytes){return new WebResourceResponse(mime,"UTF-8",status,status==200?"OK":"Blocked",Collections.singletonMap("Cache-Control","no-store"),new ByteArrayInputStream(bytes));}
     void emit(String name,Object data){String args=new JSONArray().put(name).put(data).toString();runOnUiThread(()->{if(web!=null)web.evaluateJavascript("window.HXZEvent && window.HXZEvent.apply(null,"+args+")",null);});}
     private void result(String id,Object data,String error){emit("result",CommunityApp.obj("id",id,"data",data==null?JSONObject.NULL:data,"error",error==null?JSONObject.NULL:error));}
-    @Override protected void onResume(){super.onResume();app.foreground=true;app.activity=new java.lang.ref.WeakReference<>(this);app.connect();app.changed();app.updater.foreground();}
+    @Override protected void onResume(){super.onResume();app.foreground=true;app.activity=new java.lang.ref.WeakReference<>(this);app.connect();app.changed();app.updater.foreground();app.event("gameEngine",app.gameEngine.state());}
     @Override public void onConfigurationChanged(android.content.res.Configuration config){super.onConfigurationChanged(config);app.changed();}
     @Override protected void onPause(){super.onPause();app.pressing=false;app.musicSharing=false;if(app.audio!=null)app.audio.clearMusic();app.voiceSettings(CommunityApp.obj("pressing",false));}
     @Override protected void onStop(){super.onStop();app.foreground=false;app.main.postDelayed(()->{if(!app.foreground&&app.room.isEmpty()&&app.recoveryRoom.isEmpty()){app.disconnect(false);app.connection="已暂停";app.changed();}},1500);}
