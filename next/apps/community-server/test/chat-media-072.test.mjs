@@ -1,0 +1,21 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {mkdtemp,rm} from 'node:fs/promises';import {tmpdir} from 'node:os';import {join} from 'node:path';import {randomUUID} from 'node:crypto';import {createChatMedia,chatImage} from '../src/chat-media.mjs';
+test('chat pictures preserve GIFs, cap favorites, expire public links and deduplicate sends',async t=>{
+ const data=await mkdtemp(join(tmpdir(),'hxz-chat072-')),db=new DatabaseSync(':memory:');let clock=Date.now();const user={uid:'a',name:'A'};
+ db.exec('CREATE TABLE messages(id INTEGER PRIMARY KEY AUTOINCREMENT,channel TEXT,uid TEXT,name TEXT,body TEXT,created INTEGER);CREATE TABLE profiles(uid TEXT,version TEXT);');
+ const media=createChatMedia({data,db,auth:r=>r.user,body:async r=>r.body,send:(r,s,v)=>Object.assign(r,{status:s,value:v}),limit(){},broadcast(){},inbox:{validateMentions(){},mentions(){}},now:()=>clock});
+ t.after(async()=>{await media.close();db.close();await rm(data,{recursive:true,force:true});});
+ const call=async(p,body={},method='POST')=>{const res={};await media.route({method,body,user},res,new URL('http://localhost'+p));return res.value;};
+ const gif='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==';
+ const upload=await call('/api/chat-media/upload',{image:gif});assert.equal(upload.mime,'image/gif');
+ for(let i=0;i<100;i++)db.prepare('INSERT INTO chat_stickers VALUES(?,?,?,?,?)').run(user.uid,'fixture-'+i,'图'+i,randomUUID(),clock);
+ await assert.rejects(call('/api/chat/stickers',{id:upload.id}),/100/);
+ db.prepare('DELETE FROM chat_stickers WHERE uid=?').run(user.uid);
+ const input={body:'图片',attachments:[upload.id],requestId:randomUUID()},sent=await call('/api/chat/send',input);assert.equal((await call('/api/chat/send',input)).message.id,sent.message.id);
+ assert.equal(db.prepare('SELECT count(*) n FROM messages').get().n,1);assert.equal(sent.message.attachments.length,1);
+ await call('/api/chat/stickers',{id:upload.id});assert.equal((await call('/api/chat/stickers',{},'GET')).items.length,1);
+ clock+=31*86400000;await media.sweep();assert.equal(db.prepare('SELECT count(*) n FROM chat_media').get().n,1);assert.equal(media.hydrate(sent.message).attachments[0].expired,true);
+ const renewed=await call('/api/chat/send',{attachments:[upload.id],requestId:randomUUID()});assert.equal(renewed.message.attachments[0].expired,undefined);
+ await call('/api/chat/stickers',{id:upload.id},'DELETE');clock+=31*86400000;await media.sweep();assert.equal(db.prepare('SELECT count(*) n FROM chat_media').get().n,0);
+ await assert.rejects(call('/api/chat/send',{attachments:[upload.id],requestId:randomUUID()}),/过期/);
+ assert.throws(()=>chatImage('data:image/svg+xml;base64,PHN2Zy8+'),/支持/);
+});

@@ -1,0 +1,18 @@
+{
+  "version": "0.7.2",
+  "previous": "0.7.1",
+  "tag": "v0.7.2",
+  "date": "2026-10-13",
+  "source": "next",
+  "platforms": [
+    "windows-x64",
+    "windows-ia32",
+    "android"
+  ],
+  "androidVersionCode": 70200,
+  "gameEngineVersionCode": 70003,
+  "communityVersion": "0.7.2",
+  "release": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.7.2",
+  "notes": "next/docs/0.7.2发布说明.md",
+  "deployment": "next/docs/0.7.2部署与验收.md"
+}

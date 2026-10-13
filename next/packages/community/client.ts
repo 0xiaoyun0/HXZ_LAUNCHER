@@ -13,6 +13,7 @@ export interface Member {
   muted: boolean;
 }
 export interface ChatMessage {
+  attachments?:any[];
   id: number;
   uid: string;
   avatarVersion?: string;
@@ -51,6 +52,7 @@ interface Packet {
 }
 export const chatView = reactive({
   draft: "",
+  attachments: [] as any[],
   scrollTop: 0,
   atBottom: true,
   device: "",
@@ -80,6 +82,7 @@ export const community = reactive({
   listenOnly: false,
   voiceTalking: false
 });
+export const voiceActivity=new Map<string,number>();
 let socket: WebSocket | null = null,
   credentials: Session | null = null,
   stream: MediaStream | null = null;
@@ -147,6 +150,7 @@ function syncPeers() {
   community.peers = community.room ? ids.length : 0;
 }
 function voiceCleanup() {
+  voiceActivity.clear();
   voiceGeneration++;
   stream?.getTracks().forEach(track => track.stop());
   stream = null;
@@ -181,6 +185,8 @@ export function disconnect() {
   community.users = [];
   community.messages = [];
   chatView.draft = "";
+  for(const item of chatView.attachments)if(item.preview?.startsWith('blob:'))URL.revokeObjectURL(item.preview);
+  chatView.attachments=[];
   chatView.scrollTop = 0;
   chatView.atBottom = true;
   community.status = "未连接";
@@ -380,6 +386,7 @@ export async function joinVoice(room: string, deviceId = "", listenOnly = false)
   }
   stream = acquired;
   const relay = createRelayVoice({
+    onActivity:(id:string)=>voiceActivity.set(id==='self'?community.id:id,performance.now()),
     canTransmit,
     send: (bytes: ArrayBuffer) => {
       if (
@@ -559,4 +566,5 @@ export async function communityAsset(
 }
 
 export function communityAssetURL(path:string){if(!/^\/api\/(media\/[a-f0-9]{64}|avatars\/\w+)$/.test(path))return '';return (credentials?.base||state.settings.communityUrl.replace(/\/$/,''))+path;}
+export function communityMediaURL(item:any){const base=credentials?.base||state.settings.communityUrl.replace(/\/$/,'');return /^\/api\/chat-media\/[a-f0-9]{64}\/(message\/\d+|saved\/[-\w]{16,80})$/.test(item?.url||'')?base+item.url:'';}
 export function communityAvatar(uid?:string,version?:string){if(!uid||version==='')return '';const base=credentials?.base||state.settings.communityUrl.replace(/\/$/,'');return base+'/api/avatars/'+encodeURIComponent(uid)+(version?'?v='+encodeURIComponent(version):'');}

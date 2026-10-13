@@ -1,7 +1,7 @@
 import captureURL from "./voice-capture.worklet.js?url&no-inline";
 import playbackURL from "./voice-playback.worklet.js?url&no-inline";
 
-export function createRelayVoice({ send, onError, canTransmit = () => true }) {
+export function createRelayVoice({ send, onError, canTransmit = () => true, onActivity = (id) => {} }) {
   let context,
     input,
     capture,
@@ -20,6 +20,7 @@ export function createRelayVoice({ send, onError, canTransmit = () => true }) {
     sequence = 0,
     timestamp = 0,
     lastSilence = 0;
+  const activeAt=new Map();function activity(id,samples){const now=performance.now();if(now-(activeAt.get(id)||0)<160)return;let power=0,count=0;for(let i=0;i<samples.length;i+=4){power+=samples[i]*samples[i];count++;}if(count&&power/count>.00015){activeAt.set(id,now);onActivity(id);}}
   const epoch = crypto.getRandomValues(new Uint32Array(1))[0],
     peers = new Map();
   function remove(id) {
@@ -94,6 +95,7 @@ export function createRelayVoice({ send, onError, canTransmit = () => true }) {
           encoder.encodeQueueSize > 5
         )
           return;
+        if(!muted&&canTransmit())activity('self',data);
         const frame = new AudioData({
           format: "f32-planar",
           sampleRate: 48000,
@@ -153,6 +155,7 @@ export function createRelayVoice({ send, onError, canTransmit = () => true }) {
               if (disposed || deafened) return;
               const samples = new Float32Array(frame.numberOfFrames);
               frame.copyTo(samples, { planeIndex: 0, format: "f32-planar" });
+              activity(id,samples);
               playback.port.postMessage({ id, samples }, [samples.buffer]);
             } finally {
               frame.close();

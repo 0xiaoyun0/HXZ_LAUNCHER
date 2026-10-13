@@ -1,3 +1,4 @@
+import {searchContent} from "./content-search.mjs";
 import { remoteJSON } from "./io.mjs";
 import { getDownloadMode } from "./sources.mjs";
 async function mavenVersions(minecraft, type) {
@@ -102,14 +103,7 @@ export async function loaders(minecraft, type) {
   });
 }
 export async function searchPacks(query, offset = 0) {
-  return remoteJSON(
-    "https://api.modrinth.com/v2/search?facets=" +
-      encodeURIComponent('[["project_type:modpack"]]') +
-      "&query=" +
-      encodeURIComponent(String(query).slice(0, 100)) +
-      "&limit=20&offset=" +
-      Math.max(0, Math.min(Number(offset) || 0, 10000))
-  );
+  return searchContent(query,[["project_type:modpack"]],offset);
 }
 export async function packVersions(id) {
   if (!/^[\w-]{1,100}$/.test(id)) throw Error("无效项目");
@@ -125,14 +119,7 @@ export async function searchMods(
   if (minecraft) facets.push(["versions:" + String(minecraft).slice(0, 40)]);
   if (loader && loader !== "原版")
     facets.push(["categories:" + String(loader).slice(0, 30)]);
-  return remoteJSON(
-    "https://api.modrinth.com/v2/search?facets=" +
-      encodeURIComponent(JSON.stringify(facets)) +
-      "&query=" +
-      encodeURIComponent(String(query || "").slice(0, 100)) +
-      "&limit=20&offset=" +
-      Math.max(0, Math.min(Number(offset) || 0, 10000))
-  );
+  return searchContent(query,facets,offset);
 }
 export async function modVersions(id) {
   if (!/^[\w-]{1,100}$/.test(id)) throw Error("无效模组项目");

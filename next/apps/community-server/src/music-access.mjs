@@ -1,8 +1,9 @@
-export function createMusicAccess({db,auth,admin,adminIDs,body,send,broadcast}) {
+export function createMusicAccess({db,auth,admin,adminIDs,body,send,broadcast,inventory}) {
   db.exec('CREATE TABLE IF NOT EXISTS music_grants(uid TEXT PRIMARY KEY,actor TEXT NOT NULL,created INTEGER NOT NULL)');
-  const allowed=user=>!!user&&(user.consoleAdmin||adminIDs.has(user.uid)||!!db.prepare('SELECT 1 FROM music_grants WHERE uid=?').get(user.uid));
+  const permanent=user=>!!user&&(user.consoleAdmin||adminIDs.has(user.uid)||!!db.prepare('SELECT 1 FROM music_grants WHERE uid=?').get(user.uid));
+  const allowed=user=>!!user&&(permanent(user)||inventory?.has(user.uid,'music.netease'));
   return async(req,res,url)=>{
-    if(url.pathname==='/api/music/access'&&req.method==='GET'){const user=auth(req);send(res,200,{allowed:!!allowed(user),personalAccount:true});return true;}
+    if(url.pathname==='/api/music/access'&&req.method==='GET'){const user=auth(req);send(res,200,{allowed:!!allowed(user),personalAccount:true,expiresAt:permanent(user)?null:inventory?.expires(user.uid,'music.netease')||0});return true;}
     if(url.pathname!=='/api/admin/music')return false;
     const user=admin(req);
     if(req.method==='GET'){send(res,200,{members:db.prepare('SELECT m.*,EXISTS(SELECT 1 FROM music_grants g WHERE g.uid=m.uid) AS enabled FROM members m ORDER BY seen DESC LIMIT 500').all(),grants:db.prepare('SELECT g.uid,m.name,g.created FROM music_grants g LEFT JOIN members m ON m.uid=g.uid ORDER BY g.created DESC').all()});return true;}

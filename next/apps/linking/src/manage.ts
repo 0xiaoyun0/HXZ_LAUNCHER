@@ -46,10 +46,10 @@ export async function startManagement(root:HTMLElement){
       const taskHead=element('div','','activity-row');taskHead.append(element('h2',`任务 · ${draft.tasks.length}`),button('添加任务',()=>{draft.tasks.push({id:id('task'),title:'新任务',description:'',type:'read',archiveId:draft.archives[0]?.id||'',requires:[]});changed();render();}));editor.append(taskHead);
       draft.tasks.forEach((task,index)=>{
         const details=element('details');details.append(element('summary',`${index+1}. ${task.title}`),element('small','固定标识：'+task.id));details.open=draft.tasks.length<4;
-        field(details,'任务名称',task.title,v=>{task.title=v;changed();});field(details,'任务说明',task.description,v=>{task.description=v;changed();},{area:true});selectField(details,'完成方式',task.type,[['read','阅读指定档案'],['code','输入验证口令'],['manual','提交内容，由管理员审核'],['guild','完成公会主线'],['stat','达成服务器统计']],v=>{task.type=v;changed();render();});
+        field(details,'任务名称',task.title,v=>{task.title=v;changed();});field(details,'任务说明',task.description,v=>{task.description=v;changed();},{area:true});selectField(details,'完成方式',task.type,[['read','阅读指定档案'],['code','输入验证口令'],['manual','提交内容，由管理员审核'],['guild','完成协会委托'],['stat','达成服务器统计']],v=>{task.type=v;changed();render();});
         if(task.type==='read')selectField(details,'需要阅读的档案',task.archiveId||'',[['','请选择档案'],...draft.archives.map(a=>[a.id,a.title] as [string,string])],v=>{task.archiveId=v;changed();});
         if(task.type==='code')field(details,task.answerConfigured?'新的验证口令（留空保留现有答案）':'验证口令',task.answer||'',v=>{task.answer=v;changed();},{type:'password'});
-        if(task.type==='guild')field(details,'公会主线任务标识',task.guildId||'',v=>{task.guildId=v;changed();});
+        if(task.type==='guild')field(details,'协会委托任务标识',task.guildId||'',v=>{task.guildId=v;changed();});
         if(task.type==='stat'){selectField(details,'服务器',task.server||'survival',[['survival','原版生存群组'],['mod-1','模组一服'],['mod-2','模组二服']],v=>{task.server=v;changed();});task.server||='survival';field(details,'统计项（例如 minecraft:custom/minecraft:play_time）',task.metric||'',v=>{task.metric=v;changed();});field(details,'目标数值',String(task.value||1),v=>{task.value=Number(v);changed();},{type:'number'});task.value||=1;}
         requirements(details,task.requires,draft.tasks.filter(t=>t.id!==task.id),changed);details.append(button('移除任务',async()=>{if(await ask('移除此任务？引用它的解锁条件也需要调整，已有完成记录会保留。')){draft.tasks.splice(index,1);changed();render();}}));editor.append(details);
       });

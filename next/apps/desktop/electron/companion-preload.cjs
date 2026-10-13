@@ -1,0 +1,14 @@
+const {ipcRenderer}=require('electron');
+let current={},lastMessages='',pending='',busy=false;
+window.addEventListener('DOMContentLoaded',()=>{
+ const field=document.querySelector('textarea'),list=document.querySelector('#messages'),error=document.querySelector('#error');
+ const call=async value=>{const result=await ipcRenderer.invoke('companion:action',value);if(result.error)throw Error(result.error);return result;};
+ for(const button of document.querySelectorAll('[data-action]'))button.onclick=()=>void call({action:button.dataset.action}).catch(e=>error.textContent=e.message);
+ const send=async()=>{if(busy||!field.value.trim())return;busy=true;document.querySelector('#send').disabled=true;const body=field.value.trim();if(!pending)pending=Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');try{await call({action:'send',body,requestId:pending});pending='';if(field.value.trim()===body)field.value='';error.textContent='';list.scrollTop=list.scrollHeight;}catch(e){error.textContent=e.message;}finally{busy=false;document.querySelector('#send').disabled=!current.connected;field.focus();}};
+ field.oninput=()=>pending='';field.onkeydown=e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();void send();}};document.querySelector('form').onsubmit=e=>{e.preventDefault();void send();};document.onkeydown=e=>{if(e.key==='Escape')void call({action:'hide'});};
+ ipcRenderer.on('companion:state',(_,state)=>{
+  current=state;document.body.className=(state.kind==='voice'?'voice ':'')+(state.dark?'dark':'');document.querySelector('#title').textContent=state.kind==='voice'?state.room:state.connected?'文字大厅':'文字大厅 · 社区未连接';field.disabled=!state.connected;document.querySelector('#send').disabled=busy||!state.connected;
+  const speakers=document.querySelector('#speakers');speakers.replaceChildren();for(const item of state.speakers||[]){const span=document.createElement('span');span.textContent=item.name;speakers.append(span);}if(!state.speakers?.length){const em=document.createElement('em');em.textContent='已在语音房间 · 等待伙伴说话';speakers.append(em);}
+  if(state.kind==='voice')return;const fingerprint=JSON.stringify(state.messages);if(fingerprint===lastMessages)return;const bottom=!lastMessages||list.scrollHeight-list.clientHeight-list.scrollTop<50;lastMessages=fingerprint;list.replaceChildren();for(const message of state.messages||[]){const article=document.createElement('article'),meta=document.createElement('small'),text=document.createElement('p');article.className=message.uid===state.uid?'own':'';meta.textContent=message.name+' · '+new Date(message.created).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});text.textContent=message.body+(message.image?'\n[图片 · 可在启动器查看]':'');article.append(meta,text);list.append(article);}if(bottom)list.scrollTop=list.scrollHeight;
+ });
+});

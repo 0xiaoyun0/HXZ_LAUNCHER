@@ -106,7 +106,7 @@ export async function remoteJSON(url, options = {}) {
 async function remoteJSONAttempt(url, options = {}) {
   const candidates=preferHealthy(!options.method||options.method==='GET'?downloadSources(url):[url]);
   if(candidates.length===1)return remoteJSONOnce(candidates[0],options);
-  const read=async(candidate,settings)=>{let failure;for(let n=1;n<=5;n++){try{return await remoteJSONOnce(candidate,{...settings,timeoutMs:settings.timeoutMs??6000});}catch(error){settings.signal?.throwIfAborted();failure=error;sourceStatus(error,candidate,n);if(!networkFailure(error)||error.status===429||n===5)throw error;await delay(settings.retryDelay??Math.min(2000,250*2**(n-1)),undefined,{signal:settings.signal});}}throw failure;};
+  const read=async(candidate,settings)=>{let failure;for(let n=1;n<=5;n++){try{return await remoteJSONOnce(candidate,{...settings,timeoutMs:settings.timeoutMs??(/modrinth|mcimirror/.test(new URL(candidate).hostname)?20000:6000)});}catch(error){settings.signal?.throwIfAborted();failure=error;sourceStatus(error,candidate,n);if(!networkFailure(error)||error.status===429||n===5)throw error;await delay(settings.retryDelay??Math.min(2000,250*2**(n-1)),undefined,{signal:settings.signal});}}throw failure;};
   if(getDownloadMode()==='official'){
     let failure;for(const candidate of candidates)try{return await read(candidate,options);}catch(error){options.signal?.throwIfAborted();failure=error;sourceStatus(error,candidate,1);sourceFailures.set(new URL(candidate).host,Date.now()+15000);}throw failure;
   }
@@ -263,7 +263,7 @@ async function downloadFile(url, file, options = {}) {
 async function segmentedDownload(urls,file,options){
  let until=Date.now()+(options.retryBudgetMs??120000),completed=-1;
  for(;;)try{return await downloadRanges(urls,file,options,{slot:downloadSlot,hash,noLinks,writeJSON,limit:downloadLimit,active:()=>pendingDownloads.size,report:downloadObserver,throttle:(bytes,signal)=>downloadLimiter.wait(bytes,signal)});}
- catch(error){options.signal?.throwIfAborted();if(!error.partialRanges)throw error;if(error.completedRanges>completed){completed=error.completedRanges;until=Date.now()+(options.retryBudgetMs??120000);}if(Date.now()>=until)throw error;downloadObserver({source:new URL(urls[0]).hostname,message:'正在继续未完成的分段，已校验部分保留'});await delay(options.retryDelay??1000,undefined,{signal:options.signal});}
+ catch(error){options.signal?.throwIfAborted();if(!error.partialRanges)throw error;if((error.completedBytes??error.completedRanges)>completed){completed=error.completedBytes??error.completedRanges;until=Date.now()+(options.retryBudgetMs??120000);}if(Date.now()>=until)throw error;downloadObserver({source:new URL(urls[0]).hostname,message:'正在继续未完成的分段，已下载内容保留，完成后统一校验'});await delay(options.retryDelay??1000,undefined,{signal:options.signal});}
 }
 async function downloadOne(
   url,
@@ -354,7 +354,7 @@ async function downloadOne(
       clearTimeout(idle);
       idle = setTimeout(
         () => controller.abort(Error("下载长时间没有数据")),
-        45000
+        pendingDownloads.size<=Math.max(1,downloadLimit/4)?12000:30000
       );
     };
     touch();

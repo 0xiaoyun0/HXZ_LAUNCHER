@@ -10,7 +10,7 @@ export function createAdmin({data,db,issue,admin,send,body,limit,clients,broadca
  let config=existsSync(configFile)?JSON.parse(readFileSync(configFile,'utf8')):{};
  const apply=()=>{Object.assign(updateSources,normalizeSources(config.hxzSources||{}));for(const id of config.adminIDs||[])adminIDs.add(id);for(const key of ['HXZ_TURN_URL','HXZ_TURN_SECRET'])if(config[key])process.env[key]=config[key];};apply();
  const save=(file,value)=>{writeFileSync(file+'.tmp',JSON.stringify(value,null,2),{mode:0o600});renameSync(file+'.tmp',file);};
- const assets=new Map([['/admin/',['index.html','text/html; charset=utf-8']],['/admin/app.js',['app.js','text/javascript; charset=utf-8']],['/admin/style.css',['style.css','text/css; charset=utf-8']],...['guild.js','image-upload.js','guild.css','operations.js'].map(name=>['/admin/'+name,[name,name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8']])]);
+ const assets=new Map([['/admin/',['index.html','text/html; charset=utf-8']],['/admin/app.js',['app.js','text/javascript; charset=utf-8']],['/admin/style.css',['style.css','text/css; charset=utf-8']],...['guild.js','image-upload.js','guild.css','operations.js','inventory.js','inventory.css'].map(name=>['/admin/'+name,[name,name.endsWith('.css')?'text/css; charset=utf-8':'text/javascript; charset=utf-8']])]);
  return async(req,res,url)=>{
   if(url.pathname==='/'||url.pathname==='/admin'){res.writeHead(302,{Location:'/admin/'});res.end();return true;}
   if(url.pathname.startsWith('/admin/linking/')){

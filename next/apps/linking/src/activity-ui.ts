@@ -35,7 +35,7 @@ export function showTasks(){
     if(task.submission?.note)card.append(element('p','审核反馈：'+task.submission.note));
     if(!task.completed&&task.available&&task.submission?.status!=='pending'){
       if(task.type==='read'){card.append(button('前往对应档案',()=>{p.close();window.dispatchEvent(new CustomEvent('linking-select',{detail:task.archiveId}));}));}
-      else if(task.type==='guild'||task.type==='stat'){card.append(element('p',task.type==='guild'?'完成冒险者公会中的对应主线任务后，同步进度即可解锁。':'以游戏服务器同步的统计为准，达成目标后点击同步进度。','activity-muted'));}
+      else if(task.type==='guild'||task.type==='stat'){card.append(element('p',task.type==='guild'?'完成冒险家协会中的对应主线任务后，同步进度即可解锁。':'以游戏服务器同步的统计为准，达成目标后点击同步进度。','activity-muted'));}
       else{let value='';const input=field(card,task.type==='code'?'验证口令':'探索手记','',v=>value=v,{area:task.type==='manual'});input.maxLength=task.type==='code'?200:8000;
         card.append(button(t('submit'),async()=>{await action('submit',task.id,task.type==='code'?{answer:value}:{submission:value});p.close();showTasks();notice(task.type==='manual'?'已提交，等待审核':'任务已完成');},'primary'));
       }

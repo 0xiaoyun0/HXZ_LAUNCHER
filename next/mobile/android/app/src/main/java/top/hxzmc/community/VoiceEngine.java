@@ -54,6 +54,7 @@ final class VoiceEngine implements AutoCloseable {
         capture=new Thread(this::capture,"HXZ microphone");playback=new Thread(this::play,"HXZ voice mixer");capture.start();playback.start();
         app.voiceSettings(CommunityApp.obj("muted",app.muted,"deafened",app.deafened,"ptt",app.ptt));
     }
+    private void activity(String id,short[] samples,int length){long now=SystemClock.elapsedRealtime();if(now-app.voiceActivity.getOrDefault(id,0L)<160)return;double sum=0;int n=0;for(int i=0;i<length;i+=4){sum+=(double)samples[i]*samples[i];n++;}if(n>0&&sum/n>161000)app.voiceActivity.put(id,now);}
     private void capture() {
         android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
         try {
@@ -68,6 +69,7 @@ final class VoiceEngine implements AutoCloseable {
                 float target=Math.min(1f,22000f/peak);inputGain=target<inputGain?target:Math.min(target,inputGain+.025f);
                 for(int i=0;i<FRAME;i++){float sample=pcm[i]*inputGain+(music==null?0:music[i]*.8f);pcm[i]=(short)(32767*Math.tanh(sample/32767f));}
                 if(musicMode!=app.musicSharing){musicMode=app.musicSharing;encoder.setBitrate(musicMode?64000:24000);encoder.setUseDTX(!musicMode);}
+                if(!micMuted)activity(app.selfId,pcm,FRAME);
                 int length=encoder.encode(pcm,0,FRAME,compressed,0,compressed.length);
                 if(!musicMode&&length<=3){long now=SystemClock.elapsedRealtime();if(now-lastSilence<400)continue;lastSilence=now;}
                 WebSocket socket=app.socket;
@@ -102,6 +104,7 @@ final class VoiceEngine implements AutoCloseable {
                         if(peer.decoder==null||peer.epoch!=epoch||seq-peer.sequence>25){peer.decoder=new OpusDecoder(RATE,1);peer.epoch=epoch;peer.sequence=-1;}
                         if(seq<=peer.sequence)continue;peer.sequence=seq;
                         int count=peer.decoder.decode(data,45,data.length-45,peer.pcm,0,FRAME,false);
+                        activity(entry.getKey(),peer.pcm,count);
                         for(int i=0;i<count;i++)sums[i]+=peer.pcm[i];
                         peer.tail=count>0?peer.pcm[count-1]:0;
                     }catch(Exception ignored){peer.decoder=null;}

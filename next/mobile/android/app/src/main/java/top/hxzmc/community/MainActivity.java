@@ -63,6 +63,18 @@ public final class MainActivity extends Activity {
                         Map<String,String> headers=new HashMap<>();headers.put("Content-Length",String.valueOf(length));headers.put("Accept-Ranges","bytes");headers.put("Cache-Control","private, max-age=3600");if(partial)headers.put("Content-Range","bytes "+offset+"-"+end+"/"+media.length());
                         return new WebResourceResponse(type==null?"application/octet-stream":type,null,partial?206:200,partial?"Partial Content":"OK",headers,bounded);
                     }
+                    if(path.matches("/community/api/chat-media/[a-f0-9]{64}/(message/[0-9]+|saved/[-A-Za-z0-9_]{16,80})")){
+                        Response r=app.http.newCall(new Request.Builder().url(app.apiUrl(path.substring("/community".length()))).build()).execute();
+                        String mime=r.header("Content-Type","").split(";")[0];
+                        if(!r.isSuccessful()||!java.util.Arrays.asList("image/png","image/jpeg","image/gif","image/webp").contains(mime)||r.body()==null||r.body().contentLength()>8*1024*1024){r.close();return response(404,"text/plain",new byte[0]);}
+                        InputStream limited=new java.io.FilterInputStream(r.body().byteStream()){
+                            int remaining=8*1024*1024;
+                            public int read()throws IOException{int value=super.read();if(value>=0&&--remaining<0)throw new IOException("图片过大");return value;}
+                            public int read(byte[] target,int off,int len)throws IOException{int count=in.read(target,off,Math.min(len,remaining+1));if(count>0&&(remaining-=count)<0)throw new IOException("图片过大");return count;}
+                            public void close()throws IOException{try{super.close();}finally{r.close();}}
+                        };
+                        return new WebResourceResponse(mime,null,200,"OK",java.util.Collections.singletonMap("Cache-Control","private, max-age=300"),limited);
+                    }
                     if(path.startsWith("/community/api/avatars/")){
                         String endpoint=path.substring("/community".length())+(uri.getQuery()==null?"":"?"+uri.getQuery());
                         try(Response r=app.http.newCall(new Request.Builder().url(app.apiUrl(endpoint)).build()).execute()){
@@ -199,10 +211,11 @@ public final class MainActivity extends Activity {
     private final class Bridge {
         @JavascriptInterface public void musicPCM(String encoded){if(encoded==null||encoded.length()>14000||!app.musicSharing||app.audio==null)return;try{app.audio.music(android.util.Base64.decode(encoded,android.util.Base64.DEFAULT));}catch(Exception ignored){}}
         @JavascriptInterface public void call(String raw){
-            if(raw.length()>1024*1024)return;
+            if(raw.length()>12*1024*1024)return;
             try{
                 JSONObject call=new JSONObject(raw);String id=call.getString("id"),op=call.getString("op");JSONObject input=call.optJSONObject("input");if(input==null)input=new JSONObject();final JSONObject value=input;
                 if(op.equals("appUpdate")){try{String action=value.optString("action","state");Object output;switch(action){case "check":output=app.updater.check();break;case "download":output=app.updater.download();break;case "cancel":output=app.updater.cancel();break;case "install":output=app.updater.install();break;case "settings":output=app.updater.settings(value);break;default:output=app.updater.state();}result(id,output,null);}catch(Exception e){result(id,null,CommunityApp.reason(e));}return;}
+                if(op.equals("voiceOverlay")){runOnUiThread(()->{try{if(app.voiceOverlay==null)app.voiceOverlay=new VoiceOverlay(app);boolean enabled=value.optBoolean("enabled");boolean permission=android.provider.Settings.canDrawOverlays(MainActivity.this);if(enabled&&!permission){startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName())));result(id,CommunityApp.obj("enabled",false,"permission",false),null);}else{app.voiceOverlay.enable(enabled);result(id,CommunityApp.obj("enabled",enabled,"permission",permission),null);}}catch(Exception e){result(id,null,CommunityApp.reason(e));}});return;}
                 if(op.equals("voiceJoin")){runOnUiThread(()->beginVoice(id,value.optString("room")));return;}
                 // Privacy controls must not wait behind uploads or account HTTP calls.
                 if(op.equals("voiceSettings")||op.equals("voiceLeave")||op.equals("speaker")){

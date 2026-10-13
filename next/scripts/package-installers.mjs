@@ -8,6 +8,7 @@ for(const arch of ['x64','ia32']){
  const base=path.join(root,'.runtime/installers',arch),app=path.join(base,'app'),output=path.join(base,'output'),delivery=path.join(root,'release',version,'windows-'+arch);await freshStaging(root,app);await fs.mkdir(output,{recursive:true});await fs.mkdir(delivery,{recursive:true});await copyCardLicenses(root,base);
  await fs.cp('apps/desktop/dist',path.join(app,'dist'),{recursive:true});await fs.mkdir(path.join(app,'electron-build'),{recursive:true});await fs.copyFile('apps/desktop/electron/preload.cjs',path.join(app,'electron-build/preload.cjs'));
  await fs.copyFile('apps/desktop/electron/lyrics-preload.cjs',path.join(app,'electron-build/lyrics-preload.cjs'));
+ await fs.copyFile('apps/desktop/electron/companion-preload.cjs',path.join(app,'electron-build/companion-preload.cjs'));
  await fs.copyFile('apps/desktop/electron/p2p-preload.cjs',path.join(app,'electron-build/p2p-preload.cjs'));
  const contents=(arch==='ia32'?"import './apps/desktop/electron/legacy-polyfills.cjs';":"")+"import './apps/desktop/electron/main.mjs';";
  await bundle({plugins:[bundleNetwork],stdin:{contents,resolveDir:root},bundle:true,platform:'node',format:'cjs',target:arch==='ia32'?'node16':'node22',outfile:path.join(app,'electron-build/main.cjs'),external:['electron'],define:{'import.meta.dirname':'__dirname','import.meta.url':'__bundleUrl'},banner:{js:'const __bundleUrl=require("node:url").pathToFileURL(__filename).href;'}});

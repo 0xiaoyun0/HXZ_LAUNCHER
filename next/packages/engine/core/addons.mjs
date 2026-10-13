@@ -5,6 +5,7 @@ import {modDirectory,listMods} from './instances.mjs';
 import {readVersion} from './minecraft.mjs';
 import {instanceTarget} from './mod-plan.mjs';
 import {getDownloadMode} from './sources.mjs';
+import {searchContent} from './content-search.mjs';
 const API='https://api.modrinth.com/v2';
 const kinds=['datapack','resourcepack','shader'];
 async function target(settings,id){const mods=await modDirectory(settings,id);return {root:path.dirname(mods),version:instanceTarget(await readVersion(settings.gameRoot,id)).minecraft};}
@@ -12,7 +13,7 @@ export async function addonWorlds(settings,id){const {root}=await target(setting
 export async function addonSearch(settings,input){
  if(!kinds.includes(input.kind))throw Error('资源类型无效');const {version}=await target(settings,input.instance);
  const facets=[[input.kind==='datapack'?'categories:datapack':'project_type:'+input.kind],['versions:'+version]];
- return remoteJSON(API+'/search?'+new URLSearchParams({query:String(input.query||'').slice(0,100),facets:JSON.stringify(facets),limit:'20',offset:String(Math.max(0,Math.floor(Number(input.offset)||0)))}));
+ return searchContent(input.query,facets,input.offset);
 }
 export async function addonInstall(settings,input,{signal,onTransfer}={}){
  if(!kinds.includes(input.kind)||!/^[-\w]{1,100}$/.test(input.project))throw Error('资源项目无效');

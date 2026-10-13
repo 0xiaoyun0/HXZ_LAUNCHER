@@ -1,16 +1,16 @@
 import {dialRoom,publicAddress,portNumber,parseInvitation,validFingerprint} from './direct-wire.mjs';
 
-export function createDirectLobby({db,auth,admin,body,send,limit}){
+export function createDirectLobby({db,auth,admin,body,send,limit,inventory}){
  const rooms=new Map();
  db.exec(`CREATE TABLE IF NOT EXISTS direct_lobby_hosts(uid TEXT PRIMARY KEY,granted_by TEXT NOT NULL,created INTEGER NOT NULL);
  CREATE TABLE IF NOT EXISTS direct_lobby_audit(id INTEGER PRIMARY KEY AUTOINCREMENT,actor TEXT NOT NULL,target TEXT NOT NULL,action TEXT NOT NULL,created INTEGER NOT NULL);`);
- const access=req=>{const user=auth(req);let manager=false;try{admin(req);manager=true;}catch{}return {user,manager,canHost:manager||!!db.prepare('SELECT 1 FROM direct_lobby_hosts WHERE uid=?').get(user.uid)};};
+ const access=req=>{const user=auth(req);let manager=false;try{admin(req);manager=true;}catch{}const permanent=manager||!!db.prepare('SELECT 1 FROM direct_lobby_hosts WHERE uid=?').get(user.uid);return {user,manager,permanent,canHost:permanent||!!inventory?.has(user.uid,'lobby.host')};};
  return async(req,res,url)=>{
   const p=url.pathname;if(!p.startsWith('/api/lobby/')&&!p.startsWith('/api/admin/lobby/'))return false;
-  const {user,manager,canHost}=access(req);limit('lobby:'+user.uid,30);
-  if(p==='/api/lobby/access'&&req.method==='GET'){send(res,200,{version:1,uid:user.uid,name:user.name,admin:manager,canHost});return true;}
+  const {user,manager,permanent,canHost}=access(req);limit('lobby:'+user.uid,30);
+  if(p==='/api/lobby/access'&&req.method==='GET'){send(res,200,{version:1,uid:user.uid,name:user.name,admin:manager,canHost,expiresAt:permanent?null:inventory?.expires(user.uid,'lobby.host')||0});return true;}
   if(p==='/api/lobby/rooms'&&req.method==='GET'){
-   for(const [id,room] of rooms)if(room.seen<Date.now()-90000)rooms.delete(id);
+   for(const [id,room] of rooms)if(room.seen<Date.now()-90000||room.permissionExpires&&room.permissionExpires<=Date.now())rooms.delete(id);
    send(res,200,{items:[...rooms.values()].map(({seen,...room})=>room).sort((a,b)=>Number(b.ready)-Number(a.ready)||b.created-a.created).slice(0,100)});return true;
   }
   if(p==='/api/lobby/rooms'&&req.method==='DELETE'){
@@ -26,16 +26,16 @@ export function createDirectLobby({db,auth,admin,body,send,limit}){
     db.prepare('INSERT INTO direct_lobby_audit(actor,target,action,created) VALUES(?,?,?,?)').run(user.uid,input.uid,input.enabled?'grant':'revoke',Date.now());send(res,200,{ok:true});return true;
    }
   }
-  if(!canHost){send(res,403,{error:'需要社区管理员授予创建房间权限'});return true;}
+  if(!canHost){send(res,403,{error:'开房权限未开通或已到期，可在背包使用联机开房凭证，或联系管理员'});return true;}
   if(p==='/api/lobby/rooms'&&req.method==='POST'){
    const input=await body(req,8192),value=parseInvitation(input.invite);
    if(value.expires>Date.now()+13*3600000)throw Error('房间有效期过长');
    for(const [id,room] of rooms)if(room.seen<Date.now()-90000||room.uid===user.uid&&id!==value.id)rooms.delete(id);
    if(rooms.has(value.id)&&rooms.get(value.id).uid!==user.uid)throw Error('房间不属于当前用户');
    if(rooms.size>=100&&!rooms.has(value.id))throw Error('当前房间列表已满，请使用邀请加入');
-   rooms.set(value.id,{id:value.id,uid:user.uid,owner:user.name,name:value.name,invite:input.invite,ready:input.ready===true,version:String(input.version||'').slice(0,50),loader:String(input.loader||'').slice(0,30),scope:input.scope==='lan'?'lan':input.scope==='virtual'?'virtual':'internet',connections:Math.max(0,Math.min(32,Number(input.connections)||0)),created:rooms.get(value.id)?.created||Date.now(),seen:Date.now()});send(res,200,{ok:true});return true;
+   rooms.set(value.id,{id:value.id,uid:user.uid,owner:user.name,name:value.name,invite:input.invite,ready:input.ready===true,version:String(input.version||'').slice(0,50),loader:String(input.loader||'').slice(0,30),scope:input.scope==='lan'?'lan':input.scope==='virtual'?'virtual':'internet',connections:Math.max(0,Math.min(32,Number(input.connections)||0)),created:rooms.get(value.id)?.created||Date.now(),seen:Date.now(),permissionExpires:permanent?0:inventory.expires(user.uid,'lobby.host')});send(res,200,{ok:true});return true;
   }
-  if(p==='/api/lobby/lease'&&req.method==='POST'){send(res,200,{allowed:true,uid:user.uid,expiresAt:Date.now()+600000});return true;}
+  if(p==='/api/lobby/lease'&&req.method==='POST'){send(res,200,{allowed:true,uid:user.uid,expiresAt:permanent?Date.now()+600000:Math.min(Date.now()+600000,inventory.expires(user.uid,'lobby.host'))});return true;}
   if(p==='/api/lobby/probe'&&req.method==='POST'){
    limit('lobby-probe:'+user.uid,8);const input=await body(req,8192);
    if(typeof input.host!=='string'||!publicAddress(input.host)||!/^[-\w]{16,80}$/.test(input.id)||!/^[-\w]{43}$/.test(input.key)||!validFingerprint(input.fingerprint))throw Error('只能检查有效的公网直连地址');

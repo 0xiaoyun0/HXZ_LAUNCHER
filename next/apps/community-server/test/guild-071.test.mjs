@@ -25,4 +25,9 @@ test('guild escrow survives withdrawal, supplement, delivery and repeated confir
  const item=randomUUID(),itemurl='/api/guild/'+item;
  await req('owner','/api/guild',{requestId:item,title:'木材换取',description:'约定游戏内交付',kind:'request',rewardType:'items',reward:'一组钻石',images:[]},201);await req('admin',itemurl+'/review',{status:'approved'});await req('player',itemurl+'/accept',{});await req('player',itemurl+'/submit',{body:'已完成',images:[]});
  const c=(await req('owner',itemurl)).claims[0].id;await req('owner',itemurl+'/resolve',{claim:c,approved:true},400);await req('owner',itemurl+'/resolve',{claim:c,approved:true,delivered:true});
+ assert.equal((await req('player',itemurl)).status,'delivery');
+ await req('owner',itemurl+'/receipt',{received:true},403);
+ await req('player',itemurl+'/receipt',{received:true});await req('player',itemurl+'/receipt',{received:true});
+ assert.equal((await req('player',itemurl)).status,'completed');
+ assert.equal((await req('player','/api/points')).balance,'25');
 });

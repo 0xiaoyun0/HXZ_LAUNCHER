@@ -1,3 +1,4 @@
+import {normalizeShortcuts} from './shortcuts.mjs';
 import {createMusicService} from './music.mjs';
 import {createDirectLobby} from './direct-lobby.mjs';
 import {prepareDirectHelper} from './direct-helper.mjs';
@@ -67,7 +68,7 @@ const LIVE_SETTINGS = new Set([
   'backgroundPositionY','backgroundFit','backgroundVideo','backgroundMusic',
   'defaultCover','musicVolume','videoQuality','linkingDiscovered','showLinking',
   'cardPlacements','widgets','layout','cardLayouts','cardStyle','columns','hiddenLinks','pinnedLinks','animationSpeed',
-  'onboardingDone','gameSleep','memoryOptimization','showCover','voiceMode','voiceKey','voiceSounds','chatHistoryDays','downloadSpeedMBps'
+  'shortcuts','shortcutEnabled','voiceOverlay','gameWindowAction','onboardingDone','gameSleep','memoryOptimization','showCover','voiceMode','voiceKey','voiceSounds','chatHistoryDays','downloadSpeedMBps'
 ]);
 export async function createServices({
   data,
@@ -100,7 +101,7 @@ export async function createServices({
     theme: "light",
     fontSize: 16,
     accentColor: "#5668bc",
-    cardLayouts: {},cardPlacements:{},widgets:[],gameSleep:true,memoryOptimization:true,onboardingDone:false,
+    cardLayouts: {},cardPlacements:{},widgets:[],shortcuts:{},shortcutEnabled:true,voiceOverlay:false,gameWindowAction:'minimize',gameSleep:true,memoryOptimization:true,onboardingDone:false,
     cardStyle: {color:'',opacity:1,gap:14,radius:10},
     backgroundColor: "",
     blueprintInstance:"",showCover:true,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
@@ -1253,7 +1254,9 @@ export async function createServices({
           throw Error("更新弹窗设置无效");
         nextSettings.hxzupPopup = input.hxzupPopup;
       }
-      for (const key of ['gameSleep','memoryOptimization','onboardingDone','chinesePaths','confirmUnsaved','instancesCollapsed','promptJavaDownload','showCover'])
+      if(input.shortcuts!=null)nextSettings.shortcuts=normalizeShortcuts(input.shortcuts);
+      if(input.gameWindowAction!=null){if(!['keep','minimize','hide'].includes(input.gameWindowAction))throw Error('游戏窗口操作无效');nextSettings.gameWindowAction=input.gameWindowAction;}
+      for (const key of ['shortcutEnabled','voiceOverlay','gameSleep','memoryOptimization','onboardingDone','chinesePaths','confirmUnsaved','instancesCollapsed','promptJavaDownload','showCover'])
         if (typeof input[key] === 'boolean') nextSettings[key] = input[key];
       if (input.chatHistoryDays != null) {
         if (![0,1,3,5,7,30].includes(input.chatHistoryDays)) throw Error('聊天记录范围无效');

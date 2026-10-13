@@ -8,8 +8,9 @@ server {
     server_name community.example.com;
     ssl_certificate /etc/letsencrypt/live/community.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/community.example.com/privkey.pem;
-    # Blueprint files are limited to 8 MB; API metadata has smaller per-route limits.
-    client_max_body_size 8m;
+    # Chat uses JSON/base64: an 8 MiB image needs about 11 MiB on the wire.
+    # The application still validates each route's decoded byte and pixel limits.
+    client_max_body_size 12m;
     location / {
         proxy_pass http://127.0.0.1:8787;
         proxy_http_version 1.1;

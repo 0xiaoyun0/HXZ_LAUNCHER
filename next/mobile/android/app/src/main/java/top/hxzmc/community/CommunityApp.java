@@ -56,10 +56,12 @@ public final class CommunityApp extends Application {
         JSONObject selected = credentials.optJSONObject("selectedProfile");
         return obj("server",base,"user",user,"profiles",profiles==null?new JSONArray():profiles,"selectedProfile",selected==null?JSONObject.NULL:selected,
             "hasAccount",credentials.has("accessToken"),"connected",connected,"connection",connection,"users",users,"messages",messages,
-            "voiceRooms",voiceRooms,"room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.7.1",
+            "voiceRooms",voiceRooms,"room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.7.2",
             "systemDark",(getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)==android.content.res.Configuration.UI_MODE_NIGHT_YES);
     }
     void event(String name, Object value) { MainActivity a=activity.get(); if(a!=null)a.emit(name,value); }
+    final java.util.Map<String,Long> voiceActivity=new java.util.concurrent.ConcurrentHashMap<>();
+    VoiceOverlay voiceOverlay;
     void changed() { JSONObject update=state();update.remove("messages");event("state",update); }
     static String validBase(String raw) throws Exception {
         HttpUrl url = HttpUrl.parse(raw.trim());
@@ -136,7 +138,7 @@ public final class CommunityApp extends Application {
         String path=input.getString("path"), method=input.optString("method","GET");
         if(!Arrays.asList("GET","POST","PUT","DELETE").contains(method))throw new IOException("请求方式无效");
         String url=apiUrl(path), auth=session();
-        if(path.equals("/api/session")||(path.startsWith("/api/admin/")&&!path.matches("/api/admin/(guild(?:/[a-z0-9-]+)*|inbox/send|music|lobby/(grants|relay)|server-online|linking(?:/[a-z0-9-]+)*(?:\\?offset=[0-9]+)?)")))throw new IOException("此接口不向页面开放");
+        if(path.equals("/api/session")||(path.startsWith("/api/admin/")&&!path.matches("/api/admin/(inventory(?:/(items|mail|codes))?|guild(?:/[a-z0-9-]+)*|inbox/send|music|lobby/(grants|relay)|server-online|linking(?:/[a-z0-9-]+)*(?:\\?offset=[0-9]+)?)")))throw new IOException("此接口不向页面开放");
         return request(url,method,input.optJSONObject("body"),auth);
     }}
     void logout() { synchronized(authLock) {
@@ -214,10 +216,11 @@ public final class CommunityApp extends Application {
         main.postDelayed(()->{if(room.isEmpty()){recoveryRoom="";stopAudio();}},12000);
     }
     synchronized void startAudio() {
+        if(voiceOverlay==null)voiceOverlay=new VoiceOverlay(this);voiceOverlay.refresh();
         if(audio!=null)return;
         try{audio=new VoiceEngine(this);audio.start();}catch(Exception e){event("error","无法开启语音："+reason(e));leave();}
     }
     synchronized void leave(){send(obj("type","voice-leave"));room="";recoveryRoom="";pressing=false;musicSharing=false;stopAudio();changed();}
-    void stopAudio(){VoiceEngine engine=audio;audio=null;if(engine!=null)engine.close();stopService(new Intent(this,VoiceService.class));}
+    void stopAudio(){voiceActivity.clear();if(voiceOverlay!=null)main.post(()->voiceOverlay.close());VoiceEngine engine=audio;audio=null;if(engine!=null)engine.close();stopService(new Intent(this,VoiceService.class));}
     void voiceSettings(JSONObject input){muted=input.optBoolean("muted",muted);deafened=input.optBoolean("deafened",deafened);ptt=input.optBoolean("ptt",ptt);pressing=input.optBoolean("pressing",false);send(obj("type","voice-mute","muted",!musicSharing&&(muted||ptt&&!pressing)));send(obj("type","voice-deafen","deafened",deafened));changed();}
 }

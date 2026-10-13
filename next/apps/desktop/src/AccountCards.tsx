@@ -1,11 +1,14 @@
 import {useState,useEffect,useRef} from 'react';
 import {useSnapshot} from 'valtio';
-import {UserPlus,Globe,LogOut,RefreshCw,Coins,Camera,ArrowLeft} from 'lucide-react';
+import {UserPlus,Globe,LogOut,RefreshCw,Coins,Camera,ArrowLeft,Backpack} from 'lucide-react';
+import {useNavigate,useSearchParams} from 'react-router-dom';
 import {state,ui,invoke,reload,perform,saveSettings,account,notify} from './model';
 import {community,communityRequest,connect,disconnect} from '../../../packages/community/client';
 import {Button,Avatar,PageTitle,Select,Field,date,Empty} from './ui';
 import {CardBoard,type CardSpec} from './CardBoard';
 export function AccountPage(){
+ const navigate=useNavigate(),[params]=useSearchParams();
+ useEffect(()=>{if(params.get('backpack'))navigate('/account/backpack',{replace:true});},[params,navigate]);
  const s=useSnapshot(state),u=useSnapshot(ui),c=useSnapshot(community),[skin,setSkin]=useState(false),[wallet,setWallet]=useState<any>(null),[error,setError]=useState(''),[code,setCode]=useState(''),[offset,setOffset]=useState(0);
  const box=useRef<HTMLDivElement>(null),selected=account(s),generation=useRef(0);
  async function loadWallet(){const id=++generation.current;try{const value=await communityRequest('/api/points?offset='+offset,{},true);if(id===generation.current){setWallet(value);setError('');}}catch(e:any){if(id===generation.current)setError(e.message);}}
@@ -18,5 +21,5 @@ export function AccountPage(){
  {id:'wallet',title:'我的积分',x:4,y:0,w:8,h:10,minW:5,minH:9,content:<section className="wallet-panel"><div><span className="eyebrow">可用余额</span><h2>{wallet?.balance??'—'}<small>积分</small></h2></div><Coins size={46} strokeWidth={1.2}/><div className="wallet-actions"><input placeholder="输入积分兑换码" aria-label="积分兑换码" value={code} onChange={e=>setCode(e.target.value)}/><Button tone="solid" disabled={!code.trim()||!c.connected} onClick={async()=>{await communityRequest('/api/points/redeem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:code.trim()})},true);setCode('');await loadWallet();notify('兑换成功');}}>兑换</Button></div></section>},
  {id:'ledger',title:'收支记录',x:4,y:10,w:8,h:18,minW:5,minH:12,content:<><div className="ledger-heading"><small>消费不会扣除已经获得的榜单积分</small><Button icon={RefreshCw} disabled={!c.connected} onClick={loadWallet}>刷新</Button></div>{error&&<p className="inline-error">{error}</p>}{wallet?.ledger?.length?<><div className="transaction-list">{wallet.ledger.map((entry:any)=><div key={entry.id}><span><strong>{entry.reason}</strong><small>{date(entry.created)}</small></span><b className={String(entry.amount).startsWith('-')?'':'positive'}>{String(entry.amount).startsWith('-')?'':'+'}{entry.amount}</b></div>)}</div><div className="pagination"><Button disabled={!offset} onClick={()=>setOffset(Math.max(0,offset-30))}>上一页</Button><span>{Math.floor(offset/30)+1}</span><Button disabled={offset+30>=wallet.total} onClick={()=>setOffset(offset+30)}>下一页</Button></div></>:<Empty icon={Coins} title={c.connected?'暂无收支记录':'连接社区后查看积分'}/>}</>}
  ];
- return <div className="standard-page"><PageTitle title="账号管理" actions={<Button icon={UserPlus} onClick={()=>ui.dialog='account'}>添加账号</Button>}/><CardBoard id="account" cards={cards}/></div>;
+ return <div className="standard-page"><PageTitle title="账号管理" actions={<><Button icon={Backpack} onClick={()=>navigate('/account/backpack')}>我的背包</Button><Button icon={UserPlus} onClick={()=>ui.dialog='account'}>添加账号</Button></>}/><CardBoard id="account" cards={cards}/></div>;
 }
