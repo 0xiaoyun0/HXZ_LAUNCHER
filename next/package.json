@@ -1,6 +1,6 @@
 {
   "name": "fantasy-town-next",
-  "version": "0.7.2",
+  "version": "0.7.3",
   "private": true,
   "type": "module",
   "description": "幻想镇 · 全新桌面启动器与服务器官网",
@@ -36,7 +36,8 @@
     "valtio": "^2.1.0",
     "ws": "8.18.3",
     "yauzl": "^3.2.0",
-    "yazl": "^3.3.1"
+    "yazl": "^3.3.1",
+    "default-gateway": "7.2.2"
   },
   "devDependencies": {
     "@electron/asar": "^4.3.1",

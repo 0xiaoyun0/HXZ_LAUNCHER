@@ -3,7 +3,7 @@ import {ref,onMounted,onBeforeUnmount} from 'vue';
 import {api,native,state} from './native.js';
 import Icon from './Icon.vue';import OnlinePlayers from './OnlinePlayers.vue';
 const items=ref([]),access=ref({}),grants=ref([]),uid=ref(''),name=ref(''),busy=ref(false),error=ref(''),notice=ref('');let timer;
-async function refresh(){if(busy.value)return;busy.value=true;error.value='';try{const [a,r]=await Promise.all([api('/api/lobby/access'),api('/api/lobby/rooms')]);access.value=a;items.value=r.items||[];if(a.admin)grants.value=(await api('/api/admin/lobby/grants')).items||[];}catch(e){error.value=/404|Not Found/i.test(e.message)?'请管理员更新到 0.7.2 完整社区服务端。':e.message;}finally{busy.value=false;}}
+async function refresh(){if(busy.value)return;busy.value=true;error.value='';try{const [a,r]=await Promise.all([api('/api/lobby/access'),api('/api/lobby/rooms')]);access.value=a;items.value=r.items||[];if(a.admin)grants.value=(await api('/api/admin/lobby/grants')).items||[];}catch(e){error.value=/404|Not Found/i.test(e.message)?'请管理员更新到 0.7.3 完整社区服务端。':e.message;}finally{busy.value=false;}}
 async function copy(room){try{await native('clipboard',{text:room.invite});notice.value='邀请已复制，可在电脑启动器的联机大厅加入';}catch(e){error.value=e.message;}}
 async function grant(id,remove=false){busy.value=true;try{await api('/api/admin/lobby/grants','POST',{uid:id,enabled:!remove});uid.value='';name.value='';}catch(e){error.value=e.message;}finally{busy.value=false;}if(!error.value)await refresh();}
 onMounted(()=>{void refresh();timer=setInterval(()=>{if(!document.hidden)void refresh();},20000);});onBeforeUnmount(()=>clearInterval(timer));

@@ -112,7 +112,7 @@ export function createCommunity(options={}) {
   const werewolf=createWerewolf({auth,body,send,limit,points,broadcast});
   const tanks=createTankRooms({auth,body,send,limit,broadcast,points});
   const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast,points});
-  const feedbackRoute=createFeedback({db,auth,admin,body,send,limit});
+  const feedbackRoute=createFeedback({db,auth,admin,body,send,limit,inbox,adminIDs});
   const directLobby=createDirectLobby({db,auth,admin,body,send,limit,inventory});
   const p2pSignal=createLobbySignal({db,auth,admin,verify,body,send,limit,canHost:user=>!!(user.consoleAdmin||adminIDs.has(user.uid)||db.prepare('SELECT 1 FROM direct_lobby_hosts WHERE uid=?').get(user.uid)||inventory.has(user.uid,'lobby.host'))});
   const server=http.createServer(async(req,res)=>{

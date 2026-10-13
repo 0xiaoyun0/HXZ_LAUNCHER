@@ -24,7 +24,7 @@ const catalog=[...GAMES.map((item,index)=>({...item,number:item.number||index+1,
 let fitObserver,fitFrame=0;
 function fitFocus(){cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(()=>{
  const play=document.querySelector('.arcade-focus .arcade-play'),stage=play?.querySelector('.arcade-stage'),arena=play?.querySelector('.arcade-arena');if(!stage||!arena)return;
- const ratio=selected.value?.id==='runner'?360/260:3/4;
+ const ratio=['runner','deck'].includes(selected.value?.id)?360/260:3/4;
  const height=Math.max(150,arena.clientHeight),width=arena.clientWidth;
  const next=Math.floor(Math.min(width,height*ratio));if(next>0&&stage.style.width!==next+'px')stage.style.width=next+'px';
 });}
@@ -54,7 +54,7 @@ window.addEventListener('resize',fitFocus);onBeforeUnmount(()=>{window.removeEve
     </div>
    </div>
    </div>
-   <div v-if="choices.length&&playing&&!paused" class="arcade-upgrade-panel" role="dialog" aria-modal="true" aria-label="选择航线增益"><div class="arcade-upgrade-dialog"><span class="overlay-kicker">第 {{level}} 关完成</span><h2>选择航线增益</h2><p>增益在本局持续生效</p><button v-for="choice in choices" :key="choice" class="arcade-upgrade" @click="input('upgrade:'+choice)"><strong>{{flightUpgrade(choice).title}}</strong><small>{{flightUpgrade(choice).description}}</small></button></div></div>
+   <div v-if="choices.length&&playing&&!paused" class="arcade-upgrade-panel" role="dialog" aria-modal="true" aria-label="选择本局增益"><div class="arcade-upgrade-dialog"><span class="overlay-kicker">第 {{level}} 阶段</span><h2>选择本局增益</h2><p>增益在本局持续生效</p><button v-for="choice in choices" :key="choice" class="arcade-upgrade" @click="input('upgrade:'+choice)"><strong>{{flightUpgrade(choice).title}}</strong><small>{{flightUpgrade(choice).description}}</small></button></div></div>
    <div class="arcade-command-panel">
    <p v-if="detail" class="arcade-vitals" role="status">{{detail}}</p><GameTouchControls v-if="playing&&!paused" :api="arcade" :id="selected.id"/><p v-if="selected.id==='garden'" class="arcade-vitals">金币 {{coins}} · 点空地建造，点炮塔升级或回收</p>
    <p v-if="game&&['breakout','danmaku','maze','fighter'].includes(selected.id)" class="arcade-vitals">剩余机会 {{lives}} / 3<span v-if="selected.id!=='danmaku'"> · 每过五关恢复一次，最多三次</span></p><div class="arcade-footnote"><span><i :class="{practice:!ranked}"/>{{playing||finished?(ranked?'社区排位':'本机练习'):'登录社区后成绩自动参与排名'}}</span><button v-if="playing" class="arcade-quiet" @click="finish">结束本局</button></div><p v-if="message" class="arcade-message" role="status">{{message}}</p>

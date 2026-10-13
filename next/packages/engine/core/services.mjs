@@ -1,4 +1,7 @@
-import {normalizeShortcuts} from './shortcuts.mjs';
+import {managedUpdateConfig} from './managed-update.mjs';
+import {parseInvitation} from './direct-wire.mjs';
+import {describeRoomInstance,roomInstancePlan,compatibleRoomGame} from './room-instance.mjs';
+import {normalizeShortcuts,migrateShortcuts} from './shortcuts.mjs';
 import {createMusicService} from './music.mjs';
 import {createDirectLobby} from './direct-lobby.mjs';
 import {prepareDirectHelper} from './direct-helper.mjs';
@@ -140,6 +143,7 @@ export async function createServices({
   };
   if (await exists(configFile))
     settings = { ...settings, ...(await json(configFile)) };
+  settings.shortcuts=migrateShortcuts(settings.shortcuts);
   if (!settings.gameRoot) {
     settings.gameRoot = await defaultGameRoot();
     if (settings.gameRoot) await writeJSON(configFile, settings);
@@ -529,7 +533,7 @@ export async function createServices({
         await fs.copyFile(path.join(resources, "hxzup", name), target);
     }
     const value = {
-      ...existingConfig,
+      ...managedUpdateConfig(existingConfig,settings.gameRoot,id,cfg),
       servers: [availableSource,...urls.map(normalizeUpdateUrl).filter(url=>url!==availableSource)],
       parallelDownloads: settings.downloadConcurrency,
       showChangelog: false,
@@ -539,6 +543,7 @@ export async function createServices({
       !(await exists(path.join(updater, "config.json"))) ||
       JSON.stringify(value.servers) !==
         JSON.stringify(existingConfig.servers) ||
+      value.gameDir !== existingConfig.gameDir || value.gameRunDir !== existingConfig.gameRunDir ||
       value.showChangelog !== existingConfig.showChangelog ||
       value.theme !== existingConfig.theme ||
       value.parallelDownloads !== existingConfig.parallelDownloads
@@ -685,7 +690,7 @@ export async function createServices({
         ...(preset ? {updateUrls:preset.updateUrls,serverAddress:preset.address} : {})
       };
       if(preset?.updateRequired)cfg.autoUpdate=true;
-      if(direct){cfg.autoJoin=direct.mode==='guest';cfg.serverAddress=direct.address||'';}
+      if(direct){cfg.autoJoin=direct.mode==='guest';cfg.serverAddress=direct.address||'';if(direct.mode==='guest')cfg.autoUpdate=false;}
       cfg.memoryMB = memoryFor(cfg);
       if (joinServer) {
         if (!cfg.serverAddress) throw Error("请先在实例配置中填写服务器地址");
@@ -704,6 +709,7 @@ export async function createServices({
         phase({ phase: "更新检查完成", busy: false });
         return { ok: true };
       }
+      if(direct?.mode==='host')lobby.setGame(await describeRoomInstance(settings.gameRoot,id,settings.instanceSettings,presetCatalog.list()));
       phase({ phase: "正在验证皮肤站账号", busy: true });
       let account;let authServer=SKIN,authMetadata;
       try{account=await ensureAccount();void rememberSkin(account);}catch(error){
@@ -992,9 +998,14 @@ export async function createServices({
     'lobby.rooms':()=>lobby.rooms(),
     'lobby.grants':()=>lobby.grants(),
     'lobby.grant':input=>lobby.grant(input),
-    'lobby.inspect':input=>lobby.inspect(input.invite),
-    async 'lobby.host'(input){busy();const game=instanceTarget(await readVersion(settings.gameRoot,input.instance));if(!/^(?:1\.(?:2\d|[3-9]\d)|(?:2[6-9]|[3-9]\d)\.)/.test(game.minecraft))throw Error('自动开放世界目前支持 Java 版 1.20 及以后版本');if(!await exists(path.join(resources,'direct-lobby/direct-lobby.jar')))throw Error('联机助手未完整安装，请重新解压启动器');return lobby.host({...input,version:game.minecraft,loader:game.loader});},
-    async 'lobby.join'(input){busy();await readVersion(settings.gameRoot,input.instance);return lobby.join(input);},
+    'lobby.inspect':input=>lobby.inspect(input.invite,input.method),
+    'lobby.plan':async input=>roomInstancePlan(settings.gameRoot,parseInvitation(input.invite),settings.instanceSettings,await presetCatalog.refresh(),input.instance),
+    async 'lobby.host'(input){busy();const game=instanceTarget(await readVersion(settings.gameRoot,input.instance));if(!/^(?:1\.(?:2\d|[3-9]\d)|(?:2[6-9]|[3-9]\d)\.)/.test(game.minecraft))throw Error('自动开放世界目前支持 Java 版 1.20 及以后版本');if(!await exists(path.join(resources,'direct-lobby/direct-lobby.jar')))throw Error('联机助手未完整安装，请重新解压启动器');return lobby.host({...input,game:await describeRoomInstance(settings.gameRoot,input.instance,settings.instanceSettings,presetCatalog.list()),version:game.minecraft,loader:game.loader});},
+    async 'lobby.join'(input){busy();const target=parseInvitation(input.invite),plan=await roomInstancePlan(settings.gameRoot,target,settings.instanceSettings,await presetCatalog.refresh(),input.instance);
+      if(plan.download){if(!input.install)throw Error('需要先确认安装房间所需的游戏');if(plan.preset)await launch(plan.instance,true);else await installGame({name:plan.instance,minecraft:plan.game.minecraft,loader:plan.game.loader,loaderVersion:plan.game.loaderVersion});}
+      await readVersion(settings.gameRoot,plan.instance);
+      if(target.game&&!compatibleRoomGame(await describeRoomInstance(settings.gameRoot,plan.instance,settings.instanceSettings,presetCatalog.list()),target.game))throw Error('下载的整合包与房主清单仍不一致，请让房主与伙伴更新到同一版本；已下载文件会保留。');
+      return lobby.join({...input,instance:plan.instance,game:target.game});},
     'lobby.close':()=>lobby.close(),
     async 'lobby.launch'(input){const host=lobby.hostConfig(),guest=lobby.guestConfig();const direct=host&&input.instance===host.instance?{mode:'host'}:guest&&input.instance===guest.instance?{mode:'guest',address:guest.address}:null;if(!direct)throw Error('请先创建房间或检测邀请并加入');try{return await launch(input.instance,false,false,direct);}catch(error){await lobby.close('游戏启动未完成，联机已关闭');throw error;}},
     async "decision.reply"({id,accepted}){const reply=decisions.get(id);if(reply)reply(accepted===true);return {ok:true};},
@@ -2032,6 +2043,8 @@ export async function createServices({
         throw Error("请等待当前游戏任务完成");
       if (owns) exclusive = true;
       try {
+        // Finish already queued preference writes before capturing paths for a task.
+        if(owns)await settingsQueue.catch(()=>{});
         const mutatesProfile = ["settings.save", "instance.favorite", "instance.cover-placement",
           "instance.cover", "instance.restore", "instance.delete", "account.login", "account.remove"].includes(action);
         return await (mutatesProfile

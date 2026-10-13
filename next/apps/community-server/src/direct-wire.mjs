@@ -15,16 +15,28 @@ export function publicAddress(host){
  const prefix=parseInt(host.split(':')[0],16);
  return prefix>=0x2000&&prefix<=0x3fff&&!/^2001:(?:0*:|0*db8:)/i.test(host);
 }
+export function invitationCode(raw){
+ if(typeof raw!=='string'||raw.length>16000)throw Error('请粘贴完整的房间邀请');
+ const text=raw.trim(),match=text.match(/hxz-?room:\/\/(?:join\/|\/join\/)?([A-Za-z0-9_-]+)/i);
+ const code=match?.[1]||text.replace(/\/$/,'');
+ if(!/^[A-Za-z0-9_-]{40,12000}$/.test(code))throw Error('请粘贴完整的 HXZROOM 邀请');
+ return code;
+}
+export function roomGame(value){
+ if(value==null)return null;
+ if(typeof value!=='object'||!/^[-\w.+]{1,100}$/.test(value.minecraft)||!['','fabric','quilt','forge','neoforge'].includes(value.loader)||typeof value.loaderVersion!=='string'||!/^[-\w.+]{0,100}$/.test(value.loaderVersion)||!Number.isInteger(value.modCount)||value.modCount<0||value.modCount>10000||!(/^[a-f0-9]{64}$/.test(value.mods)||value.mods===''))throw Error('房间游戏配置无效');
+ return {minecraft:value.minecraft,loader:value.loader,loaderVersion:value.loaderVersion,modCount:value.modCount,mods:value.mods,preset:/^HXZ-(survival|mod-[12])$/.test(value.preset)?value.preset:''};
+}
 export function parseInvitation(raw){
- if(typeof raw!=='string'||raw.length>5000)throw Error('请粘贴完整的房间邀请');
- const code=raw.trim().replace(/^hxz-room:\/\//,'');let value;
+ const code=invitationCode(raw);let value;
  try{value=JSON.parse(Buffer.from(code,'base64url').toString('utf8'));}catch{throw Error('房间邀请无法解析');}
  if(!value||value.v!==1||!/^[-\w]{16,80}$/.test(value.id)||!/^[-\w]{43}$/.test(value.key)||!validFingerprint(value.fingerprint)||!Array.isArray(value.hosts)||(!value.hosts.length&&value.p2p!==true)||value.hosts.length>8||value.hosts.some(h=>typeof h!=='string'||!net.isIP(h)))throw Error('房间邀请格式无效');
  portNumber(value.port);if(typeof value.name!=='string'||value.name.length>80)throw Error('房间名称无效');
  if(!Number.isFinite(value.expires)||value.expires<Date.now())throw Error('房间邀请已过期，请向房主获取新邀请');
- return value;
+ return {...value,game:roomGame(value.game)};
 }
-export const invitation=value=>'hxz-room://'+Buffer.from(JSON.stringify({v:1,id:value.id,key:value.key,fingerprint:value.fingerprint,name:value.name,hosts:value.hosts,p2p:value.p2p===true,port:value.port,expires:value.expires})).toString('base64url');
+// Put the case-sensitive payload in the path. URL handlers lowercase hosts.
+export const invitation=value=>'hxz-room://join/'+Buffer.from(JSON.stringify({v:1,id:value.id,key:value.key,fingerprint:value.fingerprint,name:value.name,hosts:value.hosts,p2p:value.p2p===true,port:value.port,expires:value.expires,game:roomGame(value.game)})).toString('base64url');
 export function readLine(socket,timeout=7000){
  return new Promise((resolve,reject)=>{
   let bytes=Buffer.alloc(0);const timer=setTimeout(()=>finish(Error('房主没有及时响应')),timeout);
