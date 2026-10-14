@@ -6,7 +6,7 @@ android {
         applicationId 'top.hxzmc.community'
         minSdk 29
         targetSdk 35
-        versionCode 70300
+        versionCode 70301
         versionName '0.7.3'
     }
     buildFeatures { buildConfig true }

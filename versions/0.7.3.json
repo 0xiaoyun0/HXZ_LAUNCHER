@@ -9,10 +9,12 @@
     "windows-ia32",
     "android"
   ],
-  "androidVersionCode": 70300,
+  "androidVersionCode": 70301,
   "gameEngineVersionCode": 70003,
   "communityVersion": "0.7.3",
   "release": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.7.3",
   "notes": "next/docs/0.7.3发布说明.md",
-  "deployment": "next/docs/0.7.3部署与验收.md"
+  "deployment": "next/docs/0.7.3部署与验收.md",
+  "androidRevisionTag": "v0.7.3-android.70301",
+  "androidRevisionNotes": "next/docs/0.7.3安卓布局修订.md"
 }

@@ -26,6 +26,14 @@
 .app-select { font-size: .9375rem; }
 .settings-row { padding: 16px; }
 .settings-row small { font-size: .8125rem; line-height: 1.7; }
+/* Account sections own their spacing; controls stay inside their card at any font size. */
+.account-page { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 760px; }
+.account-page > * { flex-shrink: 0; }
+.account-page > :is(.profile-card, .settings-group, .wallet-card, .card, .section-title),
+.account-page #media-controls > .card { margin-block: 0; }
+.account-page > .section-title { margin-top: 6px; }
+.account-page .toggle-row > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.account-page .toggle-row input { flex: 0 0 42px; width: 42px; }
 .voice-room-grid { gap: 12px; }
 .voice-room { padding: 16px; }
 .voice-room-caption small { font-size: .8125rem; }
