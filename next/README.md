@@ -1,20 +1,20 @@
-# 幻想镇 NEXT · 0.7.3
+# 幻想镇 NEXT · 0.8.0
 
 幻想镇 Windows 启动器、Android 社区客户端及独立服务器官网。
 
 ## 使用
 
-- Windows x64 / ia32：推荐下载 HXZ-Launcher-0.7.3-x64.exe / HXZ-Launcher-0.7.3-ia32.exe 安装器，可选目录并创建快捷方式。也保留 portable.zip，完整解压后运行「幻想镇 NEXT.exe」。
-- Android：安装 HXZ-Community-Android-0.7.3-70300.apk，支持 Android 10 及以上。沿用正式应用身份和签名，可覆盖旧版，保留数据。Minecraft 游戏组件为可选的独立 ARM64 APK。
+- Windows x64 / ia32：推荐下载 HXZ-Launcher-0.8.0-x64.exe / HXZ-Launcher-0.8.0-ia32.exe 安装器，可选目录并创建快捷方式。也保留 portable.zip，完整解压后运行「幻想镇 NEXT.exe」。
+- Android：安装 HXZ-Community-Android-0.8.0-80000.apk，支持 Android 10 及以上。沿用正式应用身份和签名，可覆盖旧版，保留数据。Minecraft 游戏组件为可选的独立 ARM64 APK。
 - 安装版沿用旧正式版的 %APPDATA%/幻想镇启动器，首次启动备份旧设置；便携版保存在程序旁 profile。迁移便携版时先退出程序并备份，再复制整个 profile 到对应的数据目录。游戏仍使用原 .minecraft，不必重复复制。
 - 安装版支持 GitHub 与备用源的签名自动更新，可在设置关闭；正式 0.5.2 及后续安装版可通过原通道升级。便携版仍使用完整包手动升级。
-- 管理员只需下载一个 HXZ-Community-0.7.3-windows-x64.zip 完整社区服务端。首次升级备份并保留 data 与 .env，使用新的启动脚本；之后可使用后台签名更新。update.zip 是更新程序使用的归档，不是第二个服务端。详见 [部署与升级](docs/0.7.3部署与验收.md)。
+- 管理员只需下载一个 HXZ-Community-0.8.0-windows-x64.zip 完整社区服务端。首次升级备份并保留 data 与 .env，使用新的启动脚本；之后可使用后台签名更新。update.zip 是更新程序使用的归档，不是第二个服务端。详见 [部署与升级](docs/0.8.0使用与升级.md)。
 
 ## 功能
 
 桌面端支持游戏实例、安装下载、Java 管理、HXZ UP 更新、任务详情与诊断、皮肤站账号、完整社区、十八款小游戏、积分商城和音乐播放器。页面采用可拖动、缩放、隐藏的卡片，支持内容自动尺寸、网格对齐、主题、背景与动效偏好。
 
-0.7.3 修复 P2P 协商与邀请，增加无中继连接选项、实例匹配与安装确认，固定 HXZ UP 目录；修复游戏内覆盖与快捷键；重整反馈处理并增加归档和删除。新增三款肉鸽小游戏，保持卡片布局与官方优先、32 并发及断点恢复。
+0.8.0 新增好友与小队、玩家空间、活动足迹、共同创作、知识库、屏幕分享、B 站一起看、棋局工坊、世界接力、实例维护及多端接续。工作台集中处理待办，各栏目保留对应入口。统一标题和文件选择控件，保留原卡片布局和游戏更新策略。
 
 Android 以社区为中心，提供聊天、语音、论坛、蓝图、公告、账号、积分、小游戏、音乐、冒险家协会、背包和 LINKING。可选游戏组件支持三服安装及启动；该功能为实验性接入，沿用已发布的游戏组件 70003，大型 PC 模组与部分 GPU 可能不兼容。详见 [Android 说明](mobile/README.md) 和 [游戏组件说明](mobile/game-engine/README.md)。
 
@@ -54,8 +54,8 @@ Node.js 22.12+（社区服务端需要 24+），在本项目目录运行 npm ci�
 
 Windows 封包需在 .runtime/electron 放置 Electron 44.3.0 x64，在 .runtime/electron-ia32 放置 Electron 22.3.27 ia32 的完整运行时；随后执行对应封包命令。输出按 release/版本/windows-x64、windows-ia32、android、server、source 分类。构建安装器使用 electron-builder 26.17.0 与 NSIS；安装版保持原 appId、产品名与卸载身份，不删除用户数据。完整服务端需先在 apps/community-server 安装依赖，并使用 Windows x64 Node.js 24+ 打包。原生扩展随构建脚本打包。棋类引擎源码和许可在 third_party/maid-board-engine，使用 JDK 17+ 与 Maven 重建后运行 node scripts/sync-board-engine.mjs；服务端执行无需 Java。JDK 21 可编译 resources/direct-lobby 中的 Java 助手。Android 构建见其独立说明；私钥、账号和生成物不提交源码。
 
-卡片开发须遵循 [UI 规范](docs/UI卡片规范.md)。本轮功能见 [0.7.3 发布说明](docs/0.7.3发布说明.md)，部署及验证范围见 [部署与验收](docs/0.7.3部署与验收.md)。
+卡片开发须遵循 [UI 规范](docs/UI卡片规范.md)。本轮功能见 [0.8.0 发布说明](docs/0.8.0发布说明.md)，部署及验证范围见 [部署与验收](docs/0.8.0使用与升级.md)。
 
 ## 验证边界
 
-本轮验证本机双客户端 P2P 数据传输、邀请解析、原生覆盖与快捷键、中文路径与 HXZ UP 配置、反馈处理权限和三款新游戏结算，并查看桌面与手机响应式截图。Android 已签名构建；未在实体手机、实体 Windows 7 或跨运营商 NAT 完成验收。详细范围见部署与验收文档。
+本轮本地验证范围见 [验收矩阵](docs/0.8.0验收矩阵.md)：社区 70 项、引擎 30 项、旧版回归与数据升级、桌面和手机网页交互截图，以及 Windows 两种架构原生启动/IPC。Android 已签名构建；未在实体手机、实体 Windows 7、真实游戏服务端或跨运营商 NAT 完成验收。

@@ -25,3 +25,7 @@ html{background:var(--bg)}h1,h2,h3{letter-spacing:0}button:active{filter:none}.a
 
 /* Nested game roots must not double the community page inset. */
 .games-scroll .arcade-page.arcade-play-portal{padding:0}.games-scroll .arcade-status{padding:0;gap:10px}.arcade-status small{white-space:nowrap}.arcade-status>div{min-width:48px}@media(max-width:600px){.arcade-status>div:last-of-type{display:none}}
+
+.hub-context-header{display:flex;align-items:center;gap:12px;padding:0;min-width:0}.hub-context-header h1{font-size:1.12rem;line-height:1.5;margin:0;min-width:0;overflow-wrap:anywhere}.hub-context-header button{flex-shrink:0;min-height:44px}.context-dock{padding:16px 18px 0;min-width:0}.account-page>.personal-community{display:grid;gap:14px}
+
+.workspace>.context-page{display:flex;flex-direction:column;gap:16px}.context-page>*{flex:none;width:100%;min-width:0}.context-page>.content-page{height:auto;min-height:0;overflow:visible;padding:0;margin:0}.context-page>.hub-mobile{margin:0}

@@ -37,6 +37,7 @@ export async function beginInstall(root, id, request, pack, input) {
     ...(input.fabricAPI ? {fabricAPI:true}:{}),
     ...(input.upgrade ? {upgrade:true}:{}),
     ...(input.presetSignature ? {presetSignature:input.presetSignature}:{})
+    ,...(input.world ? {world:input.world}:{})
   };
   let job;
   if (await exists(paths.record)) {

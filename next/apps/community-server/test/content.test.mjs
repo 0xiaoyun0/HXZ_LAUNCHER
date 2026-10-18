@@ -26,7 +26,7 @@ test('blueprint review gates every download; roles can be revoked; forum ownersh
   assert.equal((await request('/api/blueprints/'+id)).status,403);
   assert.equal((await request('/api/blueprints/'+id+'/file')).status,403);
   assert.equal((await request('/api/blueprints/'+id+'/review','POST',{status:'approved'},'reviewer')).status,403);
-  assert.equal((await request('/api/admin/reviewers','POST',{uid:'reviewer',enabled:true},'alice')).status,400);
+  assert.equal((await request('/api/admin/reviewers','POST',{uid:'reviewer',enabled:true},'alice')).status,403);
   assert.equal((await request('/api/admin/reviewers','POST',{uid:'reviewer',enabled:true},'admin')).status,200);
   assert.equal((await request('/api/blueprints?scope=review','GET',undefined,'reviewer')).value.total,1);
   assert.deepEqual((await request('/api/blueprints/'+id,'GET',undefined,'reviewer')).value.metadata.dimensions,[1,1,1]);
@@ -46,7 +46,7 @@ test('blueprint review gates every download; roles can be revoked; forum ownersh
   await request('/api/forum/posts/'+post+'/replies','POST',{body:'reply'},'reviewer');
   for(let i=0;i<2;i++)assert.equal((await request('/api/forum/posts/'+post+'/like','PUT',{liked:true},'reviewer')).value.likes,1);
   assert.equal((await request('/api/forum/posts/'+post,'DELETE',undefined,'reviewer')).status,403);
-  assert.equal((await request('/api/forum/posts/'+post+'/moderate','POST',{action:'locked',value:true},'reviewer')).status,400);
+  assert.equal((await request('/api/forum/posts/'+post+'/moderate','POST',{action:'locked',value:true},'reviewer')).status,403);
   await request('/api/forum/posts/'+post+'/moderate','POST',{action:'locked',value:true},'admin');
   assert.equal((await request('/api/forum/posts/'+post+'/replies','POST',{body:'blocked'},'reviewer')).status,400);
   await request('/api/forum/posts/'+post+'/moderate','POST',{action:'hidden',value:true},'admin');

@@ -1,9 +1,10 @@
 <script setup>
 import {ref,computed,onMounted,onUnmounted,watch} from 'vue';
-const props=defineProps({request:{type:Function,required:true},game:{type:Object,required:true}});
+const props=defineProps({request:{type:Function,required:true},game:{type:Object,required:true},initialMatch:String});
 const difficulty=ref(1),match=ref(null),lobby=ref([]),busy=ref(false),error=ref(''),selection=ref(-1),promotion=ref('q'),rank=ref({items:[],self:null}),now=ref(Date.now()),confirmExit=ref(false);
 const rankPeriod=ref('week'),comment=ref(''),danmaku=ref([]);let seen=new Set(),timer,closed=false,loading=false,pending=false,lastPoll=0,lastRank=0;
 watch(()=>match.value, m=>{if(!m?.spectator){danmaku.value=[];seen.clear();return;}const fresh=(m.comments||[]).filter(c=>!seen.has(c.id));fresh.forEach(c=>seen.add(c.id));danmaku.value=[...danmaku.value.filter(c=>Date.now()-c.shown<8000),...fresh.slice(-6).map((c,i)=>({...c,shown:Date.now(),lane:i%4}))].slice(-12);if(seen.size>200)seen=new Set((m.comments||[]).map(c=>c.id));});
+watch(()=>props.initialMatch,id=>{if(id)void run(async()=>{const v=await props.request('/api/boards/'+encodeURIComponent(id));if(v.game===props.game.id)match.value=v;});},{immediate:true});
 async function sendComment(){if(!comment.value.trim())return;await run(async()=>{match.value=await props.request('/api/boards/'+match.value.id,'POST',{action:'comment',text:comment.value});comment.value='';});}
 const levels=['初识','入门','进阶','精锐','大师'];
 const chessSymbols={ak:'♔',aq:'♕',ar:'♖',ab:'♗',an:'♘',ap:'♙',bk:'♚',bq:'♛',br:'♜',bb:'♝',bn:'♞',bp:'♟'};
@@ -54,7 +55,7 @@ onUnmounted(()=>{closed=true;clearInterval(timer);window.removeEventListener('hx
    </div>
    <div v-if="match" class="board-footer"><span>{{match.state.winner?'本局已结束':match.b?'每步剩余 '+Math.floor(remaining/60)+':'+String(remaining%60).padStart(2,'0'):'等待加入，30 分钟后关闭'}}</span><button v-if="match.spectator" @click="match=null;refresh()">退出观战</button><button v-else-if="!match.state.winner" @click="confirmExit=true">{{match.b?'认输':'关闭房间'}}</button><button v-else @click="match=null;refresh()">再来一局</button></div>
    <form v-if="match?.spectator&&!match.state.winner" class="spectator-compose" @submit.prevent="sendComment"><input v-model="comment" maxlength="120" placeholder="观众弹幕 · 对局玩家不可见" aria-label="观战弹幕"/><button :disabled="busy||!comment.trim()">发送</button></form><div v-if="confirmExit" class="board-confirm" role="alert"><span>确认结束当前对局？{{match?.b?'将判定对手获胜。':''}}</span><button @click="confirmExit=false">继续对局</button><button :disabled="busy" @click="resign">确认</button></div>
-   <p v-if="match?.engineError" class="board-error" role="alert">{{match.engineError}} <button :disabled="busy" @click="retryComputer">重试机器人</button></p>
+   <p v-if="match?.practice" class="board-hint">挑战练习 · 不计积分</p><p v-if="match?.engineError" class="board-error" role="alert">{{match.engineError}} <button :disabled="busy" @click="retryComputer">重试机器人</button></p>
    <p v-if="error" class="board-error" role="alert">{{error}} <button :disabled="busy" @click="refresh">重试</button></p>
   </section>
   <aside class="board-aside">

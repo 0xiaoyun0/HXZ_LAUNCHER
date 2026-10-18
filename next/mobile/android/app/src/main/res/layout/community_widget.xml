@@ -1,0 +1,10 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="14dp" android:background="@drawable/widget_surface">
+    <TextView android:id="@+id/widget_title" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/widget_title" android:textColor="@color/widget_ink" android:textStyle="bold" android:textSize="17sp" android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/widget_summary" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:textColor="@color/widget_muted" android:textSize="12sp" android:maxLines="2" android:ellipsize="end" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="44dp" android:orientation="horizontal">
+        <TextView android:id="@+id/widget_chat" style="@style/WidgetShortcut" android:text="@string/widget_chat" android:contentDescription="@string/widget_open_chat" />
+        <TextView android:id="@+id/widget_inbox" style="@style/WidgetShortcut" android:text="@string/widget_inbox" android:contentDescription="@string/widget_open_inbox" />
+        <TextView android:id="@+id/widget_devices" style="@style/WidgetShortcut" android:text="@string/widget_devices" android:contentDescription="@string/widget_open_devices" />
+        <TextView android:id="@+id/widget_events" style="@style/WidgetShortcut" android:text="@string/widget_events" android:contentDescription="@string/widget_open_events" />
+    </LinearLayout>
+</LinearLayout>

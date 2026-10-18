@@ -19,14 +19,14 @@ test('presets require admin; score is replayed, retryable without double credit 
   try{
     const admin=(await req('/api/session','POST',{accessToken:'admin'})).data.token,player=(await req('/api/session','POST',{accessToken:'player'})).data.token;
     const presets=(await req('/api/server-presets')).data;assert.equal(presets.servers.length,3);assert.equal(presets.servers[0].loader,'fabric');
-    presets.servers[1].address='s2.example.com';presets.servers[1].updateUrls=['http://updates.example.com:8088/modv1','https://updates.example.com:8443/modv1'];assert.equal((await req('/api/admin/server-presets','PUT',presets,player)).status,400);
+    presets.servers[1].address='s2.example.com';presets.servers[1].updateUrls=['http://updates.example.com:8088/modv1','https://updates.example.com:8443/modv1'];assert.equal((await req('/api/admin/server-presets','PUT',presets,player)).status,403);
     assert.equal((await req('/api/admin/server-presets','PUT',presets,admin)).status,200);assert.equal((await req('/api/server-presets')).data.servers[1].address,'s2.example.com');
     assert.deepEqual((await req('/api/server-presets')).data.servers[1].updateUrls,presets.servers[1].updateUrls);
     const run=(await req('/api/arcade/runner/start','POST',{},player)).data;
     const result=await req('/api/arcade/runner/finish','POST',{id:run.id,ticks:30,inputs:[],score:999999},player);assert.equal(result.status,200);assert.equal(result.data.score,5);
     assert.equal((await req('/api/arcade/runner/finish','POST',{id:run.id,ticks:30,inputs:[]},player)).data.score,5,'lost response can be retried without crediting twice');
     assert.equal((await req('/api/arcade/runner')).data.items[0].score,5);
-    assert.equal((await req('/api/admin/arcade/runner','DELETE',{uid:'player'},player)).status,400);
+    assert.equal((await req('/api/admin/arcade/runner','DELETE',{uid:'player'},player)).status,403);
     assert.equal((await req('/api/admin/arcade/runner','DELETE',{uid:'player'},admin)).status,200);
     assert.deepEqual((await req('/api/arcade/runner')).data.items,[]);
   }finally{await service.close();await rm(data,{recursive:true,force:true});}

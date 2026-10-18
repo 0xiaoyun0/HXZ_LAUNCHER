@@ -1,6 +1,7 @@
 import {managedUpdateConfig} from './managed-update.mjs';
+import {createAssetExporter} from './asset-export.mjs';
 import {parseInvitation} from './direct-wire.mjs';
-import {describeRoomInstance,roomInstancePlan,compatibleRoomGame} from './room-instance.mjs';
+import {describeRoomInstance,roomInstancePlan,compatibleRoomGame,loaderVersion} from './room-instance.mjs';
 import {normalizeShortcuts,migrateShortcuts} from './shortcuts.mjs';
 import {createMusicService} from './music.mjs';
 import {createDirectLobby} from './direct-lobby.mjs';
@@ -14,6 +15,11 @@ import {dependencyStore} from './dependency-store.mjs';
 import {cacheSkin,cachedSkin,startOfflineSkin} from './offline-skin.mjs';
 import {networkFailure} from './network-errors.mjs';
 import {exportPack} from './export-pack.mjs';
+import {inspectInstance,createSnapshot,restoreSnapshot,deleteSnapshot,cloneInstance,migrateGameRoot} from './instance-maintenance.mjs';
+import {BUILTIN_PRESETS,configurationPreset,readPresets} from './instance-presets.mjs';
+import {launchHistory} from './launch-history.mjs';
+import {inspectWorldArchive,extractWorldArchive,exportWorld,putWorldReceipt} from './worlds.mjs';
+import {readLayoutPackage,exportLayoutPackage,applyLayoutPackage,LAYOUT_LIMIT} from './layout-package.mjs';
 import {addonWorlds,addonSearch,addonInstall,modDetails} from './addons.mjs';
 import {importMedia,mediaReference,mediaPath} from './media.mjs';
 import {crashReport,diagnosticText,redactDiagnostic} from "./diagnostics.mjs";
@@ -91,6 +97,7 @@ export async function createServices({
 }) {
   await fs.mkdir(data, { recursive: true });
   const dependencies=await dependencyStore(dependencyRoot,data);
+  const performanceHistory=launchHistory(data);
   let blueprintDownload=null;
   const configFile = path.join(data, "settings.json"),
     accountFile = path.join(data, "accounts.bin");
@@ -614,6 +621,7 @@ export async function createServices({
       onProgress:p=>phase({...p,busy:true}), log, chinesePaths:settings.chinesePaths !== false});
   }
   async function launch(id, updateOnly = false, joinServer = false, direct = null) {
+    const preparationStarted=Date.now();
     busy();
     logs = [];
     emit({ type: "logs-reset" });
@@ -742,7 +750,10 @@ export async function createServices({
         stopDirectHelper=await prepareDirectHelper({resources,dependencies,metadata,command,config:host,signal:controller.signal,log});
       }
       phase({ phase: "正在启动游戏", busy: true });
-      const gameStarted=Date.now(),gameLogs=[];stoppedByUser=false;lastCrash=null;
+      const gameStarted=Date.now(),gameLogs=[],startedRoot=settings.gameRoot;stoppedByUser=false;lastCrash=null;
+      const memoryFlag=command.args.find(v=>/^-Xmx\d+[mMgG]$/.test(v))?.match(/^-Xmx(\d+)([mMgG])$/),recordedMemory=memoryFlag?Number(memoryFlag[1])*(memoryFlag[2].toLowerCase()==='g'?1024:1):cfg.memoryMB;
+      // Diagnostics must never delay or prevent an otherwise valid game launch.
+      const performanceEntry=inspectJava(command.command).catch(()=>({version:'',arch:''})).then(runtimeInfo=>performanceHistory.start({instance:id,root:startedRoot,preparationMs:gameStarted-preparationStarted,memoryMB:recordedMemory,javaVersion:runtimeInfo.version,architecture:runtimeInfo.arch})).catch(error=>{log('启动统计未保存：'+error.message);return null;});let spawnFailed=false;
       const capture=line=>{if(direct?.mode==='host'){const ready=line.match(/\[HXZ-DIRECT\] READY (\d+)/);if(ready)lobby.markReady(ready[1]);if(line.includes('[HXZ-DIRECT] WAITING'))lobby.markWaiting();const helperError=line.match(/\[HXZ-DIRECT\] ERROR (.+)/);if(helperError)lobby.markError(helperError[1].split(']]>')[0].replace(/<\/?log4j:[^>]*>/g,'').trim());}gameLogs.push(redactDiagnostic(line,[...secrets]));if(gameLogs.length>5000)gameLogs.splice(0,gameLogs.length-5000);return false;};
       log("[启动] 实例: "+id+" · 目录: "+command.cwd+" · Java: "+command.command+" · 内存: "+cfg.memoryMB+" MB");
       const child = spawn(command.command, command.args, {
@@ -754,6 +765,7 @@ export async function createServices({
       attachLog(child.stdout,capture);
       attachLog(child.stderr,capture);
       child.on("error", error => {
+        spawnFailed=true;
         if(direct)void lobby.close('游戏启动失败，联机已关闭');
         offlineSession?.close();offlineSession=null;
         log("游戏启动失败: " + error.message);
@@ -766,6 +778,7 @@ export async function createServices({
         });
       });
       child.on("close", (code, exitSignal) => {
+        const stopped=stoppedByUser;void performanceEntry.then(key=>key&&performanceHistory.finish(key,{code,signal:exitSignal,stopped,failedToStart:spawnFailed})).catch(error=>log('启动统计未保存：'+error.message));
         if(direct)void lobby.close('游戏已退出，联机已关闭');
         offlineSession?.close();offlineSession=null;
         running = null;
@@ -906,6 +919,12 @@ export async function createServices({
         for(const name of await fs.readdir(path.join(instance,'mods')))if(/^fabric-api-[\w.+-]+\.jar$/.test(name)&&!keep.has(name))await fs.rm(path.join(instance,'mods',name));
       }
       if(input.presetSignature)await writeJSON(path.join(instance,'.hxzl/server-preset.json'),{signature:input.presetSignature});
+      if(input.world){
+        phase({phase:'导入社区世界',busy:true});
+        if(!pack)await extractWorldArchive(input.world.archive,path.join(instance,'saves/社区世界'),{signal:controller.signal,expectedHash:input.world.sha256,progress:value=>phase({...value,phase:'导入社区世界',busy:true})});
+        else {let found=false;for(const entry of await fs.readdir(path.join(instance,'saves'),{withFileTypes:true}).catch(()=>[]))if(entry.isDirectory()&&!entry.isSymbolicLink()&&await exists(inside(instance,'saves/'+entry.name+'/level.dat')))found=true;if(!found)throw Error('整合包内没有世界存档，请联系作者补充');}
+        await putWorldReceipt(instance,input.world);
+      }
       if (update.hxzup)
         for (const name of ["updater-1.0.3.jar", "launcher-agent.jar"]) {
           const target = path.join(instance, "updater", name);
@@ -925,7 +944,8 @@ export async function createServices({
         coverPositionY: 50,
         coverZoom: 1,
         ...(!presetCatalog.list().some(p=>p.id===id) ? {autoUpdate:update.hxzup,updateUrls:update.updateUrls} : {}),
-        ...settings.instanceSettings[id]
+        ...settings.instanceSettings[id],
+        ...(input.world?{isolated:true,autoUpdate:false,autoJoin:false}: {})
       };
       settings.selectedInstance = id;
       await writeJSON(
@@ -981,12 +1001,20 @@ export async function createServices({
     };
   }
   let stopDirectHelper=null;
+  async function worldRecord(id){
+    if(!/^[\w-]{1,100}$/.test(id||''))throw Error('世界编号无效');
+    const session=await actions['community.connect']({}),record=await remoteJSON(session.base+'/api/hub/records/'+id,{headers:{Authorization:'Bearer '+session.token},signal:AbortSignal.timeout(12000)});
+    if(record.kind!=='world'||record.status!=='published'||!/^https?:\/\//.test(record.data?.source)||!/^[a-f0-9]{64}$/i.test(record.data.sha256))throw Error('世界尚未发布或缺少可校验的下载地址');
+    return record;
+  }
   const lobby=createDirectLobby({p2pRuntime,p2pSession:()=>actions['community.connect']({}),emit:event=>{if(event.value.mode==='idle'){void stopDirectHelper?.();stopDirectHelper=null;}emit(event);},request:async(route,options={})=>{
     const session=await actions['community.connect']({});
     try{return await remoteJSON(session.base+route,{method:options.method||'GET',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json'},...(options.body?{body:JSON.stringify(options.body)}:{}),signal:AbortSignal.timeout(12000)});}
     catch(error){if(error.status===404)throw Error('社区服务端尚未安装联机权限扩展，请联系管理员；加入已有房间不受影响');throw error;}
   }});
+  const assetExporter=createAssetExporter({choose:async(name,ext)=>{const value=await dialog.showSaveDialog(window(),{defaultPath:name,filters:[{name:'创作素材',extensions:[ext]}]});return value.canceled?null:value.filePath;}});
   const actions = {
+    'asset.export':input=>assetExporter.invoke(input),
     ...createMusicService({data,dialog,window,netease,identity:async()=>{
       const s=await actions['community.connect']({});
       const permission=await remoteJSON(s.base+'/api/music/access',{headers:{Authorization:'Bearer '+s.token},signal:AbortSignal.timeout(12000)});
@@ -1044,13 +1072,58 @@ export async function createServices({
           loader: i.request.loader.type,
           loaderVersion: i.request.loader.version,
           includeOptional: i.includeOptional
-          ,fabricAPI:i.fabricAPI,upgrade:i.upgrade,presetSignature:i.presetSignature
+          ,fabricAPI:i.fabricAPI,upgrade:i.upgrade,presetSignature:i.presetSignature,world:i.world
         },
         pack
       );
     },
     async "game.install"(input) {
       return installGame(input);
+    },
+    async 'world.plan'(input){
+      const record=await worldRecord(input.record),templates=[];
+      if(record.data.loader&&(record.data.packageType||'world')==='world'&&settings.gameRoot)for(const item of await scanInstances(settings.gameRoot)){
+        if(item.error||settings.instanceSettings[item.id]?.isolated===false)continue;
+        try{const meta=await readVersion(settings.gameRoot,item.id),target=instanceTarget(meta);if(target.minecraft===record.data.version&&target.loader===record.data.loader&&loaderVersion(meta,target.loader)===record.data.loaderVersion)templates.push({id:item.id,name:item.name||item.id});}catch{}
+      }
+      return {record,templates};
+    },
+    async 'world.import'(input){
+      busy();if(input.confirmed!==true)throw Error('请先确认创建隔离实例');if(!settings.gameRoot)throw Error('请先选择游戏目录');
+      const root=settings.gameRoot,record=await worldRecord(input.record),info=record.data,id=String(input.name||'').trim();
+      if(record.revision!==input.revision)throw Error('地图版本已变化，请重新查看后导入');
+      if(!/^[\p{L}\p{N}_ .-]{1,80}$/u.test(id)||/[. ]$/.test(id)||/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(id))throw Error('实例名称无效');
+      if(['__proto__','prototype','constructor'].includes(id)||presetCatalog.list().some(v=>v.id===id))throw Error('请使用新的世界实例名称，不可占用默认服务器名称');
+      if(await exists(inside(root,'versions/'+id)))throw Error('同名实例已存在，请换一个名称');
+      if(record.lease&&record.lease.uid!==((await actions['community.connect']({})).user.uid))throw Error('另一位玩家正在接力，请等待交接完成');
+      let template='';if(info.loader&&(info.packageType||'world')==='world'){
+        template=String(input.template||'');if(!template||settings.instanceSettings[template]?.isolated===false)throw Error('请选择一个已安装并开启隔离的整合包作为模板');
+        const meta=await readVersion(root,template),target=instanceTarget(meta);if(target.minecraft!==info.version||target.loader!==info.loader||loaderVersion(meta,target.loader)!==info.loaderVersion)throw Error('所选模板与世界要求的游戏/加载器版本不一致');
+        if((await listInstalls(root)).some(job=>job.id===template))throw Error('所选模板还有未完成安装');
+      }
+      const file=path.join(dependencies,'downloads',info.sha256+(info.packageType==='modpack'?'.mrpack':'.zip')),controller=new AbortController(),world={archive:file,record:record.id,revision:record.revision,title:record.title,sha256:info.sha256};let pack=null;task=controller;
+      try{
+        logs=[];emit({type:'logs-reset'});phase({phase:'下载社区世界',busy:true});
+        await downloadMeasured('下载社区世界',info.source,file,{sha256:info.sha256,maxSize:2*1024**3,signal:controller.signal});
+        if(info.packageType==='modpack'){
+          pack=await inspectPack(file);if(pack.minecraft!==info.version||pack.loader!==(info.loader||'')||info.loader&&pack.loaderVersion!==info.loaderVersion)throw Error('整合包清单与作者声明的版本不一致，请联系作者修正');
+        }else await inspectWorldArchive(file,{signal:controller.signal});
+        if(template){
+          const value=await cloneInstance(root,template,id,{template:true,signal:controller.signal,progress:v=>phase({...v,phase:'复制世界运行环境',busy:true}),prepare:async stage=>{await extractWorldArchive(file,path.join(stage,'saves/社区世界'),{signal:controller.signal,expectedHash:info.sha256,progress:v=>phase({...v,phase:'导入社区世界',busy:true})});await putWorldReceipt(stage,world);}});
+          await withSettings(async()=>{settings.instanceSettings[id]={...settings.instanceSettings[template],isolated:true,autoUpdate:false,autoJoin:false,favorite:false};settings.selectedInstance=id;await writeJSON(configFile,settings);});phase({phase:'世界已导入独立实例',busy:false});return value;
+        }
+      }catch(error){phase({phase:'世界导入未完成',busy:false,failed:!controller.signal.aborted,failure:error.message});throw error;}
+      finally{controller.abort();task=null;}
+      return installGame({name:id,minecraft:info.version,loader:info.loader||'',loaderVersion:info.loaderVersion||'',world},pack,true);
+    },
+    async 'world.export'(input){
+      busy();if(settings.instanceSettings[input.id]?.isolated===false)throw Error('请先开启实例隔离');
+      await readVersion(settings.gameRoot,input.id);
+      const root=inside(settings.gameRoot,'versions/'+input.id),world=String(input.world||'');if(!world||/[\\/:]/.test(world)||world==='.'||world==='..')throw Error('请选择世界存档');
+      const picked=await dialog.showSaveDialog(window(),{defaultPath:world+'.zip',filters:[{name:'世界存档',extensions:['zip']}]});if(picked.canceled||!picked.filePath)return null;
+      const controller=new AbortController();task=controller;
+      try{phase({phase:'导出世界快照',busy:true});const value=await exportWorld(inside(root,'saves/'+world),picked.filePath,{signal:controller.signal,progress:v=>phase({...v,phase:'导出世界快照',busy:true})});phase({phase:'世界快照已导出',busy:false});shell.showItemInFolder(value.file);return value;}
+      catch(error){phase({phase:'世界快照未导出',busy:false,failed:!controller.signal.aborted,failure:error.message});throw error;}finally{controller.abort();task=null;}
     },
     async "pack.choose"() {
       const r = await dialog.showOpenDialog(window(), {
@@ -1173,6 +1246,11 @@ export async function createServices({
         ";base64," +
         (await fs.readFile(file)).toString("base64")
       );
+    },
+    async 'monitor.targets'() {
+      // Read the catalog without rescanning the player's instances or disk.
+      await presetCatalog.refresh();
+      return presetCatalog.list().map(({id,name,address})=>({id,name,address}));
     },
     async state(input = {}) {
       if (!input.localOnly) await presetCatalog.refresh();
@@ -1450,6 +1528,23 @@ export async function createServices({
       const prefix = instanceKey(settings.gameRoot, '');
       return settings.hiddenInstances.filter(k=>k.startsWith(prefix)).map(k=>({id:k.slice(prefix.length)})).filter(i=>!presetCatalog.list().some(p=>p.id===i.id));
     },
+    async 'cards.export'(input){
+      const value=exportLayoutPackage(settings,input),picked=await dialog.showSaveDialog(window(),{defaultPath:'幻想镇卡片布局.json',filters:[{name:'卡片布局',extensions:['json']}]});
+      if(picked.canceled||!picked.filePath)return null;
+      await noLinks(picked.filePath);await writeJSON(picked.filePath,value);return {file:picked.filePath};
+    },
+    async 'cards.import'(){
+      const picked=await dialog.showOpenDialog(window(),{properties:['openFile'],filters:[{name:'卡片布局',extensions:['json']}]});
+      if(picked.canceled||!picked.filePaths?.[0])return null;
+      const file=picked.filePaths[0];if((await fs.stat(file)).size>LAYOUT_LIMIT)throw Error('布局文件超过 1 MB');
+      return readLayoutPackage(await fs.readFile(file,'utf8'));
+    },
+    async 'cards.apply'(input){
+      if(input.confirmed!==true)throw Error('请先预览并确认卡片布局');
+      const patch=applyLayoutPackage(settings,input.package,input.mode),next={...settings,...patch};
+      if(patch.cardStyle)next.columns.workspace.opacity=patch.cardStyle.opacity;
+      await writeJSON(configFile,next);settings=next;return settings;
+    },
     async "instance.restore"({id}) {
       busy();
       settings.hiddenInstances = settings.hiddenInstances.filter(k=>k!==instanceKey(settings.gameRoot,id));
@@ -1714,6 +1809,51 @@ export async function createServices({
         : "";
     },
     async "instance.diagnose"(input){const preset=presetCatalog.list().find(p=>p.id===input.id);return diagnoseServer(preset?.address||settings.instanceSettings[input.id]?.serverAddress||'');},
+    async 'instance.performance'(input){return performanceHistory.list(settings.gameRoot,input.id);},
+    async 'storage.destination'(){const value=await dialog.showOpenDialog(window(),{title:'选择迁移目标 · 空目录',properties:['openDirectory','createDirectory']});return value.canceled?null:value.filePaths[0];},
+    async 'storage.migrate'(input){
+      busy();if(input.confirmed!==true)throw Error('请先确认迁移游戏目录');if((await listInstalls(settings.gameRoot)).length)throw Error('请先继续或清理未完成的安装，再迁移目录');
+      const controller=new AbortController(),previous=settings.gameRoot;task=controller;
+      try{phase({phase:'迁移游戏目录',busy:true});const value=await migrateGameRoot(previous,input.destination,{signal:controller.signal,progress:v=>phase({...v,phase:'迁移游戏目录',busy:true})});await withSettings(async()=>{const prefix=path.resolve(previous).toLowerCase()+'|',next={...settings,gameRoot:value.root,hiddenInstances:settings.hiddenInstances.map(v=>v.startsWith(prefix)?instanceKey(value.root,v.slice(prefix.length)):v)};await writeJSON(configFile,next);settings=next;});await performanceHistory.migrate(previous,value.root).catch(error=>log('历史目录记录未更新：'+error.message));phase({phase:'目录迁移完成，原目录已保留',busy:false});return value;}
+      catch(error){phase({phase:'目录迁移未完成',busy:false,failed:!controller.signal.aborted,failure:error.message});throw error;}finally{controller.abort();task=null;}
+    },
+    async 'instance.presets'(input){
+      const file=path.join(data,'instance-presets.json');await noLinks(file);let custom=readPresets(await json(file).catch(error=>{if(error.code==='ENOENT')return [];throw error;}));
+      const all=[...BUILTIN_PRESETS.map(v=>({...v,builtin:true})),...custom];if(!input.op||input.op==='list')return all;
+      if(input.op==='save'){if(custom.length>=20)throw Error('最多保存 20 个自定义预设');const name=String(input.name||'').trim();if(!name||name.length>60)throw Error('请填写 60 字以内的预设名称');custom.push({id:randomUUID(),name,config:configurationPreset(settings.instanceSettings[input.id])});await writeJSON(file,custom);return {ok:true};}
+      if(input.op==='delete'){if(!custom.some(v=>v.id===input.preset))throw Error('只能删除自定义预设');custom=custom.filter(v=>v.id!==input.preset);await writeJSON(file,custom);return {ok:true};}
+      if(input.op==='apply'){busy();if(input.confirmed!==true)throw Error('请先确认应用配置预设');const preset=all.find(v=>v.id===input.preset);if(!preset)throw Error('预设不存在');const current={memoryMB:4096,width:1280,height:720,isolated:true,updateUrls:[],...settings.instanceSettings[input.id]};return actions['settings.save']({instance:{id:input.id,...current,...configurationPreset(preset.config),javaPath:''}});}
+      throw Error('预设操作无效');
+    },
+    async "instance.maintenance"(input){
+      busy();const names={inspect:'统计实例空间',snapshot:'创建实例恢复点',restore:'还原实例恢复点',delete:'删除恢复点',clone:'创建实验副本'};
+      if(!Object.hasOwn(names,input.op))throw Error('请选择维护操作');
+      const root=settings.gameRoot,id=input.id;
+      if(!root)throw Error('请先选择游戏目录');
+      if(['restore','delete'].includes(input.op)&&input.confirmed!==true)throw Error('请先确认这次操作');
+      if(['snapshot','restore','clone'].includes(input.op)&&settings.instanceSettings[id]?.isolated===false)throw Error('此实例正在使用共享存档目录，请先在实例配置中启用隔离，再使用恢复点或实验副本');
+      if(input.op!=='inspect'&&(await listInstalls(root)).some(job=>job.id===id))throw Error('此实例有尚未完成的安装，请先在任务详情中继续或清理');
+      const controller=new AbortController();task=controller;
+      const progress=value=>phase({phase:names[input.op],busy:true,...value}),options={signal:controller.signal,progress};
+      try{
+        phase({phase:names[input.op],busy:true,completed:0,total:0,unit:'bytes',activeFiles:[]});
+        let value;
+        if(input.op==='inspect')value=await inspectInstance(root,id,options);
+        if(input.op==='snapshot')value=await createSnapshot(root,id,{...options,label:input.label});
+        if(input.op==='restore')value=await restoreSnapshot(root,id,input.key,options);
+        if(input.op==='delete')value=await deleteSnapshot(root,id,input.key);
+        if(input.op==='clone'){
+          value=await cloneInstance(root,id,input.name,options);
+          await withSettings(async()=>{
+            settings.instanceSettings[value.id]={...settings.instanceSettings[id],isolated:true,autoUpdate:false,autoJoin:false,favorite:false};
+            settings.hiddenInstances=settings.hiddenInstances.filter(k=>k!==instanceKey(root,value.id));
+            settings.selectedInstance=value.id;await writeJSON(configFile,settings);
+          });
+        }
+        phase({phase:names[input.op]+'完成',busy:false,activeFiles:[]});return value;
+      }catch(error){phase({phase:names[input.op]+'未完成',busy:false,failed:!controller.signal.aborted,failure:error.message,activeFiles:[]});throw error;}
+      finally{controller.abort();task=null;}
+    },
     async "instance.export"(input){
       busy();const preset=(await presetCatalog.refresh()).find(p=>p.id===input.id);if(!preset)throw Error('目前支持导出三个默认服务器实例');
       const picked=await dialog.showSaveDialog(window(),{defaultPath:input.id+'.mrpack',filters:[{name:'Modrinth 整合包',extensions:['mrpack']}]});if(picked.canceled||!picked.filePath)return;
@@ -2018,6 +2158,10 @@ export async function createServices({
         "mods.toggle",
         "mods.remove",
         "instance.export",
+        "instance.maintenance",
+        "world.import",
+        "world.export",
+        "storage.migrate",
         "mods.download",
         "addons.install",
         "install.resume",
@@ -2033,7 +2177,7 @@ export async function createServices({
         "instance.create",
         "instance.delete",
         "instance.restore"
-      ].includes(action);
+      ].includes(action)||(action==='instance.presets'&&input.op==='apply');
       if (
         exclusive &&
         (owns ||
@@ -2045,7 +2189,7 @@ export async function createServices({
       try {
         // Finish already queued preference writes before capturing paths for a task.
         if(owns)await settingsQueue.catch(()=>{});
-        const mutatesProfile = ["settings.save", "instance.favorite", "instance.cover-placement",
+        const mutatesProfile = ["settings.save", "cards.apply", "instance.presets", "instance.favorite", "instance.cover-placement",
           "instance.cover", "instance.restore", "instance.delete", "account.login", "account.remove"].includes(action);
         return await (mutatesProfile
           ? withSettings(() => actions[action](input))
@@ -2055,6 +2199,7 @@ export async function createServices({
       }
     },
     dispose() {
+      void assetExporter.close();
       lobby.dispose();void stopDirectHelper?.();
       blueprintDownload?.abort();
       offlineSession?.close();

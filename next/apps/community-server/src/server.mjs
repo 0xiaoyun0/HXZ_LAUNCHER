@@ -1,3 +1,5 @@
+import {createVoiceTools} from './voice-tools.mjs';
+import {createCommunityHub} from './hub/index.mjs';
 import {createTankRooms} from './tank-rooms.mjs';
 import {createWerewolf} from './werewolf.mjs';
 import {createLobbySignal} from './lobby-signal.mjs';
@@ -28,6 +30,7 @@ import {createShop} from './shop.mjs';
 import {createMedia} from './media.mjs';
 import {createGuild} from './guild.mjs';
 import {createGameTelemetry} from './game-telemetry.mjs';
+import {createGameBridge} from './game-bridge.mjs';
 import { isIP } from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -103,17 +106,20 @@ export function createCommunity(options={}) {
   const musicAccess=createMusicAccess({db,auth,admin,adminIDs,body,send,broadcast,inventory});
   const guild=createGuild({db,auth,admin,body,send,limit,points,media,inbox,inventory});
   const gameTelemetry=createGameTelemetry({db,auth,admin,body,send,limit});
+  const gameBridge=createGameBridge({db,auth,admin,body,send,limit,gameTelemetry,inbox,broadcast});
   const linking=createLinking({db,auth,admin,body,send,limit,guild,gameTelemetry});
   const rewards=createRewards({db,auth,admin,body,send,limit,points,inbox});
   const shop=createShop({db,auth,admin,body,send,limit,points,media,inventory});
   const updates=communityUpdates({data,admin,send,body});
   const publicAPI=createPublicAPI({db,send,points,shop});
-  const boards=createBoardMatches({db,auth,body,send,limit,points,broadcast});
+  const boards=createBoardMatches({db,auth,admin,body,send,limit,points,broadcast});
   const werewolf=createWerewolf({auth,body,send,limit,points,broadcast});
   const tanks=createTankRooms({auth,body,send,limit,broadcast,points});
   const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast,points});
   const feedbackRoute=createFeedback({db,auth,admin,body,send,limit,inbox,adminIDs});
   const directLobby=createDirectLobby({db,auth,admin,body,send,limit,inventory});
+  const voiceTools=createVoiceTools({clients,auth,body,send,limit});
+  const hub=createCommunityHub({data,db,auth,admin,adminIDs,body,send,limit,broadcast,inbox,points,inventory,media,gameTelemetry,gameBridge,clients});
   const p2pSignal=createLobbySignal({db,auth,admin,verify,body,send,limit,canHost:user=>!!(user.consoleAdmin||adminIDs.has(user.uid)||db.prepare('SELECT 1 FROM direct_lobby_hosts WHERE uid=?').get(user.uid)||inventory.has(user.uid,'lobby.host'))});
   const server=http.createServer(async(req,res)=>{
     const origin=req.headers.origin;if(origin&&!origins.has(origin)&&!['http://','https://'].some(protocol=>origin===protocol+req.headers.host)){send(res,403,{error:'来源不允许'});return;}
@@ -123,7 +129,10 @@ export function createCommunity(options={}) {
     try {
       const url=new URL(req.url,'http://localhost'),path=url.pathname;limit((/^\/api\/(avatars|chat-media)\//.test(path)?'media-http:':'http:')+clientIP(req),/^\/api\/(avatars|chat-media)\//.test(path)?600:240);
       if(await updates.route(req,res,url))return;
+      if(await gameBridge.route(req,res,url))return;
+      if(await hub.route(req,res,url))return;
       if(await voiceRooms.route(req,res,url))return;
+      if(await voiceTools.route(req,res,url))return;
       if(await publicAPI(req,res,url))return;
       if(await media.route(req,res,url))return;
       if(await chatMedia.route(req,res,url))return;
@@ -195,9 +204,9 @@ export function createCommunity(options={}) {
   wss.on('connection',ws=>{
     const timer=setTimeout(()=>ws.close(1008,'请登录'),5000);ws.alive=true;ws.on('pong',()=>{ws.alive=true;});
     ws.on('message',(raw,isBinary)=>{try{
-      if(isBinary){relayVoice(ws,raw,clients);return;}
+      if(isBinary){const speaker=clients.get(ws);if(speaker?.room&&voiceTools.canSpeak(speaker))relayVoice(ws,raw,clients);return;}
       const message=JSON.parse(raw.toString());let c=clients.get(ws);
-      if(!c){if(message.type!=='auth')throw Error('请先登录');const user=verify(message.token);content.recordMember(user);const platform=message.platform==='android'?'android':'desktop';
+      if(!c){if(message.type!=='auth')throw Error('请先登录');const user=verify(message.token);content.recordMember(user);hub.visit(user);const platform=message.platform==='android'?'android':'desktop';
         for(const [old,p] of clients)if(p.user.uid===user.uid&&p.platform===platform){voiceEvent(p,'leave');clients.delete(old);old.close(4001,'已在另一处登录此设备');}
 
         c={id:randomUUID(),user,platform:message.platform==='android'?'android':'desktop',room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',heartbeatInterval:15000,voiceTransport:'ws-opus-v1',rooms:voiceRooms.rooms(),roomLimit,id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
@@ -206,7 +215,7 @@ export function createCommunity(options={}) {
       else if(message.type==='chat'){limit('chat:'+c.user.uid,8,10000);const value=text(message.body,1000);inbox.validateMentions(c.user,value);const created=Date.now();const inserted=db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)').run('lobby',c.user.uid,c.user.name,value,created);
         inbox.mentions(c.user,value,{target:'/community?message='+inserted.lastInsertRowid,dedupe:'chat:'+inserted.lastInsertRowid});
         broadcast({type:'chat',message:{id:Number(inserted.lastInsertRowid),channel:'lobby',uid:c.user.uid,name:c.user.name,avatarVersion:avatarVersion(c.user.uid),body:value,created}});}
-      else if(message.type==='voice-join'){const room=voiceRooms.rooms().find(r=>r.id===message.room);if(!room)throw Error('房间不存在或已关闭');if([...clients.values()].filter(p=>p.room===message.room&&p.id!==c.id).length>=room.capacity)throw Error('语音房间已满');if(message.transport!=='ws-opus-v1')throw Error('请更新启动器到 0.4.0 后使用语音');if(c.room&&c.room!==message.room)voiceEvent(c,'leave');const changed=c.room!==message.room;c.voiceTransport=message.transport;c.muted=false;c.deafened=false;c.audioEpoch=null;c.audioSeq=-1;c.room=message.room;presence();if(changed)voiceEvent(c,'join');}
+      else if(message.type==='voice-join'){const room=voiceRooms.rooms().find(r=>r.id===message.room);if(!room)throw Error('房间不存在或已关闭');if([...clients.values()].filter(p=>p.room===message.room&&p.id!==c.id).length>=room.capacity)throw Error('语音房间已满');if(message.transport!=='ws-opus-v1')throw Error('请更新启动器到 0.4.0 后使用语音');if(c.room&&c.room!==message.room)voiceEvent(c,'leave');const changed=c.room!==message.room;c.voiceTransport=message.transport;c.muted=false;c.deafened=false;c.audioEpoch=null;c.audioSeq=-1;c.room=message.room;voiceTools.joined(c);presence();if(changed)voiceEvent(c,'join');}
       else if(message.type==='voice-leave'){voiceEvent(c,'leave');c.room=null;c.muted=false;c.deafened=false;presence();}
       else if(message.type==='voice-mute'){c.muted=!!message.muted;presence();}
       else if(message.type==='voice-deafen'){c.deafened=!!message.deafened;}
@@ -216,6 +225,6 @@ export function createCommunity(options={}) {
     ws.on('error',()=>{});ws.on('close',()=>{clearTimeout(timer);voiceEvent(clients.get(ws),'leave');clients.delete(ws);presence();});
   });
   const sweep=setInterval(()=>{for(const [id,v] of attempts)if(Date.now()>v.expires)attempts.delete(id);for(const ws of wss.clients){const c=clients.get(ws);if(c&&c.user.exp<Date.now()){ws.close(1008,'登录已过期');continue;}if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();}},15000);sweep.unref();
-  return {server,db,async close(){await chatMedia.close();inventory.close();updates.close();tanks.close();werewolf.close();p2pSignal.close();await boards.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
+  return {server,db,async close(){voiceTools.close();hub.close();gameBridge.close();await chatMedia.close();inventory.close();updates.close();tanks.close();werewolf.close();p2pSignal.close();await boards.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const service=createCommunity();const port=Number(process.env.PORT||8787),host=process.env.HOST||'127.0.0.1';service.server.listen(port,host,()=>{process.send?.({type:'hxz-ready',version:VERSION});console.log(`幻想镇社区服务 http://${host}:${port}\n网页管理：http://127.0.0.1:${port}/admin/\n初始密码见数据目录的 初始管理员密码.txt`);});let closing=false;const shutdown=()=>{if(closing)return;closing=true;void service.close().then(()=>process.exit());};process.on('message',message=>{if(message?.type==='hxz-shutdown')shutdown();});for(const sig of ['SIGINT','SIGTERM'])process.on(sig,shutdown);}

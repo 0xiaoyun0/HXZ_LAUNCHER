@@ -27,7 +27,7 @@ test('skin identity, administration, chat persistence and room-scoped signaling'
   assert.equal((await fetch(base+'/api/avatars/admin')).status,404,'caller cannot replace another identity avatar');
   assert.equal((await request('/api/profile/avatar','POST',{avatar:'data:image/svg+xml;base64,AAAA'},player.token)).status,400);
   const notice={groupId:'survival',title:'Maintenance',body:'Updates at 18:00'};
-  assert.equal((await request('/api/notices','POST',notice,player.token)).status,400);
+  assert.equal((await request('/api/notices','POST',notice,player.token)).status,403);
   const published=await request('/api/notices','POST',notice,admin.token);assert.equal(published.status,201);
   assert.equal((await request('/api/notices')).body[0].title,notice.title);
   async function client(token){const ws=new WebSocket(base.replace('http','ws')+'/ws',{origin:'file://'});sockets.push(ws);const packets=[];ws.on('message',raw=>packets.push(JSON.parse(raw)));await once(ws,'open');ws.send(JSON.stringify({type:'auth',token}));const wait=async type=>{for(let i=0;i<100;i++){const index=packets.findIndex(p=>p.type===type);if(index>=0)return packets.splice(index,1)[0];await new Promise(r=>setTimeout(r,20));}throw Error('Missing '+type);};return {ws,wait,send:value=>ws.send(JSON.stringify(value))};}

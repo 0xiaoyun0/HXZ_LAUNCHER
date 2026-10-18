@@ -1,3 +1,4 @@
+import './sync-hub.mjs';
 import fs from 'node:fs/promises';import path from 'node:path';import {createWriteStream} from 'node:fs';import {pipeline} from 'node:stream/promises';import yazl from 'yazl';
 const root=process.cwd(),source=path.join(root,'apps/community-server'),version=JSON.parse(await fs.readFile(path.join(source,'package.json'),'utf8')).version,output=path.join(root,'release',version,'server'),target=path.join(output,'幻想镇社区服务端');
 for(const name of ['data','.env'])if(await fs.stat(path.join(target,name)).then(()=>true,()=>false))throw Error('发布目录已包含运行数据，请先使用全新目录');

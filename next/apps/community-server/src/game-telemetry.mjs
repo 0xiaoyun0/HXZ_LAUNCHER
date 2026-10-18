@@ -5,12 +5,16 @@ export function createGameTelemetry({db,auth,admin,body,send,limit}){
   db.exec(`CREATE TABLE IF NOT EXISTS game_bridges(server TEXT PRIMARY KEY,token_hash TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 1,updated INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS game_stats(server TEXT NOT NULL,uid TEXT NOT NULL,metric TEXT NOT NULL,value REAL NOT NULL,observed INTEGER NOT NULL,PRIMARY KEY(server,uid,metric));
   CREATE TABLE IF NOT EXISTS game_stat_events(server TEXT NOT NULL,id TEXT NOT NULL,created INTEGER NOT NULL,PRIMARY KEY(server,id));`);
+  function authorize(req){
+    const token=String(req.headers.authorization||'').replace(/^Bearer /,''),server=String(req.headers['x-hxz-server']||'');
+    const config=db.prepare('SELECT * FROM game_bridges WHERE server=?').get(server),hash=digest(token);
+    if(!config?.enabled||token.length!==64||!timingSafeEqual(Buffer.from(config.token_hash,'hex'),Buffer.from(hash,'hex')))throw Object.assign(Error('游戏数据通道未授权'),{status:403});
+    return server;
+  }
   async function route(req,res,url){
     const p=url.pathname;if(!p.startsWith('/api/game-stats')&&!p.startsWith('/api/admin/game-bridges'))return false;
     if(p==='/api/game-stats/report'&&req.method==='POST'){
-      const token=String(req.headers.authorization||'').replace(/^Bearer /,''),server=String(req.headers['x-hxz-server']||'');
-      const config=db.prepare('SELECT * FROM game_bridges WHERE server=?').get(server),hash=digest(token);
-      if(!config?.enabled||token.length!==64||!timingSafeEqual(Buffer.from(config.token_hash,'hex'),Buffer.from(hash,'hex')))throw Object.assign(Error('游戏数据通道未授权'),{status:403});
+      const server=authorize(req);
       limit('game-report:'+server,120);const input=await body(req,1000000);
       if(!/^[\w-]{16,100}$/.test(input.id||'')||!Array.isArray(input.players)||input.players.length>100)throw Error('游戏数据格式无效');
       const observed=Number(input.observed);if(!Number.isSafeInteger(observed)||Math.abs(Date.now()-observed)>10*60000)throw Error('服务器时间相差超过十分钟，请校准时间');
@@ -36,5 +40,5 @@ export function createGameTelemetry({db,auth,admin,body,send,limit}){
     send(res,404,{error:'游戏统计接口不存在'});return true;
   }
   const reached=(uid,t)=>Number(db.prepare('SELECT value FROM game_stats WHERE server=? AND uid=? AND metric=?').get(t.server,uid.replaceAll('-','').toLowerCase(),t.metric)?.value||0)>=t.value;
-  return {route,reached};
+  return {route,reached,authorize};
 }

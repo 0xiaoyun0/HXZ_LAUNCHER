@@ -24,7 +24,7 @@ export function ContextMenu({children,items}:any){
 }
 export function Field({label,hint,children}:any){return <label className="field"><span>{label}</span>{children}{hint&&<small>{hint}</small>}</label>}
 export function Empty({icon:Icon,title,children,action}:any){return <div className="empty">{Icon&&<Icon size={35} strokeWidth={1.4}/>}<h3>{title}</h3>{children&&<p>{children}</p>}{action}</div>}
-export function PageTitle({eyebrow,title,children,actions}:any){return <header className="page-title"><div>{eyebrow&&<span className="eyebrow">{eyebrow}</span>}<h1>{title}</h1>{children&&<p>{children}</p>}</div><div className="actions">{actions}</div></header>}
+export function PageTitle({eyebrow,title,children,actions,tabs}:any){return <header className="page-title page-header"><div className="page-header-row"><div className="page-header-title">{eyebrow&&<span className="eyebrow">{eyebrow}</span>}<h1>{title}</h1>{children&&<p>{children}</p>}</div><div className="actions page-header-actions">{actions}<div className="page-header-card-tools"/></div></div>{tabs&&<nav className="workspace-tabs page-header-tabs" aria-label={title+'栏目'}>{tabs}</nav>}</header>}
 export function Avatar({name='',image,size=32}:any){const [failed,setFailed]=useState('');return <span className="avatar" style={{width:size,height:size}}>{image&&image!==failed?<img src={image} alt={name+'的头像'} onError={()=>setFailed(image)}/>:(name?.slice(0,1)||'旅')}</span>}
 export function CoverImage({src,alt='',fallback=null}: {src?:string;alt?:string;fallback?:React.ReactNode}) {
  const [failed,setFailed]=useState('');

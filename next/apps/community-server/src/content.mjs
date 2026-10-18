@@ -19,6 +19,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
   const directory = path.join(data, "blueprints");
   mkdirSync(directory, { recursive: true });
   const uploads = new Set();
+  const materialLoads = new Map();
   db.exec(`PRAGMA foreign_keys=ON;
     CREATE TABLE IF NOT EXISTS members(uid TEXT PRIMARY KEY,name TEXT NOT NULL,seen INTEGER NOT NULL);
     CREATE TABLE IF NOT EXISTS blueprint_reviewers(uid TEXT PRIMARY KEY);
@@ -118,6 +119,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
       )
       .get(id);
     if (!item || (item.hidden && !(manage && isAdmin(user)))) fail("帖子不存在或已被管理", 404);
+    if(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='hub_work_discussions'").get())item.work=db.prepare("SELECT r.id,r.title FROM hub_work_discussions d JOIN hub_records r ON r.id=d.record WHERE d.post=? AND r.status='published' AND r.visibility='community'").get(id)||null;
     item.liked =
       !!user &&
       !!db.prepare("SELECT 1 FROM forum_likes WHERE post_id=? AND uid=?").get(id, user.uid);
@@ -258,7 +260,7 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
         send(res, 201, { id });
         return true;
       }
-      const match = p.match(/^\/api\/blueprints\/([\w-]+)(?:\/(file|review|like|favorite))?$/);
+      const match = p.match(/^\/api\/blueprints\/([\w-]+)(?:\/(file|review|like|favorite|materials))?$/);
       if (match) {
         const item = blueprint(match[1]),
           user = optionalUser(req);
@@ -269,6 +271,15 @@ export function createContent({ data, db, auth, admin, adminIDs, body, send, lim
           else db.prepare('DELETE FROM blueprint_reactions WHERE blueprint_id=? AND uid=? AND kind=?').run(item.id,user.uid,match[2]);
           if(input.enabled)inbox?.notify({recipients:[item.uid],actor:user,kind:match[2],title:user.name+(match[2]==='like'?' 赞了':' 收藏了')+'你的蓝图',body:item.title,target:'/workshop/blueprints?item='+item.id,dedupe:'blueprint-'+match[2]+':'+item.id+':'+user.uid});
           send(res,200,presented(blueprint(item.id),user));return true;
+        }
+        if(match[2]==='materials'&&method==='GET'){
+          const current=auth(req);if(!visible(item,current)||!item.size)fail('蓝图尚未公开或文件未上传',403);limit('blueprint-materials:'+current.uid,20);if(uploads.has(item.id))fail('蓝图正在更新，请稍后重试',409);
+          let metadata=JSON.parse(item.metadata);if(metadata.materialVersion!==1){
+            if(!materialLoads.has(item.id)){if(materialLoads.size>=2)fail('材料统计繁忙，请稍后重试',429);const job=(async()=>{const file=path.join(directory,item.id+'.nbt'),stat=await fs.stat(file);if(stat.size>8*1024*1024)fail('蓝图文件超过统计上限');const bytes=await fs.readFile(file);if(createHash('sha256').update(bytes).digest('hex')!==item.sha256)fail('蓝图文件已变化，请刷新',409);const result=await inspectSchematic(bytes);db.prepare('UPDATE blueprints SET metadata=? WHERE id=? AND sha256=?').run(JSON.stringify(result),item.id,item.sha256);return result;})().finally(()=>materialLoads.delete(item.id));materialLoads.set(item.id,job);}
+            metadata=await materialLoads.get(item.id);
+          }
+          const latest=blueprint(item.id);if(!visible(latest,current))fail('蓝图尚未公开',403);if(latest.sha256!==item.sha256)fail('蓝图文件已变化，请刷新',409);
+          send(res,200,{title:latest.title,mc:latest.mc,...metadata});return true;
         }
         if (match[2] === "file" && method === "GET") {
           await downloadFile(req, res, item);

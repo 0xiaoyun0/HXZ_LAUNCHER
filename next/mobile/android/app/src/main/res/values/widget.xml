@@ -1,0 +1,8 @@
+<resources>
+ <color name="widget_surface">#f7f8fd</color><color name="widget_ink">#26334c</color><color name="widget_muted">#697994</color><color name="widget_border">#dce3ef</color><color name="widget_button">#e9edfa</color>
+ <style name="WidgetShortcut"><item name="android:layout_width">0dp</item><item name="android:layout_height">match_parent</item><item name="android:layout_weight">1</item><item name="android:layout_marginHorizontal">3dp</item><item name="android:gravity">center</item><item name="android:textSize">13sp</item><item name="android:textColor">@color/widget_ink</item><item name="android:background">@drawable/widget_button</item><item name="android:maxLines">1</item><item name="android:ellipsize">end</item></style>
+ <string name="widget_description">社区快捷入口、最近访问时的在线人数。不在后台持续联网。</string>
+ <string name="widget_title">幻想镇 · 社区随行</string>
+ <string name="widget_chat">聊天</string><string name="widget_inbox">收件箱</string><string name="widget_devices">接续</string><string name="widget_events">活动</string>
+ <string name="widget_open_chat">打开文字大厅</string><string name="widget_open_inbox">打开收件箱</string><string name="widget_open_devices">打开多端接续</string><string name="widget_open_events">打开活动与赛事</string>
+</resources>

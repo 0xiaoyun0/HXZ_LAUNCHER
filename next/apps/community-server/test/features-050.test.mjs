@@ -17,8 +17,8 @@ test('feedback privacy, administrator handling and spectator-only comments',asyn
  async function request(p,token,body){const r=await fetch(base+p,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body?JSON.stringify(body):undefined});return {status:r.status,...await r.json()};}
  const tokens={};for(const uid of ['a','b','spy','admin'])tokens[uid]=(await request('/api/session','',{uid})).token;
  const feedback=await request('/api/feedback',tokens.a,{category:'launcher',title:'下载反馈',body:'请求恢复中断任务',report:'中文日志'.repeat(15000)});assert.equal(feedback.status,201);
- assert.equal((await request('/api/feedback/'+feedback.id,tokens.b)).status,400);
- assert.equal((await request('/api/feedback?scope=all',tokens.a)).status,400);
+ assert.equal((await request('/api/feedback/'+feedback.id,tokens.b)).status,404);
+ assert.equal((await request('/api/feedback?scope=all',tokens.a)).status,403);
  assert.equal((await request('/api/feedback?scope=all',tokens.admin)).total,1);
  assert.equal((await request('/api/feedback/'+feedback.id,tokens.admin,{body:'已修复断点恢复',status:'resolved'})).status,200);
  const detail=await request('/api/feedback/'+feedback.id,tokens.a);assert.equal(detail.item.status,'resolved');assert.equal(detail.replies[0].manager,1);

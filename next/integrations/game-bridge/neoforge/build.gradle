@@ -1,0 +1,15 @@
+plugins {
+    id 'java-library'
+    id 'net.neoforged.moddev' version '2.0.148'
+}
+group = 'top.hxzmc'
+version = '0.8.0'
+base { archivesName = 'hxz-community-bridge-neoforge-1.21.1' }
+java.toolchain.languageVersion = JavaLanguageVersion.of(21)
+neoForge {
+    version = project.neo_version
+    runs { server { server(); programArgument '--nogui' } }
+    mods { hxz_community_bridge { sourceSet sourceSets.main } }
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
+tasks.named('jar', Jar) { manifest { attributes('Implementation-Version': project.version) } }

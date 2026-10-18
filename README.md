@@ -1,19 +1,20 @@
-# 幻想镇 · 0.7.3
+# 幻想镇 · 0.8.0
 
-Windows 卡片启动器、Android 社区与可选游戏组件、完整社区服务端及独立官网。
+Windows 卡片启动器、Android 社区、独立社区服务端与服务器官网。
 
-[下载 0.7.3](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.7.3) · [源码与构建](next/README.md) · [更新内容](next/docs/0.7.3发布说明.md) · [部署与升级](next/docs/0.7.3部署与验收.md)
+[下载 0.8.0](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.0) · [源码与构建](next/README.md) · [更新内容](next/docs/0.8.0发布说明.md) · [使用与升级](next/docs/0.8.0使用与升级.md)
 
-- Windows x64 / ia32 安装器与便携包。安装版沿用签名更新通道，保留账号、设置与游戏目录。
-- [Android 社区](next/mobile/README.md)：Android 10+，0.7.3 / 70300，原签名覆盖安装；可选 ARM64 游戏组件沿用 0.7.0 / 70003。
-- 联机修复握手与邀请，支持 P2P、公网、路由器映射和虚拟局域网；加入时自动匹配、确认安装对应实例。
-- 修复游戏内聊天、语音覆盖、快捷键及 HXZ UP 目录；反馈支持搜索、处理、归档与删除。
-- 新增星潮幸存、星图旅札、星灯迷宫三款肉鸽，合计十八款小游戏，适配 PC/手机普通与专注模式。
-- [完整社区服务端](next/apps/community-server/README.md)：升级前备份 data 与 .env；已有 0.7.0 及以上服务可使用后台签名更新。
-- [MC 联机大厅](next/docs/MC直连大厅.md)：公网 IPv4/IPv6 优先，失败尝试 P2P；社区不传输游戏数据。
-- [卡片规范](next/docs/UI卡片规范.md) · [LINKING 管理](next/docs/LINKING档案馆开发与管理.md) · [官网部署](next/docs/官网部署与内容管理.md)
+- 工作台集中处理待办、等待结果、进行中和已办结事项。聊天、公告、资源、实例、音乐、账号等栏目保留相关入口，共用内容与进度。
+- 新增好友与小队、玩家空间、活动足迹、共同项目、作品素材、知识库、生产助手和世界接力。
+- 语音房间支持课堂、自习、互助、字幕与屏幕分享；一起看支持 B 站官方播放器、节目队列及房间同步操作。
+- 实例维护提供恢复点、实验副本、目录迁移、设置预设和启动记录；卡片支持布局导入、受限流程与声明式扩展。
+- 管理工作台统一审核、申诉与账本；玩家交易使用背包和积分托管。可选游戏服务端桥提供可信统计、游戏聊天及入服服务。
+- Windows x64 / ia32 安装器沿用原签名更新通道；Android 10+ 社区 0.8.0 / 80000 沿用原证书，可选游戏组件继续使用 70003。
+- 社区服务端需要同步升级，升级前备份并保留整个 data 和 .env。[游戏服务端桥部署](next/docs/0.8.0游戏服务端桥.md) · [验证范围](next/docs/0.8.0验收矩阵.md)
 
-当前源码位于 next；根目录 client / server / mobile 保留历史实现。社区使用 next/apps/community-server，next/server 仅含共享规则。第三方引擎的许可与重建源码位于 [独立模块](next/third_party/maid-board-engine/README.md)。历史 Release 保留。
+当前源码位于 next；根目录 client / server / mobile 保留历史实现。社区服务端使用 next/apps/community-server。第三方引擎的许可与重建源码位于 [独立模块](next/third_party/maid-board-engine/README.md)。历史版本与 Release 保留。
+
+[卡片规范](next/docs/UI卡片规范.md) · [MC 联机](next/docs/MC直连大厅.md) · [LINKING 管理](next/docs/LINKING档案馆开发与管理.md) · [官网部署](next/docs/官网部署与内容管理.md)
 
 ---
 

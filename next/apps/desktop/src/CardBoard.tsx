@@ -1,4 +1,5 @@
-import React, {Children, Fragment, isValidElement, useContext, useEffect, useMemo, useRef, useState} from 'react';
+import {createPortal} from 'react-dom';
+import React, {Children, Fragment, isValidElement, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {GridLayout, useContainerWidth, verticalCompactor, type Layout, type LayoutItem} from 'react-grid-layout';
 import {Grip, EyeOff, LayoutDashboard, RotateCcw, Lock, Unlock, MoreHorizontal, Undo2, AlignStartVertical, Expand,MoveUpRight,Pencil,Check,Plus,Trash2} from 'lucide-react';
@@ -36,7 +37,7 @@ function minimumContent(el:HTMLElement) {
   return {width,height};
 }
 
-export function CardBoard(props:{id:string; cards:CardSpec[]; label?:string; className?:string; transient?:boolean}) {
+export function CardBoard(props:{id:string; cards:CardSpec[]; label?:string; pageTitle?:boolean; className?:string; transient?:boolean}) {
   const s=useSnapshot(state),u=useSnapshot(ui),harvest=useContext(CardHarvest);
   const {width, containerRef, mounted} = useContainerWidth({measureBeforeMount:true});
   const compact=width<780;
@@ -53,13 +54,15 @@ export function CardBoard(props:{id:string; cards:CardSpec[]; label?:string; cla
   </section>;
 }
 
-function Board({id,cards,label='卡片布局',width,compact,transient=false}:{id:string;cards:CardSpec[];label?:string;className?:string;width:number;compact:boolean;transient?:boolean}) {
+function Board({id,cards,label='',pageTitle=false,width,compact,transient=false}:{id:string;cards:CardSpec[];label?:string;pageTitle?:boolean;className?:string;width:number;compact:boolean;transient?:boolean}) {
   const s=useSnapshot(state),u=useSnapshot(ui),page=id+(compact?'.compact':'.wide'),style=normalizeCardStyle(s.settings.cardStyle);
   const [moving,setMoving]=useState<CardSpec['origin']>(),[adding,setAdding]=useState(false),portable=CARD_PAGES.some(p=>p[0]===id);
   const [drawer,setDrawer]=useState(false),[draft,setDraft]=useState<Saved|null>(null),[previous,setPrevious]=useState<Saved|null>(null);
   const [status,setStatus]=useState(''),[gesture,setGesture]=useState(false),[measured,setMeasured]=useState<Record<string,number>>({});
   const [minimum,setMinimum]=useState<Record<string,{width:number;height:number}>>({});
   const revision=useRef(0),live=useRef(true),rendered=useRef<Layout>([]),board=useRef<HTMLDivElement>(null),beforeGesture=useRef<Saved|null>(null);
+  const [toolbarHost,setToolbarHost]=useState<HTMLElement|null>(null);
+  useLayoutEffect(()=>{const page=board.current?.closest('.standard-page,.community-page');setToolbarHost(label?null:page?.querySelector<HTMLElement>(':scope > .page-header .page-header-card-tools')||null);},[id,label]);
   useEffect(()=>{live.current=true;return()=>{live.current=false;};},[]);
   const geometry=cards.map(c=>[c.id,c.x,c.y,c.w,c.h,c.minW,c.minH,c.maxH,c.fit]);
   const initial=useMemo(()=>{
@@ -125,14 +128,15 @@ function Board({id,cards,label='卡片布局',width,compact,transient=false}:{id
   }
   function start(){beforeGesture.current=capture();setGesture(true);}
   function stop(value:Layout,resizeId?:string){setGesture(false);setPrevious(beforeGesture.current);const next=merge(value);if(resizeId)next.fixed=[...new Set([...fixed,resizeId])];void persist(next,false);}
-  return <div ref={board} data-card-board={id} className={'card-board '+(gesture?'moving ':'')+(u.cardEdit?'editing':'')} style={{'--card-gap':style.gap+'px'} as React.CSSProperties}>
-    <div className="card-layout-toolbar"><span>{label}</span><div>
+  const toolbar=<div className={"card-layout-toolbar "+(!label?"without-page-label":"")} >{label&&(pageTitle?<h1 className="card-page-title">{label}</h1>:<span>{label}</span>)}<div>
       <button className={'layout-save-status '+(status.startsWith('保存失败')?'error':'')} disabled={!status.startsWith('保存失败')} onClick={()=>draft&&void persist(draft,false)} aria-live="polite">{gesture?'松手即可对齐':status||(transient?'筛选结果 · 独立排列':'拖动手柄整理 · 自动保存')}</button>
       {previous&&<Button icon={Undo2} onClick={()=>{const value=previous;setPrevious(null);rendered.current=[];return persist(value,false);}}>撤销</Button>}
       {portable&&<Button icon={u.cardEdit?Check:Pencil} onClick={async()=>{if(u.cardEdit)await ui.layoutUnsaved?.save();ui.cardEdit=!ui.cardEdit;}}>{u.cardEdit?'完成编辑':'编辑卡片'}</Button>}
       {portable&&u.cardEdit&&<Button icon={Plus} onClick={()=>setAdding(true)}>添加卡片</Button>}
       <Button icon={LayoutDashboard} onClick={()=>setDrawer(true)}>卡片{hidden.length?' · '+hidden.length+' 已隐藏':''}</Button>
-    </div></div>
+    </div></div>;
+  return <div ref={board} data-card-board={id} className={'card-board '+(gesture?'moving ':'')+(u.cardEdit?'editing':'')} style={{'--card-gap':style.gap+'px'} as React.CSSProperties}>
+    {toolbarHost?createPortal(toolbar,toolbarHost):toolbar}
     <GridLayout width={width} layout={layout} gridConfig={{cols:12,rowHeight:ROW,margin:[style.gap,0],containerPadding:[0,0]}}
       dragConfig={{enabled:true,handle:'.card-drag-handle',cancel:'input,textarea,a,.card-content,.card-menu-trigger',threshold:5}}
       resizeConfig={{enabled:true,handles:['se']}} compactor={verticalCompactor}
@@ -203,7 +207,7 @@ function flatten(children:React.ReactNode):React.ReactNode[] {return Children.to
 function heading(children:React.ReactNode):string {for(const c of flatten(children))if(isValidElement(c)){if(['h2','h3'].includes(String(c.type))){return Children.toArray((c.props as any).children).filter(v=>typeof v==='string').join('');}const nested=heading((c.props as any).children);if(nested)return nested;}return '';}
 export function FormCards({id,children}:{id:string;children:React.ReactNode}) {
   const nodes=flatten(children).filter(isValidElement) as React.ReactElement<any>[];
-  return <CardBoard id={id} label="设置卡片" cards={nodes.map((node,i)=>({id:node.props['data-card']||'section-'+i,title:node.props['data-card-title']||heading(node.props.children)||'外观预览',content:node,w:node.props['data-width']||6,h:node.props['data-height']||14,minW:5,minH:7,fit:true,className:'form-card'}))}/>;
+  return <CardBoard id={id} label="" cards={nodes.map((node,i)=>({id:node.props['data-card']||'section-'+i,title:node.props['data-card-title']||heading(node.props.children)||'外观预览',content:node,w:node.props['data-width']||6,h:node.props['data-height']||14,minW:5,minH:7,fit:true,className:'form-card'}))}/>;
 }
 export function PanelGroup({id,children,names=[],widths=[],heights=[],maxHeights=[],positions=[],className=''}:{id:string;children:React.ReactNode;names?:string[];widths?:number[];heights?:number[];maxHeights?:number[];positions?:number[][];className?:string}) {
   const nodes=flatten(children).filter(isValidElement) as React.ReactElement<any>[];
@@ -213,5 +217,5 @@ export function PanelGroup({id,children,names=[],widths=[],heights=[],maxHeights
     const card={id:node.props['data-card']||'panel-'+i,title:names[i]||heading(node.props.children)||'功能面板',content:node,w,h,x:positions[i]?.[0]??x,y:positions[i]?.[1]??y,minW:Math.min(5,w),minH:Math.min(h,10),maxH:maxHeights[i],className:'panel-card'};
     x+=w;row=Math.max(row,h);return card;
   });
-  return <CardBoard id={id} cards={cards} className={className} label="页面布局"/>;
+  return <CardBoard id={id} cards={cards} className={className} label=""/>;
 }

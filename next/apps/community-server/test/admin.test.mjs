@@ -5,6 +5,7 @@ import {tmpdir} from 'node:os';
 import path from 'node:path';
 import {once} from 'node:events';
 import {createCommunity} from '../src/server.mjs';
+import {VERSION} from '../src/version.mjs';
 test('independent web admin: local origin, login, protected CRUD and password rotation',async t=>{
  const data=await mkdtemp(path.join(tmpdir(),'hxz-admin-'));
  const service=createCommunity({data});service.server.listen(0,'127.0.0.1');await once(service.server,'listening');
@@ -15,7 +16,7 @@ test('independent web admin: local origin, login, protected CRUD and password ro
  assert.equal((await api('/api/admin/overview')).status,400);
  const password=(await readFile(path.join(data,'初始管理员密码.txt'),'utf8')).match(/初始密码：([^\n]+)/)[1];
  const login=await api('/api/admin/login',{username:'admin',password},false);assert.equal(login.status,200);token=login.value.token;
- assert.equal((await api('/api/admin/overview')).value.version,'0.4.0');
+ assert.equal((await api('/api/admin/overview')).value.version,VERSION);
  assert.equal((await api('/api/notices',{groupId:'mod-1',title:'Test',body:'Admin publish'})).status,201);
  assert.equal((await api('/api/admin/settings',{adminIDs:['test-uuid'],turnUrl:''})).status,200);
  assert.deepEqual((await api('/api/admin/overview')).value.adminIDs,['test-uuid']);

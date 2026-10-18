@@ -73,12 +73,12 @@ export function createInventory({db, auth, admin, body, send, limit, points, med
     for (const batch of batches) {const used = Math.min(left, batch.remaining); db.prepare('UPDATE inventory_batches SET remaining=remaining-? WHERE id=?').run(used, batch.id); left -= used; if (!left) break;}
     db.prepare('INSERT INTO inventory_escrow VALUES(?,?,?,?,?,?)').run(id, uid, itemId, snapshot(item), quantity, 'held'); audit(uid, uid, 'escrow', itemId, quantity);
   }
-  function releaseEscrow(id, recipient) {
+  function releaseEscrow(id, recipient, title) {
     const record = db.prepare('SELECT * FROM inventory_escrow WHERE id=?').get(id);
     if (!record || record.status !== 'held') return;
     const uid = recipient || record.uid;
     // A pending mail keeps settlement possible even if the recipient's stack is full.
-    mail(uid, JSON.parse(record.snapshot), record.quantity, recipient ? '委托奖励已交付' : '委托奖励已退还', 'system', 'escrow:' + id);
+    mail(uid, JSON.parse(record.snapshot), record.quantity, title || (recipient ? '委托奖励已交付' : '委托奖励已退还'), 'system', 'escrow:' + id);
     db.prepare('UPDATE inventory_escrow SET status=? WHERE id=?').run(recipient ? 'delivered' : 'returned', id);
   }
   function mail(uid, item, quantity, title, actor, id = randomUUID()) {

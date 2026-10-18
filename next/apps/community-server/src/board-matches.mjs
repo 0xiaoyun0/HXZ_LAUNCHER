@@ -1,9 +1,11 @@
 import {analyseBoard} from './board-engine.mjs';
 import { randomUUID } from 'node:crypto';
+import {createBoardWorkshop} from './board-workshop.mjs';
 import { BOARD_GAMES,createBoard,legalMoves,playMove } from '../shared/board-games.mjs';
 
-export function createBoardMatches({db,auth,body,send,limit,points,broadcast=()=>{},now=()=>Date.now()}) {
+export function createBoardMatches({db,auth,admin=()=>{throw Error('需要管理员权限');},body,send,limit,points,broadcast=()=>{},now=()=>Date.now()}) {
   db.exec('CREATE TABLE IF NOT EXISTS board_matches(id TEXT PRIMARY KEY,game TEXT,a TEXT,b TEXT,a_name TEXT,b_name TEXT,mode TEXT,level INTEGER,state TEXT,updated INTEGER,created INTEGER,finished INTEGER DEFAULT 0); CREATE INDEX IF NOT EXISTS board_matches_active ON board_matches(finished,updated);');
+  const workshop=createBoardWorkshop({db,auth,admin,body,send,limit,now});
   const busy=new Set(),workers=new Set(),comments=new Map(),queue=[],failures=new Map();let closed=false;
   function changed(match){broadcast({type:'board-changed',id:match.id,game:match.game,ply:match.state.ply},c=>match.mode==='online'||c.user.uid===match.a);}
   function read(id){const row=db.prepare('SELECT * FROM board_matches WHERE id=?').get(id);if(!row)throw Error('对局不存在');return {...row,state:JSON.parse(row.state)};}
@@ -11,19 +13,19 @@ export function createBoardMatches({db,auth,body,send,limit,points,broadcast=()=
     if(!match.state.winner||match.finished)return;
     const winner=match.state.winner,who=winner==='a'?match.a:match.b,name=winner==='a'?match.a_name:match.b_name;
     // Both score recording and settlement are idempotent; mark the match after awarding.
-    if(winner!=='draw'&&who&&who!=='@bot'){
+    if(winner!=='draw'&&who&&who!=='@bot'&&!workshop.practice(match.id)){
       if(match.mode==='online')points.win({uid:who,name},match.id);
       else if(winner==='a')points.recordScore(match.game,{uid:who,name},match.level*10000+Math.max(1,600-match.state.ply));
     }
     match.finished=1;db.prepare('UPDATE board_matches SET finished=1 WHERE id=?').run(match.id);
   }
-  function save(match){db.prepare('UPDATE board_matches SET b=?,b_name=?,state=?,updated=? WHERE id=?').run(match.b,match.b_name,JSON.stringify(match.state),match.updated,match.id);finish(match);changed(match);}
+  function save(match,move){db.exec('BEGIN IMMEDIATE');try{if(move)workshop.record(match,move);db.prepare('UPDATE board_matches SET b=?,b_name=?,state=?,updated=? WHERE id=?').run(match.b,match.b_name,JSON.stringify(match.state),match.updated,match.id);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}finish(match);changed(match);}
   function expire(match){if(match.finished)return;if(match.state.winner){finish(match);return;}
     if(match.b&&now()-match.updated>5*60000){match.state.winner=match.state.turn==='a'?'b':'a';save(match);}
     else if(!match.b&&now()-match.created>30*60000){match.state.winner='draw';save(match);}
   }
   function view(match,user){expire(match);const side=match.a===user.uid?'a':match.b===user.uid?'b':'';return {id:match.id,game:match.game,mode:match.mode,level:match.level,a:{uid:match.a,name:match.a_name},b:match.b?{uid:match.b,name:match.b_name}:null,
-    side,spectator:!side&&!!match.b,comments:!side&&match.b?(comments.get(match.id)||[]).filter(c=>now()-c.created<30000):undefined,
+    side,practice:workshop.practice(match.id),spectator:!side&&!!match.b,comments:!side&&match.b?(comments.get(match.id)||[]).filter(c=>now()-c.created<30000):undefined,
     state:{...match.state,positions:undefined},legal:side===match.state.turn&&!match.state.winner&&match.b?legalMoves(match.state):[],updated:match.updated,deadline:match.updated+5*60000,thinking:busy.has(match.id),engineError:failures.get(match.id)?.message||''};}
   function computer(match,retry=false){
     if(closed||match.mode!=='bot'||match.state.winner||match.state.turn!=='b'||busy.has(match.id)||(!retry&&failures.has(match.id)))return;
@@ -36,13 +38,14 @@ export function createBoardMatches({db,auth,body,send,limit,points,broadcast=()=
       const ply=match.state.ply,job=analyseBoard(match.state,match.level);workers.add(job);
       job.promise.then(move=>{
         if(closed)return;const current=read(id);
-        if(current.state.ply===ply&&!current.finished){current.state=playMove(current.state,move);current.updated=now();save(current);}
+        if(current.state.ply===ply&&!current.finished){current.state=playMove(current.state,move);current.updated=now();save(current,move);}
       }).catch(error=>{if(!closed){failures.set(id,{message:error.message});if(failures.size>500)failures.delete(failures.keys().next().value);}}).finally(()=>{
         workers.delete(job);busy.delete(id);if(!closed){changed(read(id));pump();}
       });
     }
   }
   async function route(req,res,url){
+    if(await workshop.route(req,res,url))return true;
     if(!url.pathname.startsWith('/api/boards'))return false;
     const user=auth(req);if(user.consoleAdmin)throw Error('请使用玩家角色参与');limit('boards:'+user.uid,100);
     const id=url.pathname.split('/')[3];
@@ -60,7 +63,8 @@ export function createBoardMatches({db,auth,body,send,limit,points,broadcast=()=
       if(!BOARD_GAMES.some(g=>g.id===input.game)||!['online','bot'].includes(input.mode)||!Number.isInteger(input.level)||input.level<1||input.level>5)throw Error('请选择游戏、模式和难度');
       const previous=db.prepare('SELECT id FROM board_matches WHERE finished=0 AND (a=? OR b=?)').all(user.uid,user.uid);for(const m of previous)expire(read(m.id));
       if(db.prepare('SELECT COUNT(*) AS n FROM board_matches WHERE finished=0 AND (a=? OR b=?)').get(user.uid,user.uid).n>=2)throw Error('请先完成或退出已有对局');
-      const id=randomUUID();db.prepare('INSERT INTO board_matches VALUES(?,?,?,?,?,?,?,?,?,?,?,0)').run(id,input.game,user.uid,input.mode==='bot'?'@bot':'',user.name,input.mode==='bot'?'机器人':'',input.mode,input.level,JSON.stringify(createBoard(input.game)),now(),now());changed(read(id));send(res,201,view(read(id),user));return true;
+      const initial=input.challenge?workshop.position(input.challenge,input.ply,input.game):createBoard(input.game);
+      const id=randomUUID();db.exec('BEGIN IMMEDIATE');try{db.prepare('INSERT INTO board_matches VALUES(?,?,?,?,?,?,?,?,?,?,?,0)').run(id,input.game,user.uid,input.mode==='bot'?'@bot':'',user.name,input.mode==='bot'?'机器人':'',input.mode,input.level,JSON.stringify(initial),now(),now());if(input.challenge)workshop.mark(id,input.challenge,input.ply);else workshop.begin(id);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}changed(read(id));send(res,201,view(read(id),user));return true;
     }
     let match=read(id);expire(match);
     if(input.action==='comment'){
@@ -83,7 +87,7 @@ export function createBoardMatches({db,auth,body,send,limit,points,broadcast=()=
       else if(input.action==='move'){
         if(!match.b||match.state.turn!==side||input.ply!==match.state.ply||busy.has(id))throw Error('对局已变化，请刷新后操作');
         if(!input.move||!Number.isInteger(input.move.to)||(match.game!=='gomoku'&&!Number.isInteger(input.move.from)))throw Error('落子位置无效');
-        match.state=playMove(match.state,input.move);match.updated=now();save(match);computer(match);
+        match.state=playMove(match.state,input.move);match.updated=now();save(match,input.move);computer(match);
       }else throw Error('对局操作无效');
     }
     send(res,200,view(read(id),user));return true;

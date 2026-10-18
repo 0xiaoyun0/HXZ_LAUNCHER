@@ -1,0 +1,19 @@
+{
+  "version": "0.8.0",
+  "previous": "0.7.3",
+  "tag": "v0.8.0",
+  "date": "2026-10-18",
+  "source": "next",
+  "platforms": [
+    "windows-x64",
+    "windows-ia32",
+    "android"
+  ],
+  "androidVersionCode": 80000,
+  "gameEngineVersionCode": 70003,
+  "communityVersion": "0.8.0",
+  "release": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.0",
+  "notes": "next/docs/0.8.0发布说明.md",
+  "deployment": "next/docs/0.8.0使用与升级.md",
+  "gameBridge": "next/docs/0.8.0游戏服务端桥.md"
+}

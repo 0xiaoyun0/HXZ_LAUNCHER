@@ -1,0 +1,33 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {fixture} from './helpers/hub.mjs';
+
+test('trades escrow whole lots and settle atomically without inflating leaderboard points',async t=>{
+ const f=await fixture(t),{req}=f;
+ const {id:item}=await req('admin','/api/admin/inventory/items','POST',{title:'铜齿轮',description:'社区材料',kind:'material',commission:true});
+ await req('admin','/api/admin/inventory/mail','POST',{item,quantity:10,recipients:['alice'],title:'测试道具',requestId:randomUUID()});
+ const mailbox=(await req('alice','/api/inventory')).mail;
+ await req('alice','/api/inventory/claim','POST',{id:mailbox[0].id});
+ await req('admin','/api/admin/points/adjust','POST',{id:randomUUID(),uid:'bob',name:'bob',operation:'credit',amount:'100',reason:'测试资金'});
+ const input={requestId:randomUUID(),item,quantity:4,price:'25',days:7};
+ const listing=await req('alice','/api/hub/trades','POST',input);
+ assert.equal((await req('alice','/api/hub/trades','POST',input)).id,listing.id);
+ await req('alice','/api/hub/trades','POST',{...input,quantity:5},409);
+ assert.equal((await req('alice','/api/inventory')).items[0].quantity,6);
+ const buy={requestId:randomUUID()};
+ await req('eve','/api/hub/trades/'+listing.id+'/buy','POST',{requestId:randomUUID()},400);
+ await req('bob','/api/hub/trades/'+listing.id+'/buy','POST',buy);
+ await req('bob','/api/hub/trades/'+listing.id+'/buy','POST',buy);
+ await req('eve','/api/hub/trades/'+listing.id+'/buy','POST',{requestId:randomUUID()},409);
+ assert.equal(f.db.prepare('SELECT balance FROM points_wallet WHERE uid=?').get('bob').balance,'75');
+ assert.equal(f.db.prepare('SELECT balance FROM points_wallet WHERE uid=?').get('alice').balance,'25');
+ assert.equal(f.db.prepare('SELECT COUNT(*) n FROM points_week WHERE uid=?').get('alice').n,0);
+ const rewards=(await req('bob','/api/inventory')).mail;assert.equal(rewards.length,1);assert.equal(rewards[0].quantity,4);
+ await req('bob','/api/inventory/claim','POST',{id:rewards[0].id});assert.equal((await req('bob','/api/inventory')).items[0].quantity,4);
+ const withdrawn=await req('alice','/api/hub/trades','POST',{...input,requestId:randomUUID(),quantity:2});
+ await req('bob','/api/hub/trades/'+withdrawn.id+'/close','POST',{requestId:randomUUID()},403);
+ await req('alice','/api/hub/trades/'+withdrawn.id+'/close','POST',{requestId:randomUUID()});
+ await f.restart();assert.equal((await req('alice','/api/hub/trades?scope=mine')).items.length,2);
+ assert.equal((await req('alice','/api/inventory')).mail.length,1);
+});

@@ -56,13 +56,16 @@ public final class CommunityApp extends Application {
         JSONObject selected = credentials.optJSONObject("selectedProfile");
         return obj("server",base,"user",user,"profiles",profiles==null?new JSONArray():profiles,"selectedProfile",selected==null?JSONObject.NULL:selected,
             "hasAccount",credentials.has("accessToken"),"connected",connected,"connection",connection,"users",users,"messages",messages,
-            "voiceRooms",voiceRooms,"room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.7.3",
+            "voiceRooms",voiceRooms,"room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.8.0",
             "systemDark",(getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)==android.content.res.Configuration.UI_MODE_NIGHT_YES);
     }
     void event(String name, Object value) { MainActivity a=activity.get(); if(a!=null)a.emit(name,value); }
     final java.util.Map<String,Long> voiceActivity=new java.util.concurrent.ConcurrentHashMap<>();
     VoiceOverlay voiceOverlay;
-    void changed() { JSONObject update=state();update.remove("messages");event("state",update); }
+    private long widgetObserved;
+    private int widgetOnline(){java.util.Set<String> ids=new java.util.HashSet<>();for(int i=0;i<users.length();i++){JSONObject u=users.optJSONObject(i);if(u!=null&&!u.optString("uid").isEmpty())ids.add(u.optString("uid"));}return ids.size();}
+    void changed() { JSONObject update=state();update.remove("messages");event("state",update);long n=System.currentTimeMillis();if(connected&&n-widgetObserved>30000){widgetObserved=n;getSharedPreferences("widget",0).edit().putLong("observed",n).putInt("online",widgetOnline()).apply();main.post(()->CommunityWidget.update(this));} }
+    void clearWidget(){widgetObserved=0;getSharedPreferences("widget",0).edit().clear().apply();main.post(()->CommunityWidget.update(this));}
     static String validBase(String raw) throws Exception {
         HttpUrl url = HttpUrl.parse(raw.trim());
         if(url==null || !url.isHttps() || !url.username().isEmpty() || !url.password().isEmpty() || url.query()!=null || url.fragment()!=null)
@@ -138,14 +141,14 @@ public final class CommunityApp extends Application {
         String path=input.getString("path"), method=input.optString("method","GET");
         if(!Arrays.asList("GET","POST","PUT","DELETE").contains(method))throw new IOException("请求方式无效");
         String url=apiUrl(path), auth=session();
-        if(path.equals("/api/session")||(path.startsWith("/api/admin/")&&!path.matches("/api/admin/(inventory(?:/(items|mail|codes))?|guild(?:/[a-z0-9-]+)*|inbox/send|music|lobby/(grants|relay)|server-online|linking(?:/[a-z0-9-]+)*(?:\\?offset=[0-9]+)?)")))throw new IOException("此接口不向页面开放");
+        if(path.equals("/api/session")||(path.startsWith("/api/admin/")&&!path.matches("/api/admin/(inventory(?:/(items|mail|codes))?|guild(?:/[a-z0-9-]+)*|inbox/send|music|lobby/(grants|relay)|server-online|game-bridges|game-access|linking(?:/[a-z0-9-]+)*(?:\\?offset=[0-9]+)?)")))throw new IOException("此接口不向页面开放");
         return request(url,method,input.optJSONObject("body"),auth);
     }}
     void logout() { synchronized(authLock) {
-        disconnect(true); SkinSession.reset(); vault.clear(); credentials=new JSONObject(); token=""; expires=0; user=new JSONObject(); users=new JSONArray(); messages=new JSONArray(); connection="未登录"; changed();
+        clearWidget();disconnect(true); SkinSession.reset(); vault.clear(); credentials=new JSONObject(); token=""; expires=0; user=new JSONObject(); users=new JSONArray(); messages=new JSONArray(); connection="未登录"; changed();
     }}
     void setServer(String value) throws Exception { synchronized(authLock) {
-        String next=validBase(value); disconnect(true); base=next; token=""; expires=0; user=new JSONObject(); messages=new JSONArray(); users=new JSONArray();
+        String next=validBase(value); clearWidget();disconnect(true); base=next; token=""; expires=0; user=new JSONObject(); messages=new JSONArray(); users=new JSONArray();
         getSharedPreferences("settings",0).edit().putString("server",next).apply(); main.post(this::connect); changed();
     }}
     synchronized void connect() {

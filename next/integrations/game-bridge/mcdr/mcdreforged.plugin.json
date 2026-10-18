@@ -1,0 +1,10 @@
+{
+  "id": "hxz_community_bridge",
+  "version": "0.8.0",
+  "name": "幻想镇社区 · 游戏桥",
+  "description": "MCDR 服务端统计、在线状态、社区聊天及可选白名单同步；客户端无需安装。",
+  "author": "幻想镇",
+  "link": "https://github.com/0xiaoyun0/HXZ_LAUNCHER",
+  "dependencies": {"mcdreforged": ">=2.12.0"},
+  "entrypoint": "hxz_community_bridge"
+}

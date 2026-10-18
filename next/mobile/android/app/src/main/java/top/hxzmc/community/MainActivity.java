@@ -26,8 +26,13 @@ public final class MainActivity extends Activity {
     private File selectedBlueprint, download;
     private JSONObject downloadInfo;
     private long lastBack;
+    private AssetExport assetExport;
+    private String widgetTarget="";
+    private synchronized String takeWidgetTarget(){String v=widgetTarget;widgetTarget="";return v;}
+    @Override protected void onNewIntent(Intent intent){super.onNewIntent(intent);setIntent(intent);widgetTarget=CommunityWidget.target(intent.getStringExtra(CommunityWidget.EXTRA));if(!widgetTarget.isEmpty())emit("widgetNavigate",takeWidgetTarget());}
+    private final String bridgeSession=UUID.randomUUID().toString().replace("-","");
     @Override public void onCreate(Bundle saved){
-        super.onCreate(saved);app=(CommunityApp)getApplication();app.activity=new java.lang.ref.WeakReference<>(this);
+        super.onCreate(saved);widgetTarget=CommunityWidget.target(getIntent().getStringExtra(CommunityWidget.EXTRA));app=(CommunityApp)getApplication();app.activity=new java.lang.ref.WeakReference<>(this);assetExport=new AssetExport(getCacheDir());
         web=new WebView(this);web.setBackgroundColor(Color.rgb(244,246,251));
         WebSettings settings=web.getSettings();settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);
         settings.setAllowFileAccess(false);settings.setAllowContentAccess(false);settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -36,18 +41,23 @@ public final class MainActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient(){
             @Override public boolean onShowFileChooser(WebView view,ValueCallback<Uri[]> callback,FileChooserParams params){
                 if(imageSelection!=null)imageSelection.onReceiveValue(null);imageSelection=callback;
-                try{startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE,params.getMode()==FileChooserParams.MODE_OPEN_MULTIPLE),44);}catch(Exception e){imageSelection=null;callback.onReceiveValue(null);}return true;
+                boolean video=java.util.Arrays.stream(params.getAcceptTypes()).anyMatch(t->t.startsWith("video/"));
+                Intent picker=new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(video?"*/*":"image/*").putExtra(Intent.EXTRA_ALLOW_MULTIPLE,params.getMode()==FileChooserParams.MODE_OPEN_MULTIPLE);
+                if(video)picker.putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"image/png","image/jpeg","image/webp","video/mp4","video/webm"});
+                try{startActivityForResult(picker,44);}catch(Exception e){imageSelection=null;callback.onReceiveValue(null);}return true;
             }
         });
         web.addJavascriptInterface(new Bridge(),"HXZNative");
         web.setWebViewClient(new WebViewClient(){
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
                 Uri uri=request.getUrl();
+                if(!request.isForMainFrame()&&"https".equals(uri.getScheme())&&"player.bilibili.com".equals(uri.getHost())&&"/player.html".equals(uri.getPath()))return false;
                 // Only the bundled activity frame can navigate between its own chapters.
                 return request.isForMainFrame() || !ORIGIN.equals(uri.getScheme()+"://"+uri.getAuthority()) || uri.getPath()==null || !uri.getPath().startsWith("/linking/");
             }
             @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){
                 Uri uri=request.getUrl();
+                if(!request.isForMainFrame()&&"https".equals(uri.getScheme())&&bilibiliResource(uri.getHost()))return null;
                 if("https".equals(uri.getScheme())&&uri.getHost()!=null&&uri.getHost().endsWith(".music.126.net"))return null;
                 if(!ORIGIN.equals(uri.getScheme()+"://"+uri.getAuthority()))return response(403,"text/plain","外部页面已拦截".getBytes(StandardCharsets.UTF_8));
                 String path=uri.getPath();
@@ -84,6 +94,15 @@ public final class MainActivity extends Activity {
                     }
                     if(path.contains("..")||path.contains("\\"))return response(403,"text/plain",new byte[0]);
                     if(path.equals("/"))path="/index.html";
+                    if(path.equals("/index.html")){
+                        if(!request.isForMainFrame())return response(403,"text/plain",new byte[0]);
+                        try(InputStream in=getAssets().open("index.html")){
+                            String html=new String(CommunityApp.bounded(in,2*1024*1024),StandardCharsets.UTF_8);
+                            String bootstrap="<script nonce=\""+bridgeSession+"\">(()=>{const api=window.HXZNative,key="+JSONObject.quote(bridgeSession)+";Object.defineProperty(window,'HXZNative',{value:Object.freeze({call:raw=>{const v=JSON.parse(raw);v.bridgeSession=key;api.call(JSON.stringify(v));},musicPCM:raw=>api.musicPCM(raw,key)}),writable:false,configurable:false});})();</script>";
+                            html=html.replace("script-src 'self'","script-src 'self' 'nonce-"+bridgeSession+"'").replace("</head>",bootstrap+"</head>");
+                            return response(200,"text/html",html.getBytes(StandardCharsets.UTF_8));
+                        }
+                    }
                     String mime=path.endsWith(".js")?"text/javascript":path.endsWith(".css")?"text/css":path.endsWith(".svg")?"image/svg+xml":path.endsWith(".png")?"image/png":path.endsWith(".webp")?"image/webp":path.endsWith(".jpg")?"image/jpeg":path.endsWith(".woff2")?"font/woff2":path.endsWith(".glb")?"model/gltf-binary":path.endsWith(".ogg")?"audio/ogg":path.endsWith(".json")?"application/json":path.endsWith(".pdf")?"application/pdf":path.endsWith(".txt")?"text/plain":"text/html";
                     Map<String,String> headers=new HashMap<>();headers.put("Cache-Control","no-cache");headers.put("X-Content-Type-Options","nosniff");
                     return new WebResourceResponse(mime,"UTF-8",200,"OK",headers,getAssets().open(path.substring(1)));
@@ -113,7 +132,7 @@ public final class MainActivity extends Activity {
     @Override public void onConfigurationChanged(android.content.res.Configuration config){super.onConfigurationChanged(config);app.changed();}
     @Override protected void onPause(){super.onPause();app.pressing=false;app.musicSharing=false;if(app.audio!=null)app.audio.clearMusic();app.voiceSettings(CommunityApp.obj("pressing",false));}
     @Override protected void onStop(){super.onStop();app.foreground=false;app.main.postDelayed(()->{if(!app.foreground&&app.room.isEmpty()&&app.recoveryRoom.isEmpty()){app.disconnect(false);app.connection="已暂停";app.changed();}},1500);}
-    @Override protected void onDestroy(){if(app.activity.get()==this)app.activity.clear();if(selectedBlueprint!=null)selectedBlueprint.delete();if(download!=null)download.delete();if(imageSelection!=null){imageSelection.onReceiveValue(null);imageSelection=null;}web.removeJavascriptInterface("HXZNative");web.destroy();web=null;super.onDestroy();}
+    @Override protected void onDestroy(){if(assetExport!=null)assetExport.close();if(app.activity.get()==this)app.activity.clear();if(selectedBlueprint!=null)selectedBlueprint.delete();if(download!=null)download.delete();if(imageSelection!=null){imageSelection.onReceiveValue(null);imageSelection=null;}web.removeJavascriptInterface("HXZNative");web.destroy();web=null;super.onDestroy();}
     @Override public void onBackPressed(){emit("back",true);}
     private void beginVoice(String id,String room){
         if(permissionId!=null){result(id,null,"麦克风权限请求尚未完成");return;}
@@ -130,7 +149,7 @@ public final class MainActivity extends Activity {
     private void chooseDownload(String id,JSONObject info,File staged){
         if(fileId!=null){staged.delete();result(id,null,"请先完成当前文件选择");return;}
         fileId=id;fileKind="download";download=staged;downloadInfo=info;
-        try{startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("application/octet-stream").putExtra(Intent.EXTRA_TITLE,info.optString("filename","blueprint.nbt")),43);}catch(Exception e){fileId=null;staged.delete();result(id,null,"系统无法打开保存窗口");}
+        try{startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(info.optString("mime","application/octet-stream")).putExtra(Intent.EXTRA_TITLE,info.optString("filename","blueprint.nbt")),43);}catch(Exception e){fileId=null;staged.delete();result(id,null,"系统无法打开保存窗口");}
     }
     @Override protected void onActivityResult(int request,int code,Intent data){
         super.onActivityResult(request,code,data);if(request==44){ValueCallback<Uri[]> callback=imageSelection;imageSelection=null;if(callback!=null){java.util.ArrayList<Uri> images=new java.util.ArrayList<>();if(code==RESULT_OK&&data!=null){if(data.getClipData()!=null){for(int i=0;i<Math.min(3,data.getClipData().getItemCount());i++)images.add(data.getClipData().getItemAt(i).getUri());}else if(data.getData()!=null)images.add(data.getData());}callback.onReceiveValue(images.isEmpty()?null:images.toArray(new Uri[0]));}return;}if(request!=43)return;
@@ -208,12 +227,17 @@ public final class MainActivity extends Activity {
             runOnUiThread(()->chooseDownload(id,info,staged));
         }catch(Exception e){staged.delete();throw e;}
     }
+    private boolean bilibiliResource(String host){
+        if(host==null)return false;
+        for(String domain:new String[]{"bilibili.com","bilivideo.com","bilivideo.cn","hdslb.com","biliimg.com"})if(host.equals(domain)||host.endsWith("."+domain))return true;
+        return false;
+    }
     private final class Bridge {
-        @JavascriptInterface public void musicPCM(String encoded){if(encoded==null||encoded.length()>14000||!app.musicSharing||app.audio==null)return;try{app.audio.music(android.util.Base64.decode(encoded,android.util.Base64.DEFAULT));}catch(Exception ignored){}}
+        @JavascriptInterface public void musicPCM(String encoded,String session){if(!bridgeSession.equals(session)||encoded==null||encoded.length()>14000||!app.musicSharing||app.audio==null)return;try{app.audio.music(android.util.Base64.decode(encoded,android.util.Base64.DEFAULT));}catch(Exception ignored){}}
         @JavascriptInterface public void call(String raw){
-            if(raw.length()>12*1024*1024)return;
+            if(raw==null||raw.length()>12*1024*1024)return;
             try{
-                JSONObject call=new JSONObject(raw);String id=call.getString("id"),op=call.getString("op");JSONObject input=call.optJSONObject("input");if(input==null)input=new JSONObject();final JSONObject value=input;
+                JSONObject call=new JSONObject(raw);if(!bridgeSession.equals(call.optString("bridgeSession")))return;String id=call.getString("id"),op=call.getString("op");JSONObject input=call.optJSONObject("input");if(input==null)input=new JSONObject();final JSONObject value=input;
                 if(op.equals("appUpdate")){try{String action=value.optString("action","state");Object output;switch(action){case "check":output=app.updater.check();break;case "download":output=app.updater.download();break;case "cancel":output=app.updater.cancel();break;case "install":output=app.updater.install();break;case "settings":output=app.updater.settings(value);break;default:output=app.updater.state();}result(id,output,null);}catch(Exception e){result(id,null,CommunityApp.reason(e));}return;}
                 if(op.equals("voiceOverlay")){runOnUiThread(()->{try{if(app.voiceOverlay==null)app.voiceOverlay=new VoiceOverlay(app);boolean enabled=value.optBoolean("enabled");boolean permission=android.provider.Settings.canDrawOverlays(MainActivity.this);if(enabled&&!permission){startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName())));result(id,CommunityApp.obj("enabled",false,"permission",false),null);}else{app.voiceOverlay.enable(enabled);result(id,CommunityApp.obj("enabled",enabled,"permission",permission),null);}}catch(Exception e){result(id,null,CommunityApp.reason(e));}});return;}
                 if(op.equals("voiceJoin")){runOnUiThread(()->beginVoice(id,value.optString("room")));return;}
@@ -224,15 +248,21 @@ public final class MainActivity extends Activity {
                 if(op.equals("clipboard")){runOnUiThread(()->{((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("幻想镇房间",value.optString("text").substring(0,Math.min(6000,value.optString("text").length()))));result(id,true,null);});return;}
                 if(op.equals("musicShare")){runOnUiThread(()->{boolean enabled=value.optBoolean("enabled");if(enabled&&(app.room.isEmpty()||app.audio==null)){result(id,null,"请先加入语音房间");return;}app.musicSharing=enabled;if(app.audio!=null)app.audio.clearMusic();app.voiceSettings(CommunityApp.obj());result(id,true,null);});return;}
                 if(op.equals("pick")){runOnUiThread(()->choose(id,value.optString("kind")));return;}
+                if(op.equals("open")){runOnUiThread(()->{try{java.net.URI link=java.net.URI.create(value.optString("url"));if(!java.util.Arrays.asList("https","http").contains(link.getScheme())||link.getHost()==null||link.getUserInfo()!=null)throw new IOException("不支持这个链接");startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(link.toString())).addCategory(Intent.CATEGORY_BROWSABLE));result(id,true,null);}catch(Exception e){result(id,null,"无法打开链接，请检查地址或系统浏览器");}});return;}
+                if(op.equals("widgetPin")){runOnUiThread(()->{try{result(id,CommunityApp.obj("requested",CommunityWidget.pin(MainActivity.this)),null);}catch(Exception e){result(id,null,"当前系统桌面暂不支持添加组件，请在桌面的小组件列表中添加");}});return;}
                 if(op.equals("openSkin")){runOnUiThread(()->{try{startActivity(new Intent(MainActivity.this,SkinActivity.class));result(id,true,null);}catch(Exception e){result(id,null,"无法打开皮肤站页面");}});return;}
                 if(op.equals("background")){runOnUiThread(()->{moveTaskToBack(true);result(id,true,null);});return;}
                 if(op.equals("appearance")){runOnUiThread(()->{boolean dark=value.optBoolean("dark");web.setBackgroundColor(dark?Color.rgb(21,27,40):Color.rgb(245,246,241));if(Build.VERSION.SDK_INT==29){getWindow().setStatusBarColor(dark?Color.rgb(21,27,40):Color.rgb(245,246,241));getWindow().setNavigationBarColor(dark?Color.rgb(21,27,40):Color.rgb(245,246,241));getWindow().getDecorView().setSystemUiVisibility(dark?0:View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR|View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);}if(Build.VERSION.SDK_INT>=30){getWindow().getInsetsController().setSystemBarsAppearance(dark?0:WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS|WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS,WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS|WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS);}result(id,true,null);});return;}
                 try{app.jobs.execute(()->{try{
                     Object output;
                     switch(op){
+                        case "assetExport":
+                            if(value.optString("action").equals("finish")){JSONObject info=assetExport.info();File staged=assetExport.finish(value.getString("id"));app.main.post(()->chooseDownload(id,info,staged));return;}
+                            output=assetExport.accept(value);break;
                         case "gameEngine":output=app.gameEngine.call(value);break;
                         case "music":output=new MusicLibrary(app).call(value);break;
                         case "state":output=app.state();break;
+                        case "widgetTarget":output=CommunityApp.obj("target",takeWidgetTarget());break;
                         case "login":output=app.login(value);break;
                         case "profile":output=app.selectProfile(value.getString("id"));break;
                         case "logout":app.logout();output=app.state();break;

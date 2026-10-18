@@ -35,5 +35,5 @@ export function Home(){
  {id:'notices',title:'镇上近况',x:3,y:22,w:4,h:9,minW:4,minH:7,content:<LatestNotices/>},
  {id:'monitor',title:'服务监控',x:7,y:22,w:5,h:9,minW:4,minH:8,content:<ServerMonitor/>}
  ];
- return <div className="air-home"><CardBoard id="home" label="启动游戏" cards={cards}/><Modal open={manage} onClose={()=>setManage(false)} title={game?.name||'实例管理'} wide><InstanceManager/></Modal></div>;
+ return <div className="air-home"><CardBoard id="home" pageTitle label="启动游戏" cards={cards}/><Modal open={manage} onClose={()=>setManage(false)} title={game?.name||'实例管理'} wide><InstanceManager/></Modal></div>;
 }

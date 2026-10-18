@@ -33,6 +33,8 @@ try{
  const packet={id:randomUUID(),observed:Date.now(),players:[{uid:ids.player,stats:{'minecraft:custom/minecraft:play_time':24000}}]};
  const report=await fetch(base+'/api/game-stats/report',{method:'POST',headers:{Authorization:'Bearer '+bridge.token,'X-HXZ-Server':'mod-2','Content-Type':'application/json'},body:JSON.stringify(packet)});assert.equal(report.status,200);assert.equal((await api('player','/api/game-stats')).items[0].value,24000);
  await api('player','/api/game-stats/report','POST',packet,403);
+ // Since 0.7.2 all commissions, including administrator-created ones, escrow their reward.
+ await api('admin','/api/admin/points/adjust','POST',{uid:ids.admin,name:'活动管理员',amount:'7',operation:'credit',reason:'测试委托资金',id:randomUUID()});
  const main=randomUUID();await api('admin','/api/guild','POST',{requestId:main,title:'档案前置任务',description:'完成入门记录。',kind:'main',rewardType:'points',reward:'7',images:[]},201);await api('admin','/api/guild/'+main+'/review','POST',{status:'approved'});
  const chapter={id:'guild-integration',title:'公会协作',archives:[{id:'after-guild',title:'奖励档案',body:'仅在任务和数据均达成后可见',requires:['main-done','stats-done']}],tasks:[{id:'main-done',title:'完成主线',type:'guild',guildId:main},{id:'stats-done',title:'游戏记录',type:'stat',server:'mod-2',metric:'minecraft:custom/minecraft:play_time',value:24000}]};
  const draft=await api('admin','/api/admin/linking/chapters/guild-integration','PUT',{chapter,revision:0});await api('admin','/api/admin/linking/chapters/guild-integration/publish','POST',{revision:draft.revision});

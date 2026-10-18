@@ -19,6 +19,7 @@
         <provider android:name=".GameAccountProvider" android:authorities="${applicationId}.game-account" android:exported="true" android:permission="top.hxzmc.community.permission.GAME_ACCOUNT" />
         <activity android:name=".NeteaseActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".SkinActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <receiver android:name=".CommunityWidget" android:exported="false" android:label="幻想镇 · 社区随行"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/community_widget"/></receiver>
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>

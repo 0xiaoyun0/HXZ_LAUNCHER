@@ -1,0 +1,6 @@
+.workflow-card,.workflow-confirm{display:grid;gap:16px;min-width:0}.workflow-card ol,.workflow-confirm ol{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.workflow-card li,.workflow-confirm li{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-width:0;padding:10px;border:1px solid var(--line);border-radius:9px;font-size:.84rem}
+.workflow-card li>span,.workflow-confirm li>span{width:24px;height:24px;display:grid;place-items:center;background:var(--soft);border-radius:7px;flex:none;color:var(--muted)}
+.workflow-card li>strong,.workflow-confirm li>strong{flex:1 1 120px;font-weight:500;overflow-wrap:anywhere}.workflow-card li>div{display:flex;gap:5px;margin-left:auto}.workflow-card .icon-button{width:34px;min-width:34px;padding:5px}
+.workflow-add{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.workflow-add .select{flex:1 1 180px;min-width:0}.workflow-card>button{justify-self:start}
+.workflow-confirm p{margin:0;font-size:.86rem;line-height:1.6}.workflow-confirm li[data-status=done]{color:var(--accent-text,var(--accent))}.workflow-confirm li[data-status=failed],.workflow-error{color:var(--danger,#b74050)}.workflow-confirm-actions{display:flex;justify-content:flex-end;gap:10px}

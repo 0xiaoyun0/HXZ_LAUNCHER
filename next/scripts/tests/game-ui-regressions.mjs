@@ -5,6 +5,7 @@ try {
  const page=await browser.newPage({viewport:{width:1360,height:880}});
  await page.route('**/api/**',r=>r.fulfill({json:{items:[]}}));
  await page.goto('http://127.0.0.1:5178/#/arcade/play/runner');
+ await page.getByRole('button',{name:'稍后探索',exact:true}).click();
  await page.getByRole('button',{name:'开始游戏',exact:true}).click();
  await page.getByRole('button',{name:'暂停',exact:true}).click();
  const results=[];

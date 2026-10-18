@@ -12,6 +12,7 @@ process.stdin.on('end',()=>{try{
  const {state:s,level:raw=1}=JSON.parse(input),level=Math.max(1,Math.min(5,Math.trunc(raw)||1));
  if(!['chess','xiangqi','gomoku'].includes(s.game))throw Error('Unknown engine');
  const emit=(type,move)=>process.stdout.write(JSON.stringify({type,move})+'\n');
+ emit('ready');
  if(s.game==='gomoku'){
   const board=s.board.map(p=>p==='a'?'1':p==='b'?'2':'0').join(''),last=s.last?.to??-1;
   // Each completed upstream search supplies a valid fallback before deeper analysis.

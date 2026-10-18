@@ -1,8 +1,9 @@
+import {boundedBitmap} from './image-bounds.mjs';
 // Normalize browser-selected raster images before sending bounded JSON to the
 // authenticated community API. SVG and remote URLs never enter this path.
 export async function communityImage(file){
   if(!file||!/^image\/(png|jpeg|webp)$/.test(file.type)||file.size>12*1024*1024)throw Error('请选择 12 MB 以内的 PNG、JPG 或 WebP 图片');
-  const image=await createImageBitmap(file);
+  const image=await boundedBitmap(file,1200);
   try{
     let size=1200;
     for(let i=0;i<5;i++,size=Math.round(size*.72)){

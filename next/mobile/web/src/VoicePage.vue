@@ -1,5 +1,6 @@
 <script setup>
 import Icon from './Icon.vue';
+import VoiceTools from './VoiceTools.vue';
 import {avatar} from './native.js';
 defineProps({state:Object,settings:Object,rooms:Array,members:Function,roomName:String,speaker:Boolean,busy:Boolean});
 defineEmits(['join','change','leave','press','speaker','login']);
@@ -29,5 +30,6 @@ defineEmits(['join','change','leave','press','speaker','login']);
       </div>
     </div>
     <div v-else class="voice-idle"><Icon name="headphones"/><p>{{busy?'正在加入房间…':state.connected?'选择房间，开始语音聊天':'登录社区后加入语音'}}</p><button v-if="!state.connected" class="primary" @click="$emit('login')">{{state.hasAccount?'连接社区':'登录社区'}}</button></div>
+    <VoiceTools/>
   </section>
 </template>
