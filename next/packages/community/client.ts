@@ -503,6 +503,11 @@ window.addEventListener("online", () => {
 });
 window.addEventListener("beforeunload", disconnect);
 
+// Compare against the authenticated request destination without exposing a token.
+export function communitySessionMatches(uid:string,base:string){
+  return !!credentials&&credentials.user.uid===uid&&credentials.base===communityBase(base);
+}
+
 export async function communityRequest<T>(
   path: string,
   options: RequestInit = {},

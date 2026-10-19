@@ -9,7 +9,7 @@
     "windows-ia32",
     "android"
   ],
-  "androidVersionCode": 80100,
+  "androidVersionCode": 80101,
   "gameEngineVersionCode": 70003,
   "communityVersion": "0.8.1",
   "gameBridgeVersion": "0.8.0",

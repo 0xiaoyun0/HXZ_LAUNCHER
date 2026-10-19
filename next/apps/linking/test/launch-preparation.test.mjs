@@ -1,0 +1,13 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {continuationPreparation,publicationLabel,hasOriginalOpening} from '../src/launch-preparation.ts';
+const empty={archiveIds:[],taskIds:[]};
+const complete={archiveIds:['snow-ash-whitebranch','snow-ash-resonance','snow-ash-return-signal'],taskIds:['snow-ash-read-whitebranch','snow-ash-restore-audio','snow-ash-field-note','snow-ash-light-signal']};
+const chapter=summary=>({archives:summary.archiveIds.map(id=>({id})),tasks:summary.taskIds.map(id=>({id}))});
+const document=extra=>({chapter:chapter(empty),revision:5,liveRevision:4,published:true,archived:false,liveSummary:empty,...extra});
+test('original live and pending draft remain distinct',()=>{const d=document({});assert.equal(publicationLabel(d),'有未发布修改');assert.equal(continuationPreparation(d).label,'待创建');});
+test('a complete continuation draft is never called published without live evidence',()=>{const result=continuationPreparation(document({chapter:chapter(complete)}));assert.equal(result.ready,true);assert.equal(result.live,'missing');assert.equal(result.label,'未发布');});
+test('published continuation and pending removal are reported separately',()=>{const result=continuationPreparation(document({liveSummary:complete}));assert.equal(result.live,'ready');assert.equal(result.ready,false);assert.equal(result.label,'已发布');});
+test('older servers cannot prove live content from a newer draft',()=>{assert.equal(continuationPreparation(document({chapter:chapter(complete),liveSummary:undefined})).label,'正式状态待核验');assert.equal(continuationPreparation(document({chapter:chapter(complete),revision:4,liveSummary:undefined})).label,'已发布');});
+test('unpublished, partial and archived documents do not appear ready for players',()=>{assert.equal(continuationPreparation(document({published:false,liveSummary:null,chapter:chapter(complete)})).label,'未发布');assert.equal(continuationPreparation(document({chapter:chapter({archiveIds:['snow-ash-whitebranch'],taskIds:[]})})).label,'准备中');assert.equal(continuationPreparation(document({liveSummary:complete,archived:true})).label,'已归档');});
+test('opening detection requires both existing experiment records',()=>{const archives=[{id:'a',title:'0479 雾间雪'},{id:'b',title:'0480 雾间见子'}];assert.equal(hasOriginalOpening({archives,tasks:[]}),true);assert.equal(hasOriginalOpening({archives:archives.slice(0,1),tasks:[]}),false);});

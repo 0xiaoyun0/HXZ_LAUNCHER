@@ -2,8 +2,8 @@
    collection breakpoints and overlays. Feature components own their internals. */
 :root{--mobile-page-gap:16px;--mobile-page-inset:16px;--mobile-touch:44px}
 .app-shell{width:100%;max-width:1440px;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto auto}
-.app-top,.workspace,.error-banner,.bottom-nav,#mobile-music-dock{grid-column:1;min-width:0}
-.app-top{grid-row:1}.error-banner{grid-row:2}.workspace{grid-row:3}#mobile-music-dock{grid-row:4}.app-shell>.bottom-nav{grid-row:5}
+.app-top,.workspace,.error-banner,.bottom-nav,.bottom-sessions081{grid-column:1;min-width:0}
+.app-top{grid-row:1}.error-banner{grid-row:2}.workspace{grid-row:3}.bottom-sessions081{grid-row:4}.app-shell>.bottom-nav{grid-row:5}
 .workspace{overflow:hidden;min-height:0}
 .app-header{min-height:60px;padding:6px 12px;gap:6px;min-width:0;align-items:center}
 .app-header>.brand-mark{width:30px;height:30px;flex:none;border-radius:9px;box-shadow:none}
@@ -116,9 +116,46 @@
 @media(min-width:600px){.forum-tools{grid-template-columns:minmax(0,1fr) minmax(8rem,auto)}}
 @media(min-width:760px){
   .app-shell{grid-template-columns:88px minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto}
-  .app-top{grid-column:1/-1}.error-banner,.workspace,#mobile-music-dock{grid-column:2}
+  .app-top{grid-column:1/-1}.error-banner,.workspace,.bottom-sessions081{grid-column:2}
   .app-shell>.bottom-nav{grid-column:1;grid-row:2/5;display:flex;flex-direction:column;justify-content:flex-start;padding:16px 8px;gap:10px;border-top:0;border-right:1px solid var(--line);overflow-y:auto}
   .bottom-nav button{width:100%;min-height:64px;flex-shrink:0}
   .content-page{padding:24px}.sheet-backdrop{align-items:center;padding:24px}
   .sheet{width:min(600px,100%);max-height:100%;border-radius:20px}
 }
+/* Community is the starting task. Identity, voice and navigation stay in place
+   while content changes; sessions occupy their own grid row, never an overlay. */
+.identity-trigger081{display:flex;align-items:center;gap:10px;text-align:left;min-width:0;flex:1;padding:0;background:none;border:0;min-height:44px}
+.identity-trigger081>.avatar{flex:none;width:36px;height:36px;min-height:36px;font-size:.8rem}
+.identity-trigger081>span:nth-child(2){display:grid;gap:1px;min-width:0}
+.identity-trigger081 strong{font-size:.95rem;line-height:1.4;white-space:nowrap}
+.identity-trigger081 small{font-size:.7rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:40vw}
+.identity-trigger081>.icon{width:14px;height:14px;color:var(--muted);flex:none}
+.header-online081{padding:8px;display:flex;flex:none}
+.chat-rooms081{display:flex;gap:8px;padding:2px 14px 10px;overflow:auto;flex:none;scrollbar-width:none;overscroll-behavior-x:contain}
+.chat-rooms081>button{display:flex;align-items:center;gap:7px;flex:0 0 auto;max-width:min(80vw,320px);min-height:40px;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);font-size:.8rem;white-space:nowrap}
+.chat-rooms081>button>.icon{width:16px;height:16px;color:var(--accent)}
+.chat-rooms081>button>span{min-width:0;overflow:hidden;text-overflow:ellipsis}.chat-rooms081 small{font-size:.7rem;color:var(--muted);flex:none}
+.community-shortcuts081{display:flex;gap:8px;padding:10px 16px;flex:none;flex-wrap:wrap}
+.community-shortcuts081>button{display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;flex:1 1 95px;font-size:.76rem;border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:7px 9px}
+.community-shortcuts081 .icon{width:17px;height:17px;flex:none;color:var(--muted)}
+.bottom-sessions081{min-height:0;display:flex;flex-direction:column;background:var(--surface)}
+.voice-dock081{display:flex;align-items:center;gap:6px;padding:6px 12px;border-top:1px solid var(--line);min-width:0}
+.voice-dock-room081{flex:1;min-width:0;display:flex;align-items:center;gap:10px;text-align:left;min-height:44px;padding:3px 0}
+.voice-dock-room081>.icon{flex:none;width:20px;height:20px;color:var(--accent)}
+.voice-dock-room081>span{min-width:0;display:grid;gap:3px}.voice-dock-room081 strong{font-size:.8rem;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.voice-dock-room081 small{font-size:.66rem;line-height:1.4;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.voice-dock081>.icon-button{flex:none}.voice-dock081>[aria-pressed=true]{color:var(--accent);background:var(--accent-soft);border-radius:12px}
+.voice-dock-ptt081{display:flex;align-items:center;gap:5px;flex:none;min-height:44px;padding:8px 10px;font-size:.75rem;border-radius:12px;background:var(--accent-soft);color:var(--accent-text);touch-action:none;user-select:none}
+.voice-dock-ptt081>.icon{width:17px;height:17px}.voice-dock-ptt081:active{background:var(--accent);color:white}
+.sheet-body>.voice-page{height:auto;overflow:visible;padding:0}
+.chat-page>.channel-strip{flex-wrap:nowrap}.chat-page>.channel-strip h1{flex:1;white-space:nowrap}.chat-page>.channel-strip>.text-button{margin-left:0;white-space:nowrap;gap:4px;min-height:40px}
+.account-inline-sections081>button{white-space:nowrap;font-size:clamp(13px,.82rem,17px);gap:6px}
+.workspace.has-inline-sections081>.guild-page{flex:1;min-height:0;height:auto;overflow:auto}
+.forum-compose-tools081{display:flex;align-items:center;gap:10px;margin:0 0 12px;min-width:0}.forum-compose-tools081>.search-bar{flex:1;min-width:0;margin:0}.forum-compose-tools081>.icon-button{flex:none}
+.forum-filter-tools081{display:flex;align-items:center;gap:10px;margin-bottom:14px;min-width:0}
+.forum-filter-tools081>.chips{flex:1;min-width:0;overflow-x:auto;margin:0;padding:0;scrollbar-width:none}.forum-filter-tools081>.app-select{width:auto;max-width:47%;flex:none;min-height:42px;font-size:clamp(13px,.76rem,17px);gap:6px;padding:8px 10px}.forum-filter-tools081 .app-select>span{white-space:nowrap}
+.post-card .card-footer>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.post-card .card-footer>span:last-child{flex:none;white-space:nowrap;overflow-wrap:normal}.post-card .card-footer .icon{flex:none}
+.toast{width:max-content;min-width:0;max-width:calc(100vw - 32px);font-size:clamp(13px,.85rem,17px);line-height:1.5;overflow-wrap:break-word;pointer-events:none}
+@media(max-width:379px){.account-inline-sections081>button>.icon{display:none}}
+@media(max-width:359px){.chat-page>.channel-strip h1{display:none}.chat-page>.channel-strip>.text-button:first-of-type{margin-right:auto}.voice-dock081{padding-inline:10px}.voice-dock-room081{gap:6px}.voice-dock-room081>.icon{display:none}}

@@ -229,7 +229,7 @@ export function createLinking({db,auth,admin,body,send,limit,guild,gameTelemetry
       const route=path.match(/^\/api\/admin\/linking\/chapters\/([a-z0-9-]+)(?:\/(publish|archive))?$/);
       if(route){
         const id=identifier(route[1]),row=db.prepare('SELECT * FROM linking_chapters WHERE id=?').get(id);
-        if(req.method==='GET'&&!route[2]){if(!row)fail('章节不存在',404);return reply({chapter:adminDocument(JSON.parse(row.draft)),revision:row.revision,liveRevision:row.live_revision,published:!!row.live,archived:!!row.archived});}
+        if(req.method==='GET'&&!route[2]){if(!row)fail('章节不存在',404);const live=row.live&&JSON.parse(row.live);return reply({chapter:adminDocument(JSON.parse(row.draft)),revision:row.revision,liveRevision:row.live_revision,published:!!row.live,archived:!!row.archived,liveSummary:live?{archiveIds:live.archives.map(a=>a.id),taskIds:live.tasks.map(t=>t.id)}:null});}
         const input=await body(req,1024*1024);
         if(req.method==='PUT'&&!route[2]){
           if(input.chapter?.id!==id)fail('章节标识不一致');if((row?.revision||0)!==input.revision)fail('章节已有更新，请刷新后编辑',409);

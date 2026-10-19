@@ -14,6 +14,8 @@ test('story expansion preserves live opening and draft; task rewards are gated a
  await assert.rejects(management('/story-expansion','POST',{chapter:c.id,revision:1}),e=>e.status===409);
  await assert.rejects(api('/api/admin/linking/story-expansion','POST',{chapter:c.id,revision:2},player),e=>e.status===403);
  document=await management('/story-expansion','POST',{chapter:c.id,revision:2});assert.equal(document.revision,3);assert.equal(document.chapter.archives.length,7);assert.deepEqual(document.chapter.archives[1].notes,['尚未发布的手写补记']);assert.equal(document.chapter.archives[0].body,'用户的原文 A');
+ const preparation=await management('/chapters/'+c.id);assert.deepEqual(preparation.liveSummary,{archiveIds:['snow','miko'],taskIds:['old-read']});assert.equal(preparation.revision,3);assert.equal(preparation.liveRevision,1);assert.equal(JSON.stringify(preparation.liveSummary).includes('用户的原文'),false,'summary exposes identifiers only');assert.equal((await management('/chapters/'+c.id)).revision,3,'read-only preparation does not reserve or alter a revision');
+ await assert.rejects(api('/api/admin/linking/chapters/'+c.id,'GET',undefined,player),e=>e.status===403,'preparation summaries remain administrator-only');
  const expansionInfo=(await management('')).storyExpansions.story;assert.equal(expansionInfo.archives,document.chapter.archives.length-c.archives.length);assert.equal(expansionInfo.tasks,document.chapter.tasks.length-c.tasks.length);assert.equal(expansionInfo.items,5);
  assert.equal((await play('/chapters/'+c.id)).archives.length,2,'adding a draft must not publish');
  await assert.rejects(management('/story-expansion','POST',{chapter:c.id,revision:3}),e=>e.status===409);
