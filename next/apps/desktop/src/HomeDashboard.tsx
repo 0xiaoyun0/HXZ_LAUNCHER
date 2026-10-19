@@ -44,12 +44,13 @@ export function Home(){
    <div className="home-list-footer"><span>{instances.filter((i:any)=>i.installed).length} 个已安装{instances.some((i:any)=>i.builtin&&!i.installed)?' · 默认服务器可直接安装':''}</span><button disabled={!game||locked} onClick={async()=>{await selectInstance(game.id);setManage(true);}}>管理实例 <ArrowRight size={14}/></button></div>
   </div>},
   {id:'launch',title:'开始游戏',x:0,y:28,w:4,minW:4,minH:9,plain:true,className:'launch-card home-play-card',content:<div className="home-play">
-   {cover&&<HomeCover src={cover} position={current} animate={s.settings.animationSpeed!==0} onError={()=>setCover('')}/>}
-   <div className="home-play-body"><div className="home-play-identity"><div><h2>{game?.name||'准备好进入幻想镇'}</h2>{game&&<p>{versionLabel(game)}</p>}</div>{game&&<span className={'home-ready '+(game?.error?'error':'')} aria-live="polite">{s.running?'游戏运行中':game?.error?'需要修复':game?.placeholder?'尚未开放':game?.installed?'已准备好':'首次启动自动安装'}</span>}</div>
-   {game?.error&&<p className="inline-error">{game.error}</p>}
+   <div className="home-play-body">
    <Button className="home-play-start" tone="solid" icon={s.running?Square:Play} disabled={!!game?.placeholder||t.busy&&!s.running} onClick={()=>s.running?invoke('game.stop'):game?launch(game.id):navigate('/multiplayer')}>{!game?'选择服务器':s.running?'停止游戏':!role?'登录并开始':game?.installed?'开始游戏':'安装并开始'}</Button>
+   <div className="home-play-identity"><div><h2>{game?.name||'准备好进入幻想镇'}</h2>{game&&<p>{versionLabel(game)}</p>}</div>{game&&<span className={'home-ready '+(game?.error?'error':'')} aria-live="polite">{s.running?'游戏运行中':game?.error?'需要修复':game?.placeholder?'尚未开放':game?.installed?'已准备好':'首次启动自动安装'}</span>}</div>
+   {game?.error&&<p className="inline-error">{game.error}</p>}
    {t.busy&&<div className="home-task-progress"><button className="text-link" onClick={()=>ui.tasks=true}><Layers size={15}/>{t.phase}<ArrowRight size={14}/></button>{t.total>0&&<><progress max={t.total} value={t.completed}/><small>当前步骤 · {Math.min(100,t.completed/t.total*100).toFixed(2)}%</small></>}</div>}
    </div>
+   {cover&&<HomeCover src={cover} position={current} animate={s.settings.animationSpeed!==0} onError={()=>setCover('')}/>}
   </div>},
   {id:'roles',title:'我的角色',x:0,y:0,w:4,minW:4,minH:7,className:'home-role-card',content:<div className="home-role">
    <div className="home-role-identity"><Avatar name={role?.name} image={role?.avatar} size={48}/><div><strong>{role?.name||'尚未登录'}</strong><small>{role?.username||'使用幻想镇皮肤站账号'}</small><span className="home-role-status" aria-live="polite">{switching?'正在切换角色…':role?'已登录 · 当前游戏角色':'登录后选择角色，开始游戏'}</span></div></div>
