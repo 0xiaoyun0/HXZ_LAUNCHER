@@ -1,4 +1,5 @@
 import {playerError} from '../../../packages/engine/core/player-errors.mjs';
+import {requestFailureMessage} from '../../../packages/community/request-errors.mjs';
 import {newTaskProgress,updateTaskProgress} from '../../../packages/engine/core/task-progress.mjs';
 import {proxy,subscribe} from 'valtio';
 import {normalizeCardLayouts,normalizeCardStyle} from '../../../packages/engine/core/card-layout.mjs';
@@ -10,7 +11,7 @@ export const ui=proxy<any>({dialog:'',instance:'',pack:null,toast:'',toastError:
 export const task=proxy<any>({...newTaskProgress(),logs:[]});
 const listeners=new Set<()=>void>();
 export function watchSettings(getter:()=>unknown,fn:()=>void){let previous=JSON.stringify(getter());return subscribe(state,()=>{const next=JSON.stringify(getter());if(next!==previous){previous=next;fn();}});}
-export function errorMessage(e:any){return e?.message||String(e);}
+export function errorMessage(e:any){return requestFailureMessage(e);}
 let toastTimer:any;
 export function notify(message:string,error=false){ui.toast=message;ui.toastError=error;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{ui.toast='';},error?8500:4000);}
 export async function invoke<T=any>(action:string,input:any={}):Promise<T>{if(!window.launcher)throw Error('当前是界面预览。文件、账号与游戏操作请使用桌面程序。');const result=await window.launcher.invoke(action,input);if(!result.ok)throw Error(result.error||'操作未完成');return result.value;}

@@ -1,4 +1,5 @@
 import {createScreenCapture} from './screen-capture.mjs';
+import {gameEventDelivery} from './game-events.mjs';
 import {parseInvitation} from '../../../packages/engine/core/direct-wire.mjs';
 import {createCompanion} from './companion.mjs';
 import {remoteJSON} from '../../../packages/engine/core/io.mjs';
@@ -39,12 +40,18 @@ if(!app.requestSingleInstanceLock())app.quit();else {
   const trusted=frame=>frame===win?.webContents.mainFrame;
   screenCapture=createScreenCapture(()=>win);
   win.webContents.setWindowOpenHandler(()=>({action:'deny'}));win.webContents.on('will-navigate',e=>e.preventDefault());
-  const emit=value=>{if(value.type==='task'&&typeof value.running==='boolean')companion?.game(value.running);if(win&&!win.isDestroyed())win.webContents.send('next:event',value);};
+  const emit=gameEventDelivery({mainWindow:()=>win,companion:()=>companion,wake:()=>{sleepRequested=false;win.webContents.setBackgroundThrottling(false);},diagnostic:recordDiagnostic});
   lyrics=createDesktopLyrics({app,mainWindow:()=>win,emit,icon:path.join(app.isPackaged?process.resourcesPath:path.join(project,'resources'),'icon.ico'),preload:path.join(import.meta.dirname,'lyrics-preload.cjs')});
   p2pRuntime=createP2PRuntime();
   services=await createServices({p2pRuntime,data:app.getPath('userData'),defaultAutoCheckUpdates:installed,dependencyRoot:app.isPackaged?path.join(path.dirname(app.getPath('exe')),'launcher-cache'):path.join(project,'.runtime/cache'),resources:app.isPackaged?process.resourcesPath:path.join(project,'resources'),safeStorage,nativeImage,dialog,shell,window:()=>win,skinPanel:skin,netease,openSkin:()=>({ok:true}),emit});
   monitorLatency=createLatencyMonitor({targets:async()=>{await monitorStatus();return monitorEndpoints(await services.invoke('monitor.targets'));}});
-  win.webContents.on('render-process-gone',()=>monitorLatency?.cancelOwner(win.webContents.id));
+  win.webContents.on('render-process-gone',(_event,details)=>{
+   monitorLatency?.cancelOwner(win.webContents.id);
+   void recordDiagnostic(new Date().toISOString()+' renderer exited '+JSON.stringify({reason:details.reason,exitCode:details.exitCode,arch:process.arch,version:app.getVersion(),gameRunning:services.isBusy()})).catch(()=>{});
+   // Report without relaunching the whole app (and without touching the game).
+   if(quitting||['clean-exit','killed'].includes(details.reason))return;
+   void dialog.showMessageBox(win,{type:'error',title:'启动器界面已停止',message:'启动器界面出现异常，游戏进程不受影响。',detail:'可以重新打开界面；诊断信息已保存在启动器日志中。',buttons:['重新打开界面','暂不恢复'],defaultId:1,cancelId:1}).then(result=>{if(result.response===0&&win&&!win.isDestroyed())win.webContents.reload();}).catch(()=>{});
+  });
   companion=createCompanion({preload:path.join(import.meta.dirname,'companion-preload.cjs'),mainWindow:()=>win,emit,hideMain:()=>lyrics.hideMain(),sendChat:async(body,requestId)=>{const value=await services.invoke('community.connect',{});return remoteJSON(value.base+'/api/chat/send',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+value.token},body:JSON.stringify({body,requestId}),signal:AbortSignal.timeout(15000)});}});
   companion.configure((await services.invoke('state',{localOnly:true})).settings);
   updater=createAppUpdate({app,isBusy:()=>services.isBusy(),emit:value=>emit({...value,installed}),localOnly:!installed});

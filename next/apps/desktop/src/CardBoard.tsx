@@ -1,12 +1,11 @@
-import {createPortal} from 'react-dom';
+import {createPortal,flushSync} from 'react-dom';
 import React, {Children, Fragment, isValidElement, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {GridLayout, useContainerWidth, verticalCompactor, type Layout, type LayoutItem} from 'react-grid-layout';
 import {Grip, EyeOff, LayoutDashboard, RotateCcw, Lock, Unlock, MoreHorizontal, Undo2, AlignStartVertical, Expand,MoveUpRight,Pencil,Check,Plus,Trash2} from 'lucide-react';
 import {state,ui,saveSettings,notify} from './model';
 import {CardHarvest,HarvestedCards,ForeignCard,MoveCardDialog,startCardTravel,MovedCardRecovery} from './PortableCards';
-import {Widget,AddWidget,widgetKinds} from './Widgets';
-import {CARD_PAGES,normalizeCardPlacements,normalizeWidgets} from '../../../packages/engine/core/card-extras.mjs';
+import {CARD_PAGES,normalizeCardPlacements} from '../../../packages/engine/core/card-extras.mjs';
 import {Button, Dropdown, Modal, Toggle} from './ui';
 import {normalizeCardLayouts, normalizeCardStyle,filteredCardLayout} from '../../../packages/engine/core/card-layout.mjs';
 import 'react-grid-layout/css/styles.css';
@@ -39,14 +38,29 @@ function minimumContent(el:HTMLElement) {
 
 export function CardBoard(props:{id:string; cards:CardSpec[]; label?:string; pageTitle?:boolean; className?:string; transient?:boolean}) {
   const s=useSnapshot(state),u=useSnapshot(ui),harvest=useContext(CardHarvest);
-  const {width, containerRef, mounted} = useContainerWidth({measureBeforeMount:true});
+  const {width, containerRef, mounted, measureWidth} = useContainerWidth({measureBeforeMount:true});
+  useLayoutEffect(()=>{
+    const container=containerRef.current;if(!container)return;
+    let lastWidth=container.clientWidth,timer:ReturnType<typeof setTimeout>;
+    // A window resize must not animate from pixels measured in the old viewport.
+    // Commit the new grid width before paint; keep ordinary card moves animated.
+    const reflow=()=>{
+      const nextWidth=container.clientWidth;
+      if(!nextWidth||nextWidth===lastWidth)return;
+      lastWidth=nextWidth;container.dataset.reflow='true';
+      flushSync(measureWidth);
+      clearTimeout(timer);timer=setTimeout(()=>{delete container.dataset.reflow;},180);
+    };
+    const observer=new ResizeObserver(reflow);observer.observe(container);
+    window.addEventListener('resize',reflow);
+    return()=>{observer.disconnect();window.removeEventListener('resize',reflow);clearTimeout(timer);delete container.dataset.reflow;};
+  },[measureWidth]);
   const compact=width<780;
   if(harvest)return <HarvestedCards source={props.id} cards={props.cards}/>;
   const portable=CARD_PAGES.some(p=>p[0]===props.id),placements=normalizeCardPlacements(s.settings.cardPlacements);
   const cards:CardSpec[]=props.cards.filter(c=>!placements[props.id+'.'+c.id]).map(c=>({...c,origin:portable?{source:props.id,card:c.id,title:c.title,w:c.w,minW:c.minW}:undefined}));
   if(portable){
    for(const v of Object.values(placements) as any[])if(v.target===props.id)cards.push({id:'moved.'+v.source+'.'+v.card,title:v.title,w:v.w,minW:v.minW,content:<ForeignCard source={v.source} card={v.card}/>,origin:v});
-   for(const w of normalizeWidgets(s.settings.widgets))if(w.page===props.id)cards.push({id:'widget.'+w.id,title:w.title||widgetKinds.find(k=>k.id===w.type)!.name,w:w.type==='note'||w.type==='search'?6:4,minW:3,content:<Widget id={w.id} editing={!!u.cardEdit}/>,origin:{source:props.id,card:w.id,title:w.title,widget:true}});
   }
   // A breakpoint change must not reuse an in-flight gesture from the other layout.
   return <section ref={containerRef} className={'card-workspace '+(props.className||'')} aria-label={props.label||'卡片布局'}>
@@ -56,7 +70,7 @@ export function CardBoard(props:{id:string; cards:CardSpec[]; label?:string; pag
 
 function Board({id,cards,label='',pageTitle=false,width,compact,transient=false}:{id:string;cards:CardSpec[];label?:string;pageTitle?:boolean;className?:string;width:number;compact:boolean;transient?:boolean}) {
   const s=useSnapshot(state),u=useSnapshot(ui),page=id+(compact?'.compact':'.wide'),style=normalizeCardStyle(s.settings.cardStyle);
-  const [moving,setMoving]=useState<CardSpec['origin']>(),[adding,setAdding]=useState(false),portable=CARD_PAGES.some(p=>p[0]===id);
+  const [moving,setMoving]=useState<CardSpec['origin']>(),portable=CARD_PAGES.some(p=>p[0]===id);
   const [drawer,setDrawer]=useState(false),[draft,setDraft]=useState<Saved|null>(null),[previous,setPrevious]=useState<Saved|null>(null);
   const [status,setStatus]=useState(''),[gesture,setGesture]=useState(false),[measured,setMeasured]=useState<Record<string,number>>({});
   const [minimum,setMinimum]=useState<Record<string,{width:number;height:number}>>({});
@@ -79,13 +93,14 @@ function Board({id,cards,label='',pageTitle=false,width,compact,transient=false}
   const active:Saved=draft??(transient?filteredCardLayout(saved,initial):saved)??{items:initial,hidden:[],locked:[],fixed:[]};
   const hidden=active.hidden,locked=active.locked||[],fixed=active.fixed||[];
   const automatic=(card:string)=>!fixed.includes(card)&&!locked.includes(card);
-  const layout=verticalCompactor.compact(initial.filter(i=>!hidden.includes(i.i)).map(base=>{
+  const proposed=initial.filter(i=>!hidden.includes(i.i)).map(base=>{
     const minimumWidth=minimum[base.i]?.width||0;
     const minW=Math.min(12,Math.max(base.minW,Math.ceil((minimumWidth+style.gap)/((width+style.gap)/12))));
     const v=active.items.find(i=>i.i===base.i),w=Math.max(minW,Math.min(12,v?.w??base.w));
     const minH=Math.min(base.maxH,Math.max(base.minH,minimum[base.i]?.height||4));
     return {...base,...v,w,x:Math.max(0,Math.min(v?.x??base.x,12-w)),h:Math.min(base.maxH,Math.max(minH,automatic(base.i)?measured[base.i]??v?.h??base.h:v?.h??base.h)),minW,minH,maxH:base.maxH,static:locked.includes(base.i)};
-  }),12);
+  });
+  const layout=verticalCompactor.compact(proposed,12);
   const merge=(visible:Layout):Saved=>({items:clone([...active.items.filter(i=>!visible.some(v=>v.i===i.i)),...visible]),hidden:[...hidden],locked:[...locked],fixed:[...fixed]});
   const capture=()=>merge(rendered.current.length?rendered.current:layout);
   async function persist(next:Saved,remember=true) {
@@ -131,14 +146,12 @@ function Board({id,cards,label='',pageTitle=false,width,compact,transient=false}
   const toolbar=<div className={"card-layout-toolbar "+(!label?"without-page-label":"")} >{label&&(pageTitle?<h1 className="card-page-title">{label}</h1>:<span>{label}</span>)}<div>
       <button className={'layout-save-status '+(status.startsWith('保存失败')?'error':'')} disabled={!status.startsWith('保存失败')} onClick={()=>draft&&void persist(draft,false)} aria-live="polite">{gesture?'松手即可对齐':status||(transient?'筛选结果 · 独立排列':'拖动手柄整理 · 自动保存')}</button>
       {previous&&<Button icon={Undo2} onClick={()=>{const value=previous;setPrevious(null);rendered.current=[];return persist(value,false);}}>撤销</Button>}
-      {portable&&<Button icon={u.cardEdit?Check:Pencil} onClick={async()=>{if(u.cardEdit)await ui.layoutUnsaved?.save();ui.cardEdit=!ui.cardEdit;}}>{u.cardEdit?'完成编辑':'编辑卡片'}</Button>}
-      {portable&&u.cardEdit&&<Button icon={Plus} onClick={()=>setAdding(true)}>添加卡片</Button>}
       <Button icon={LayoutDashboard} onClick={()=>setDrawer(true)}>卡片{hidden.length?' · '+hidden.length+' 已隐藏':''}</Button>
     </div></div>;
   return <div ref={board} data-card-board={id} className={'card-board '+(gesture?'moving ':'')+(u.cardEdit?'editing':'')} style={{'--card-gap':style.gap+'px'} as React.CSSProperties}>
     {toolbarHost?createPortal(toolbar,toolbarHost):toolbar}
     <GridLayout width={width} layout={layout} gridConfig={{cols:12,rowHeight:ROW,margin:[style.gap,0],containerPadding:[0,0]}}
-      dragConfig={{enabled:true,handle:'.card-drag-handle',cancel:'input,textarea,a,.card-content,.card-menu-trigger',threshold:5}}
+      dragConfig={{enabled:true,bounded:true,handle:'.card-drag-handle',cancel:'input,textarea,a,.card-content,.card-menu-trigger',threshold:5}}
       resizeConfig={{enabled:true,handles:['se']}} compactor={verticalCompactor}
       onLayoutChange={v=>{rendered.current=v;}} onDragStart={start} onResizeStart={start} onDragStop={v=>stop(v)} onResizeStop={(v,_old,item)=>stop(v,item?.i)}>
       {cards.filter(c=>!hidden.includes(c.id)).map(c=><article key={c.id} data-card={c.id} data-min-w={layout.find(item=>item.i===c.id)?.minW} data-min-h={layout.find(item=>item.i===c.id)?.minH} data-sizing={automatic(c.id)?'auto':'fixed'} className={'card-slot '+(automatic(c.id)?'auto-sized ':'')+(locked.includes(c.id)?'locked ':'')+(c.className||'')}>
@@ -160,7 +173,6 @@ function Board({id,cards,label='',pageTitle=false,width,compact,transient=false}
             {label:'适应内容高度',icon:Expand,disabled:locked.includes(c.id),action:()=>change(c.id,'fit')},
             {label:'与同排卡片等高',icon:AlignStartVertical,disabled:locked.includes(c.id),action:()=>change(c.id,'align')},
             ...(c.origin?[{separator:true},{label:'移动到其他页面',icon:MoveUpRight,disabled:locked.includes(c.id),action:()=>setMoving(c.origin)}]:[]),
-            ...(c.origin?.widget&&u.cardEdit?[{label:'删除通用卡片',icon:Trash2,danger:true,action:()=>{ui.confirm={title:'删除这张卡片？',message:'卡片中保存的内容也会删除。',action:()=>saveSettings((s:any)=>({widgets:normalizeWidgets(s.widgets).filter((w:any)=>w.id!==c.origin!.card)}))};}}]:[]),
             {separator:true},{label:'恢复这张卡片',icon:RotateCcw,action:()=>change(c.id,'reset')},
             {label:'隐藏卡片',icon:EyeOff,action:()=>change(c.id,'hide')}
           ]}/></div></header>
@@ -175,7 +187,6 @@ function Board({id,cards,label='',pageTitle=false,width,compact,transient=false}
       <footer className="modal-actions"><Button icon={Expand} onClick={()=>{const next=capture();next.fixed=[];void persist(next);}}>全部按内容调整</Button><Button icon={RotateCcw} onClick={()=>{rendered.current=[];void persist({items:clone(initial),hidden:[],locked:[],fixed:[]});setDrawer(false);}}>恢复默认布局</Button><Button onClick={()=>setDrawer(false)}>完成</Button></footer>
     </Modal>
     {moving&&<MoveCardDialog card={moving} current={id} onClose={()=>setMoving(undefined)}/>}
-    {adding&&<AddWidget page={id} onClose={()=>setAdding(false)}/>}
   </div>;
 }
 function CardContents({fit,paused,gap,onHeight,onMinimum,children}:{fit:boolean;paused:boolean;gap:number;onHeight:(n:number)=>void;onMinimum:(value:{width:number;height:number})=>void;children:React.ReactNode}) {

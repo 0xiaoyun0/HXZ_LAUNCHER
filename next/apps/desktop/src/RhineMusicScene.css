@@ -1,0 +1,56 @@
+.rhine-music-scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+  background: #eae7df;
+  contain: strict;
+}
+
+.rhine-music-scene__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  touch-action: none;
+  cursor: grab;
+}
+
+.rhine-music-scene[data-scene-state="loading"] .rhine-music-scene__canvas { visibility: hidden; }
+.rhine-music-scene[data-empty="true"] .rhine-music-scene__canvas { cursor: default; }
+.rhine-music-scene[data-active="false"] .rhine-music-scene__canvas { pointer-events: none; }
+.rhine-music-scene[data-inspection="ready"] .rhine-music-scene__canvas { cursor: grab; }
+
+.rhine-music-scene__fallback {
+  position: absolute;
+  inset: -35% -30%;
+  overflow: hidden;
+  transform: rotate(-30deg) skewX(-8deg) scale(1.15);
+  background: #eae7df;
+}
+
+.rhine-music-scene__fallback i {
+  position: absolute;
+  top: calc(var(--sleeve) * 3.7%);
+  left: -10%;
+  width: 125%;
+  height: 2.55%;
+  background: linear-gradient(90deg, #f8f4ec 0 28%, #d5cdbf 28.2% 28.5%, #f8f4ec 28.7% 59%, #d5cdbf 59.2% 59.5%, #f8f4ec 59.7%);
+  box-shadow: 0 8px 0 #e1d9cb, 0 11px 8px #a4978224;
+}
+
+.rhine-music-scene--unavailable .rhine-music-scene__canvas { visibility: hidden; }
+.rhine-music-scene__notice {
+  position: absolute;
+  right: 22px;
+  bottom: 100px;
+  color: #646a58;
+  font-size: 11px;
+  letter-spacing: .12em;
+}
+
+.rhine-music-scene--dark { background: #20221f; }
+.rhine-music-scene--dark .rhine-music-scene__fallback { background: #20221f; filter: brightness(.45); }
+.rhine-music-scene--dark .rhine-music-scene__notice { color: #c2c7b4; }

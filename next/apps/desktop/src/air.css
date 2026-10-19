@@ -1,7 +1,7 @@
 /* NEXT cards: quiet surfaces, direct actions, motion confined to opacity/transform. */
 :root{--paper:#f1f3f7;--panel:#eef1f7;--ink:#333b4e;--muted:#687487;--line:#e2e6ef;--ease:cubic-bezier(.22,.68,.24,1);--card-radius:10px;--card-surface:#fff;--accent-soft:#edf0fb}
 :root[data-theme=dark]{--paper:#1c2029;--panel:#303747;--ink:#e1e5f0;--muted:#a1aabb;--line:#3b4354;--accent-soft:#343d58}
-.air-shell{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:72px auto minmax(0,1fr) 28px;isolation:isolate;background:var(--paper);height:100%;overflow:hidden}
+.air-shell{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:72px auto minmax(0,1fr) auto;isolation:isolate;background:var(--paper);height:100%;overflow:hidden}
 .air-shell{position:relative}
 .air-brand>img{display:block;flex:none}
 .page-load-indicator{position:absolute;inset:71px 0 auto;height:2px;overflow:hidden;z-index:15;pointer-events:none;background:var(--accent-soft)}

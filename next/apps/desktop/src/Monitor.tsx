@@ -14,7 +14,7 @@ function LocalLatency({value,loading}:{value?:Latency;loading:boolean}){
   return <span className={'monitor-latency '+(value?.state==='ok'?'measured':'')} title={detail} aria-label={label+'，'+detail}>{label}</span>;
 }
 
-export function ServerMonitor(){
+export function ServerMonitor({limit=4}:{limit?:number}={}){
   const [data,setData]=useState<any>(null),[loading,setLoading]=useState(false),[open,setOpen]=useState(false);
   const [latencies,setLatencies]=useState<Record<string,Latency>>({}),[latencyError,setLatencyError]=useState('');
   const root=useRef<HTMLDivElement>(null),reload=useRef<()=>Promise<void>>(async()=>{});
@@ -51,7 +51,7 @@ export function ServerMonitor(){
   return <div className="service-monitor" ref={root}>
     <div className="monitor-summary"><span><Activity size={18}/>{monitors.length?`${ok} / ${monitors.length} 项正常`:data?.error?'暂未取得监控':desktop?'正在获取监控':'桌面版连接实时监控'}</span><button onClick={()=>setOpen(true)}>详情 →</button></div>
     {data?.error&&<p className="monitor-warning">{data.error}{monitors.length?' · 显示上次记录':''}</p>}
-    <div className="monitor-mini">{monitors.slice(0,4).map(row)}</div>
+    <div className="monitor-mini">{monitors.slice(0,limit).map(row)}</div>
     {latencyError&&<p className="monitor-warning">{latencyError}</p>}
     <Modal open={open} onClose={()=>setOpen(false)} title="服务器监控" wide>
       <div className="monitor-tools"><p>服务状态与本机连接</p><Button icon={RefreshCw} disabled={loading} onClick={()=>reload.current()}>刷新</Button><Button icon={ExternalLink} onClick={()=>invoke('external.open',{url:source})}>监控站</Button></div>

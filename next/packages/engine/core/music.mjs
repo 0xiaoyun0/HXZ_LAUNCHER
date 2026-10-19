@@ -21,7 +21,7 @@ async function cloudJSON(route){
  let data;try{data=JSON.parse(text);}catch{throw Error('网易云暂时没有返回音乐数据，请稍后重试');}
  if(data.code!==200)throw Error('网易云暂时限制了该请求，请稍后重试');return data;
 }
-const track=s=>({id:'netease:'+safeId(s.id),netId:safeId(s.id),title:String(s.name||'未命名歌曲').slice(0,200),artist:(s.artists||s.ar||[]).map(a=>a.name).join(' / ').slice(0,200),source:'netease',duration:Number(s.duration||s.dt||0)/1000,cover:s.album?.picUrl||s.al?.picUrl||''});
+const track=s=>({id:'netease:'+safeId(s.id),netId:safeId(s.id),title:String(s.name||'未命名歌曲').slice(0,200),artist:(s.artists||s.ar||[]).map(a=>a.name).join(' / ').slice(0,200),album:String(s.album?.name||s.al?.name||'').slice(0,200),source:'netease',duration:Number(s.duration||s.dt||0)/1000,cover:s.album?.picUrl||s.al?.picUrl||''});
 export function createMusicService({data,dialog,window,netease,identity}) {
  const consentFile=path.join(data,'music-consent.json'),lyricsCache=new Map();
  const identityKey=user=>user.base+'|'+user.uid;

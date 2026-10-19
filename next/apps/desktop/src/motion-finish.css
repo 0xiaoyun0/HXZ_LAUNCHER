@@ -1,0 +1,75 @@
+/* Shared motion language: a brief reveal, a precise selection, a quiet lift.
+   Geometry belongs to CardBoard. Never animate the grid, chrome or scroll size. */
+:root {
+  --ease-reveal: cubic-bezier(.22, .61, .36, 1);
+  --duration-feedback: calc(var(--duration, .32s) * .6);
+}
+/* The first content measurement must settle before geometry can transition.
+   Interacting cancels this entrance guard; ordinary card moves keep snapping. */
+[data-motion-scope][data-motion-entering] .react-grid-item { transition: none !important; }
+
+/* Keep the menu's existing origin/collision handling and replace its entrance. */
+.menu[data-state=open] {
+  animation: surface-menu-enter var(--duration-feedback) var(--ease-reveal);
+}
+.menu[data-state=closed] { animation: none; }
+.menu-item {
+  transition: background var(--duration-feedback) var(--ease), color var(--duration-feedback) var(--ease);
+}
+.menu-item>svg, .command-list>button>svg {
+  transition: transform var(--duration-feedback) var(--ease-reveal);
+}
+.menu-item[data-highlighted]>svg, .command-list>button:hover>svg {
+  transform: translateX(2px);
+}
+.modal[data-state=open] {
+  animation-duration: calc(var(--duration) * .9);
+  animation-timing-function: var(--ease-reveal);
+}
+.modal-backdrop[data-state=open] { animation-duration: var(--duration-feedback); }
+
+/* Selection is expressed inside its control; no moving navigation geometry. */
+.air-primary-nav>a.active>svg,
+.page-header-tabs>a.active>svg,
+.settings-rail>button.active>svg,
+.segments>button.selected>span,
+.home-game-row.selected>.instance-selected {
+  animation: selection-settle calc(var(--duration) * 1.15) var(--ease-reveal);
+}
+.home-game-row .pack-emblem,
+.default-server-card .pack-emblem {
+  transition: transform var(--duration-feedback) var(--ease-reveal);
+}
+
+@media (hover:hover) and (pointer:fine) {
+  .app-main .button:hover:not(:disabled):not(:active),
+  .modal-body .button:hover:not(:disabled):not(:active) { transform: translateY(-1px); }
+  .app-main .button:active:not(:disabled),
+  .modal-body .button:active:not(:disabled) { transform: scale(.985); }
+  .home-game-row:hover .pack-emblem { transform: translateX(2px) scale(1.025); }
+}
+
+/* Loading and error content arrives once. No background shimmer or frame loop. */
+.app-main .page-skeleton, .app-main .connection-banner, .app-main .empty {
+  animation: content-arrive calc(var(--duration) * .85) var(--ease-reveal);
+}
+@keyframes surface-menu-enter {
+  from { opacity: 0; transform: translateY(-3px) scale(.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes selection-settle {
+  from { opacity: .3; transform: translateY(2px) scale(.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes content-arrive { from { opacity: .45; } to { opacity: 1; } }
+
+/* Also remove hover displacement, not merely its transition, when disabled. */
+:root[data-motion=off] .app-main .button,
+:root[data-motion=off] .modal-body .button,
+:root[data-motion=off] .home-game-row .pack-emblem,
+:root[data-motion=off] .menu-item>svg,
+:root[data-motion=off] .command-list>button>svg { transform: none !important; }
+@media (prefers-reduced-motion:reduce) {
+  .app-main .button, .modal-body .button, .home-game-row .pack-emblem,
+  .menu-item>svg, .command-list>button>svg { transform: none !important; }
+}

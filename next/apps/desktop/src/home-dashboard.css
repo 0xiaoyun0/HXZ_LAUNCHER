@@ -1,0 +1,47 @@
+.home-dashboard .home-game-rows{max-height:340px;min-height:0;scrollbar-gutter:stable}
+.home-dashboard .home-instance-list{display:flex;flex-direction:column;min-height:0}
+.home-dashboard .auto-sized .home-instance-list{height:auto}
+.home-dashboard .auto-sized .home-game-rows{flex:none}
+.home-dashboard .home-list-footer{margin-top:auto;min-height:44px;flex-wrap:wrap}
+.home-dashboard .auto-sized .home-list-footer{margin-top:10px}
+.home-dashboard .home-list-footer>span{flex:1 1 160px;line-height:1.6}
+.home-dashboard .home-list-footer>button{flex-shrink:0}
+.home-dashboard .home-list-empty{display:grid;gap:12px;padding:20px;align-content:center;flex:1}
+.home-dashboard .home-list-empty p{margin:0}
+.home-dashboard .home-monitor-card .monitor-mini{grid-template-columns:1fr;gap:2px}
+.home-dashboard .home-monitor-card>.air-card{border-color:transparent!important;box-shadow:none!important}
+.home-dashboard .home-list-tools{padding:8px 16px 14px;gap:8px;flex-wrap:wrap}
+.home-dashboard .home-list-tools .search{flex:1 1 160px;min-width:0}
+.home-dashboard .home-list-tools>.button{justify-content:center}
+.home-dashboard .home-game-row{gap:10px;padding:10px;min-height:64px}
+.home-dashboard .home-game-row strong{display:block;font-size:.9rem}
+.home-dashboard .home-game-row strong svg{vertical-align:middle;margin-left:5px;flex-shrink:0}
+.home-dashboard .home-game-row small{font-size:.74rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-dashboard .home-game-row .pack-emblem{width:36px;height:36px}
+.home-list-empty{padding:16px}
+.home-play{display:flex;flex-direction:column;min-width:0;min-height:100%}
+.auto-sized .home-play{min-height:0}
+.home-play-cover{height:128px;max-height:20vh;min-height:90px;overflow:hidden;margin:0 16px;border-radius:8px;background:var(--panel);flex-shrink:0}
+.home-play-cover img,.home-play-cover video{display:block;width:100%;height:100%;object-fit:cover}
+.home-play-body{padding:16px 20px 20px;display:flex;flex-direction:column;gap:14px;min-width:0;flex:1}
+.home-play-identity{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;min-width:0}
+.home-play-identity>div{flex:1 1 100%;min-width:0}
+.home-play-identity h2{font-size:1.42rem;line-height:1.4;margin:0 0 6px;overflow-wrap:anywhere}
+.home-play-identity small,.home-play-identity p{font-size:.78rem;color:var(--muted);margin:0;line-height:1.6}
+.home-ready{display:inline-flex;align-items:center;gap:7px;font-size:.74rem;line-height:1.5;color:var(--muted);padding:0}
+.home-ready:before{content:'';width:6px;height:6px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.home-ready.error{color:var(--danger,#b34141)}.home-ready.error:before{background:currentColor}
+.home-role{display:grid;gap:12px;min-width:0}
+.home-role-identity{display:flex;align-items:center;gap:12px;min-width:0}
+.home-role-identity>.avatar{flex-shrink:0}
+.home-role-identity>div{display:grid;gap:4px;min-width:0}
+.home-role-identity strong{font-size:1rem;font-weight:600;line-height:1.5;overflow-wrap:anywhere}
+.home-role-identity small,.home-role-status{font-size:.75rem;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
+.home-role .field{margin:0;min-width:0}
+.home-role-selectors{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:12px;min-width:0}
+.home-role .select{width:100%;min-width:0}
+.home-role .card-actions{margin:0;flex-wrap:wrap}
+.home-play-start.button{min-height:52px;font-size:1rem;width:100%;justify-content:center;margin-top:auto;box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 18%,transparent)}
+.home-play .home-task-progress{display:grid;gap:8px;font-size:.75rem}.home-play progress{width:100%;height:5px;accent-color:var(--accent)}
+@container (max-width:430px){.home-play-body{padding:14px 16px}.home-play-identity h2{font-size:1.18rem}.home-play-cover{height:112px}.home-play-identity{gap:6px}}
+@media(max-width:1050px){.home-play-cover{height:112px}.home-dashboard .home-game-row{gap:8px}.home-play-body{gap:12px}.home-play-identity h2{font-size:1.2rem}}

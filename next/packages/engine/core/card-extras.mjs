@@ -31,6 +31,7 @@ const text=(v,n)=>typeof v==='string'?v.slice(0,n):'';
 export function normalizeCardPlacements(value){
  const out={};if(!value||typeof value!=='object'||Array.isArray(value))return out;
  for(const v of Object.values(value).slice(0,96)){
+  if(v?.source==='home'&&['instance','account','statistics','welcome','notices'].includes(v.card))continue;
   if(!v||!boards.has(v.source)||!boards.has(v.target)||v.source===v.target||!identifier(v.card))continue;
   out[v.source+'.'+v.card]={source:v.source,target:v.target,card:v.card,title:text(v.title,80),w:Math.min(12,Math.max(3,Number(v.w)||6)),minW:Math.min(12,Math.max(3,Number(v.minW)||3))};
  }return out;

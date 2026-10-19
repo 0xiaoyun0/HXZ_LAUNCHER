@@ -1,0 +1,124 @@
+/* 0.8.1 mobile layout contract. This file owns shell geometry, common controls,
+   collection breakpoints and overlays. Feature components own their internals. */
+:root{--mobile-page-gap:16px;--mobile-page-inset:16px;--mobile-touch:44px}
+.app-shell{width:100%;max-width:1440px;grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto auto}
+.app-top,.workspace,.error-banner,.bottom-nav,#mobile-music-dock{grid-column:1;min-width:0}
+.app-top{grid-row:1}.error-banner{grid-row:2}.workspace{grid-row:3}#mobile-music-dock{grid-row:4}.app-shell>.bottom-nav{grid-row:5}
+.workspace{overflow:hidden;min-height:0}
+.app-header{min-height:60px;padding:6px 12px;gap:6px;min-width:0;align-items:center}
+.app-header>.brand-mark{width:30px;height:30px;flex:none;border-radius:9px;box-shadow:none}
+.header-title{min-width:0;flex:1;display:block;overflow:hidden}
+.header-title strong{display:block;font-size:clamp(14px,.95rem,18px);line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.header-title>span{display:none}
+.app-header>.icon-button,.app-header>.avatar,.app-header>.connection{flex:none}
+.app-header>.icon-button{width:44px;min-width:44px;height:44px;padding:11px}
+.app-header>.connection{min-height:44px;padding:6px 8px;font-size:clamp(12px,.78rem,15px);background:transparent;gap:5px}
+.app-header>.avatar.small{width:38px;height:38px;min-height:38px}
+.icon{display:inline-block;width:22px;height:22px;flex:none;vertical-align:middle;overflow:visible}
+.icon-button{width:44px;min-width:44px;height:44px;min-height:44px;display:grid;place-items:center;padding:11px}
+.icon-button>.icon{width:22px;height:22px}
+.primary,.soft-button,.danger-button{min-height:44px;line-height:1.45;max-width:100%;white-space:normal;overflow-wrap:break-word}
+.primary>.icon,.soft-button>.icon,.danger-button>.icon,.text-button>.icon{flex:none;width:20px;height:20px}
+.bottom-nav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:stretch;gap:2px;padding:5px 6px;min-height:64px;background:var(--surface);border-top:1px solid var(--line);box-shadow:none;overflow:hidden}
+.bottom-nav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:54px;padding:3px 0;font-size:clamp(12px,.68rem,14px);line-height:1.3;white-space:nowrap;overflow-wrap:normal}
+.bottom-nav button>span{display:grid;place-items:center;width:46px;height:28px;min-height:28px;padding:3px;border-radius:10px}
+.bottom-nav .icon{width:22px;height:22px}
+.bottom-nav button.active>span{background:var(--accent-soft);box-shadow:none}
+.content-page{width:100%;max-width:1100px;padding:var(--mobile-page-inset);margin-inline:auto;min-width:0;scroll-padding-block:16px;scrollbar-gutter:stable}
+.page-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:0;margin-bottom:16px;min-width:0}
+.page-toolbar h1{min-width:0;flex:1;font-size:1.2rem;line-height:1.45;overflow-wrap:break-word}
+.page-toolbar>div{min-width:0;flex:1 1 12rem}
+.page-toolbar>button{flex-shrink:0;max-width:100%}
+.page-toolbar p{font-size:.8rem;line-height:1.6}
+.card,.post-card,.settings-group,.detail-card,.reply-card,.blueprint-card,.shop-product,.notice-card{border-radius:16px;min-width:0;overflow-wrap:anywhere}
+.card{padding:16px;margin-bottom:16px}
+.card h2{line-height:1.5;font-size:1rem}
+.actions{display:flex;align-items:center;flex-wrap:wrap;gap:10px;min-width:0}
+.actions>button{min-width:0;max-width:100%}
+.mobile-card-heading,.voice-session-heading,.shop-heading{display:flex;flex-wrap:wrap;align-items:center;gap:12px;min-width:0}
+.mobile-card-heading>h2,.mobile-card-heading>div,.voice-session-heading>div,.shop-heading>div{min-width:0;flex:1 1 11rem}
+.mobile-card-heading>button,.voice-session-heading>button{flex:0 0 auto;max-width:100%}
+.discover-page{display:flex;flex-direction:column;gap:16px}
+.discover-page>*{flex-shrink:0;margin-block:0}
+.discover-page>.mobile-minecraft{height:auto;overflow:visible;padding:0;max-width:none;display:grid;gap:16px}
+.discover-page .mobile-minecraft>.page-toolbar{display:none}
+.home-role{display:grid;gap:12px}.home-role strong{display:block;overflow-wrap:anywhere;margin-top:6px}
+.discover-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));gap:12px}
+.discover-card{padding:16px;min-height:0;gap:10px;align-content:start}
+.discover-card h2,.discover-card p{overflow-wrap:break-word}.discover-icon{width:40px;height:40px;min-height:40px}
+.blueprint-grid,.shop-grid,.games-scroll .arcade-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12.5rem),1fr));gap:14px}
+.games-scroll{padding:var(--mobile-page-inset);width:100%;max-width:1100px;margin-inline:auto;scroll-padding-block:16px}
+.games-scroll .arcade-page{padding:0}.games-scroll .arcade-card{min-width:0}
+.games-scroll .arcade-art{aspect-ratio:8/5}
+.games-scroll .arcade-layout{grid-template-columns:minmax(0,1fr)}
+.games-scroll .arcade-library-tabs>button:first-child:nth-last-child(2){display:none}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));gap:14px}
+.form-stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.form-stack label{display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:0;line-height:1.5}
+.form-stack .toggle-row{flex-direction:row;align-items:center}
+.form-stack .toggle-row>span{flex:1;min-width:0}.form-stack .toggle-row>input{flex:none}
+.app-select{width:100%;min-width:0;min-height:46px;display:flex;align-items:center;gap:12px;white-space:normal;text-align:left}
+.app-select>span{min-width:0;flex:1;line-height:1.5;overflow-wrap:break-word}
+.app-select>.icon{flex:none;width:18px;height:18px}
+.forum-tools{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin:0 0 14px}
+.forum-tools .forum-sort{justify-self:end;min-width:min(100%,9rem);max-width:100%}
+.forum-tools .search-bar{width:100%}
+.settings-row{width:100%;min-width:0;gap:12px;min-height:60px;padding:14px 16px}
+.settings-row>span{min-width:0;flex:1}.settings-row>.icon{flex:none}
+.launcher-notices{display:flex;flex-direction:column;gap:16px}
+.launcher-notices>*{flex-shrink:0;margin-block:0}.launcher-notices .prose{white-space:pre-wrap;overflow-wrap:anywhere}
+.lobby-room{display:flex;flex-wrap:wrap;gap:12px;min-width:0;align-items:center}.lobby-room>div,.lobby-room>span{flex:1 1 12rem;min-width:0;overflow-wrap:anywhere}
+.lobby-room>button{flex:0 0 auto;max-width:100%}
+.voice-room-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:12px}
+.voice-room{padding:16px;min-width:0}.voice-room strong{overflow-wrap:break-word}
+.call-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}.call-actions button{padding:14px 4px;min-width:0;min-height:76px;gap:8px}
+.call-actions span{font-size:.76rem;line-height:1.5;overflow-wrap:break-word}
+.voice-session{container-type:inline-size;container-name:voice-controls}
+.voice-members{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:12px}
+.voice-members>div{display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:center;gap:10px;min-width:0;padding:6px 0}
+.voice-members .avatar{width:36px;height:36px;min-height:36px;border-radius:12px}
+.voice-members>div>span:last-of-type{font-size:.82rem;text-align:left;line-height:1.5;max-width:none;overflow-wrap:anywhere}
+.voice-members>div>.icon{position:static;width:16px;height:16px;background:transparent}
+.chat-page{container-type:inline-size;container-name:mobile-chat;min-width:0}
+.channel-strip{border:0;background:transparent;border-radius:0;padding:8px 4px;margin:0 14px;min-height:44px;gap:8px;flex-wrap:wrap}
+.channel-strip h1{font-size:.85rem;font-weight:550;color:var(--muted)}
+.channel-strip>.text-button{margin-left:auto;font-size:.78rem}
+.message-meta{flex-wrap:wrap}.message-meta time{font-size:.68rem}
+.composer{padding:8px 10px;gap:6px;min-width:0}
+.composer textarea{flex:1;min-width:0;width:0;line-height:1.45;min-height:44px;max-height:112px;padding:10px 12px;font-size:.94rem}
+.composer>.composer-tool,.composer>.send-button{flex:none;width:44px;min-width:44px;height:44px;min-height:44px}
+.composer-tool .icon{stroke-width:1.75}
+.new-messages{max-width:90%;white-space:normal;font-size:.85rem}
+.emoji-panel{max-height:38vh;overflow:auto;flex:none}.emoji-panel .chips{margin-bottom:0}
+.sheet-backdrop{padding:12px 0 0;align-items:flex-end}
+.sheet,.confirm-dialog{min-width:0;max-width:100%;background:var(--surface)}
+.sheet{width:100%;max-height:100%;display:flex;flex-direction:column;overflow:hidden;border-radius:20px 20px 0 0}
+.sheet-header{display:flex;gap:12px;align-items:center;padding:12px 16px;flex:none;min-width:0}
+.sheet-header h2{min-width:0;flex:1;line-height:1.5;overflow-wrap:break-word}
+.sheet-header>.icon-button{flex:none}
+.sheet-body{min-height:0;overflow:auto;padding:8px 16px 24px;overscroll-behavior:contain;scroll-padding-bottom:24px}
+.sheet-body .actions>*{min-width:0;max-width:100%;overflow-wrap:break-word}
+.choice-list>button{padding:12px;min-height:52px;gap:12px}
+.confirm-backdrop{padding:16px;align-items:center}.confirm-dialog{padding:22px}
+.mobile-music-dock{padding:6px 12px;gap:8px}
+.mobile-music-dock>.icon-button{width:44px;min-width:44px}
+@container mobile-chat (max-width:24rem){
+  .composer{display:grid;grid-template-columns:44px 44px minmax(0,1fr) 44px;gap:4px 6px}
+  .composer textarea{grid-column:1/-1;grid-row:1;width:100%;min-height:44px}
+  .composer>.composer-tool{grid-row:2}.composer>.send-button{grid-column:4;grid-row:2}
+}
+@container voice-controls (max-width:20rem){
+  .call-actions{grid-template-columns:1fr;gap:8px}
+  .voice-session .call-actions button{flex-direction:row;justify-content:flex-start;min-height:48px;padding:10px 14px;gap:12px}
+}
+@media(max-width:599px){.app-header>.avatar.small{display:none}}
+@media(max-width:359px){:root{--mobile-page-inset:12px}.card{padding:14px}.sheet-body{padding-inline:14px}.app-header{padding-inline:10px;gap:4px}}
+@media(min-width:600px){.forum-tools{grid-template-columns:minmax(0,1fr) minmax(8rem,auto)}}
+@media(min-width:760px){
+  .app-shell{grid-template-columns:88px minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto}
+  .app-top{grid-column:1/-1}.error-banner,.workspace,#mobile-music-dock{grid-column:2}
+  .app-shell>.bottom-nav{grid-column:1;grid-row:2/5;display:flex;flex-direction:column;justify-content:flex-start;padding:16px 8px;gap:10px;border-top:0;border-right:1px solid var(--line);overflow-y:auto}
+  .bottom-nav button{width:100%;min-height:64px;flex-shrink:0}
+  .content-page{padding:24px}.sheet-backdrop{align-items:center;padding:24px}
+  .sheet{width:min(600px,100%);max-height:100%;border-radius:20px}
+}

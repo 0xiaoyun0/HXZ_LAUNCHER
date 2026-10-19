@@ -1,39 +1,65 @@
-import {GameStats} from './GameStats';
-import {useEffect,useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {useNavigate} from 'react-router-dom';
-import {Play,Settings2,FolderOpen,Plus,ArrowRight,Square,Layers,UserRound,Search,Star,PackageOpen,MessagesSquare} from 'lucide-react';
-import {state,ui,task,account,selected,cfg,perform,invoke,selectInstance,launch,importPack,desktop,onNotices,chooseRoot,reload} from './model';
-import {community} from '../../../packages/community/client';
+import {Play,Settings2,FolderOpen,ArrowRight,Square,Layers,Search,Star,PackageOpen,Download,Globe,UserPlus} from 'lucide-react';
+import {state,ui,task,account,selected,cfg,perform,invoke,selectInstance,launch,importPack,reload,mediaFor,desktop,saveSettings} from './model';
+import {connect,disconnect} from '../../../packages/community/client';
 import {CardBoard,type CardSpec} from './CardBoard';
-import {Avatar,Button,Modal,Empty,ContextMenu} from './ui';
+import {CardActions} from './CardPrimitives';
+import {Avatar,Button,Modal,ContextMenu,Select,Field} from './ui';
 import {PackIcon} from './GameLibrary';
 import {InstanceManager} from './InstanceManager';
 import {ServerMonitor} from './Monitor';
-import {useData} from './data';
-const versionLabel=(game:any)=>[...new Set([game.version||'版本待获取',game.loader||'原版'])].join(' · ');
-function LatestNotices(){
- const navigate=useNavigate(),c=useSnapshot(community),result=useData(()=>desktop?invoke('notices.list'):Promise.resolve([]),[c.connected]);
- useEffect(()=>onNotices(()=>void result.reload()),[result.reload]);
- const value=result.data,items=Array.isArray(value)?value:value?.items||[];
- return <div className="home-notices">{result.error?<p className="muted">公告暂时无法获取 <button onClick={()=>void result.reload()}>重试</button></p>:items.length?items.slice(0,3).map((n:any)=><button key={n.id} onClick={()=>navigate('/community/notices')}><span>{n.title}</span><ArrowRight size={14}/></button>):<p className="muted">{result.loading?'正在读取社区公告…':'暂无可展示的公告'}</p>}<button className="text-link" onClick={()=>navigate('/community/notices')}>公告与整合包更新日志 <ArrowRight size={14}/></button></div>;
+import './home-dashboard.css';
+
+const versionLabel=(game:any)=>[...new Set([game.version==='跟随整合包'?'版本由整合包提供':game.version||'版本待获取',game.loader==='跟随整合包'?'':game.loader||'原版'])].filter(Boolean).join(' · ');
+function HomeCover({src,position,animate,onError}:{src:string;position:any;animate:boolean;onError:()=>void}){
+ const video=useRef<HTMLVideoElement>(null);
+ useEffect(()=>{const media=video.current;if(!media)return;const motion=matchMedia('(prefers-reduced-motion: reduce)'),update=()=>{if(document.hidden||!animate||motion.matches)media.pause();else void media.play().catch(()=>{});};update();document.addEventListener('visibilitychange',update);motion.addEventListener('change',update);return()=>{media.pause();document.removeEventListener('visibilitychange',update);motion.removeEventListener('change',update);};},[src,animate]);
+ const style={objectPosition:`${position.coverPositionX??50}% ${position.coverPositionY??50}%`,transform:`scale(${position.coverZoom||1})`};
+ return <div className="home-play-cover">{/\.(mp4|webm)(?:[?#]|$)/i.test(src)?<video ref={video} src={src} muted loop playsInline preload="metadata" style={style} onError={onError}/>:<img src={src} alt="" style={style} onError={onError}/>}</div>;
 }
+
 export function Home(){
- const s=useSnapshot(state),t=useSnapshot(task),c=useSnapshot(community),navigate=useNavigate();
- const [query,setQuery]=useState(''),[manage,setManage]=useState(false);
- const game=selected(s),role=account(s),config=game?cfg(game.id,s):null,locked=t.busy||s.running;
- const configure=()=>{if(game){ui.instance=game.id;ui.dialog='instance';}};
- const games=[...s.instances].filter((i:any)=>i.name.toLowerCase().includes(query.toLowerCase())).sort((a:any,b:any)=>Number(b.builtin)-Number(a.builtin)||Number(cfg(b.id,s).favorite)-Number(cfg(a.id,s).favorite));
- const actionsFor=(i:any)=>{const open=async(dialog='details')=>{await selectInstance(i.id);if(dialog==='details')setManage(true);else{ui.instance=i.id;ui.dialog=dialog;}};return [{label:'实例详情',icon:PackageOpen,disabled:locked,action:()=>open()},{label:'启动配置',icon:Settings2,disabled:locked,action:()=>open('instance')},{label:'管理模组',icon:Layers,disabled:locked||!i.installed,action:()=>open('mods')},{separator:true},...([['versions','版本目录'],['screenshots','截图目录'],['saves','存档目录']] as const).map(([kind,label])=>({label,icon:FolderOpen,disabled:!i.installed,action:()=>invoke('instance.folder',{id:i.id,kind})})),{label:cfg(i.id).favorite?'取消收藏':'收藏实例',icon:Star,disabled:locked,action:async()=>{await invoke('instance.favorite',{id:i.id,favorite:!cfg(i.id).favorite});await reload();}}];};
+ const s=useSnapshot(state),t=useSnapshot(task),navigate=useNavigate();
+ const [query,setQuery]=useState(''),[manage,setManage]=useState(false),[cover,setCover]=useState(''),[switching,setSwitching]=useState(false),identityPending=useRef(false);
+ useEffect(()=>{if(!s.ready)return;const layouts=state.settings.cardLayouts||{};if(Object.entries(layouts).some(([key,value]:any)=>/^home\.(wide|compact)$/.test(key)&&[...(value.items||[]).map((item:any)=>item.i),...(value.hidden||[]),...(value.locked||[]),...(value.fixed||[])].includes('launcher-news')))void saveSettings((settings:any)=>({cardLayouts:Object.fromEntries(Object.entries(settings.cardLayouts||{}).map(([key,value]:any)=>/^home\.(wide|compact)$/.test(key)?[key,{...value,items:(value.items||[]).filter((item:any)=>item.i!=='launcher-news'),...Object.fromEntries(['hidden','locked','fixed'].map(field=>[field,(value[field]||[]).filter((id:string)=>id!=='launcher-news')]))}]:[key,value]))}));},[s.ready]);
+ const instances=s.instances,game=selected(s),role=account(s),locked=t.busy||s.running,current=cfg(game?.id||'',s);
+ async function switchIdentity(change:()=>Promise<void>){
+  if(identityPending.current||task.busy||state.running)return;
+  identityPending.current=true;setSwitching(true);disconnect();
+  try{await change();}finally{if(account())void connect();identityPending.current=false;setSwitching(false);}
+ }
+ useEffect(()=>{let live=true;const fallback=current.coverMedia||s.settings.defaultCover||(game?mediaFor(game):'');setCover(s.settings.showCover?fallback:'');if(game&&s.settings.showCover&&desktop)void invoke('instance.cover',{id:game.id}).then(value=>{if(live)setCover(value||fallback);}).catch(()=>{});return()=>{live=false;};},[game?.id,current.coverMedia,s.settings.defaultCover,s.settings.showCover]);
+ const games=[...instances].filter((i:any)=>(i.name+' '+versionLabel(i)).toLowerCase().includes(query.trim().toLowerCase())).sort((a:any,b:any)=>Number(b.builtin)-Number(a.builtin)||Number(cfg(b.id,s).favorite)-Number(cfg(a.id,s).favorite));
+ const actionsFor=(i:any)=>{
+  const open=async(dialog='details')=>{await selectInstance(i.id);if(dialog==='details')setManage(true);else{ui.instance=i.id;ui.dialog=dialog;}};
+  return [{label:'管理实例',icon:PackageOpen,disabled:locked,action:()=>open()},{label:'启动配置',icon:Settings2,disabled:locked,action:()=>open('instance')},{label:'模组、资源包与蓝图',icon:Layers,disabled:locked||!i.installed,action:()=>open('mods')},{separator:true},...([['versions','版本目录'],['screenshots','截图目录'],['saves','存档目录']] as const).map(([kind,label])=>({label,icon:FolderOpen,disabled:!i.installed,action:()=>invoke('instance.folder',{id:i.id,kind})})),{label:cfg(i.id,s).favorite?'取消收藏':'收藏实例',icon:Star,disabled:locked,action:async()=>{await invoke('instance.favorite',{id:i.id,favorite:!cfg(i.id,s).favorite});await reload();}}];
+ };
  const cards:CardSpec[]=[
- {id:'account',title:'我的角色',x:0,y:0,w:3,h:8,minW:3,minH:8,content:<div className="home-account"><div><Avatar name={role?.name} image={role?.avatar} size={48}/><span><strong>{role?.name||'还没有登录'}</strong><small>{role?c.connected?'社区已连接':'幻想镇皮肤站':'使用皮肤站账号开始'}</small></span></div><Button icon={UserRound} onClick={()=>role?navigate('/account'):ui.dialog='account'}>{role?'切换与管理角色':'登录角色'}</Button></div>},
- {id:'instance',title:'当前实例',x:0,y:18,w:3,h:13,minW:3,minH:9,content:<div className="home-current">{game?<><div className="current-game"><PackIcon game={game}/><span><strong>{game.name}</strong><small>{versionLabel(game)}</small></span></div><dl><div><dt>Java</dt><dd>{config.javaMode==='custom'?'实例指定':config.javaMode==='inherit'&&s.settings.javaPath?'跟随全局':'自动匹配'}</dd></div><div><dt>内存</dt><dd>{config.memoryMode==='manual'?config.memoryMB+' MB':s.settings.memoryMode==='manual'&&config.memoryMode==='inherit'?s.settings.defaultMemoryMB+' MB':'自动分配'}</dd></div><div><dt>HXZ UP</dt><dd>{config.autoUpdate?'启动前检查':'手动检查'}</dd></div></dl><div className="home-current-actions"><Button icon={Settings2} disabled={locked} onClick={configure}>配置</Button><Button icon={FolderOpen} disabled={!game.installed} onClick={()=>invoke('instance.folder',{id:game.id,kind:'versions'})}>目录</Button></div></>:<Empty title="选择或导入一个游戏"/>}</div>},
- {id:'launch',title:'准备出发',x:0,y:8,w:3,h:10,minW:3,minH:8,className:'launch-card',content:<div className="home-launch"><p>{s.running?'游戏正在运行':t.busy?t.phase:game?.installed?'一切就绪，继续你的世界':game?.placeholder?'该服务器尚未开放':game?'首次游玩将下载所需文件':'先将游戏加入实例库'}</p><Button className="home-launch-button" tone="solid" icon={s.running?Square:Play} disabled={!game||!!game?.placeholder||t.busy&&!s.running} onClick={()=>s.running?invoke('game.stop'):launch(game.id)}>{s.running?'停止游戏':game?.installed?'开始游戏':'安装并开始'}</Button><button className="text-link" onClick={()=>ui.tasks=true}><Layers size={15}/>{t.busy?'查看下载进度与日志':'任务与启动日志'}<ArrowRight size={14}/></button>{t.busy&&t.total>0&&<div className="home-task-progress"><progress max={t.total} value={t.completed}/><small>当前步骤 · {Math.min(100,t.completed/t.total*100).toFixed(2)}%</small></div>}</div>},
- {id:'welcome',title:'快捷入口',x:3,y:0,w:9,h:6,minW:5,minH:6,className:'welcome-card',content:<div className="home-quick-actions"><Button icon={Plus} onClick={()=>navigate('/workshop/install')}>安装新游戏</Button><Button icon={FolderOpen} disabled={locked} onClick={chooseRoot}>选择游戏目录</Button><Button icon={MessagesSquare} onClick={()=>navigate('/community')}>进入社区</Button></div>},
- {id:'library',title:'游戏实例',x:3,y:6,w:9,h:16,minW:5,minH:10,plain:true,content:<div className="home-instance-list"><div className="home-list-tools"><div className="search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索实例" aria-label="搜索实例"/></div><Button icon={PackageOpen} disabled={locked} onClick={()=>importPack()}>导入</Button><Button onClick={()=>navigate('/library')}>全部实例</Button></div><div className="home-game-rows">{games.map((i:any)=><ContextMenu key={i.id} items={actionsFor(i)}><button disabled={locked} className={'home-game-row '+(game?.id===i.id?'selected':'')} onClick={()=>perform(()=>selectInstance(i.id))}><PackIcon game={i}/><span><strong>{i.name}{cfg(i.id,s).favorite&&<Star size={13}/>}</strong><small>{versionLabel(i)}{i.builtin?' · 默认服务器':''}</small></span><small className={i.error?'danger':''}>{i.error?'需要处理':i.placeholder?'即将开放':i.installed?'已安装':'待安装'}</small><i className="instance-selected"/></button></ContextMenu>)}</div>{!games.length&&<p className="muted">没有匹配的实例</p>}<div className="home-list-footer"><span>{s.instances.length} 个实例</span><button disabled={!game} onClick={()=>setManage(true)}>管理当前实例 <ArrowRight size={14}/></button></div></div>},
- {id:'statistics',title:'我的游戏记录',x:3,y:31,w:9,minW:5,minH:12,content:<GameStats/>},
- {id:'notices',title:'镇上近况',x:3,y:22,w:4,h:9,minW:4,minH:7,content:<LatestNotices/>},
- {id:'monitor',title:'服务监控',x:7,y:22,w:5,h:9,minW:4,minH:8,content:<ServerMonitor/>}
+  {id:'library',title:'游戏实例',x:4,y:0,w:8,minW:4,minH:10,plain:true,className:'home-library-card',content:<div className="home-instance-list">
+   <div className="home-list-tools"><div className="search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索实例" aria-label="搜索实例"/></div><Button icon={PackageOpen} disabled={locked} onClick={()=>importPack()}>导入</Button><Button icon={Download} onClick={()=>navigate('/workshop/install')}>下载</Button></div>
+   <div className="home-game-rows">{games.map((i:any)=><ContextMenu key={i.id} items={actionsFor(i)}><button disabled={locked} className={'home-game-row '+(game?.id===i.id?'selected':'')} onClick={()=>perform(()=>selectInstance(i.id))} aria-pressed={game?.id===i.id}><PackIcon game={i}/><span><strong>{i.name}{cfg(i.id,s).favorite&&<Star size={13}/>}</strong><small>{versionLabel(i)}{i.builtin&&!i.installed?' · 待安装':''}</small></span><i className="instance-selected"/></button></ContextMenu>)}</div>
+   {!games.length&&<div className="home-list-empty muted"><p>{instances.length?'没有匹配的实例':'还没有游戏实例，可下载或导入整合包。'}</p></div>}
+   <div className="home-list-footer"><span>{instances.filter((i:any)=>i.installed).length} 个已安装{instances.some((i:any)=>i.builtin&&!i.installed)?' · 默认服务器可直接安装':''}</span><button disabled={!game||locked} onClick={async()=>{await selectInstance(game.id);setManage(true);}}>管理实例 <ArrowRight size={14}/></button></div>
+  </div>},
+  {id:'launch',title:'开始游戏',x:0,y:28,w:4,minW:4,minH:9,plain:true,className:'launch-card home-play-card',content:<div className="home-play">
+   {cover&&<HomeCover src={cover} position={current} animate={s.settings.animationSpeed!==0} onError={()=>setCover('')}/>}
+   <div className="home-play-body"><div className="home-play-identity"><div><h2>{game?.name||'准备好进入幻想镇'}</h2>{game&&<p>{versionLabel(game)}</p>}</div>{game&&<span className={'home-ready '+(game?.error?'error':'')} aria-live="polite">{s.running?'游戏运行中':game?.error?'需要修复':game?.placeholder?'尚未开放':game?.installed?'已准备好':'首次启动自动安装'}</span>}</div>
+   {game?.error&&<p className="inline-error">{game.error}</p>}
+   <Button className="home-play-start" tone="solid" icon={s.running?Square:Play} disabled={!!game?.placeholder||t.busy&&!s.running} onClick={()=>s.running?invoke('game.stop'):game?launch(game.id):navigate('/multiplayer')}>{!game?'选择服务器':s.running?'停止游戏':!role?'登录并开始':game?.installed?'开始游戏':'安装并开始'}</Button>
+   {t.busy&&<div className="home-task-progress"><button className="text-link" onClick={()=>ui.tasks=true}><Layers size={15}/>{t.phase}<ArrowRight size={14}/></button>{t.total>0&&<><progress max={t.total} value={t.completed}/><small>当前步骤 · {Math.min(100,t.completed/t.total*100).toFixed(2)}%</small></>}</div>}
+   </div>
+  </div>},
+  {id:'roles',title:'我的角色',x:0,y:0,w:4,minW:4,minH:7,className:'home-role-card',content:<div className="home-role">
+   <div className="home-role-identity"><Avatar name={role?.name} image={role?.avatar} size={48}/><div><strong>{role?.name||'尚未登录'}</strong><small>{role?.username||'使用幻想镇皮肤站账号'}</small><span className="home-role-status" aria-live="polite">{switching?'正在切换角色…':role?'已登录 · 当前游戏角色':'登录后选择角色，开始游戏'}</span></div></div>
+   {(s.accounts.length>1||role?.profiles?.length>1)&&<div className="home-role-selectors">
+    {s.accounts.length>1&&<Field label="切换账号"><Select label="切换游戏账号" value={role?.id||''} disabled={locked||switching} options={s.accounts.map((a:any)=>({value:a.id,label:[a.name||'选择游戏角色',a.username].filter(Boolean).join(' · ')}))} onChange={(id:string)=>switchIdentity(()=>saveSettings({selectedAccount:id}))}/></Field>}
+    {role?.profiles?.length>1&&<Field label="游戏角色"><Select label="切换游戏角色" value={role.uuid} disabled={locked||switching} options={role.profiles.map((p:any)=>({value:p.id,label:p.name}))} onChange={(uuid:string)=>switchIdentity(async()=>{await invoke('account.profile',{id:role.id,uuid});await reload();})}/></Field>}
+   </div>}
+   <CardActions>{role?<><Button icon={Globe} disabled={switching} onClick={()=>navigate('/account?skin=1')}>管理皮肤站</Button><Button icon={UserPlus} disabled={locked||switching} onClick={()=>ui.dialog='account'}>添加账号</Button></>:<Button tone="solid" icon={UserPlus} disabled={switching} onClick={()=>ui.dialog='account'}>登录账号</Button>}</CardActions>
+  </div>},
+  {id:'monitor',title:'服务状态',x:0,y:14,w:4,minW:4,minH:5,className:'home-monitor-card',content:<ServerMonitor limit={3}/>}
  ];
- return <div className="air-home"><CardBoard id="home" pageTitle label="启动游戏" cards={cards}/><Modal open={manage} onClose={()=>setManage(false)} title={game?.name||'实例管理'} wide><InstanceManager/></Modal></div>;
+ return <div className="air-home home-dashboard"><CardBoard id="home" pageTitle label="启动游戏" cards={cards}/><Modal open={manage} onClose={()=>setManage(false)} title="实例管理" wide><InstanceManager/></Modal></div>;
 }

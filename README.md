@@ -1,20 +1,10 @@
-# 幻想镇 · 0.8.0
+# 幻想镇 · 0.8.1
 
-Windows 卡片启动器、Android 社区、独立社区服务端与服务器官网。
+游戏启动与社区客户端：修复退出恢复，精简首页与导航，统一实例文件管理，更新 LINKING 与音乐档案，重排 Android 栏目。
 
-[下载 0.8.0](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.0) · [源码与构建](next/README.md) · [更新内容](next/docs/0.8.0发布说明.md) · [使用与升级](next/docs/0.8.0使用与升级.md)
+[下载 0.8.1](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.1) · [源码与构建](next/README.md) · [完整更新](next/docs/0.8.1发布说明.md) · [使用与升级](next/docs/0.8.1使用与升级.md)
 
-- 工作台集中处理待办、等待结果、进行中和已办结事项。聊天、公告、资源、实例、音乐、账号等栏目保留相关入口，共用内容与进度。
-- 新增好友与小队、玩家空间、活动足迹、共同项目、作品素材、知识库、生产助手和世界接力。
-- 语音房间支持课堂、自习、互助、字幕与屏幕分享；一起看支持 B 站官方播放器、节目队列及房间同步操作。
-- 实例维护提供恢复点、实验副本、目录迁移、设置预设和启动记录；卡片支持布局导入、受限流程与声明式扩展。
-- 管理工作台统一审核、申诉与账本；玩家交易使用背包和积分托管。可选游戏服务端桥提供可信统计、游戏聊天及入服服务。
-- Windows x64 / ia32 安装器沿用原签名更新通道；Android 10+ 社区 0.8.0 / 80000 沿用原证书，可选游戏组件继续使用 70003。
-- 社区服务端需要同步升级，升级前备份并保留整个 data 和 .env。[游戏服务端桥部署](next/docs/0.8.0游戏服务端桥.md) · [验证范围](next/docs/0.8.0验收矩阵.md)
-
-当前源码位于 next；根目录 client / server / mobile 保留历史实现。社区服务端使用 next/apps/community-server。第三方引擎的许可与重建源码位于 [独立模块](next/third_party/maid-board-engine/README.md)。历史版本与 Release 保留。
-
-[卡片规范](next/docs/UI卡片规范.md) · [MC 联机](next/docs/MC直连大厅.md) · [LINKING 管理](next/docs/LINKING档案馆开发与管理.md) · [官网部署](next/docs/官网部署与内容管理.md)
+游戏服务端桥沿用 0.8.0 原附件与版本；可选 Android 游戏组件仍为 70003。
 
 ---
 

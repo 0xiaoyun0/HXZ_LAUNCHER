@@ -1,0 +1,16 @@
+.default-server-hub{min-width:0}
+.default-server-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px;font-size:.8rem}
+.default-server-card .content-card-body{padding:18px}
+.default-server-card .content-card-body>h3{display:flex;align-items:center;gap:12px;line-height:1.5}
+.default-server-card .content-card-body>h3>span{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}
+.default-server-card .pack-emblem{width:36px;height:36px;flex:none}
+.default-server-card .pack-emblem svg{width:36px;height:36px;display:block;filter:none}
+.default-server-card h3 small{font-size:.75rem;font-weight:400;color:var(--muted)}
+.default-server-state{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:.8rem;margin:8px 0 14px}
+.default-server-state>span:first-child{display:flex;align-items:center;gap:7px}
+.default-server-state i{width:6px;height:6px;background:currentColor;border-radius:50%}
+.default-server-state .online{color:var(--accent-text)}
+.server-players-link{display:inline-flex;align-items:center;gap:7px;color:var(--accent-text);font-size:.78rem;min-height:30px}
+.server-players-link:disabled{color:var(--muted);opacity:.65;cursor:default}
+.default-server-card .card-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.default-server-card .card-actions>.button:first-child{flex:1;justify-content:center;min-width:130px}

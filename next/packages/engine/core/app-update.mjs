@@ -1,4 +1,6 @@
 import updaterPackage from "electron-updater";
+import path from 'node:path';
+import {readFileSync,writeFileSync,renameSync,mkdirSync,unlinkSync} from 'node:fs';
 import { remoteJSON } from "./io.mjs";
 import { discoverRelease, RELEASE_ROOT, compareVersions, UPDATE_SOURCES, fetchUpdateJSON } from "./update-sources.mjs";
 import { SignedReleaseProvider } from "./update-provider.mjs";
@@ -48,6 +50,17 @@ export function createAppUpdate({
   updater.allowDowngrade = false;
   updater.allowPrerelease = false;
   updater.disableWebInstaller = true;
+  // Keep the attempt across process restarts: an installer may fail to replace
+  // the executable and still reopen the old version. Never repeat that loop.
+  const attemptFile=app.getPath?path.join(app.getPath('userData'),'update-install-attempt.json'):null;
+  let previousAttempt=null,installing=false;
+  try{previousAttempt=JSON.parse(readFileSync(attemptFile,'utf8'));if(compareVersions(app.getVersion(),previousAttempt.target)>=0){unlinkSync(attemptFile);previousAttempt=null;}}catch{}
+  const blocked=version=>previousAttempt?.from===app.getVersion()&&previousAttempt?.target===version;
+  const rememberAttempt=version=>{
+    const attempt={from:app.getVersion(),target:version,at:new Date().toISOString()};
+    if(attemptFile){mkdirSync(path.dirname(attemptFile),{recursive:true});writeFileSync(attemptFile+'.tmp',JSON.stringify(attempt),'utf8');renameSync(attemptFile+'.tmp',attemptFile);}
+    previousAttempt=attempt;
+  };
   let release, cancellationToken, downloadTimer;
   updater.disableDifferentialDownload = true;
   function armDownloadTimeout() {
@@ -84,12 +97,14 @@ export function createAppUpdate({
   };
   const handlers = {
     "update-available": info => {
+      if(compareVersions(info.version,app.getVersion())<=0)return;
       available = true;
-      update({ phase: "发现新版本", version: info.version, available: true });
+      update({ phase: "发现新版本", version: info.version, available: true,autoBlocked:blocked(info.version) });
     },
     "update-not-available": () => {
       available = false;
-      update({ phase: "已是最新版本", available: false });
+      ready=false;installAt=0;
+      update({ phase: "已是最新版本", available: false,ready:false });
     },
     "download-progress": p => {
       armDownloadTimeout();
@@ -98,12 +113,14 @@ export function createAppUpdate({
         percent: Math.round(p.percent), received:p.transferred, total:p.total
       });
     },
-    "update-downloaded": () => {
+    "update-downloaded": info => {
+      const version=info?.version||state.version;
+      if(!available||compareVersions(version,app.getVersion())<=0||version!==state.version)return;
       ready = true;
       installAt = 0;
-      update({ phase: "更新已就绪", ready: true, percent: 100 });
+      update({ phase: blocked(version)?"上次更新未完成，已停止自动重启。可在设置中手动重试安装。":"更新已就绪", ready: true, percent: 100,autoBlocked:blocked(version) });
     },
-    error: error => update({ phase: "更新源连接失败，正在重试", error: String(error?.message||error).slice(0,400) })
+    error: error => {if(installing){installing=false;enabled=false;update({phase:'更新安装未完成，已停止自动重启，请手动重试',autoBlocked:true});}else update({ phase: "更新源连接失败，正在重试", error: String(error?.message||error).slice(0,400) });}
   };
   for (const [name, fn] of Object.entries(handlers)) updater.on(name, fn);
   async function download() {
@@ -164,13 +181,17 @@ export function createAppUpdate({
     return state;
   }
   function install() {
+    if(installing)return {ok:true};
     if (!ready) throw Error("更新尚未下载完成");
     if (isBusy()) throw Error("游戏或安装任务结束后自动更新");
-    updater.quitAndInstall(true, true);
+    rememberAttempt(state.version);
+    installing=true;enabled=false;installAt=0;
+    update({phase:'正在安装更新，请稍候',autoBlocked:false});
+    try{updater.quitAndInstall(true, true);}catch(error){installing=false;update({phase:'更新安装未完成，已停止自动重启，请手动重试',autoBlocked:true});throw error;}
     return { ok: true };
   }
   function idle() {
-    if (disposed || !enabled || !ready || working) return;
+    if (disposed || !enabled || !ready || working || installing || blocked(state.version)) return;
     if (isBusy()) {
       installAt = 0;
       update({ phase: "更新已就绪，等待当前任务结束" });
@@ -185,7 +206,7 @@ export function createAppUpdate({
     });
     if (Date.now() >= installAt) {
       enabled = false;
-      install();
+      try{install();}catch(error){update({phase:'自动安装未完成，可在设置中手动重试',error:String(error?.message||error).slice(0,400),autoBlocked:true});}
     }
   }
   const idleTimer = setInterval(idle, 1000);

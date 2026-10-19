@@ -2,7 +2,7 @@
 import {HUB_KINDS} from '../../../server/shared/hub-catalog.mjs';
 import Icon from './Icon.vue';
 defineProps({sections:{type:Array,default:()=>[]}});defineEmits(['open']);
-const labels={social:'好友与小队',servers:'入服服务',challenges:'棋局回放',space:'玩家空间',saved:'收藏订阅',devices:'多端接续',trades:'玩家交易',workbench:'管理工作台',program:'一起看视频',recipe:'生产计划',event:'活动与赛事'};
+const labels={servers:'入服服务',space:'玩家空间',saved:'收藏订阅',trades:'玩家交易',workbench:'社区管理',program:'一起看视频',event:'活动与赛事'};
 const label=key=>labels[key]||HUB_KINDS[key]?.label||key;
 </script>
 <template><nav class="context-links" aria-label="相关功能"><button v-for="key in sections" :key="key" class="soft-button" @click="$emit('open',key)"><span>{{label(key)}}</span><Icon name="chevron"/></button></nav></template>

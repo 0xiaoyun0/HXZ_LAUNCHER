@@ -49,6 +49,7 @@
 .card-slot>.react-resizable-handle { opacity: .4; }
 .card-slot:hover>.react-resizable-handle, .card-slot:focus-within>.react-resizable-handle { opacity: 1; }
 .card-slot.react-draggable-dragging>.air-card, .card-slot.resizing>.air-card { transition: none; }
+.card-workspace[data-reflow] .react-grid-item { transition: none !important; }
 
 /* Controls keep their intrinsic width. Menus still adapt to available viewport. */
 .button { min-height: 38px; padding: 9px 14px; font-size: var(--text-label); border-radius: 9px; line-height: 1.35; }
@@ -193,3 +194,8 @@
 
 .feedback-center,.feedback-detail{display:grid;gap:16px;min-width:0}.feedback-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.feedback-filters>form{flex:1;min-width:220px}.feedback-row{gap:14px}.feedback-row>span{min-width:0;overflow-wrap:anywhere}.feedback-row>b{white-space:nowrap}.feedback-detail .replies{max-height:35vh;overflow:auto}.feedback-detail .modal-actions{flex-wrap:wrap}
 .feedback-filters>form.input-action{flex:1 1 240px;flex-wrap:nowrap}.feedback-filters>form.input-action>input{flex:1 1 0;width:0}.feedback-center .empty{padding:24px}.feedback-center .pagination{margin:4px 0}.feedback-detail>.field{margin:0}.feedback-detail>.button{justify-self:start}.feedback-detail>.toolbar{margin:0}.feedback-detail .replies:empty,.feedback-detail .modal-actions:empty{display:none}
+.home-launch-account{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:0 0 16px;border:0;border-bottom:1px solid var(--line);background:none;color:var(--ink)}
+.home-launch-account>span:not(.avatar){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-launch-selection{display:grid;gap:6px;padding:16px 0 4px;min-width:0}.home-launch-selection strong{font-size:1.15rem;overflow-wrap:anywhere}.home-launch-selection small{color:var(--muted);font-size:.8rem}
+.home-launch-links{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}.home-launch-links>.button{flex:1;white-space:nowrap}
+.card-layout-toolbar .layout-save-status:disabled{display:none}

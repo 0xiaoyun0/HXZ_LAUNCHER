@@ -1,17 +1,21 @@
 import {api,setNavigationGuard} from './host-api';
-import {ask,button,element,field,notice,selectField} from './activity-ui';
+import {ask,button,element,field,notice,selectField,renderReading} from './activity-ui';
+import {previewChapter,type Chapter} from './activity';
 import {formatDate,t} from './localization';
-type Draft={id:string;title:string;subtitle:string;order:number;opensAt:string;closesAt:string;locale:string;archives:any[];tasks:any[]};
+type Draft={id:string;title:string;subtitle:string;order:number;opensAt:string;closesAt:string;locale:string;archives:any[];tasks:any[];prerequisites?:{chapter:string;task:string}[]};
 const id=(prefix:string)=>prefix+'-'+crypto.getRandomValues(new Uint32Array(1))[0].toString(36);
 const localDate=(iso:string)=>iso?new Date(Date.parse(iso)+8*3600000).toISOString().slice(0,16):'';
 const dateValue=(value:string)=>value?new Date(value+':00+08:00').toISOString():'';
 export async function startManagement(root:HTMLElement){
   let dirty=false;
+  let rewardItems:any[]=[];
+  let volumeExpansion:any;
+  let expansions:Record<string,{archives:number;tasks:number;items:number}>={};
   const guard=async()=>!dirty||await ask(t('unsaved'));
   setNavigationGuard(guard);
   async function home(tab='chapters'){
     if(!await guard())return;dirty=false;
-    const value=await api('/api/admin/linking');root.replaceChildren();const editor=element('div','','activity-editor'),tabs=element('nav','','activity-admin-tabs');
+    const value=await api('/api/admin/linking');rewardItems=value.rewardItems||[];expansions=value.storyExpansions||{};volumeExpansion=value.volumeExpansion;root.replaceChildren();const editor=element('div','','activity-editor'),tabs=element('nav','','activity-admin-tabs');
     for(const [key,label]of [['chapters','章节与档案'],['submissions','待审核任务'],['settings','活动设置']]){const b=button(label,()=>home(key));b.setAttribute('aria-selected',String(tab===key));tabs.append(b);}editor.append(tabs);root.append(editor);
     if(tab==='settings'){
       const config=value.config,card=element('section','','activity-card');card.append(element('h2','活动设置'));
@@ -24,6 +28,7 @@ export async function startManagement(root:HTMLElement){
       for(const item of value.items){const card=element('article','','activity-card');card.append(element('h2',item.name),element('small',`${item.chapter} / ${item.task} · ${formatDate(item.created)}`),element('div',item.body,'activity-prose'));let note='';field(card,'审核说明（未通过时必填）','',v=>note=v,{area:true});const actions=element('div','','activity-row');for(const [status,label]of [['approved','通过审核'],['rejected','退回修改']])actions.append(button(label,async()=>{await api('/api/admin/linking/submissions/'+item.id,'POST',{status,note,updated:item.updated});notice('审核结果已保存');await home('submissions');},status==='approved'?'primary':''));card.append(actions);editor.append(card);}if(!value.items.length)editor.append(element('section','暂时没有待审核的任务。','activity-card'));return;
     }
     const header=element('div','','activity-row');header.append(element('h1','章节与档案'),button('新建章节',()=>edit({chapter:{id:id('chapter'),title:'新的章节',subtitle:'',order:value.chapters.length,opensAt:'',closesAt:'',locale:'zh-CN',archives:[{id:id('archive'),title:'第一份档案',en:'',category:'探索记录',department:'',date:'',lead:'',summary:'',body:'请在这里编写档案正文。',notes:[],requires:[]}],tasks:[]},revision:0,liveRevision:0,published:false}),'primary'));editor.append(header);
+    if(value.chapters.length&&volumeExpansion){const continuation=element('section','','activity-card activity-volume-expansion');continuation.append(element('h2','两卷续篇草稿'),element('p','从已有原章继续：保留原章，另建两卷未发布草稿。先选择原章，检查归途灯标条件，再确认创建。'));let source=value.chapters.find((c:any)=>c.id==='chapter-1f7p9oe')?.id||value.chapters.find((c:any)=>!c.id.startsWith('linking-volume-'))?.id||value.chapters[0].id;selectField(continuation,'续篇承接的原章',source,value.chapters.filter((c:any)=>!c.id.startsWith('linking-volume-')).map((c:any)=>[c.id,c.title]),v=>source=v);continuation.append(button('检查原章与创建条件',async()=>edit(await api('/api/admin/linking/chapters/'+source)),'primary'));editor.append(continuation);}
     const grid=element('div','','activity-grid');for(const c of value.chapters){const card=element('article','','activity-card');card.append(element('h2',c.title),element('p',c.archived?'已归档':!c.published?'未发布':c.revision===c.liveRevision?'已发布':'有未发布的修改'),element('small','更新于 '+formatDate(c.updated)),button('编辑章节',async()=>edit(await api('/api/admin/linking/chapters/'+c.id))));grid.append(card);}editor.append(grid);
     editor.append(element('p','草稿不会影响在线玩家。发布后内容才会生效；归档会关闭章节入口，但保留全部进度。请保留已有档案和任务标识；改变玩法含义时创建新任务。','activity-muted'));
   }
@@ -33,6 +38,23 @@ export async function startManagement(root:HTMLElement){
     function render(){
       root.replaceChildren();const editor=element('div','','activity-editor');root.append(editor);
       const heading=element('div','','activity-row');heading.append(button('返回章节列表',()=>home()),element('h1','编辑章节'));editor.append(heading);
+      const volumes=element('section','','activity-card activity-volume-expansion');
+      const isVolume=draft.id==='linking-volume-01'||draft.id==='linking-volume-02',ready=draft.tasks.some(t=>t.id==='snow-ash-light-signal');
+      if(!isVolume){volumes.append(element('h2','两卷续篇草稿'),element('p','保留原章与已有玩家进度，另建第一、第二卷。先在原章补齐「归途灯标」续篇条件；续篇主线无需人工审核，旧任务仍按原规则开放。'),element('small','只创建未发布草稿，不自动发布或覆盖已有卷。'));
+        if(!ready)volumes.append(element('p','当前章节尚未包含归途灯标任务。请先完成上方或下方的原章续写，保存后再创建两卷。','activity-lock-reason'));
+        const create=button('创建两卷续篇草稿',async()=>{if(!await ask('保留原章，保存当前草稿并创建两卷独立续篇草稿？本次不会发布，若已有同名卷将停止创建。'))return;await save();try{const result=await api('/api/admin/linking/volumes-expansion','POST',{chapter:draft.id,revision});dirty=false;await edit(result.chapters[0]);notice('两卷草稿已创建，请检查内容与前置条件后分别发布。');}catch(error){const message=(error as Error).message;const recovery=element('section','','activity-card');recovery.append(element('p','创建未完成：'+message),button('重新读取章节列表 / 打开已有续篇',()=>home()));editor.prepend(recovery);recovery.scrollIntoView({block:'start'});notice(message,true);}},'primary');create.disabled=!ready||!volumeExpansion;volumes.append(create);if(!volumeExpansion)volumes.append(element('small','当前服务未提供两卷续篇功能，请更新服务后重新读取章节列表。'));editor.append(volumes);}
+      if(draft.prerequisites?.length){const dependencies=element('section','','activity-card');dependencies.append(element('h2','跨卷开放条件'),element('p','玩家完成以下前卷任务后才可进入本卷；预览不会替玩家完成条件。'));for(const requirement of draft.prerequisites)dependencies.append(element('small',requirement.chapter+' · '+requirement.task));editor.append(dependencies);}
+      editor.append(button('只读预览当前草稿',()=>{previewChapter({...structuredClone(draft),preview:true,manager:true,revision,archives:draft.archives.map(a=>({...a,unlocked:true,readAt:null,bookmarked:false})),tasks:draft.tasks.map(t=>({...t,available:true,completed:false,reward:t.reward?{...t.reward,title:rewardItems.find(i=>i.id===t.reward.item)?.title||t.reward.item,available:true,claimed:false}:undefined})),progress:{read:0,total:draft.archives.length,completed:0,tasks:draft.tasks.length},user:{uid:'',name:'草稿预览'}} as Chapter);renderReading(root);const back=button('返回草稿编辑',render);root.prepend(back);}));
+      const hasWhitebranch=draft.archives.some(a=>a.id==='snow-ash-whitebranch')&&draft.tasks.some(t=>t.id==='snow-ash-read-whitebranch');
+      const hasResonance=draft.archives.some(a=>a.id==='snow-ash-resonance')||draft.tasks.some(t=>t.id==='snow-ash-restore-audio');
+      const canExpandSignal=draft.archives.some(a=>a.id==='snow-ash-resonance')&&['snow-ash-restore-audio','snow-ash-field-note'].every(id=>draft.tasks.some(t=>t.id===id))&&!draft.archives.some(a=>a.id==='snow-ash-return-signal')&&!draft.tasks.some(t=>t.id==='snow-ash-light-signal');
+      const canExpandStory=draft.archives.some(a=>a.title.includes('0479')&&a.title.includes('雾间雪'))&&!draft.tasks.some(t=>t.id==='snow-ash-index');
+      if(canExpandStory||hasWhitebranch&&!hasResonance||canExpandSignal){
+        const kind=canExpandStory?'story':hasWhitebranch&&!hasResonance?'music':'signal',count=expansions[kind],expansion=element('section','','activity-card');
+        const title=kind==='story'?'续接残存影像':kind==='music'?'续接回声归档':'续接归途灯标';
+        const summary=kind==='story'?'从残存影像继续探索白枝、回声与东廊线索。':kind==='music'?'读完回声归档后解锁音乐档案界面。':'回声与审核通过的观察札记共同开启新路线，完成后可选用档案灯标。';
+        expansion.append(element('h2',title),element('p',(count?'追加 '+count.archives+' 份档案、'+count.tasks+' 项任务和 '+count.items+' 件纪念物。':'追加后续档案、探索任务与纪念物。')+summary),element('small','原文、已有任务与玩家进度保留；只追加草稿，需管理员发布后才会生效。'),button('加入草稿并预览',async()=>{if(!await ask('先保存当前草稿，再追加这组档案？这不会发布到线上。'))return;await save();const result=await api('/api/admin/linking/'+kind+'-expansion','POST',{chapter:draft.id,revision});const management=await api('/api/admin/linking');rewardItems=management.rewardItems||[];expansions=management.storyExpansions||{};await edit(result);},'primary'));editor.append(expansion);
+      }
       const card=element('section','','activity-card');card.append(element('small','固定标识：'+draft.id));const meta=element('div','','activity-form-grid');
       field(meta,'章节标题',draft.title,v=>{draft.title=v;changed();});field(meta,'排序（越小越靠前）',String(draft.order),v=>{draft.order=Number(v);changed();},{type:'number'});
       field(meta,'开放时间（北京时间，留空即随发布开放）',localDate(draft.opensAt),v=>{draft.opensAt=dateValue(v);changed();},{type:'datetime-local'});field(meta,'结束时间（北京时间，留空长期开放）',localDate(draft.closesAt),v=>{draft.closesAt=dateValue(v);changed();},{type:'datetime-local'});card.append(meta);field(card,'章节简介',draft.subtitle,v=>{draft.subtitle=v;changed();},{area:true});editor.append(card);
@@ -51,6 +73,10 @@ export async function startManagement(root:HTMLElement){
         if(task.type==='code')field(details,task.answerConfigured?'新的验证口令（留空保留现有答案）':'验证口令',task.answer||'',v=>{task.answer=v;changed();},{type:'password'});
         if(task.type==='guild')field(details,'协会委托任务标识',task.guildId||'',v=>{task.guildId=v;changed();});
         if(task.type==='stat'){selectField(details,'服务器',task.server||'survival',[['survival','原版生存群组'],['mod-1','模组一服'],['mod-2','模组二服']],v=>{task.server=v;changed();});task.server||='survival';field(details,'统计项（例如 minecraft:custom/minecraft:play_time）',task.metric||'',v=>{task.metric=v;changed();});field(details,'目标数值',String(task.value||1),v=>{task.value=Number(v);changed();},{type:'number'});task.value||=1;}
+        selectField(details,'完成奖励（每位玩家每项任务只领取一次）',task.reward?.item||'',[['','无奖励'],...rewardItems.map(item=>[item.id,item.title] as [string,string])],v=>{task.reward=v?{item:v,quantity:task.reward?.quantity||1}:undefined;changed();render();});
+        if(task.reward)field(details,'奖励数量（1–99）',String(task.reward.quantity),v=>{task.reward.quantity=Number(v);changed();},{type:'number'});
+        selectField(details,'完成后解锁的外观',task.effect||'',[['','不解锁外观'],['music-archive','音乐档案界面'],['archive-signal','启动器标志 · 档案灯标']],v=>{task.effect=v||undefined;changed();});
+        if(task.effect)details.append(element('small','外观在已发布任务完成后自动解锁并保留，不授予网易云账号或联机权限。'));
         requirements(details,task.requires,draft.tasks.filter(t=>t.id!==task.id),changed);details.append(button('移除任务',async()=>{if(await ask('移除此任务？引用它的解锁条件也需要调整，已有完成记录会保留。')){draft.tasks.splice(index,1);changed();render();}}));editor.append(details);
       });
       const actions=element('section','','activity-card'),row=element('div','','activity-row');row.append(button(t('save'),save,'primary'),button(t('publish'),async()=>{if(!await ask('发布当前内容？玩家同步后将看到本次修改。'))return;await save();await api('/api/admin/linking/chapters/'+draft.id+'/publish','POST',{revision});notice(t('published'));await home();}));

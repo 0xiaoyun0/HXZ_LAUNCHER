@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import './build-linking-story-preview081.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),source=path.join(root,'apps/linking');
 for(const args of [['scripts/patch-rolling-number.mjs'],['node_modules/typescript/bin/tsc','--noEmit'],['node_modules/vite/bin/vite.js','build']]){
   const result=spawnSync(process.execPath,args,{cwd:source,stdio:'inherit',windowsHide:true});if(result.status!==0)process.exit(result.status||1);

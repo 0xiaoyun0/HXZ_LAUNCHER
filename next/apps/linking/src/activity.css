@@ -29,3 +29,19 @@ body.activity-departing #viewport{opacity:0;transform:translateY(-5px);transitio
 body.activity-three .loading-mark{animation:archive-breathe 2.6s ease-in-out infinite}
 @keyframes archive-breathe{50%{transform:translateY(-5px);opacity:.68}}
 :root[data-reduced=true] body.activity-departing #viewport{transform:none}
+/* Rewards stay inside the task card and never compete with its reading action. */
+.activity-task-reward{border-top:1px solid currentColor;padding-top:12px;margin-top:16px;gap:12px;flex-wrap:wrap}
+.activity-task-reward>span{flex:1;min-width:140px}.activity-task-reward>small{opacity:.7}
+.activity-panel>header h2{min-width:0;overflow-wrap:anywhere}
+.activity-panel>header>button{flex:none;white-space:nowrap}
+.activity-toast{width:max-content;max-width:calc(100vw - 32px);pointer-events:none}
+.activity-preview,.activity-lock-reason{padding:12px 14px;border-left:3px solid var(--activity-accent);background:var(--activity-bg);line-height:1.7;overflow-wrap:anywhere}
+.activity-reading-nav{border-top:1px solid var(--activity-line);padding-top:18px;margin-top:14px;align-items:stretch}
+.activity-reading-nav button{flex:1 1 210px;white-space:normal;text-align:left;overflow-wrap:anywhere}
+.archive-card>.activity-badge{margin-top:auto}
+.activity-reader-heading>button{margin:6px 8px 6px 0;max-width:100%;white-space:normal;text-align:left}
+.activity-prose{font-size:1rem;max-width:68ch;width:100%;margin-inline:auto}
+.activity-volume-expansion{border-color:var(--activity-accent)}
+.chapter-symbol svg{color:inherit}
+/* Keep primary text and surface paired when the generic button hover rule applies. */
+#linking-host button.primary:is(:hover,:focus-visible,:active),.activity-reading button.primary:is(:hover,:focus-visible,:active),.activity-overlay button.primary:is(:hover,:focus-visible,:active){background:var(--activity-ink);color:var(--activity-surface);border-color:transparent}

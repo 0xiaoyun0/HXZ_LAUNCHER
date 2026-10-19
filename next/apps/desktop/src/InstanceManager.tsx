@@ -5,7 +5,8 @@ import {Link} from 'react-router-dom';
 import {Play, Plus, Search, Settings2, FolderOpen, Star, MoreHorizontal, PackageOpen, RefreshCw, Square, Layers, Download, Image, FileUp, Trash2, ChevronDown, ChevronRight, PanelLeftClose, PanelLeftOpen, Box, Cpu, Folder, Camera, Terminal, CheckCircle2, UserRound, Copy, HardDrive} from 'lucide-react';
 import {state, ui, task, cfg, mediaFor, selected, account, perform, invoke, saveSettings, selectInstance, launch, importPack, reload, chooseRoot, bytes} from './model';
 import {Button, IconButton, Dropdown, Avatar, Select, Toggle, Empty} from './ui';
-import {InstanceConfig, Mods} from './Dialogs';
+import {InstanceConfig} from './Dialogs';
+import {InstanceFiles,fileSections} from './InstanceFiles';
 import {InstanceMaintenance} from './InstanceMaintenance';
 import {connect, disconnect} from '../../../packages/community/client';
 
@@ -42,7 +43,7 @@ export function InstanceManager() {
   return <div className="instance-manager">
     {active ? <section className="instance-workspace" aria-label="当前实例">
       <header className="instance-header"><GameIcon game={active} size={31}/><div><div className="instance-title-line"><h2 title={active.name}>{active.name}</h2><span className={'installation-badge '+(installed(active)?'ready':'')}>{active.placeholder?'尚未开放':installed(active)?'已安装':'待安装'}</span></div><p>{versionLabel(active)||'游戏版本由整合包提供'}{active.builtin&&<span>默认服务器</span>}</p></div><div className="instance-header-actions"><IconButton icon={FolderOpen} label="打开版本文件夹" disabled={!installed(active)} onClick={()=>invoke('instance.folder',{id:active.id,kind:'versions'})}/><Dropdown trigger={<button className="button icon-button" aria-label="更多实例操作"><MoreHorizontal size={20}/></button>} items={menus}/></div></header>
-      <nav className="instance-tabs" aria-label="实例操作">{[{id:'overview',name:'概览',icon:Box},{id:'mods',name:'模组',icon:Layers},{id:'config',name:'配置',icon:Settings2},{id:'logs',name:'日志',icon:Terminal},{id:'maintenance',name:'维护',icon:HardDrive}].map(v=><button key={v.id} className={tab===v.id?'active':''} aria-current={tab===v.id?'page':undefined} disabled={['mods','maintenance'].includes(v.id)&&!installed(active)} onClick={()=>setTab(v.id)}><v.icon size={16}/>{v.name}</button>)}<button className="tab-refresh" disabled={locked} onClick={()=>perform(reload)} title="刷新实例状态"><RefreshCw size={15}/></button></nav>
+      <nav className="instance-tabs" aria-label="实例操作">{[{id:'overview',name:'概览',icon:Box},...fileSections.map(v=>({id:v.id,name:v.title,icon:Layers})),{id:'config',name:'配置',icon:Settings2},{id:'logs',name:'日志',icon:Terminal},{id:'maintenance',name:'维护',icon:HardDrive}].map(v=><button key={v.id} className={tab===v.id?'active':''} aria-current={tab===v.id?'page':undefined} disabled={['mods','resources','shaders','schematics','maintenance'].includes(v.id)&&!installed(active)} onClick={()=>setTab(v.id)}><v.icon size={16}/>{v.name}</button>)}<button className="tab-refresh" disabled={locked} onClick={()=>perform(reload)} title="刷新实例状态"><RefreshCw size={15}/></button></nav>
       <div className="instance-content" key={active.id}>
         {tab==='overview'&&<>
           {cover&&<div className="instance-custom-cover">{/\.(mp4|webm)$/i.test(cover)?<video src={cover} autoPlay muted loop playsInline style={{objectPosition:`${current.coverPositionX}% ${current.coverPositionY}%`,transform:`scale(${current.coverZoom})`}}/>:<img src={cover} alt="自定义实例头图" style={{objectPosition:`${current.coverPositionX}% ${current.coverPositionY}%`,transform:`scale(${current.coverZoom})`}}/>}<IconButton icon={Image} label="调整头图" onClick={()=>open('cover')}/></div>}
@@ -55,7 +56,7 @@ export function InstanceManager() {
           </PanelGroup>
         </>}
         {tab==='config'&&<div className="inline-instance-config"><InstanceConfig key={active.id} id={active.id} inline onDone={()=>setTab('overview')} disabled={locked}/></div>}
-        {tab==='mods'&&<div className="inline-instance-mods"><Mods key={active.id} id={active.id}/></div>}
+        {fileSections.some(v=>v.id===tab)&&<InstanceFiles key={active.id+tab} id={active.id} kind={tab}/>}
         {tab==='logs'&&<InstanceLogs/>}
         {tab==='maintenance'&&<InstanceMaintenance key={active.id} id={active.id}/>}
       </div>

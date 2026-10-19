@@ -21,6 +21,7 @@ import {launchHistory} from './launch-history.mjs';
 import {inspectWorldArchive,extractWorldArchive,exportWorld,putWorldReceipt} from './worlds.mjs';
 import {readLayoutPackage,exportLayoutPackage,applyLayoutPackage,LAYOUT_LIMIT} from './layout-package.mjs';
 import {addonWorlds,addonSearch,addonInstall,modDetails} from './addons.mjs';
+import {INSTANCE_FILE_TYPES,instanceFilePaths,listInstanceFiles,toggleInstanceFile,importInstanceFiles,removeInstanceFile} from './instance-files.mjs';
 import {importMedia,mediaReference,mediaPath} from './media.mjs';
 import {crashReport,diagnosticText,redactDiagnostic} from "./diagnostics.mjs";
 import {javaPathArgument, systemArchitecture} from "./platform.mjs";
@@ -1721,6 +1722,15 @@ export async function createServices({
     async "addons.search"(input){return addonSearch(settings,input);},
     async "addons.install"(input){busy();const controller=new AbortController();task=controller;try{phase({phase:'下载游戏资源包',busy:true});const result=await addonInstall(settings,input,{signal:controller.signal,onTransfer:p=>phase({phase:'下载游戏资源包',busy:true,completed:p.bytes,total:p.total,unit:'bytes',detail:p.source})});phase({phase:'资源安装完成',busy:false});return result;}catch(e){phase({phase:'资源下载未完成',busy:false,failed:!controller.signal.aborted,failure:e.message});throw e;}finally{controller.abort();task=null;}},
     async "mods.details"(input){return modDetails(settings,input.id,data);},
+    async "instance.files.list"(input){return listInstanceFiles(settings,input.id,input.kind);},
+    async "instance.files.open"(input){const {active}=await instanceFilePaths(settings,input.id,input.kind);await fs.mkdir(active,{recursive:true});const error=await shell.openPath(active);if(error)throw Error(error);return{ok:true};},
+    async "instance.files.toggle"(input){busy();return toggleInstanceFile(settings,input.id,input.kind,input.key);},
+    async "instance.files.remove"(input){busy();return removeInstanceFile(settings,input.id,input.kind,input.key,file=>shell.trashItem(file));},
+    async "instance.files.import"(input){
+      busy();await instanceFilePaths(settings,input.id,input.kind);let files=input.files;
+      if(files===undefined){const type=INSTANCE_FILE_TYPES[input.kind];const picked=await dialog.showOpenDialog(window(),{properties:['openFile','multiSelections'],filters:[{name:type.title,extensions:type.extensions}]});if(picked.canceled)return{count:0};files=picked.filePaths;}
+      busy();return importInstanceFiles(settings,input.id,input.kind,files);
+    },
     async "mods.list"(input) {
       return listMods(await modDirectory(settings, input.id));
     },
@@ -2154,6 +2164,9 @@ export async function createServices({
       if (input == null || typeof input !== "object" || Array.isArray(input))
         throw Error("请求格式错误");
       const owns = [
+        "instance.files.import",
+        "instance.files.toggle",
+        "instance.files.remove",
         "mods.add",
         "mods.toggle",
         "mods.remove",

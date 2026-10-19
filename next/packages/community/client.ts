@@ -2,6 +2,7 @@ import {proxy as reactive} from "valtio";
 import {watchSettings as watch} from "../../apps/desktop/src/model";
 import { createRelayVoice } from "./voice-relay.mjs";
 import { invoke, errorMessage, loadNotices, state } from "../../apps/desktop/src/model";
+import {requestFailureMessage} from './request-errors.mjs';
 export interface Member {
   platform?: string;
   devices?: string[];
@@ -25,6 +26,13 @@ interface Session {
   token: string;
   base: string;
   user: { uid: string; name: string; admin: boolean; avatarVersion?: string };
+}
+// Only the local desktop development server exposes this fixed proxy. Packaged
+// Windows and Android applications keep using the configured server directly.
+function communityBase(base:string) {
+  const normalized=base.replace(/\/$/,'');
+  return import.meta.env.DEV&&location.origin==='http://127.0.0.1:5178'&&normalized==='https://qqbot.hxzmc.top'
+    ? location.origin+'/__community' : normalized;
 }
 interface VoiceRoom {id:string;name:string;capacity:number;kind:string}
 interface Packet {
@@ -215,9 +223,9 @@ export async function connect() {
       refresh: refreshSession
     });
     if (attempt !== generation) return;
-    credentials = session;
+    credentials = {...session,base:communityBase(session.base)};
     refreshSession = false;
-    const url = new URL(session.base);
+    const url = new URL(credentials.base);
     url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
     url.pathname = url.pathname.replace(/\/$/, "") + "/ws";
     const ws = new WebSocket(url);
@@ -503,21 +511,26 @@ export async function communityRequest<T>(
   if (requireLogin && !credentials) throw Error("请先连接社区");
   if (!path.startsWith("/api/")) throw Error("无效社区接口");
   const base =
-    credentials?.base || state.settings.communityUrl.replace(/\/$/, "");
+    credentials?.base || communityBase(state.settings.communityUrl);
   const headers = new Headers(options.headers);
   if (credentials) headers.set("Authorization", "Bearer " + credentials.token);
-  const response = await fetch(base + path, {
-    ...options,
-    headers,
-    signal: options.signal || AbortSignal.timeout(30000)
-  });
+  const signal = options.signal || AbortSignal.timeout(30000);
+  let response: Response;
+  try {
+    response = await fetch(base + path, {...options, headers, signal});
+  } catch (error) {
+    // Explicit caller cancellation must remain distinguishable from a timeout.
+    if (options.signal?.aborted) throw error;
+    const reason = signal.aborted ? signal.reason || error : error;
+    throw Object.assign(new Error(requestFailureMessage(reason, {community:true, mutation:!['GET','HEAD'].includes((options.method || 'GET').toUpperCase())})), {cause:error});
+  }
   if (
     response.status === 404 &&
     ["/api/content/access", "/api/blueprints", "/api/forum/posts"].includes(
       path.split("?")[0]!
     )
   )
-    throw Error("社区服务端尚未升级到 0.4.1，请联系管理员更新社区服务");
+    throw Error("社区服务暂不支持此功能，请联系管理员确认服务版本与地址");
   let value: any;
   try {
     value = await response.json();
@@ -565,6 +578,6 @@ export async function communityAsset(
   return new Blob(chunks, { type: type! });
 }
 
-export function communityAssetURL(path:string){if(!/^\/api\/(media\/[a-f0-9]{64}|avatars\/\w+)$/.test(path))return '';return (credentials?.base||state.settings.communityUrl.replace(/\/$/,''))+path;}
-export function communityMediaURL(item:any){const base=credentials?.base||state.settings.communityUrl.replace(/\/$/,'');return /^\/api\/chat-media\/[a-f0-9]{64}\/(message\/\d+|saved\/[-\w]{16,80})$/.test(item?.url||'')?base+item.url:'';}
-export function communityAvatar(uid?:string,version?:string){if(!uid||version==='')return '';const base=credentials?.base||state.settings.communityUrl.replace(/\/$/,'');return base+'/api/avatars/'+encodeURIComponent(uid)+(version?'?v='+encodeURIComponent(version):'');}
+export function communityAssetURL(path:string){if(!/^\/api\/(media\/[a-f0-9]{64}|avatars\/\w+)$/.test(path))return '';return (credentials?.base||communityBase(state.settings.communityUrl))+path;}
+export function communityMediaURL(item:any){const base=credentials?.base||communityBase(state.settings.communityUrl);return /^\/api\/chat-media\/[a-f0-9]{64}\/(message\/\d+|saved\/[-\w]{16,80})$/.test(item?.url||'')?base+item.url:'';}
+export function communityAvatar(uid?:string,version?:string){if(!uid||version==='')return '';const base=credentials?.base||communityBase(state.settings.communityUrl);return base+'/api/avatars/'+encodeURIComponent(uid)+(version?'?v='+encodeURIComponent(version):'');}
