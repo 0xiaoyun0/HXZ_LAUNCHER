@@ -2,6 +2,7 @@ import {randomBytes, scryptSync, timingSafeEqual} from 'node:crypto';
 import {initialChapter} from './linking-seed.mjs';
 import {expandStory081,expandMusicArchive081,expandArchiveSignal081,story081Items,story081Expansions} from './linking-story081.mjs';
 import {createStoryVolumes081,volume081Items,volume081Info} from './linking-volumes081.mjs';
+import {createObserverChapter082,observer082Items,observer082Info} from './linking-observer082.mjs';
 
 const fail=(message,status=400)=>{throw Object.assign(Error(message),{status});};
 const string=(value,max,required=false)=>{if(typeof value!=='string'||value.length>max||(required&&!value.trim()))fail(`文本不能为空或超过 ${max} 字`);return value.trim();};
@@ -83,7 +84,7 @@ export function createLinking({db,auth,admin,body,send,limit,guild,gameTelemetry
   function rewardItem(task){
     const item=inventory?.definition(task.reward.item);
     if(!item?.enabled)fail('任务「'+task.title+'」的奖励不存在或已停用');
-    if(volume081Items.some(v=>v.id===item.id)&&(item.kind!=='collectible'||item.permission))fail('两卷纪念物标识与现有权限道具冲突，请管理员检查：'+item.id,409);
+    if([...story081Items,...volume081Items,...observer082Items].some(v=>v.id===item.id)&&(item.kind!=='collectible'||item.permission))fail('剧情纪念物标识与现有权限道具冲突，请管理员检查：'+item.id,409);
     return item;
   }
   function checkRewards(c){for(const t of c.tasks)if(t.reward)rewardItem(t);}
@@ -169,7 +170,31 @@ export function createLinking({db,auth,admin,body,send,limit,guild,gameTelemetry
     limit('linking:'+user.uid,90);
     const reply=(value,status=200)=>{send(res,status,value);return true;};
     if(isAdmin){
-      if(path==='/api/admin/linking'&&req.method==='GET')return reply({config:config(),storyExpansions:story081Expansions,volumeExpansion:{...volume081Info,available:true},rewardItems:inventory?db.prepare('SELECT id,title FROM inventory_items WHERE enabled=1 ORDER BY title LIMIT 500').all():[],chapters:db.prepare('SELECT * FROM linking_chapters ORDER BY updated DESC').all().map(r=>({id:r.id,title:JSON.parse(r.draft).title,revision:r.revision,liveRevision:r.live_revision,published:!!r.live,archived:!!r.archived,updated:r.updated}))});
+      if(path==='/api/admin/linking'&&req.method==='GET')return reply({config:config(),storyExpansions:story081Expansions,volumeExpansion:{...volume081Info,available:true},observerExpansion:{...observer082Info,available:true},rewardItems:inventory?db.prepare('SELECT id,title FROM inventory_items WHERE enabled=1 ORDER BY title LIMIT 500').all():[],chapters:db.prepare('SELECT * FROM linking_chapters ORDER BY updated DESC').all().map(r=>({id:r.id,title:JSON.parse(r.draft).title,revision:r.revision,liveRevision:r.live_revision,published:!!r.live,archived:!!r.archived,updated:r.updated}))});
+      if(path==='/api/admin/linking/observer-expansion'&&req.method==='POST'){
+        const input=await body(req);
+        if(input.chapter!==observer082Info.sourceChapter||!Number.isSafeInteger(input.revision)||input.revision<1)fail('请读取第二卷的最新草稿版本，再创建第三值夜');
+        if(!inventory||!points)fail('请先更新社区服务端以启用活动物品',503);
+        let result,created=false;
+        points.transaction(()=>{
+          const existing=db.prepare('SELECT * FROM linking_chapters WHERE id=?').get(observer082Info.id);
+          if(existing){result={chapter:adminDocument(JSON.parse(existing.draft)),revision:existing.revision,liveRevision:existing.live_revision,published:!!existing.live,archived:!!existing.archived,alreadyExists:true};return;}
+          const source=db.prepare('SELECT * FROM linking_chapters WHERE id=?').get(observer082Info.sourceChapter);
+          if(!source)fail('请先准备并发布第二卷，再创建第三值夜',409);
+          if(source.revision!==input.revision)fail('第二卷草稿已改变，请刷新后重试；不会覆盖原有编辑',409);
+          const live=source.live&&JSON.parse(source.live);
+          if(!live||source.archived||!live.tasks.some(t=>t.id===observer082Info.sourceTask))fail('第二卷正式内容尚未包含完成任务，请先审阅并发布第二卷',409);
+          if(live.closesAt&&Date.parse(live.closesAt)<=Date.now())fail('第二卷已结束，新玩家无法达成前置；请先审阅其开放时间',409);
+          if(db.prepare('SELECT COUNT(*) AS n FROM linking_chapters').get().n>=1000)fail('章节数量已达上限');
+          const now=Date.now(),chapter=validateChapter(createObserverChapter082());
+          for(const item of observer082Items)db.prepare("INSERT OR IGNORE INTO inventory_items VALUES(?,?,?,'','collectible','','days',0,0,1,?,?)").run(item.id,item.title,item.description,now,now);
+          checkRewards(chapter);checkPublishedGraph(chapter);
+          db.prepare('INSERT INTO linking_chapters(id,draft,revision,updated) VALUES(?,?,1,?)').run(chapter.id,JSON.stringify(chapter),now);
+          audit(user,'create-observer-082',chapter.id);created=true;
+          result={chapter:adminDocument(chapter),revision:1,liveRevision:0,published:false,archived:false,alreadyExists:false,sourceRevision:source.revision,sourceLiveRevision:source.live_revision};
+        });
+        return reply(result,created?201:200);
+      }
       if(path==='/api/admin/linking/volumes-expansion'&&req.method==='POST'){
         const input=await body(req),id=identifier(input.chapter);
         if(!inventory||!points)fail('请先更新社区服务端以启用活动物品',503);
@@ -225,6 +250,12 @@ export function createLinking({db,auth,admin,body,send,limit,guild,gameTelemetry
           }
           audit(user,'review:'+input.status,item.chapter);db.exec('COMMIT');
         }catch(e){db.exec('ROLLBACK');throw e;}return reply({ok:true});
+      }
+      const publishedRoute=path.match(/^\/api\/admin\/linking\/chapters\/([a-z0-9-]+)\/published$/);
+      if(publishedRoute&&req.method==='GET'){
+        const row=db.prepare('SELECT * FROM linking_chapters WHERE id=?').get(identifier(publishedRoute[1]));
+        if(!row?.live)fail('章节尚未发布',404);
+        return reply({chapter:adminDocument(JSON.parse(row.live)),revision:row.live_revision,draftRevision:row.revision,published:true,archived:!!row.archived});
       }
       const route=path.match(/^\/api\/admin\/linking\/chapters\/([a-z0-9-]+)(?:\/(publish|archive))?$/);
       if(route){

@@ -3,7 +3,7 @@ import {useSnapshot} from 'valtio';
 import {useNavigate,useSearchParams,Link,Navigate} from 'react-router-dom';
 import {community} from '../../../packages/community/client';
 import {mountHub,hubSectionName} from '../../../packages/hub/ui.mjs';
-import {HUB_AREAS,hubDestination,resolveHubTarget} from '../../../packages/hub/navigation.mjs';
+import {HUB_AREAS,hubDestination,resolveHubTarget,appDestination} from '../../../packages/hub/navigation.mjs';
 import {exportAsset} from '../../../packages/hub/asset-export.mjs';
 import '../../../packages/hub/style.css';
 import {request} from './data';
@@ -19,7 +19,10 @@ function Region({node}:{node:HTMLElement}){
 }
 export function HubPage({area='events'}:{area?:string}){
  const [params]=useSearchParams(),section=params.get('section');
- if(['people','creation','knowledge','games'].includes(area)||area==='legacy'&&['social','work','article','recipe','landmark','challenges','desk'].includes(section||'desk'))return <Navigate replace to={area==='games'||section==='challenges'?'/arcade':'/community'}/>;
+ const path=area==='legacy'?'/community/hub':HUB_AREAS[area]?.path;
+ const legacy=path?resolveHubTarget(path+'?'+params.toString()):null;
+ if(legacy?.retired)return <Navigate replace to={legacy.redirect}/>;
+ if(['people','creation','knowledge','games'].includes(area))return <Navigate replace to={area==='games'?'/arcade':'/community'}/>;
  return <ActiveHubPage area={area}/>;
 }
 function ActiveHubPage({area:areaKey='events'}:{area?:string}){
@@ -29,7 +32,7 @@ function ActiveHubPage({area:areaKey='events'}:{area?:string}){
  const regions=useMemo(()=>Object.fromEntries(['nav','summary','board'].map(key=>[key,document.createElement('section')])) as Record<string,HTMLElement>,[]);
  useEffect(()=>mountHub(regions.board,{request,uid,server:snapshot.settings.communityUrl,platform:'desktop',section,item,regions,area:scoped?areaKey:undefined,showSummary,sectionTitleInCard:true,
   onSection:(next:string)=>navigate(hubDestination(next)),
-  navigate:(url:string)=>{const target=resolveHubTarget(url);return /^https?:\/\//.test(url)?invoke('external.open',{url}):navigate(target?(scoped?hubDestination(target.section,target.item):'/community/hub?section='+encodeURIComponent(target.section)+(target.item?'&item='+encodeURIComponent(target.item):'')):url);},
+  navigate:(url:string)=>{if(/^https?:\/\//.test(url))return invoke('external.open',{url});const target=appDestination(url);if(!target)throw Error('这个内容入口已不可用，历史记录仍保留');navigate(target);},
   worldPlan:async(record:string)=>invoke('world.plan',{record}),
   exportAsset:(blob:Blob,name:string)=>exportAsset((input:any)=>invoke('asset.export',input),blob,name),
   importWorld:async(input:any)=>{if(task.busy||state.running)throw Error('请等待当前任务或游戏结束');if(!state.settings.gameRoot&&!await chooseRoot())throw Error('尚未选择游戏目录');ui.tasks=true;await invoke('world.import',input);await reload();notify('世界已导入，可以在游戏实例中启动');},

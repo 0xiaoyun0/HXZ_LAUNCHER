@@ -44,7 +44,7 @@ export function showTasks(all=false){
       if(task.type==='read'){card.append(button('前往对应档案',()=>{p.close();const archive=chapter.archives.find(a=>a.id===task.archiveId);if(archive)void openReading(archive);}));}
       else if(task.type==='guild'||task.type==='stat'){card.append(element('p',task.type==='guild'?'完成冒险家协会中的对应委托后，同步进度即可解锁。':'以游戏服务器同步的统计为准，达成目标后点击同步进度。','activity-muted'));}
       else if(!chapter.preview){let value='';const input=field(card,task.type==='code'?'验证口令':'探索手记','',v=>value=v,{area:task.type==='manual'});input.maxLength=task.type==='code'?200:8000;
-        if(task.type==='code'&&chapter.id.startsWith('linking-volume-'))card.append(element('small','请从已开放档案中寻找线索，按任务说明的格式输入口令；验证后直接继续，无需提交审核。'));
+        if(task.type==='code'&&(chapter.id.startsWith('linking-volume-')||chapter.id.startsWith('linking-observer-')))card.append(element('small','请从已开放档案中寻找线索，按任务说明的格式输入口令；验证后直接继续，无需提交审核。'));
         card.append(button(t('submit'),async()=>{await action('submit',task.id,task.type==='code'?{answer:value}:{submission:value});recentTask=task.id;p.close();showTasks();notice(task.type==='manual'?'已提交，等待审核':'任务已完成');},'primary'));
       }
     }

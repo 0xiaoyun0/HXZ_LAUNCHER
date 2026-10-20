@@ -10,6 +10,7 @@ import {assetLibrary} from './asset-library.mjs';
 import {el,beijing,timeValue,parseTime} from './dom.mjs';
 import {HUB_KINDS,HUB_STATES,HUB_SERVERS} from '../../server/shared/hub-catalog.mjs';
 import {communityImage} from '../community/image-upload.mjs';
+import {isActiveHubKind} from '../../server/shared/hub-visibility.mjs';
 
 const appealStates={draft:'草稿',review:'待处理',published:'处理中',closed:'已解决',rejected:'待补充',archived:'已归档'};
 const recordState=v=>v.kind==='appeal'?appealStates[v.status]:HUB_STATES[v.status];
@@ -28,6 +29,7 @@ export function recordUI(ctx){
   input.onchange=async()=>{input.disabled=true;try{for(const file of input.files){if(urls.length>=max)throw Error('最多上传 '+max+' 张图片');const v=await request('/api/media/upload','POST',{scope:'hub',image:await communityImage(file)});urls.push(v.url);preview(v.url);}}catch(e){surface.report(e,parent);}finally{input.value='';input.disabled=false;}};return urls;
  }
  function edit(kind,record={}){
+  if(!isActiveHubKind(kind))return;
   const requestId=crypto.randomUUID(),spec=HUB_KINDS[kind],d=dialog((record.id?'编辑':'新建')+spec.singular),form=el('form','','hub-surface');d.content.append(form);
   const title=field(form,'标题',record.title||''),summary=field(form,'摘要',record.summary||''),body=field(form,'正文',record.body||'','textarea'),grid=el('div','','hub-form-grid');form.append(grid);
   title.maxLength=120;summary.maxLength=300;body.maxLength=30000;
@@ -58,7 +60,8 @@ export function recordUI(ctx){
   }
   const change=async(action,input={})=>{changing=true;try{if(action!=='refresh')await api('records/'+id+'/'+action,'POST',input);await load();await refresh();}finally{changing=false;}};
   function render(){
-   const v=value;if(v.invitation){d.content.append(el('p','你收到了一份项目邀请。接受后即可查看内容。'));d.footer.append(button('接受邀请',()=>change('join'),true));return;}
+   const v=value;if(!isActiveHubKind(v.kind)){d.node.querySelector('h2').textContent='历史内容';d.node.setAttribute('aria-label','历史内容');empty(d.content,'这个功能已归档，历史记录仍保留。请从主导航使用现有功能。');d.footer.hidden=true;return;}
+   if(v.invitation){empty(d.content,'这份历史邀请已归档。');return;}
    const spec=HUB_KINDS[v.kind],meta=el('div','','hub-tags');meta.append(el('span',recordState(v),'hub-chip'),el('span','第 '+v.revision+' 版','hub-chip'));v.tags.forEach(t=>meta.append(el('span',t,'hub-chip')));d.content.append(meta);
    if(v.summary)d.content.append(el('p',v.summary,'hub-muted'));if(v.body)d.content.append(el('div',v.body,'hub-prose'));
    const images=el('div','','hub-images');d.content.append(images);void pictures(images,v.images);
@@ -96,6 +99,7 @@ export function recordUI(ctx){
   }}catch(e){surface.report(e,d.content);d.content.append(button('重试',()=>load()));}
  }
  async function list(parent,section,filter){
+  if(!isActiveHubKind(section)){empty(parent,'这个功能已归档，历史记录仍保留。');return;}
   coverGeneration++;covers=[];for(const observer of coverObservers)observer.disconnect();coverObservers.clear();
   const spec=HUB_KINDS[section];if(spec.private)filter.scope=filter.scope==='review'?'review':'mine';
   if(section==='article'){const offline=el('div','','hub-actions');offline.append(knowledge.button());parent.append(offline);}

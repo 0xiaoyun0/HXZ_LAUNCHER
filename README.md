@@ -1,8 +1,8 @@
-# 幻想镇 · 0.8.1
+# 幻想镇 · 0.8.2
 
-游戏启动与社区客户端：修复退出恢复，精简首页与导航，统一实例文件管理，更新 LINKING 与音乐档案，重排 Android 栏目。
+游戏启动与社区客户端：新增骰子战术与航线经营肉鸽，拓展构筑与关卡变化，清理退役功能残留入口，更新 LINKING 观察委托。
 
-[下载 0.8.1](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.1) · [源码与构建](next/README.md) · [完整更新](next/docs/0.8.1发布说明.md) · [使用与升级](next/docs/0.8.1使用与升级.md)
+[下载 0.8.2](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.2) · [源码与构建](next/README.md) · [完整更新](next/docs/0.8.2发布说明.md) · [使用与升级](next/docs/0.8.2使用与升级.md)
 
 游戏服务端桥沿用 0.8.0 原附件与版本；可选 Android 游戏组件仍为 70003。
 

@@ -1,3 +1,4 @@
+import {mountTacticsControls} from './arcade-tactics-renderer.mjs';
 import {mountDeckControls} from './arcade-rogue-renderer.mjs';
 // One accessible touch control surface shared by desktop and Android adapters.
 import {GESTURE_HINTS} from './game-gestures.mjs';
@@ -5,6 +6,7 @@ const paths={left:'m14 6-6 6 6 6',right:'m10 6 6 6-6 6',up:'m6 14 6-6 6 6',down:
 const titles={left:'向左',right:'向右',up:'向上',down:'向下',jump:'跳跃',fire:'开火',dash:'冲刺',rotate:'旋转',drop:'落下',hold:'暂存',focus:'精准'};
 const svg=action=>`<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[action]}"/></svg>`;
 export function mountGameControls(root,api,id){
+ if(['dice','caravan'].includes(id))return mountTacticsControls(root,api);
  if(id==='deck')return mountDeckControls(root,api);
  root.classList.add('game-touchpad');root.dataset.game=id;root.replaceChildren();const clean=[],pressed=new Map(),stickActions=new Set();let stickPointer=null;
  const releaseAll=()=>{stickPointer=null;for(const a of pressed.values())api.release(a);pressed.clear();for(const a of stickActions)api.release(a);stickActions.clear();root.querySelectorAll('.held').forEach(b=>b.classList.remove('held'));root.querySelectorAll('.joystick-nub').forEach(n=>n.style.transform='translate(0,0)');};

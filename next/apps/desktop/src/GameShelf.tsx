@@ -16,10 +16,10 @@ export function GameShelf(){
   const recent=all.find(g=>g.id===read('hxz-game-recent',''));
   const play=(g:any)=>{remember('hxz-game-recent',g.id);navigate('/arcade/'+(g.social?'social/':g.symbol?'board/':'play/')+g.id);};
   const toggle=(id:string)=>setFavorites(old=>{const v=old.includes(id)?old.filter(i=>i!==id):[...old,id];remember('hxz-game-favorites',v);return v;});
-  const visible=all.filter((g:any)=>(filter==='all'||filter==='favorites'&&favorites.includes(g.id)||filter==='board'&&g.symbol||filter==='arcade'&&!g.symbol&&!g.social||filter==='social'&&g.social)&&g.name.includes(query.trim()));
+  const visible=all.filter((g:any)=>(filter==='all'||filter==='favorites'&&favorites.includes(g.id)||filter==='rogue'&&g.tag?.includes('肉鸽')||filter==='board'&&g.symbol||filter==='arcade'&&!g.symbol&&!g.social||filter==='social'&&g.social)&&g.name.includes(query.trim()));
   const contentMotion=usePageEnter(filter+':'+query);
   return <div className="game-lobby" ref={contentMotion}>
-    <div className="game-lobby-tools"><Segments value={filter} onChange={setFilter} items={[{id:'all',label:'全部游戏'},{id:'arcade',label:'街机挑战'},{id:'board',label:'棋类对弈'},{id:'social',label:'多人桌游'},{id:'favorites',label:'我的收藏'}]}/><div className="search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="找个游戏" aria-label="搜索小游戏"/></div></div>
+    <div className="game-lobby-tools"><Segments value={filter} onChange={setFilter} items={[{id:'all',label:'全部游戏'},{id:'arcade',label:'街机挑战'},{id:'rogue',label:'肉鸽探险'},{id:'board',label:'棋类对弈'},{id:'social',label:'多人桌游'},{id:'favorites',label:'我的收藏'}]}/><div className="search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="找个游戏" aria-label="搜索小游戏"/></div></div>
     <div className="game-lobby-shortcuts"><span><Clock3 size={16}/>{recent?'上次玩了 '+recent.name:'挑一个游戏，休息片刻'}</span>{recent&&<Button icon={Play} onClick={()=>play(recent)}>再玩一局</Button>}<Button icon={Trophy} onClick={()=>navigate('/arcade/ranking')}>本周积分榜</Button></div>
     {visible.length?<CardBoard id="games" transient={filter!=='all'||!!query.trim()} className="game-card-boards" label={visible.length+' 款游戏'} cards={visible.map((g:any,i:number)=>({
       id:'game-'+g.id,title:g.name,w:4,h:14,minW:3,minH:11,x:i%3*4,y:Math.floor(i/3)*14,plain:true,

@@ -1,4 +1,5 @@
 import {ROGUE_GAMES,createRogue,stepRogue,validRogueAction} from './arcade-rogue.mjs';
+import {TACTICS_GAMES,createTactics,stepTactics,validTacticsAction} from './arcade-tactics.mjs';
 import {FLIGHT_UPGRADE_MAP} from './arcade-upgrades.mjs';
 import {BREAKOUT_BUFFS,applyBreakoutBuff,awardBrick} from './arcade-breakout.mjs';
 import {CLASSIC_GAMES,createClassic,stepClassic,validClassicAction} from './arcade-classics.mjs';
@@ -8,7 +9,7 @@ import {EXTRA_GAMES,createExpanded,stepExpanded} from './arcade-expanded.mjs';
 export const GAMES=[
   {id:'runner',name:'林间疾跑',tag:'反应 · 无尽挑战',description:'穿过晨雾与松林，挑战更远的路途',keys:'空格 / W / ↑ 跳跃',color:'#9dd9a8'},
   {id:'blocks',name:'俄罗斯方块',tag:'益智 · 逐级加速',description:'七种方块，无数种解法',keys:'A D / ← → 移动 · W / ↑ 旋转 · S / ↓ 加速 · 空格落下 · C 暂存',color:'#baa6eb'},
-  {id:'breakout',name:'打砖块',tag:'街机 · 百关挑战',description:'穿过百道防线，借助增益突破坚壁',keys:'A D / ← → 移动，也可拖动挡板',color:'#f1c18d'}, ...EXTRA_GAMES,...NEW_GAMES.filter(g=>g.id!=='contra'),...CLASSIC_GAMES,...ROGUE_GAMES
+  {id:'breakout',name:'打砖块',tag:'街机 · 百关挑战',description:'穿过百道防线，借助增益突破坚壁',keys:'A D / ← → 移动，也可拖动挡板',color:'#f1c18d'}, ...EXTRA_GAMES,...NEW_GAMES.filter(g=>g.id!=='contra'),...CLASSIC_GAMES,...ROGUE_GAMES,...TACTICS_GAMES
 ];
 export const MAX_TICKS=18000;
 export const runnerSpeed=tick=>Math.min(15.6,7.2+tick*.0024);
@@ -24,6 +25,7 @@ export function createGame(game,seed){
   if(NEW_GAMES.some(g=>g.id===game))createNew(s);
   if(CLASSIC_GAMES.some(g=>g.id===game))createClassic(s);
   if(ROGUE_GAMES.some(g=>g.id===game))createRogue(s);
+  if(TACTICS_GAMES.some(g=>g.id===game))createTactics(s);
   return s;
 }
 function nextColor(s){if(!s.bag.length){s.bag=[1,2,3,4,5,6,7];for(let i=6;i>0;i--){const j=Math.floor(random(s)*(i+1));[s.bag[i],s.bag[j]]=[s.bag[j],s.bag[i]];}}return s.bag.pop();}
@@ -87,6 +89,7 @@ export function step(s,actions=[]){
   if(NEW_GAMES.some(g=>g.id===s.game))stepNew(s,actions);
   if(CLASSIC_GAMES.some(g=>g.id===s.game))stepClassic(s,actions);
   if(ROGUE_GAMES.some(g=>g.id===s.game))stepRogue(s,actions);
+  if(TACTICS_GAMES.some(g=>g.id===s.game))stepTactics(s,actions);
   if(s.game==='blocks'&&s.tick>=MAX_TICKS)s.over=true;
   return s;
 }
@@ -96,7 +99,7 @@ export function replay(game,seed,ticks,inputs){
 export function replaySegment(previous,ticks,inputs){
   if(!Number.isSafeInteger(ticks)||ticks<=previous.tick||ticks-previous.tick>MAX_TICKS||!Array.isArray(inputs)||inputs.length>MAX_TICKS*4)throw Error('游戏记录无效');
   let last=previous.tick,perTick=0;const game=previous.game;
-  for(const e of inputs){if(!Array.isArray(e)||e.length!==2||!Number.isInteger(e[0])||e[0]<=previous.tick||e[0]>ticks||e[0]<last)throw Error('操作顺序无效');perTick=e[0]===last?perTick+1:1;last=e[0];if(perTick>4)throw Error('操作过于频繁');const a=e[1];if(typeof a==='object'&&a!==null){if(!Number.isFinite(a.x)||a.x<0||a.x>360||(game==='breakout'?Object.keys(a).length!==1:!['danmaku','fighter'].includes(game)||Object.keys(a).length!==2||!Number.isFinite(a.y)||a.y<0||a.y>480))throw Error('操作坐标无效');}else if(!(game==='fighter'&&typeof a==='string'&&a.startsWith('upgrade:')&&Object.hasOwn(FLIGHT_UPGRADE_MAP,a.slice(8)))&&!validRogueAction(game,a)&&!validClassicAction(game,a)&&!validNewAction(game,a)&&!['left','right','up','down','focus','rotate','drop','jump','hold','upgrade:power','upgrade:rapid','upgrade:wings','upgrade:shield','upgrade:repair','upgrade:speed'].includes(a))throw Error('操作无效');}
+  for(const e of inputs){if(!Array.isArray(e)||e.length!==2||!Number.isInteger(e[0])||e[0]<=previous.tick||e[0]>ticks||e[0]<last)throw Error('操作顺序无效');perTick=e[0]===last?perTick+1:1;last=e[0];if(perTick>4)throw Error('操作过于频繁');const a=e[1];if(typeof a==='object'&&a!==null){if(!Number.isFinite(a.x)||a.x<0||a.x>360||(game==='breakout'?Object.keys(a).length!==1:!['danmaku','fighter'].includes(game)||Object.keys(a).length!==2||!Number.isFinite(a.y)||a.y<0||a.y>480))throw Error('操作坐标无效');}else if(!(game==='fighter'&&typeof a==='string'&&a.startsWith('upgrade:')&&Object.hasOwn(FLIGHT_UPGRADE_MAP,a.slice(8)))&&!validTacticsAction(game,a)&&!validRogueAction(game,a)&&!validClassicAction(game,a)&&!validNewAction(game,a)&&!['left','right','up','down','focus','rotate','drop','jump','hold','upgrade:power','upgrade:rapid','upgrade:wings','upgrade:shield','upgrade:repair','upgrade:speed'].includes(a))throw Error('操作无效');}
   const s=structuredClone(previous);let i=0;
   while(s.tick<ticks&&!s.over){const actions=[];while(i<inputs.length&&inputs[i][0]===s.tick+1)actions.push(inputs[i++][1]);step(s,actions);}
   if(s.tick!==ticks||i!==inputs.length)throw Error('游戏结束后的记录无效');

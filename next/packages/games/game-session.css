@@ -33,3 +33,15 @@
 @media(max-width:760px){.arcade-page .game-workspace.arcade-session,.arcade-page .board-workspace{grid-template-columns:minmax(0,1fr)}.game-session-main,.board-main{padding:12px!important}.arcade-page .arcade-session>.game-aside{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.arcade-page .arcade-session>.game-aside{display:flex}.game-session-title h2{font-size:1.05rem}}
 @media(prefers-reduced-motion:reduce){.arcade-session *{animation:none!important;transition:none!important}}
+/* Turn based games put decisions beside the scene on desktop, not below the fold. */
+@media(min-width:900px){
+ .arcade-page .game-session-dice .game-session-main,.arcade-page .game-session-caravan .game-session-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start}
+ .game-session-dice .game-heading,.game-session-caravan .game-heading{grid-column:1/-1;grid-row:1}
+ .game-session-dice .game-session-metrics,.game-session-caravan .game-session-metrics{grid-column:1/-1;grid-row:2}
+ .air-shell .arcade-page .game-session-dice .canvas-stage,.air-shell .arcade-page .game-session-caravan .canvas-stage{grid-column:1;grid-row:3;width:100%!important}
+ .game-session-dice .game-detail,.game-session-caravan .game-detail{grid-column:1;grid-row:4}
+ .game-session-dice .tactics-controls,.game-session-caravan .tactics-controls{grid-column:2;grid-row:3/5}
+ .game-session-dice .game-controls,.game-session-caravan .game-controls{grid-column:1/-1;grid-row:5}
+ .game-session-dice .game-message,.game-session-caravan .game-message{grid-column:1/-1;grid-row:6}
+ .game-session-dice .tactics-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+}

@@ -1,4 +1,5 @@
 <script setup>
+import {version as appVersion} from '../package.json';
 import {showBlueprintMaterials} from '../../../packages/hub/blueprint-materials.mjs';
 import ChatImages from './ChatImages.vue';
 import ChatMediaPicker from './ChatMediaPicker.vue';
@@ -6,12 +7,13 @@ import SavedStickers from './SavedStickers.vue';
 import {disposeChatFiles} from '../../../packages/community/chat-media.mjs';
 import MobileMinecraft from "./MobileMinecraft.vue";
 import MobileGameStats from "./MobileGameStats.vue";
-const guildTask=ref(''),boardTarget=ref(null);
+const guildTask=ref(''),boardTarget=ref(null),arcadeTarget=ref('');
 import {ref,reactive,computed,watch,nextTick,onMounted,onUnmounted} from 'vue';
 import MusicPage from './MusicPage.vue';
 import GuildPage from './GuildPage.vue';
 import HubPage from './HubPage.vue';
-import {HUB_AREAS,resolveHubTarget,hubAreaFor} from '../../../packages/hub/navigation.mjs';
+import {HUB_AREAS,resolveHubTarget,hubAreaFor,appDestination} from '../../../packages/hub/navigation.mjs';
+import {isActiveHubSection} from '../../../server/shared/hub-visibility.mjs';
 import InventoryPage from './InventoryPage.vue';
 import LinkingActivity from './LinkingActivity.vue';
 import MentionInput from './MentionInput.vue';
@@ -41,7 +43,7 @@ import {loadForumPage} from '../../../packages/mobile-ui/client/src/lib/forum-li
 const rooms=computed(()=>state.voiceRooms?.length?state.voiceRooms:fallbackRooms);
 const shopOverlay=Symbol('shop');const shopDialog=close=>close?registerOverlay(shopOverlay,close):unregisterOverlay(shopOverlay);
 const hubTarget=ref({area:'events',section:'event',item:''}),hubReturn=ref('discover');
-function openHub(section,central=false){if(tab.value!=='hub')hubReturn.value=tab.value;hubTarget.value={area:central?'all':hubAreaFor(section),section,item:''};navigate('hub');}
+function openHub(section){if(!isActiveHubSection(section)){notify('这个旧栏目已归档，请从导航选择现有功能');return;}if(tab.value!=='hub')hubReturn.value=tab.value;hubTarget.value={area:hubAreaFor(section),section,item:''};navigate('hub');}
 const tabs=[{id:'hub',name:'社区',icon:'compass'},{id:'inventory',name:'背包',icon:'shop'},{id:'minecraft',name:'Minecraft',icon:'games'},{id:'guild',name:'冒险家协会',icon:'compass'},{id:'linking',name:'LINKING',icon:'compass'},{id:'inbox',name:'收件箱',icon:'mail'},{id:'discover',name:'首页',icon:'compass'},{id:'music',name:'音乐',icon:'music'},{id:'lobby',name:'联机',icon:'network'},{id:'shop',name:'积分商城',icon:'shop'},{id:'chat',name:'聊天',icon:'chat'},{id:'voice',name:'语音',icon:'headphones'},{id:'forum',name:'论坛',icon:'forum'},{id:'blueprint',name:'蓝图',icon:'blueprint'},{id:'games',name:'游戏',icon:'games'},{id:'notice',name:'公告',icon:'notice'},{id:'settings',name:'设置',icon:'settings'},{id:'feedback',name:'反馈',icon:'chat'},{id:'me',name:'我的',icon:'user'}];
 const tab=ref('chat'), sheet=ref(''), busy=ref(false), toast=ref(''), error=ref('');let toastTimer;
 const mainTabs=[{id:'chat',name:'聊天',icon:'chat'},{id:'community',name:'社区',icon:'users'},{id:'play',name:'游戏',icon:'games'},{id:'linking',name:'LINKING',icon:'archive'},{id:'me',name:'我的',icon:'user'}];
@@ -55,7 +57,7 @@ function openSettings(area=''){settingsArea.value=area;navigate('settings');}
 function backSettings(){settingsArea.value='';navigateBack();}
 function navigateMain(id){navigationTrail.value=[];navigate(({community:'forum',play:'minecraft'})[id]||id,{remember:false});}
 const settings=reactive(readSettings());
-const appUpdate=ref({currentVersion:'0.8.1',currentBuild:80101,autoCheck:true,autoDownload:true,phase:'idle'});
+const appUpdate=ref({currentVersion:appVersion,currentBuild:80200,autoCheck:true,autoDownload:true,phase:'idle'});
 async function updateAction(action,values={}){try{appUpdate.value=await native('appUpdate',{action,...values});}catch(e){error.value=e.message;}}
 
 async function changeVoiceOverlay(event){try{const result=await native('voiceOverlay',{enabled:event.target.checked});settings.voiceOverlay=result.enabled;if(!result.permission)error.value='请在系统中允许悬浮窗，然后返回开启语音屏幕覆盖。';}catch(e){error.value=e.message;settings.voiceOverlay=false;}}
@@ -93,27 +95,36 @@ async function loadUnread(){try{unread.value=state.connected?(await api('/api/in
 unsubs.push(on('inbox-changed',loadUnread));
 async function openInboxTarget(target){
  try{
-  const u=new URL(target,'https://local.invalid');
+  const original=resolveHubTarget(target);if(original?.retired){notify('这个旧功能已归档，历史消息仍保留');return true;}
+  const destination=appDestination(target);if(!destination)throw new Error('这个内容入口已不可用，消息仍保留在收件箱');
+  const u=new URL(destination,'https://local.invalid');
   if(u.pathname==='/community'){
    const message=u.searchParams.get('message');
    const result=message?await api('/api/chat/history?around='+encodeURIComponent(message)):null;
    navigate('chat');if(result){historyPage.value=result.items;nearBottom.value=false;await nextTick();document.querySelector('[data-message="'+Number(message)+'"]')?.scrollIntoView({block:'center'});}
   }else if(u.pathname==='/community/inbox')navigate('inbox');
+  else if(u.pathname==='/community/voice')navigate('voice');
+  else if(u.pathname==='/community/forum'){detail.value=null;navigate('forum');}
+  else if(u.pathname==='/community/notices')openSettings('updates');
   else if(u.pathname.startsWith('/community/forum/')){
    const id=u.pathname.split('/').pop(),reply=u.searchParams.get('reply');
    const result=await api('/api/forum/posts/'+encodeURIComponent(id)+'?offset=0'+(reply?'&reply='+encodeURIComponent(reply):''));
    if(!result?.post)throw new Error('这条帖子已不可用');
    detail.value=result;replyOffset.value=result.offset||0;replyParent.value=null;replyBody.value='';navigate('forum');await nextTick();if(reply)document.querySelector('[data-reply="'+CSS.escape(reply)+'"]')?.scrollIntoView({block:'center'});
-  }else if(u.pathname==='/workshop/blueprints'){
-   const result=await api('/api/blueprints/'+encodeURIComponent(u.searchParams.get('item')||''));
-   if(!result?.id)throw new Error('这张蓝图已不可用');blueprint.value=result;navigate('blueprint');
+  }else if(u.pathname==='/workshop/blueprints'||u.pathname==='/community/blueprints'){
+   const id=u.searchParams.get('item');if(id){const result=await api('/api/blueprints/'+encodeURIComponent(id));if(!result?.id)throw new Error('这张蓝图已不可用');blueprint.value=result;}else blueprint.value=null;navigate('blueprint');
   }else if(resolveHubTarget(u.pathname+u.search)){
    const destination=resolveHubTarget(u.pathname+u.search);if(tab.value!=='hub')hubReturn.value=tab.value;hubTarget.value={...destination,area:destination.area};navigate('hub');
   }else if(u.pathname==='/linking')navigate('linking');
-  else if(/^\/arcade\/board\/(gomoku|chess|xiangqi)$/.test(u.pathname)){boardTarget.value={game:u.pathname.split('/').pop(),id:u.searchParams.get('match')||''};navigate('games');}
+  else if(/^\/arcade\/board\/(gomoku|chess|xiangqi)$/.test(u.pathname)){arcadeTarget.value='';boardTarget.value={game:u.pathname.split('/').pop(),id:u.searchParams.get('match')||''};navigate('games',{notification:true});}
+  else if(u.pathname==='/arcade/ranking'||u.pathname==='/arcade/social/werewolf'||u.pathname.startsWith('/arcade/play/')){const id=u.pathname.split('/').pop();if(!['ranking','werewolf'].includes(id)&&!GAMES.some(game=>game.id===id))throw Error('这个小游戏已不可用，消息仍保留在收件箱');boardTarget.value=null;arcadeTarget.value=id;navigate('games',{notification:true});}
   else if(u.pathname==='/music')navigate('music');
+  else if(u.pathname==='/multiplayer')navigate('lobby');
+  else if(u.pathname==='/arcade/shop')navigate('shop');
+  else if(u.pathname==='/arcade'){boardTarget.value=null;arcadeTarget.value='';navigate('games');}
+  else if(u.pathname==='/'||u.pathname==='/library'||u.pathname.startsWith('/workshop'))navigate('minecraft');
   else if(u.pathname==='/guild'){guildTask.value=u.searchParams.get('task')||'';navigate('guild');}
-  else if(u.pathname==='/settings'){feedbackTarget.value=u.searchParams.get('feedback')||'';navigate('feedback');}
+  else if(u.pathname==='/settings'||u.pathname==='/feedback'){if(u.pathname==='/feedback'||u.searchParams.has('feedback')){feedbackTarget.value=u.searchParams.get('feedback')||'';navigate('feedback');}else openSettings();}
   else if(u.pathname.startsWith('/account')){navigate(u.searchParams.has('backpack')||u.pathname.endsWith('/backpack')?'inventory':'me');if(u.searchParams.get('skin')==='1')await native('openSkin');}
   else throw new Error('暂时无法打开这条消息，内容仍保留在收件箱');
   return true;
@@ -121,7 +132,7 @@ async function openInboxTarget(target){
 }
 
 function currentScroller(){return [...(workspace.value?.querySelectorAll('.content-page,.games-scroll')||[])].find(node=>node.offsetParent&&node.scrollHeight>node.clientHeight);}
-function navigate(id,{remember=true}={}){if(id==='discover')id='chat';if(tab.value===id)return;const scroller=currentScroller();if(scroller)pageScroll.set(tab.value,scroller.scrollTop);if(remember)navigationTrail.value.push(tab.value);tab.value=id;sheet.value='';error.value='';nextTick(()=>{const node=currentScroller();if(node)node.scrollTop=pageScroll.get(id)||0;});}
+function navigate(id,{remember=true,notification=false}={}){if(id==='discover')id='chat';if(id==='games'&&!notification){arcadeTarget.value='';boardTarget.value=null;}if(tab.value===id)return;const scroller=currentScroller();if(scroller)pageScroll.set(tab.value,scroller.scrollTop);if(remember)navigationTrail.value.push(tab.value);tab.value=id;sheet.value='';error.value='';nextTick(()=>{const node=currentScroller();if(node)node.scrollTop=pageScroll.get(id)||0;});}
 function navigateBack(){if(navigationTrail.value.at(-1)==='inbox'&&(detail.value||blueprint.value)){navigate(navigationTrail.value.pop(),{remember:false});return;}if(tab.value==='forum'&&detail.value){detail.value=null;return;}if(tab.value==='blueprint'&&blueprint.value){blueprint.value=null;return;}const previous=navigationTrail.value.pop();if(previous)navigate(previous,{remember:false});else if(tab.value!=='chat')navigate('chat',{remember:false});else native('background').catch(()=>{});}
 watch(tab,()=>{if(tab.value==='chat'&&!historyPage.value)nextTick(scrollBottom);if(tab.value==='forum')run(loadPosts);if(tab.value==='blueprint')run(loadBlueprints);if(tab.value==='notice')run(loadNotices);});
 const workspace=ref();let pageAnimation;
@@ -287,7 +298,7 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
 
     <section v-if="tab==='hub'" class="content-page context-page"><header v-if="hubTarget.area!=='all'" class="hub-context-header"><button class="text-button back" @click="navigate(hubReturn)"><Icon name="back"/>返回</button><h1>{{HUB_AREAS[hubTarget.area]?.title}}</h1></header><HubPage :area="hubTarget.area" :section="hubTarget.section" :item="hubTarget.item" @navigate="openInboxTarget"/></section><InventoryPage v-if="tab==='inventory'"/><MobileMinecraft v-if="tab==='minecraft'"/><GuildPage v-if="tab==='guild'" :key="guildTask" :task="guildTask"/><LinkingActivity v-if="tab==='linking'" :settings="settings"/><section v-show="tab==='music'" class="content-page context-page"><MusicPage :visible="tab==='music'" :settings="settings" @open="navigate('music')"/></section><LobbyPage v-if="tab==='lobby'"/>
     <section v-if="tab==='shop'" class="content-page"><button class="text-button back" @click="navigateBack"><Icon name="back"/>返回</button><ShopPanel :request="api" :dialog-host="shopDialog"/></section>
-    <div v-if="tab==='games'" class="games-scroll"><ArcadeGames  :launch-match="boardTarget" :request="api" :transport="{send:input=>native('coopControl',input),subscribe:handler=>on('coop-state',handler)}"/></div>
+    <div v-if="tab==='games'" class="games-scroll"><ArcadeGames  :launch-match="boardTarget" :launch-target="arcadeTarget" :request="api" :transport="{send:input=>native('coopControl',input),subscribe:handler=>on('coop-state',handler)}"/></div>
     <section v-if="tab==='forum'" class="content-page">
       <template v-if="!detail">
         <div class="forum-compose-tools081"><form class="search-bar" @submit.prevent="searchPosts"><Icon name="search"/><input v-model="postQuery" placeholder="搜索帖子" aria-label="搜索帖子" maxlength="100"><button aria-label="搜索"><Icon name="chevron"/></button></form><button class="primary icon-button" aria-label="发布帖子" :disabled="!state.connected" @click="sheet='newPost'"><Icon name="plus"/></button></div>
@@ -344,7 +355,7 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
     <VoicePage v-if="sheet==='voice'" :state="state" :settings="settings" :rooms="rooms" :members="members" :room-name="roomName" :speaker="speaker" :busy="!!joiningRoom" @join="join" @mode="setVoiceMode" @change="voiceChange" @leave="leaveVoice" @press="press" @speaker="toggleSpeaker" @login="sheet=state.hasAccount?'connection':'login'"/>
     <form v-if="sheet==='login'" class="form-stack" @submit.prevent="login"><p class="muted">使用幻想镇皮肤站账号登录</p><label>邮箱或用户名<input v-model="username" autocomplete="username" autocapitalize="off" required></label><label>密码<input v-model="password" type="password" autocomplete="current-password" required></label><button class="primary full-width" :disabled="busy">{{busy?'正在登录…':'登录'}}</button><button class="text-button" type="button" @click="run(()=>native('openSkin'))">注册账号 / 管理皮肤站</button></form>
     <div v-if="sheet==='profiles'" class="form-stack"><p v-if="!state.profiles.length" class="muted">账号还没有角色，请先在皮肤站创建。</p><ChoiceRows :items="state.profiles.map(p=>({value:p.id,label:p.name}))" :value="state.selectedProfile?.id" label="选择角色" @choose="profile"/><button class="soft-button" @click="sheet='login'">登录其他账号</button></div>
-    <form v-if="sheet==='connection'" class="form-stack" @submit.prevent="run(async()=>{Object.assign(state,await native('server',{url:server}));sheet='';notify('社区地址已保存')})"><div class="connection-summary"><i class="status-dot" :class="{offline:!state.connected}"/>{{state.connection}}</div><label>社区服务地址<input v-model="server" type="url" placeholder="https://qqbot.hxzmc.top" autocapitalize="off" required></label><button class="primary" :disabled="busy">保存并连接</button><button type="button" class="soft-button" @click="run(()=>native('reconnect'))">重新连接</button><p class="muted">社区服务端 0.8.1。连接地址同时用于聊天和语音，无需额外端口。</p></form>
+    <form v-if="sheet==='connection'" class="form-stack" @submit.prevent="run(async()=>{Object.assign(state,await native('server',{url:server}));sheet='';notify('社区地址已保存')})"><div class="connection-summary"><i class="status-dot" :class="{offline:!state.connected}"/>{{state.connection}}</div><label>社区服务地址<input v-model="server" type="url" placeholder="https://qqbot.hxzmc.top" autocapitalize="off" required></label><button class="primary" :disabled="busy">保存并连接</button><button type="button" class="soft-button" @click="run(()=>native('reconnect'))">重新连接</button><p class="muted">连接地址同时用于聊天和语音，无需额外端口。</p></form>
     <div v-if="sheet==='members'" class="member-list"><p v-if="!onlineUsers.length" class="empty-note">暂时没有在线成员</p><div v-for="u in onlineUsers" :key="u.id" class="member"><span class="avatar"><img v-if="avatar(u.uid,u.avatarVersion)" :src="avatar(u.uid,u.avatarVersion)" alt=""><span v-else>{{u.name.slice(0,1)}}</span></span><strong>{{u.name}}<small class="device-label">{{u.devices?.includes('android')&&u.devices?.includes('desktop')?'手机 · 电脑':u.devices?.includes('android')?'手机在线':u.devices?.includes('desktop')?'电脑在线':'在线'}}</small></strong><small>{{rooms.find(r=>r.id===u.room)?.name||'在线'}}</small></div></div>
     <form v-if="sheet==='newPost'" class="form-stack" @submit.prevent="publishPost"><label>分类<AppSelect v-model="postForm.category" label="帖子分类" :options="access.forumCategories"/></label><label>标题<input v-model="postForm.title" maxlength="100" placeholder="给话题起个名字" required></label><label>正文<MentionInput :admin="access.admin" v-model="postForm.body" maxlength="12000" rows="10" placeholder="分享你的想法…" required/></label><div class="emoji-tray inline"><button v-for="e in emojis" :key="e" type="button" @click="postForm.body+=e">{{e}}</button></div><button class="primary" :disabled="busy">发布帖子</button></form>
     <form v-if="sheet==='newBlueprint'" class="form-stack" @submit.prevent="publishBlueprint"><button type="button" class="file-picker" @click="run(async()=>selectedFile=await native('pick',{kind:'blueprint'}))"><Icon name="upload"/><strong>{{selectedFile?.name||'选择 .nbt 蓝图文件'}}</strong><small>{{selectedFile?(selectedFile.size/1024).toFixed(1)+' KB':'最大 8 MB · 审核后公开'}}</small></button><button type="button" class="soft-button" @click="run(async()=>blueprintForm.cover=(await native('pick',{kind:'cover'})).avatar)"><Icon name="image"/>{{blueprintForm.cover?'重新选择封面':'添加封面（可选）'}}</button><img v-if="blueprintForm.cover" class="upload-cover" :src="blueprintForm.cover" alt="封面预览"><label>作品名称<input v-model="blueprintForm.title" maxlength="100" required></label><label>说明<textarea v-model="blueprintForm.description" maxlength="12000" rows="4" required/></label><label>分类<AppSelect v-model="blueprintForm.category" label="蓝图分类" :options="access.blueprintCategories"/></label><div class="form-grid"><label>Minecraft 版本<input v-model="blueprintForm.mc" maxlength="40" placeholder="1.21.1" required></label><label>机械动力版本<input v-model="blueprintForm.create_version" maxlength="40" placeholder="6.0" required></label></div><label>加载器<AppSelect v-model="blueprintForm.loader" label="加载器" :options="['通用','neoforge','forge','fabric','quilt']"/></label><label>其他依赖<textarea v-model="blueprintForm.dependencies" maxlength="2000" rows="2"/></label><button class="primary" :disabled="busy||!selectedFile">提交审核</button></form>

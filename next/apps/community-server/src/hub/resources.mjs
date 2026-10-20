@@ -1,5 +1,6 @@
 import {fail,string,integer,choice,tags,identifier,page,url} from './common.mjs';
 import {HUB_KINDS,HUB_SERVERS} from './catalog.mjs';
+import {isActiveHubKind} from '../../shared/hub-visibility.mjs';
 import {createEventActivities} from './events.mjs';
 import {productionPlan} from '../../shared/production-plan.mjs';
 import {bilibiliVideo} from '../../shared/bilibili.mjs';
@@ -122,7 +123,7 @@ export function createResources(ctx,{social,media,gameTelemetry,gameBridge}) {
    return {...productionPlan(items.map(r=>({id:r.id,title:r.title,...JSON.parse(r.data)})),target.id,input.quantity,{stock:input.stock,choices:input.choices}),server:data.server,version:data.version};
   }
   if(p==='events/passport'&&method==='GET')return events.passport(user,search);
-  if(p==='catalog'&&method==='GET')return {kinds:HUB_KINDS,manager:manager(user),servers:HUB_SERVERS};
+  if(p==='catalog'&&method==='GET')return {kinds:Object.fromEntries(Object.entries(HUB_KINDS).filter(([kind])=>isActiveHubKind(kind))),manager:manager(user),servers:HUB_SERVERS};
   if(p==='records'&&method==='GET') {
    const kind=choice(search.get('kind')||'event',Object.keys(HUB_KINDS),'内容类型'),scope=choice(search.get('scope')||'public',['public','mine','review'],'内容范围'),{query,offset}=page(search);
    if(scope==='review'&&!manager(user))fail('需要管理员权限',403);

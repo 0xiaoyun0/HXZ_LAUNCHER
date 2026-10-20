@@ -1,6 +1,5 @@
 <script setup>
-import {ref,watch,nextTick,onBeforeUnmount} from 'vue';
-const emit=defineEmits(['workshop']);
+import {ref,computed,watch,nextTick,onBeforeUnmount} from 'vue';
 import {flightUpgrade} from '../../../server/shared/arcade-upgrades.mjs';
 const pageRoot=ref(),focused=ref(false);const beginGame=async()=>{await start();};
 import ArcadeIcon from './ArcadeIcon.vue';
@@ -15,18 +14,20 @@ import {BOARD_GAMES} from '../../../server/shared/board-catalog.mjs';
 const boardGame=ref(null),pointsOpen=ref(false),social=ref(false);
 
 import {useArcade} from '../lib/use-arcade.mjs';
-const props=defineProps({request:{type:Function,required:true},transport:Object,launchMatch:Object});
+const props=defineProps({request:{type:Function,required:true},transport:Object,launchMatch:Object,launchTarget:String});
 watch(()=>props.launchMatch,v=>{if(v?.game)boardGame.value=BOARD_GAMES.find(g=>g.id===v.game)||null;},{immediate:true});
 const arcade=useArcade((...args)=>props.request(...args));
 const {mode,flagMode,detail,tool,coins,lives,choices,rankPeriod,changeRank,syncPaused,retrySync,GAMES,selected,canvas,game,score,playing,paused,busy,message,ranking,rankSelf,rankLabel,rankError,ranked,finished,countdown,level,lines,sound,pendingScore,best,name,time,thumbnail,select,toggleSound,start,input,hold,release,pause,submit,finish,pointer}=arcade;
+watch(()=>props.launchTarget,async target=>{if(!target)return;if(playing.value||busy.value){if(playing.value&&!paused.value)pause();message.value=busy.value?'当前游戏正在准备或提交成绩，请稍后再打开通知。':'当前对局已暂停，请先结束本局，再打开通知中的游戏。';return;}const item=GAMES.find(g=>g.id===target);if(!item&&!['ranking','werewolf'].includes(target))return;boardGame.value=null;pointsOpen.value=target==='ranking';social.value=target==='werewolf';selected.value=null;game.value=null;focused.value=false;if(item)await select(item);},{immediate:true});
 watch(selected,()=>{tankSolo.value=false;});
 watch([selected,boardGame,social,pointsOpen],async()=>{await nextTick();const scroll=pageRoot.value?.closest('.games-scroll');if(scroll)scroll.scrollTop=0;});
 const catalog=[...GAMES.map((item,index)=>({...item,number:item.number||index+1,board:false})),...BOARD_GAMES.map((item,index)=>({...item,number:index+4,board:true})),WEREWOLF].sort((a,b)=>a.number-b.number);
+const gameFilter=ref('all');const visibleCatalog=computed(()=>catalog.filter(g=>gameFilter.value==='all'||g.tag?.includes('肉鸽')));
 // The arena owns its available space. Controls and popups never become grid peers.
 let fitObserver,fitFrame=0;
 function fitFocus(){cancelAnimationFrame(fitFrame);fitFrame=requestAnimationFrame(()=>{
  const play=document.querySelector('.arcade-focus .arcade-play'),stage=play?.querySelector('.arcade-stage'),arena=play?.querySelector('.arcade-arena');if(!stage||!arena)return;
- const ratio=['runner','deck'].includes(selected.value?.id)?360/260:3/4;
+ const ratio=['runner','deck','dice','caravan'].includes(selected.value?.id)?360/260:3/4;
  const height=Math.max(150,arena.clientHeight),width=arena.clientWidth;
  const next=Math.floor(Math.min(width,height*ratio));if(next>0&&stage.style.width!==next+'px')stage.style.width=next+'px';
 });}
@@ -38,12 +39,12 @@ window.addEventListener('resize',fitFocus);onBeforeUnmount(()=>{window.removeEve
 </script>
 <template>
  <section ref="pageRoot" class="arcade-page" :data-arcade-playing="playing" :style="{'--game-color':selected?.color||'#9dd9a8'}">
-  <header v-if="!boardGame&&!pointsOpen&&!social" class="arcade-heading"><div><span class="arcade-eyebrow">FANTASY TOWN · ARCADE</span><h1>{{name}}</h1></div><div class="arcade-top-actions"><button v-if="selected" @click="toggleSound" :aria-pressed="sound"><ArcadeIcon :name="sound?'volume':'muted'"/>{{sound?'音效开':'音效关'}}</button><button v-if="selected&&!playing&&!busy" @click="selected=null;game=null"><ArcadeIcon name="back"/>游戏库</button><span v-if="!selected" class="arcade-counter">{{catalog.length}} <small>款游戏</small></span></div></header>
-  <div v-if="!selected&&!boardGame&&!social" class="arcade-library-tabs"><button v-if="!pointsOpen" @click="emit('workshop')"><ArcadeIcon name="games"/>棋局与作品</button><button @click="pointsOpen=!pointsOpen"><ArcadeIcon :name="pointsOpen?'back':'trophy'"/>{{pointsOpen?'返回游戏库':'社区积分榜'}}</button></div>
+  <header v-if="!boardGame&&!pointsOpen&&!social" class="arcade-heading"><div><span class="arcade-eyebrow">FANTASY TOWN · ARCADE</span><h1>{{name}}</h1></div><div class="arcade-top-actions"><button v-if="selected" @click="toggleSound" :aria-pressed="sound"><ArcadeIcon :name="sound?'volume':'muted'"/>{{sound?'音效开':'音效关'}}</button><button v-if="selected&&!playing&&!busy" @click="selected=null;game=null"><ArcadeIcon name="back"/>游戏库</button><span v-if="!selected" class="arcade-counter">{{visibleCatalog.length}} <small>款游戏</small></span></div></header>
+  <div v-if="!selected&&!boardGame&&!social" class="arcade-library-tabs"><template v-if="!pointsOpen"><button :aria-pressed="gameFilter==='all'" @click="gameFilter='all'">全部游戏</button><button :aria-pressed="gameFilter==='rogue'" @click="gameFilter='rogue'">肉鸽探险</button></template><button @click="pointsOpen=!pointsOpen"><ArcadeIcon :name="pointsOpen?'back':'trophy'"/>{{pointsOpen?'返回游戏库':'社区积分榜'}}</button></div>
   <template v-if="social"><div class="arcade-library-tabs"><button @click="social=false">返回游戏库</button></div><Werewolf :request="request"/></template>
   <PointsPanel v-else-if="pointsOpen" :request="request"/>
   <template v-else-if="boardGame"><div class="arcade-library-tabs"><button @click="boardGame=null"><ArcadeIcon name="back"/>游戏库</button><span>社区棋牌 · {{boardGame.name}}</span></div><BoardGames :key="boardGame.id" :initial-match="launchMatch?.game===boardGame.id?launchMatch.id:''" :game="boardGame" :request="request"/></template>
-  <div v-else-if="!selected" class="arcade-cards"><button v-for="item in catalog" :key="item.id" class="arcade-card" :class="{'strategy-card':item.board}" @click="item.social ? social=true : item.board ? boardGame=item : select(item)" :style="{'--game-color':item.color}"><div class="arcade-art" :class="[item.id,{'strategy-art':item.board}]"><img :src="'/media/games/'+item.id+'.webp?v=064'" alt="" loading="lazy"/><span class="arcade-card-number">{{String(item.number).padStart(2,'0')}}</span><span class="arcade-card-play"><ArcadeIcon name="play"/></span></div><div class="arcade-card-body"><small>{{item.tag}}</small><strong>{{item.name}}</strong><span>{{item.description}}</span><footer><span v-if="item.social">六人联机 · 可补齐机器人</span><span v-else-if="item.board">社区联机 · 五档机器人</span><span v-else>本机最佳 <b>{{best[item.id]||'—'}}</b></span><span>{{item.social?'进入圆桌':item.board?'入座':'开始游戏'}} <ArcadeIcon name="arrow"/></span></footer></div></button></div>
+  <div v-else-if="!selected" class="arcade-cards"><button v-for="item in visibleCatalog" :key="item.id" class="arcade-card" :class="{'strategy-card':item.board}" @click="item.social ? social=true : item.board ? boardGame=item : select(item)" :style="{'--game-color':item.color}"><div class="arcade-art" :class="[item.id,{'strategy-art':item.board}]"><img :src="'/media/games/'+item.id+'.webp?v=064'" alt="" loading="lazy"/><span class="arcade-card-number">{{String(item.number).padStart(2,'0')}}</span><span class="arcade-card-play"><ArcadeIcon name="play"/></span></div><div class="arcade-card-body"><small>{{item.tag}}</small><strong>{{item.name}}</strong><span>{{item.description}}</span><footer><span v-if="item.social">六人联机 · 可补齐机器人</span><span v-else-if="item.board">社区联机 · 五档机器人</span><span v-else>本机最佳 <b>{{best[item.id]||'—'}}</b></span><span>{{item.social?'进入圆桌':item.board?'入座':'开始游戏'}} <ArcadeIcon name="arrow"/></span></footer></div></button></div>
   <template v-else-if="selected?.id==='tanks'&&!tankSolo"><div class="coop-mode-toolbar"><button @click="tankSolo=true">单人练习</button></div><TankRoom :request="request" :transport="transport"/></template>
   <template v-else-if="selected"><Teleport to="body" :disabled="!focused"><div class="arcade-page arcade-play-portal" :data-game="selected.id" :class="{'arcade-focus':focused}" :style="{'--game-color':selected.color}"><div class="arcade-layout" :class="selected.id"><section class="arcade-play">
    <div class="arcade-status"><button class="arcade-focus-toggle" @click="focused=!focused">{{focused?'退出专注':'专注游玩'}}</button><div><small>本局得分</small><strong>{{score.toLocaleString()}}</strong></div><div><small>{{['runner','danmaku','merge','mines'].includes(selected.id)?'用时':selected.id==='blocks'?'等级':'关卡'}}</small><b>{{['runner','danmaku','merge','mines'].includes(selected.id)?time:String(level).padStart(2,'0')}}</b></div><div><small>{{selected.id==='blocks'?'消除行':'本机最佳'}}</small><b>{{selected.id==='blocks'?lines:best[selected.id]||'—'}}</b></div><button v-if="playing" class="arcade-pause" @click="pause"><ArcadeIcon :name="paused?'play':'pause'"/>{{paused?'继续':'暂停'}}</button></div>

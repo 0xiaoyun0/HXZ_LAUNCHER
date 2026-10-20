@@ -51,7 +51,7 @@
 .games-scroll .arcade-page{padding:0}.games-scroll .arcade-card{min-width:0}
 .games-scroll .arcade-art{aspect-ratio:8/5}
 .games-scroll .arcade-layout{grid-template-columns:minmax(0,1fr)}
-.games-scroll .arcade-library-tabs>button:first-child:nth-last-child(2){display:none}
+
 .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));gap:14px}
 .form-stack{display:flex;flex-direction:column;gap:16px;min-width:0}
 .form-stack label{display:flex;flex-direction:column;gap:8px;align-items:stretch;min-width:0;line-height:1.5}
