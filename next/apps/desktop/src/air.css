@@ -59,7 +59,7 @@
 .card-inner{min-width:0;min-height:100%;display:flow-root}
 .card-inner.natural-height{min-height:0}
 .card-heading{min-height:40px;padding:7px 12px 5px;gap:5px}
-.card-heading h2{font-size:.83rem;line-height:1.6;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.card-heading h2{font-size:.83rem;line-height:1.6;display:block;white-space:normal;overflow-wrap:anywhere}
 .card-heading>div{flex-shrink:0;gap:2px}
 .card-drag-handle,.card-menu-trigger{display:grid;place-items:center;width:25px;height:27px;border-radius:5px;color:var(--muted);padding:0}
 .card-drag-handle{cursor:grab;touch-action:none}

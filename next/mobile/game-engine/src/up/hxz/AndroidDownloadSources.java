@@ -3,46 +3,50 @@ package up.hxz;
 import java.net.*;
 import java.util.*;
 
-/** Equivalent public Maven artifacts. Keep private/signed URLs out of mirror expansion. */
+/** Public, purpose-specific mirrors. No credentials, signed queries or guessed repositories. */
 public final class AndroidDownloadSources {
     private AndroidDownloadSources() {}
+    private static URI publicUri(String raw) {
+        try {
+            URI uri=new URI(raw);
+            if(!"https".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null||uri.getRawUserInfo()!=null||uri.getRawQuery()!=null||uri.getRawFragment()!=null||uri.getPort()!=-1)return null;
+            return uri;
+        }catch(URISyntaxException e){return null;}
+    }
     public static List<String> expand(List<String> input) {
         LinkedHashSet<String> urls=new LinkedHashSet<>(input);
-        String artifact=null;
-        for(String url:input){artifact=artifactPath(url);if(artifact!=null)break;}
-        if(artifact!=null)for(String base:Arrays.asList(
-                "https://repo.maven.apache.org/maven2/",
-                "https://repo1.maven.org/maven2/",
-                "https://maven.aliyun.com/repository/central/",
-                "https://repo.huaweicloud.com/repository/maven/",
-                "https://bmclapi2.bangbang93.com/maven/")){
-            if(urls.size()>=12)break;
-            urls.add(base+artifact);
+        for(String raw:input){
+            URI uri=publicUri(raw);if(uri==null)continue;
+            String host=uri.getHost().toLowerCase(Locale.ROOT),path=uri.getRawPath(),bmcl="https://bmclapi2.bangbang93.com";
+            switch(host){
+                case "piston-meta.mojang.com":urls.add("https://launchermeta.mojang.com"+path);urls.add(bmcl+path);break;
+                case "launchermeta.mojang.com":urls.add("https://piston-meta.mojang.com"+path);urls.add(bmcl+path);break;
+                case "piston-data.mojang.com":urls.add("https://launcher.mojang.com"+path);urls.add(bmcl+path);break;
+                case "launcher.mojang.com":urls.add("https://piston-data.mojang.com"+path);urls.add(bmcl+path);break;
+                case "resources.download.minecraft.net":urls.add(bmcl+"/assets"+path);break;
+                case "libraries.minecraft.net":
+                    urls.add(bmcl+"/maven"+path);
+                    addCentral(urls,path);break;
+                case "repo.maven.apache.org":case "repo1.maven.org":
+                    if(path.startsWith("/maven2/"))addCentral(urls,path.substring(7));break;
+                case "maven.fabricmc.net":case "maven.minecraftforge.net":urls.add(bmcl+"/maven"+path);break;
+                case "maven.neoforged.net":if(path.startsWith("/releases/"))urls.add(bmcl+"/maven/"+path.substring(10));break;
+                case "meta.fabricmc.net":urls.add(bmcl+"/fabric-meta"+path);break;
+                case "cdn.modrinth.com":case "edge.forgecdn.net":case "mediafilez.forgecdn.net":urls.add("https://mod.mcimirror.top"+path);break;
+                default:break;
+            }
         }
-        return new ArrayList<>(urls);
+        List<String> result=new ArrayList<>(urls);return result.size()>12?new ArrayList<>(result.subList(0,12)):result;
+    }
+    private static void addCentral(Set<String> urls,String path){
+        urls.add("https://repo.maven.apache.org/maven2"+path);urls.add("https://repo1.maven.org/maven2"+path);
+        urls.add("https://maven.aliyun.com/repository/public"+path);urls.add("https://repo.huaweicloud.com/repository/maven"+path);
     }
     public static List<URL> candidates(String preferred,String original) {
+        boolean official=Boolean.parseBoolean(System.getProperty("hxz.launcher.official","true"));
+        List<String> input=publicUri(original)==null?Collections.singletonList(original):official?Arrays.asList(original,preferred):Arrays.asList(preferred,original);
         List<URL> result=new ArrayList<>();
-        for(String raw:expand(Arrays.asList(preferred,original)))try{result.add(new URL(raw));}catch(MalformedURLException e){throw new IllegalArgumentException("下载地址无效",e);}
+        for(String raw:expand(input))try{result.add(new URL(raw));}catch(MalformedURLException e){throw new IllegalArgumentException("下载地址无效",e);}
         return result;
-    }
-    static String artifactPath(String raw) {
-        try{
-            URI uri=new URI(raw);
-            if(!"https".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null||uri.getRawUserInfo()!=null||uri.getRawQuery()!=null||uri.getRawFragment()!=null||uri.getPort()!=-1&&uri.getPort()!=443)return null;
-            String host=uri.getHost().toLowerCase(Locale.ROOT),prefix;
-            switch(host){
-                case "maven.neoforged.net":prefix="/releases/";break;
-                case "repo.maven.apache.org":case "repo1.maven.org":prefix="/maven2/";break;
-                case "maven.aliyun.com":prefix="/repository/central/";break;
-                case "repo.huaweicloud.com":prefix="/repository/maven/";break;
-                case "bmclapi2.bangbang93.com":prefix="/maven/";break;
-                case "libraries.minecraft.net":case "maven.minecraftforge.net":case "maven.fabricmc.net":prefix="/";break;
-                default:return null;
-            }
-            String path=uri.getRawPath();if(!path.startsWith(prefix))return null;path=path.substring(prefix.length());
-            if(path.contains("..")||!path.matches("(?:[A-Za-z0-9_.$+\\-]+/){3,}[A-Za-z0-9_.$+\\-]+\\.(?:jar|zip)"))return null;
-            return path;
-        }catch(URISyntaxException e){return null;}
     }
 }

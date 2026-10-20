@@ -42,7 +42,7 @@ export async function gameMetadata(id,options={}) {
     );
     const item = manifest.versions.find(v => v.id === id);
     if (!item) throw Error("Minecraft 版本不存在");
-    return remoteJSON(item.url,options);
+    return remoteJSON(item.url,{...options,sha1:item.sha1});
   };
   // An installation owns its cancellation lifetime, independent of UI catalog requests.
   return options.signal?load():cached("metadata:"+getDownloadMode()+":"+id,load);

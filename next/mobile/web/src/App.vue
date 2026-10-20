@@ -35,6 +35,9 @@ import AppSelect from './AppSelect.vue';
 import ChoiceRows from './ChoiceRows.vue';
 import AppOverlay from './AppOverlay.vue';
 import MobileSettings from './MobileSettings.vue';
+import MobileWelcome from './MobileWelcome.vue';
+import MobileGuide from './MobileGuide.vue';
+import {GUIDE_VERSION} from '../../../packages/onboarding/catalog.mjs';
 import './mobile-account081.css';
 import {registerOverlay,unregisterOverlay,closeTopOverlay,overlayCount} from './overlays.js';
 import {state,native,api,on,avatar,groups,rooms as fallbackRooms,date} from './native.js';
@@ -46,6 +49,12 @@ const hubTarget=ref({area:'events',section:'event',item:''}),hubReturn=ref('disc
 function openHub(section){if(!isActiveHubSection(section)){notify('这个旧栏目已归档，请从导航选择现有功能');return;}if(tab.value!=='hub')hubReturn.value=tab.value;hubTarget.value={area:hubAreaFor(section),section,item:''};navigate('hub');}
 const tabs=[{id:'hub',name:'社区',icon:'compass'},{id:'inventory',name:'背包',icon:'shop'},{id:'minecraft',name:'Minecraft',icon:'games'},{id:'guild',name:'冒险家协会',icon:'compass'},{id:'linking',name:'LINKING',icon:'compass'},{id:'inbox',name:'收件箱',icon:'mail'},{id:'discover',name:'首页',icon:'compass'},{id:'music',name:'音乐',icon:'music'},{id:'lobby',name:'联机',icon:'network'},{id:'shop',name:'积分商城',icon:'shop'},{id:'chat',name:'聊天',icon:'chat'},{id:'voice',name:'语音',icon:'headphones'},{id:'forum',name:'论坛',icon:'forum'},{id:'blueprint',name:'蓝图',icon:'blueprint'},{id:'games',name:'游戏',icon:'games'},{id:'notice',name:'公告',icon:'notice'},{id:'settings',name:'设置',icon:'settings'},{id:'feedback',name:'反馈',icon:'chat'},{id:'me',name:'我的',icon:'user'}];
 const tab=ref('chat'), sheet=ref(''), busy=ref(false), toast=ref(''), error=ref('');let toastTimer;
+const sessionReady=ref(false),sessionError=ref(''),guideOpen=ref(false);
+function guideSeen(){try{return Number(localStorage.getItem('hxz-mobile-guide-version'))>=GUIDE_VERSION;}catch{return false;}}
+function finishGuide(){guideOpen.value=false;try{localStorage.setItem('hxz-mobile-guide-version',String(GUIDE_VERSION));}catch{}}
+function guideDestination(target){finishGuide();if(target==='admin'){if(access.admin)openHub('workbench');return;}navigate(target);}
+function signedIn(result){Object.assign(state,result);sessionReady.value=true;sheet.value=state.selectedProfile?'':'profiles';error.value='';}
+watch(()=>sessionReady.value&&state.hasAccount,active=>{if(active){if(!guideSeen())guideOpen.value=true;}else{guideOpen.value=false;sheet.value='';confirmAction.value=null;}});
 const mainTabs=[{id:'chat',name:'聊天',icon:'chat'},{id:'community',name:'社区',icon:'users'},{id:'play',name:'游戏',icon:'games'},{id:'linking',name:'LINKING',icon:'archive'},{id:'me',name:'我的',icon:'user'}];
 const sections={community:['forum','blueprint','guild','music'],play:['minecraft','games','lobby']};
 const sectionNames={forum:'论坛',blueprint:'蓝图',guild:'委托',music:'音乐',minecraft:'服务器',games:'小游戏',lobby:'联机'};
@@ -57,7 +66,7 @@ function openSettings(area=''){settingsArea.value=area;navigate('settings');}
 function backSettings(){settingsArea.value='';navigateBack();}
 function navigateMain(id){navigationTrail.value=[];navigate(({community:'forum',play:'minecraft'})[id]||id,{remember:false});}
 const settings=reactive(readSettings());
-const appUpdate=ref({currentVersion:appVersion,currentBuild:80200,autoCheck:true,autoDownload:true,phase:'idle'});
+const appUpdate=ref({currentVersion:appVersion,currentBuild:80300,autoCheck:true,autoDownload:true,phase:'idle'});
 async function updateAction(action,values={}){try{appUpdate.value=await native('appUpdate',{action,...values});}catch(e){error.value=e.message;}}
 
 async function changeVoiceOverlay(event){try{const result=await native('voiceOverlay',{enabled:event.target.checked});settings.voiceOverlay=result.enabled;if(!result.permission)error.value='请在系统中允许悬浮窗，然后返回开启语音屏幕覆盖。';}catch(e){error.value=e.message;settings.voiceOverlay=false;}}
@@ -82,8 +91,8 @@ watch([()=>settings.theme,()=>settings.font,()=>settings.accent,()=>settings.ptt
 watch(()=>[settings.animationSpeed,settings.surfaceOpacity,settings.background,settings.music,settings.musicVolume,settings.videoQuality],()=>{settings.animations=settings.animationSpeed!==0;settings.surfaceOpacity=Math.max(.2,Math.min(1,Number(settings.surfaceOpacity??1)||.2));const root=document.documentElement;root.style.setProperty('--motion-duration',(160/(settings.animationSpeed||1))+'ms');root.style.setProperty('--mobile-surface-opacity',String(settings.surfaceOpacity??1));root.dataset.customBackground=settings.background?'true':'false';localStorage.setItem('hxz-mobile-settings',JSON.stringify(settings));},{immediate:true});
 const notify=message=>{toast.value=message;clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.value='',4000);};
 async function run(fn){if(busy.value)return;busy.value=true;error.value='';try{return await fn();}catch(e){if(e.message!=='已取消')error.value=e.message;}finally{busy.value=false;}}
-function widgetNavigate(target){if(['chat','voice','inbox'].includes(target))navigate(target);else if(['devices','event'].includes(target)){openHub(target);}}
-const unsubs=[on('widgetNavigate',widgetNavigate),on('error',message=>error.value=message),on('back',()=>{if(closeTopOverlay())return;navigateBack();})];
+function widgetNavigate(target){if(!state.hasAccount)return;if(['chat','voice','inbox'].includes(target))navigate(target);else if(['devices','event'].includes(target)){openHub(target);}}
+const unsubs=[on('widgetNavigate',widgetNavigate),on('error',message=>error.value=message),on('back',()=>{if(closeTopOverlay())return;if(!sessionReady.value||!state.hasAccount){native('background').catch(()=>{});return;}navigateBack();})];
 unsubs.push(on('appUpdate',value=>{const previous=appUpdate.value.phase;appUpdate.value=value;if(value.phase==='ready'&&previous!=='ready')notify('新版已就绪，点右上角下载图标安装');}));
 unsubs.push(on('state',value=>{if(typeof value.systemDark==='boolean')systemDark.value=value.systemDark;}));
 const onlineUsers=computed(()=>[...new Map(state.users.map(u=>[u.uid,u])).values()]);
@@ -212,7 +221,7 @@ async function setAvatar(){await run(async()=>{const {avatar:value}=await native
 const selectedAvatar=computed(()=>{const u=state.users.find(u=>u.uid===state.user.uid)||state.user;return avatar(u.uid,u.avatarVersion);});
 unsubs.push(on('avatar-changed',v=>{if(v.uid===state.user.uid)state.user.avatarVersion=v.avatarVersion;for(const u of state.users)if(u.uid===v.uid)u.avatarVersion=v.avatarVersion;}));
 watch(()=>state.server,v=>server.value=v);
-watch(()=>state.connected,v=>{if(v){run(async()=>{await loadAccess();if(tab.value==='forum')await loadPosts();if(tab.value==='blueprint')await loadBlueprints();});}});
+watch(()=>state.connected,v=>{if(v&&state.hasAccount){run(async()=>{await loadAccess();if(tab.value==='forum')await loadPosts();if(tab.value==='blueprint')await loadBlueprints();});}});
 watch(()=>state.user.uid,(value,old)=>{if(value!==old){posts.value=[];blueprints.value=[];detail.value=null;blueprint.value=null;}});
 
 const posts=ref([]),postTotal=ref(0),postOffset=ref(0),postQuery=ref(''),postCategory=ref(''),postSort=ref('newest'),detail=ref(null),replyBody=ref(''),replyParent=ref(null),replyOffset=ref(0),replyComposer=ref();
@@ -258,12 +267,19 @@ function touchFeedback(event){
  button.querySelector('.tap-feedback')?.remove();const wave=document.createElement('span');wave.className='tap-feedback';wave.setAttribute('aria-hidden','true');button.appendChild(wave);setTimeout(()=>wave.remove(),650);
 }
 let noticeTimer;
-onMounted(async()=>{if(window.HXZNative){updateAction('state');await run(async()=>{Object.assign(state,await native('state'));if(typeof state.systemDark==='boolean')systemDark.value=state.systemDark;await native('appearance',{dark:dark.value});if(state.connected)await loadAccess();});try{widgetNavigate((await native('widgetTarget')).target);}catch{}}document.addEventListener('visibilitychange',()=>{if(document.hidden)release();});window.addEventListener('blur',release);noticeTimer=setInterval(()=>{if(tab.value==='notice'&&!document.hidden&&!busy.value)run(loadNotices);},60000);});
+async function initializeSession(){
+ sessionError.value='';
+ if(!window.HXZNative){sessionReady.value=true;return;}
+ try{Object.assign(state,await native('state'));sessionReady.value=true;if(typeof state.systemDark==='boolean')systemDark.value=state.systemDark;await native('appearance',{dark:dark.value});if(state.hasAccount&&state.connected)await loadAccess();}
+ catch(e){if(!sessionReady.value)sessionError.value=e.message;else error.value=e.message;}
+}
+onMounted(async()=>{await initializeSession();if(window.HXZNative){updateAction('state');if(state.hasAccount)try{widgetNavigate((await native('widgetTarget')).target);}catch{}}document.addEventListener('visibilitychange',()=>{if(document.hidden)release();});window.addEventListener('blur',release);noticeTimer=setInterval(()=>{if(state.hasAccount&&tab.value==='notice'&&!document.hidden&&!busy.value)run(loadNotices);},60000);});
 onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageAnimation?.cancel();unsubs.forEach(f=>f());clearTimeout(toastTimer);clearInterval(noticeTimer);window.removeEventListener('blur',release);});
 </script>
 
 <template>
-<div class="app-shell" :aria-hidden="overlayCount>0?true:undefined" :inert="overlayCount>0?true:undefined" @invalid.capture.prevent="invalidField">
+<MobileWelcome v-if="!sessionReady||!state.hasAccount" :initializing="!sessionReady&&!sessionError" :initial-error="sessionError" @retry="initializeSession" @signed-in="signedIn"/>
+<div v-else class="app-shell" :aria-hidden="overlayCount>0?true:undefined" :inert="overlayCount>0?true:undefined" @invalid.capture.prevent="invalidField">
   <div class="app-top">
   <header class="app-header community-header081">
     <button class="identity-trigger081" :aria-label="state.hasAccount?'切换角色':'登录社区'" @click="sheet=state.hasAccount?'profiles':'login'"><span class="avatar small"><img v-if="selectedAvatar" :src="selectedAvatar" alt=""><span v-else>{{(state.selectedProfile?.name||state.user.name||'旅').slice(0,1)}}</span></span><span><strong>幻想镇</strong><small>{{state.selectedProfile?.name||state.user.name||'登录，和伙伴见面'}}</small></span><Icon name="chevron"/></button>
@@ -335,7 +351,7 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
       <div class="account-menu081"><button class="account-menu-row081" @click="navigate('inventory')"><Icon name="archive"/><span><strong>我的背包</strong><small>物品、凭证与待领取礼物</small></span><Icon name="chevron"/></button><button class="account-menu-row081" @click="navigate('inbox')"><Icon name="chat"/><span><strong>收件箱</strong><small>{{unread?'有 '+unread+' 条未读消息':'社区消息与通知'}}</small></span><Icon name="chevron"/></button></div>
       <button v-if="state.hasAccount" class="account-menu-row081 card" @click="navigate('wallet')"><Icon name="coins"/><span><strong>积分与兑换</strong><small>余额、兑换码和收支记录</small></span><Icon name="chevron"/></button><button class="account-menu-row081 card" @click="navigate('shop')"><Icon name="shop"/><span><strong>积分商城</strong><small>兑换物品与使用凭证</small></span><Icon name="chevron"/></button>
 
-      <div class="account-menu081"><button class="account-menu-row081" @click="openSettings()"><Icon name="settings"/><span><strong>设置</strong><small>账号、外观、语音与更新</small></span><Icon name="chevron"/></button><button class="account-menu-row081" @click="navigate('feedback')"><Icon name="feedback"/><span><strong>问题反馈与处理</strong></span><Icon name="chevron"/></button><button class="account-menu-row081" @click="openHub('appeal')"><Icon name="users"/><span><strong>申诉与协商</strong></span><Icon name="chevron"/></button><button v-if="access.admin" class="account-menu-row081" @click="openHub('workbench')"><Icon name="settings"/><span><strong>社区管理</strong></span><Icon name="chevron"/></button></div>
+      <div class="account-menu081"><button class="account-menu-row081" @click="guideOpen=true"><Icon name="compass"/><span><strong>功能引导</strong><small>重新认识幻想镇的每个入口</small></span><Icon name="chevron"/></button><button class="account-menu-row081" @click="openSettings()"><Icon name="settings"/><span><strong>设置</strong><small>账号、外观、语音与更新</small></span><Icon name="chevron"/></button><button class="account-menu-row081" @click="navigate('feedback')"><Icon name="feedback"/><span><strong>问题反馈与处理</strong></span><Icon name="chevron"/></button><button class="account-menu-row081" @click="openHub('appeal')"><Icon name="users"/><span><strong>申诉与协商</strong></span><Icon name="chevron"/></button><button v-if="access.admin" class="account-menu-row081" @click="openHub('workbench')"><Icon name="settings"/><span><strong>社区管理</strong></span><Icon name="chevron"/></button></div>
       <details v-if="state.connected" class="account-details081"><summary>游戏记录</summary><div><MobileGameStats/></div></details>
     </section>
     <section v-if="tab==='wallet'" class="content-page account-overview081"><header class="account-section-header"><button class="icon-button" aria-label="返回我的" @click="navigateBack"><Icon name="back"/></button><h1>积分与兑换</h1></header><PointsWallet :key="state.user.uid" :request="api"/></section>
@@ -353,8 +369,8 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
   <AppOverlay :open="!!sheet" label="社区面板" @close="sheet=''"><section class="sheet" @invalid.capture.prevent="invalidField" :class="{'full-sheet':['newPost','newBlueprint'].includes(sheet)}"><div class="sheet-handle"/><header class="sheet-header"><h2>{{({login:'登录社区',profiles:'选择角色',connection:'社区连接',members:'在线成员',newPost:'发布帖子',newBlueprint:'上传蓝图',filters:'筛选蓝图',voice:'语音房间',})[sheet]}}</h2><button class="icon-button" aria-label="关闭面板" @click="sheet=''"><Icon name="close"/></button></header><div class="sheet-body">
     <p v-if="error" class="error-note sheet-error" role="alert">{{error}}</p>
     <VoicePage v-if="sheet==='voice'" :state="state" :settings="settings" :rooms="rooms" :members="members" :room-name="roomName" :speaker="speaker" :busy="!!joiningRoom" @join="join" @mode="setVoiceMode" @change="voiceChange" @leave="leaveVoice" @press="press" @speaker="toggleSpeaker" @login="sheet=state.hasAccount?'connection':'login'"/>
-    <form v-if="sheet==='login'" class="form-stack" @submit.prevent="login"><p class="muted">使用幻想镇皮肤站账号登录</p><label>邮箱或用户名<input v-model="username" autocomplete="username" autocapitalize="off" required></label><label>密码<input v-model="password" type="password" autocomplete="current-password" required></label><button class="primary full-width" :disabled="busy">{{busy?'正在登录…':'登录'}}</button><button class="text-button" type="button" @click="run(()=>native('openSkin'))">注册账号 / 管理皮肤站</button></form>
-    <div v-if="sheet==='profiles'" class="form-stack"><p v-if="!state.profiles.length" class="muted">账号还没有角色，请先在皮肤站创建。</p><ChoiceRows :items="state.profiles.map(p=>({value:p.id,label:p.name}))" :value="state.selectedProfile?.id" label="选择角色" @choose="profile"/><button class="soft-button" @click="sheet='login'">登录其他账号</button></div>
+    <form v-if="sheet==='login'&&state.hasAccount" class="form-stack" @submit.prevent="login"><p class="muted">使用另一个幻想镇皮肤站账号登录</p><label>邮箱或用户名<input v-model="username" autocomplete="username" autocapitalize="off" required></label><label>密码<input v-model="password" type="password" autocomplete="current-password" required></label><button class="primary full-width" :disabled="busy">{{busy?'正在登录…':'登录'}}</button><button class="text-button" type="button" @click="run(()=>native('open',{url:'https://skin.hxzmc.top/auth/register'}))">注册皮肤站账号</button></form>
+    <div v-if="sheet==='profiles'" class="form-stack"><p v-if="!state.profiles.length" class="muted">账号还没有角色，请先在皮肤站创建。</p><ChoiceRows :items="state.profiles.map(p=>({value:p.id,label:p.name}))" :value="state.selectedProfile?.id" label="选择角色" @choose="profile"/><button class="soft-button" @click="run(()=>native('openSkin'))">创建或管理角色</button><button class="soft-button" @click="sheet='login'">登录其他账号</button></div>
     <form v-if="sheet==='connection'" class="form-stack" @submit.prevent="run(async()=>{Object.assign(state,await native('server',{url:server}));sheet='';notify('社区地址已保存')})"><div class="connection-summary"><i class="status-dot" :class="{offline:!state.connected}"/>{{state.connection}}</div><label>社区服务地址<input v-model="server" type="url" placeholder="https://qqbot.hxzmc.top" autocapitalize="off" required></label><button class="primary" :disabled="busy">保存并连接</button><button type="button" class="soft-button" @click="run(()=>native('reconnect'))">重新连接</button><p class="muted">连接地址同时用于聊天和语音，无需额外端口。</p></form>
     <div v-if="sheet==='members'" class="member-list"><p v-if="!onlineUsers.length" class="empty-note">暂时没有在线成员</p><div v-for="u in onlineUsers" :key="u.id" class="member"><span class="avatar"><img v-if="avatar(u.uid,u.avatarVersion)" :src="avatar(u.uid,u.avatarVersion)" alt=""><span v-else>{{u.name.slice(0,1)}}</span></span><strong>{{u.name}}<small class="device-label">{{u.devices?.includes('android')&&u.devices?.includes('desktop')?'手机 · 电脑':u.devices?.includes('android')?'手机在线':u.devices?.includes('desktop')?'电脑在线':'在线'}}</small></strong><small>{{rooms.find(r=>r.id===u.room)?.name||'在线'}}</small></div></div>
     <form v-if="sheet==='newPost'" class="form-stack" @submit.prevent="publishPost"><label>分类<AppSelect v-model="postForm.category" label="帖子分类" :options="access.forumCategories"/></label><label>标题<input v-model="postForm.title" maxlength="100" placeholder="给话题起个名字" required></label><label>正文<MentionInput :admin="access.admin" v-model="postForm.body" maxlength="12000" rows="10" placeholder="分享你的想法…" required/></label><div class="emoji-tray inline"><button v-for="e in emojis" :key="e" type="button" @click="postForm.body+=e">{{e}}</button></div><button class="primary" :disabled="busy">发布帖子</button></form>
@@ -365,4 +381,5 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
   <AppOverlay :open="!!confirmAction" :label="confirmAction?.title||'确认操作'" kind="confirm" @close="confirmAction=null"><section class="confirm-dialog"><h2>{{confirmAction?.title}}</h2><div class="actions"><button class="soft-button" @click="confirmAction=null">取消</button><button class="danger-button" @click="confirmed">确认</button></div></section></AppOverlay>
   <Transition name="toast-motion"><div v-if="toast" class="toast" role="status"><Icon name="check"/>{{toast}}</div></Transition>
 </div>
+<MobileGuide v-if="sessionReady&&state.hasAccount&&guideOpen" :admin="access.admin" @finish="finishGuide" @open="guideDestination"/>
 </template>

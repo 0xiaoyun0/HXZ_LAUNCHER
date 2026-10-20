@@ -10,6 +10,8 @@ import { downloadSources, getDownloadMode } from "./sources.mjs";
 import { setTimeout as delay } from "node:timers/promises";
 import { networkFailure, networkAdvice } from './network-errors.mjs';
 import {createDownloadLimiter} from './download-limiter.mjs';
+import {transferFetch,hasPrivateHeaders} from './download-http.mjs';
+import {observeSource} from './source-health.mjs';
 
 export async function json(file) {
   const stat = await fs.stat(file);
@@ -93,7 +95,7 @@ export function configureDownloads({concurrency,speedLimitMBps,onStatus}={}){if(
 function drainDownloads(){while(activeDownloads<downloadLimit&&downloadQueue.length){const entry=downloadQueue.shift();if(entry.signal?.aborted){entry.reject(entry.signal.reason);continue;}activeDownloads++;entry.resolve(()=>{activeDownloads--;drainDownloads();});}}
 async function downloadSlot(signal){signal?.throwIfAborted();return new Promise((resolve,reject)=>{const entry={signal,resolve:release=>{signal?.removeEventListener('abort',abort);resolve(release);},reject};const abort=()=>{const i=downloadQueue.indexOf(entry);if(i>=0)downloadQueue.splice(i,1);reject(signal.reason);};signal?.addEventListener('abort',abort,{once:true});downloadQueue.push(entry);drainDownloads();});}
 const statusTimes=new Map();
-function sourceStatus(error,url,attempt){const host=new URL(url).hostname,now=Date.now();if(now-(statusTimes.get(host)||0)>5000){statusTimes.set(host,now);downloadObserver({source:host,attempt,message:networkAdvice(error,host)});}}
+function sourceStatus(error,url,attempt){const host=new URL(url).hostname,now=Date.now();observeSource(url,{state:'error',reason:networkAdvice(error,host),checkKind:'transfer'});if(now-(statusTimes.get(host)||0)>5000){statusTimes.set(host,now);downloadObserver({source:host,attempt,message:networkAdvice(error,host)});}}
 function preferHealthy(urls){return [...urls].sort((a,b)=>(sourceFailures.get(new URL(a).host)>Date.now()?1:0)-(sourceFailures.get(new URL(b).host)>Date.now()?1:0));}
 export async function remoteJSON(url, options = {}) {
   const until=Date.now()+(options.retryBudgetMs||0);
@@ -104,9 +106,9 @@ export async function remoteJSON(url, options = {}) {
   }
 }
 async function remoteJSONAttempt(url, options = {}) {
-  const candidates=preferHealthy(!options.method||options.method==='GET'?downloadSources(url):[url]);
+  const candidates=preferHealthy((!options.method||options.method==='GET')&&!hasPrivateHeaders(options.headers)?downloadSources(url):[url]);
   if(candidates.length===1)return remoteJSONOnce(candidates[0],options);
-  const read=async(candidate,settings)=>{let failure;for(let n=1;n<=5;n++){try{return await remoteJSONOnce(candidate,{...settings,timeoutMs:settings.timeoutMs??(/modrinth|mcimirror/.test(new URL(candidate).hostname)?20000:6000)});}catch(error){settings.signal?.throwIfAborted();failure=error;sourceStatus(error,candidate,n);if(!networkFailure(error)||error.status===429||n===5)throw error;await delay(settings.retryDelay??Math.min(2000,250*2**(n-1)),undefined,{signal:settings.signal});}}throw failure;};
+  const read=async(candidate,settings)=>{let failure;for(let n=1;n<=5;n++){try{return await remoteJSONOnce(candidate,{...settings,timeoutMs:settings.timeoutMs??(/modrinth|mcimirror/.test(new URL(candidate).hostname)?20000:6000)});}catch(error){settings.signal?.throwIfAborted();failure=error;sourceStatus(error,candidate,n);if(!networkFailure(error)||error.name==='TimeoutError'||error.status===429||n===5)throw error;await delay(settings.retryDelay??Math.min(2000,250*2**(n-1)),undefined,{signal:settings.signal});}}throw failure;};
   if(getDownloadMode()==='official'){
     let failure;for(const candidate of candidates)try{return await read(candidate,options);}catch(error){options.signal?.throwIfAborted();failure=error;sourceStatus(error,candidate,1);sourceFailures.set(new URL(candidate).host,Date.now()+15000);}throw failure;
   }
@@ -127,7 +129,7 @@ async function remoteJSONOnce(url, options = {}) {
   const signal = options.signal
     ? AbortSignal.any([options.signal, AbortSignal.timeout(options.timeoutMs??20000)])
     : AbortSignal.timeout(options.timeoutMs??20000);
-  const r = await fetch(url, {
+  const r = await ((!options.method || options.method==='GET') ? transferFetch : fetch)(url, {
     ...options,
     signal,
     redirect: !options.method || options.method === "GET" ? "follow" : "error"
@@ -141,6 +143,7 @@ async function remoteJSONOnce(url, options = {}) {
       chunks.push(chunk);
     }
   const text = Buffer.concat(chunks).toString("utf8");
+  if(r.ok&&options.sha1&&createHash('sha1').update(Buffer.concat(chunks)).digest('hex')!==options.sha1.toLowerCase())throw Error('版本元数据校验不一致');
   let value;
   try {
     value = text ? JSON.parse(text) : {};
@@ -194,7 +197,7 @@ async function downloadFile(url, file, options = {}) {
       ...downloadSources(url)
     ])
   ];
-  if(options.size>=(options.segmentThreshold??4*1024*1024)&&(options.sha1||options.sha256||options.sha512)&&await segmentedDownload(preferHealthy(candidates),file,options))return;
+  if(options.size>=(options.segmentThreshold??4*1024*1024)&&(options.sha1||options.sha256||options.sha512)&&await segmentedDownload(preferHealthy(candidates),file,{...options,originURL:url}))return;
   const resumable=Boolean(options.sha1||options.sha256||options.sha512);
   const partials=candidates.map(candidate=>file+'.'+createHash('sha256').update(candidate+JSON.stringify([options.sha1,options.sha256,options.sha512])).digest('hex').slice(0,20)+'.partial');
   let committed=false;
@@ -221,14 +224,14 @@ async function downloadFile(url, file, options = {}) {
             signal.throwIfAborted();
             try{
               release=await downloadSlot(signal);
-              await downloadOne(candidate,staged[index],{...options,signal,resumeFile:resumable?partials[candidates.indexOf(candidate)]:undefined});
+              await downloadOne(candidate,staged[index],{...options,originURL:url,signal,resumeFile:resumable?partials[candidates.indexOf(candidate)]:undefined});
               break;
             }catch(error){
               if(signal.aborted)throw signal.reason;
               sourceStatus(error,candidate,localAttempt);
               if(error.retryable===false){unavailable.add(candidate);throw error;}
               if(error.retryAfter>2000){cooldowns.set(candidate,Date.now()+error.retryAfter);throw error;}
-              if(error.slowSource||localAttempt===5||!(error.retryable||networkFailure(error)))throw error;
+              if(error.slowSource||error.stalledSource||localAttempt===5||!(error.retryable||networkFailure(error)))throw error;
               release?.();release=undefined;
               options.onTransfer?.({source:new URL(candidate).hostname,retrying:true,attempt:localAttempt,maxAttempts:5});
               await delay(Math.max(error.retryAfter||0,options.retryDelay??Math.min(2000,250*2**(localAttempt-1))),undefined,{signal});
@@ -275,12 +278,14 @@ async function downloadOne(
     sha512,
     size,
     headers,
+    originURL = url,
     maxSize = 8 * 1024 ** 3,
     signal,
     onProgress = () => {},
     onTransfer = () => {},
     stallWindowMs = 10000,
-    connectTimeoutMs = 6000
+    connectTimeoutMs = 6000,
+    idleTimeoutMs
   } = {}
 ) {
   await noLinks(file);
@@ -330,12 +335,16 @@ async function downloadOne(
     ? AbortSignal.any([signal, controller.signal])
     : controller.signal;
   try {
-    const r = await fetch(url, {
+    if(bytes&&sums.length&&(size==null||bytes===size)&&(await Promise.all(Object.entries({sha1,sha256,sha512}).filter(([,v])=>v).map(async([algorithm,expected])=>await hash(temp,algorithm)===expected.toLowerCase()))).every(Boolean)){
+      await fs.rename(temp,file);onTransfer({bytes,total:bytes,verified:true,source:'已完成断点校验'});return;
+    }
+    const r = await transferFetch(url, {
       headers:{...headers,'Accept-Encoding':'identity',...(bytes?{Range:'bytes='+bytes+'-'}:{})},
       signal: transferSignal
-    });
+    }, originURL);
     if (!r.ok || !r.body) {
       await r.body?.cancel();
+      if(r.status===416&&bytes){await fs.rm(temp,{force:true});const error=Error('断点已过期，重新请求完整文件');error.retryable=true;throw error;}
       const error = Error(`下载失败 (${r.status}): ${u.hostname}`);
       error.status=r.status;
       error.retryable = r.status === 408 || r.status === 429 || r.status >= 500;
@@ -354,7 +363,7 @@ async function downloadOne(
       clearTimeout(idle);
       idle = setTimeout(
         () => controller.abort(Error("下载长时间没有数据")),
-        pendingDownloads.size<=Math.max(1,downloadLimit/4)?12000:30000
+        idleTimeoutMs ?? (pendingDownloads.size<=Math.max(1,downloadLimit/4)?12000:30000)
       );
     };
     touch();
@@ -384,15 +393,17 @@ async function downloadOne(
       createWriteStream(temp, { flags: bytes ? "a" : "w" }),
       { signal: transferSignal }
     );
-    if (sums.some(check => check.sum.digest("hex") !== check.expected))
-      throw Error("下载内容校验不一致");
-    if (size != null && size >= 0 && bytes !== size)
-      throw Error("下载文件大小不一致");
+    if (sums.some(check => check.sum.digest("hex") !== check.expected)) {
+      const error=Error('下载内容校验不一致');error.retryable=false;throw error;
+    }
+    if (size != null && size >= 0 && bytes !== size) {
+      const error=Error('下载文件大小不一致');error.retryable=false;throw error;
+    }
     await noLinks(file);
     await fs.rename(temp, file);
     onTransfer({ bytes, total: bytes, verified: true, source: u.hostname });
   } catch(error) {
-    if(controller.signal.aborted&&!signal?.aborted){error.network=true;error.retryable=true;}
+    if(controller.signal.aborted&&!signal?.aborted){error.network=true;error.retryable=true;error.stalledSource=true;}
     retain=Boolean(resumeFile&&(networkFailure(error)||error.retryable||signal?.aborted));
     throw error;
   } finally {

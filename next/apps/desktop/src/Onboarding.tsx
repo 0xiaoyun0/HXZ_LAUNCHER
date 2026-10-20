@@ -1,4 +1,22 @@
-import {useState} from 'react';import {useSnapshot} from 'valtio';import {useNavigate} from 'react-router-dom';import {UserRound,Play,Grip,Compass} from 'lucide-react';
-import {state,ui,saveSettings} from './model';import {Modal,Button} from './ui';
-const steps=[{title:'登录，然后出发',body:'使用幻想镇皮肤站角色登录。大厅里选择一个服务器，再点“安装并开始”，所需文件会自动准备。',icon:UserRound,to:'/',action:'前往游戏大厅'},{title:'管理你的游戏',body:'在首页右键实例，进入配置与文件管理。模组、资源包、光影和蓝图都可以拖入导入或快速禁用。',icon:Grip,to:'/',action:'查看我的实例'},{title:'和伙伴一起玩',body:'在社区交流、语音和一起听歌。冒险家协会接受委托，LINKING 中阅读档案、完成活动任务。遇到问题可直接点击底部“反馈”。',icon:Compass,to:'/guild',action:'看看冒险家协会'}];
-export function Onboarding(){const s=useSnapshot(state),u=useSnapshot(ui),[step,setStep]=useState(0),navigate=useNavigate(),entry=steps[step];const close=async()=>{await saveSettings({onboardingDone:true});ui.onboarding=false;setStep(0);};return <Modal open={s.ready&&(!s.settings.onboardingDone||!!u.onboarding)} title="欢迎来到幻想镇" onClose={close}><div className="onboarding-card"><entry.icon size={38}/><small>{step+1} / {steps.length}</small><h2>{entry.title}</h2><p>{entry.body}</p><div className="onboarding-steps">{steps.map((s,i)=><button key={s.title} aria-label={s.title} aria-current={i===step?'step':undefined} onClick={()=>setStep(i)}/>)}</div></div><footer className="modal-actions"><Button onClick={close}>稍后探索</Button>{step>0&&<Button onClick={()=>setStep(step-1)}>上一步</Button>}<Button tone="solid" icon={step===steps.length-1?Play:undefined} onClick={step===steps.length-1?async()=>{await close();navigate(entry.to);}:()=>setStep(step+1)}>{step===steps.length-1?'开始探索':'继续'}</Button></footer></Modal>;}
+import {useState,useEffect} from 'react';
+import {useSnapshot} from 'valtio';
+import {useNavigate,useLocation} from 'react-router-dom';
+import {ArrowRight,ArrowLeft,Compass,X,Check,ChevronDown,ChevronUp} from 'lucide-react';
+import {guideEntries,GUIDE_VERSION} from '../../../packages/onboarding/catalog.mjs';
+import {community} from '../../../packages/community/client';
+import {state,ui,saveSettings,perform,notify} from './model';
+import {Modal,Button,IconButton} from './ui';
+import './onboarding.css';
+
+export function Onboarding(){
+ const s=useSnapshot(state),u=useSnapshot(ui),c=useSnapshot(community),navigate=useNavigate(),location=useLocation();
+ const entries=guideEntries({admin:!!c.user?.admin}),[step,setStep]=useState(0),[tour,setTour]=useState(false),[folded,setFolded]=useState(false);
+ const open=s.ready&&(!s.settings.onboardingDone||!!u.onboarding),entry=entries[Math.min(step,entries.length-1)];
+ useEffect(()=>{if(!open){setTour(false);setStep(0);}},[open]);
+ useEffect(()=>{setStep(index=>Math.min(index,entries.length-1));},[entries.length]);
+ const finish=()=>perform(async()=>{await saveSettings({onboardingDone:true,onboardingVersion:GUIDE_VERSION});ui.onboarding=false;setTour(false);});
+ function visit(index:number){const i=Math.max(0,Math.min(entries.length-1,index));if(location.pathname!==entries[i].desktop&&(ui.unsaved||ui.layoutUnsaved)){notify('请先保存或放弃当前页面的更改，再继续引导');return;}setStep(i);setTour(true);setFolded(false);navigate(entries[i].desktop);}
+ if(!open)return null;
+ if(tour)return <aside className={'guided-tour '+(folded?'folded':'')} aria-label="功能导览" data-testid="guided-tour"><header><span><Compass size={17}/>{entry.group} · {step+1}/{entries.length}</span><div><IconButton icon={folded?ChevronUp:ChevronDown} label={folded?'展开引导':'收起引导'} onClick={()=>setFolded(v=>!v)}/><IconButton icon={X} label="结束引导" onClick={finish}/></div></header>{!folded&&<><h2>{entry.title}</h2><p>{entry.body}</p><small>{entry.tip}</small>{location.pathname!==entry.desktop&&<Button onClick={()=>visit(step)}>返回本步页面</Button>}<footer><Button icon={ArrowLeft} disabled={step===0} onClick={()=>visit(step-1)}>上一步</Button><Button tone="solid" icon={step===entries.length-1?Check:ArrowRight} onClick={step===entries.length-1?finish:()=>visit(step+1)}>{step===entries.length-1?'完成导览':'下一步'}</Button></footer><button className="tour-index-link" onClick={()=>setTour(false)}>查看所有功能</button></>}</aside>;
+ return <Modal open title="认识你的幻想镇" wide onClose={finish}><div className="guide-introduction"><Compass size={28}/><div><h2>随时开始，按需探索。</h2><p>挑选一个功能，直接走进它的页面。你可以收起引导自由操作，也可以稍后从设置重新查看。</p></div></div><div className="guide-directory">{[...new Set(entries.map(e=>e.group))].map(group=><section key={group}><h3>{group}</h3>{entries.map((item,i)=>item.group===group?<button key={item.id} onClick={()=>visit(i)}><span>{item.title}</span><ArrowRight size={15}/></button>:null)}</section>)}</div><footer className="modal-actions"><Button onClick={finish}>我先自己看看</Button><Button tone="solid" icon={ArrowRight} onClick={()=>visit(0)}>从开始游戏看起</Button></footer></Modal>;
+}

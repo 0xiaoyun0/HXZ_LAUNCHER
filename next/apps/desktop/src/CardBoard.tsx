@@ -15,6 +15,7 @@ export type CardSpec = {id:string; title:string; content:React.ReactNode; x?:num
 type Saved = {items:LayoutItem[]; hidden:string[]; locked?:string[]; fixed?:string[]};
 const clone = <T,>(value:T):T => JSON.parse(JSON.stringify(value));
 const ROW = 22;
+const SCROLL_REGIONS='.chat-history,.music-track-list,.home-game-rows,.log-output,.forum-list,.lobby-room-list,.lobby-grants';
 function contentHeight(el:HTMLElement) {
   const {height,minHeight}=el.style;
   el.style.height='auto';el.style.minHeight='0';
@@ -28,7 +29,7 @@ function minimumContent(el:HTMLElement) {
   el.style.width='min-content';el.style.maxWidth='none';
   const width=Math.ceil(el.scrollWidth);
   el.style.cssText=original;
-  const scrollRegions=Array.from(el.querySelectorAll<HTMLElement>('.chat-history,.music-track-list,.home-game-rows,.log-output,.forum-list,.lobby-room-list,.lobby-grants'));
+  const scrollRegions=Array.from(el.querySelectorAll<HTMLElement>(SCROLL_REGIONS));
   const styles=scrollRegions.map(node=>node.style.cssText);
   for(const node of scrollRegions){node.style.maxHeight='160px';node.style.overflow='auto';}
   const height=contentHeight(el);
@@ -196,18 +197,22 @@ function CardContents({fit,paused,gap,onHeight,onMinimum,children}:{fit:boolean;
     const el=ref.current;let frame=0;
     const measure=()=>{cancelAnimationFrame(frame);frame=requestAnimationFrame(()=>{
       // Temporary intrinsic sizing must not change a reader's scroll position.
-      const scrollPositions=Array.from(el.querySelectorAll<HTMLElement>('.chat-history,.music-track-list,.home-game-rows,.log-output,.forum-list,.lobby-room-list,.lobby-grants')).map(node=>({node,top:node.scrollTop,left:node.scrollLeft}));
+      const scrollPositions=Array.from(el.querySelectorAll<HTMLElement>(SCROLL_REGIONS)).map(node=>({node,top:node.scrollTop,left:node.scrollLeft}));
       const parent=el.parentElement!,card=parent.parentElement!,heading=card.querySelector<HTMLElement>('.card-heading');
       const css=getComputedStyle(parent),padding=parseFloat(css.paddingTop)+parseFloat(css.paddingBottom);
       const natural=contentHeight(el)+(heading?.offsetHeight||40)+padding+gap+2;
-      // Avoid unbounded growth for chat/history/library cards. Overflow stays usable inside the card.
+      // Histories keep a bounded viewport. Ordinary forms grow with their
+      // controls instead of silently turning auto height into fixed height.
       const limit=Math.max(12,Math.min(40,Math.floor((window.innerHeight-170)/ROW)));
-      if(fit)callback.current(Math.max(4,Math.min(limit,Math.ceil(natural/ROW))));
+      if(fit)callback.current(Math.max(4,Math.min(scrollPositions.length?limit:100,Math.ceil(natural/ROW))));
       const min=minimumContent(el),sidePadding=parseFloat(css.paddingLeft)+parseFloat(css.paddingRight);
       for(const {node,top,left} of scrollPositions){node.scrollTop=top;node.scrollLeft=left;}
       minCallback.current({width:min.width+sidePadding+2,height:Math.max(4,Math.min(limit,Math.ceil((min.height+(heading?.offsetHeight||40)+padding+gap+2)/ROW)))});
     });};
     const observer=new ResizeObserver(measure);observer.observe(el);
+    // A constrained body can keep the same size when its heading wraps (large
+    // fonts / narrow cards). Include that fixed space in the next measurement.
+    const heading=el.closest('.air-card')?.querySelector('.card-heading');if(heading)observer.observe(heading);
     const mutations=new MutationObserver(measure);mutations.observe(el,{subtree:true,childList:true,characterData:true});
     el.addEventListener('load',measure,true);window.addEventListener('resize',measure);measure();
     return()=>{cancelAnimationFrame(frame);observer.disconnect();mutations.disconnect();el.removeEventListener('load',measure,true);window.removeEventListener('resize',measure);};

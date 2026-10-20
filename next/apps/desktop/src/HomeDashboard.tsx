@@ -53,7 +53,7 @@ export function Home(){
    {cover&&<HomeCover src={cover} position={current} animate={s.settings.animationSpeed!==0} onError={()=>setCover('')}/>}
   </div>},
   {id:'roles',title:'我的角色',x:0,y:0,w:4,minW:4,minH:7,className:'home-role-card',content:<div className="home-role">
-   <div className="home-role-identity"><Avatar name={role?.name} image={role?.avatar} size={48}/><div><strong>{role?.name||'尚未登录'}</strong><small>{role?.username||'使用幻想镇皮肤站账号'}</small><span className="home-role-status" aria-live="polite">{switching?'正在切换角色…':role?'已登录 · 当前游戏角色':'登录后选择角色，开始游戏'}</span></div></div>
+   <div className="home-role-identity"><Avatar name={role?.name} image={role?.avatar} size={48}/><div><strong>{role?.name||(role?'未选择游戏角色':'尚未登录')}</strong><small>{role?.username||'使用幻想镇皮肤站账号'}</small><span className="home-role-status" aria-live="polite">{switching?'正在切换角色…':role?(role.uuid?'已登录 · 当前游戏角色':'账号已登录 · 请管理皮肤站角色'):'登录后选择角色，开始游戏'}</span></div></div>
    {(s.accounts.length>1||role?.profiles?.length>1)&&<div className="home-role-selectors">
     {s.accounts.length>1&&<Field label="切换账号"><Select label="切换游戏账号" value={role?.id||''} disabled={locked||switching} options={s.accounts.map((a:any)=>({value:a.id,label:[a.name||'选择游戏角色',a.username].filter(Boolean).join(' · ')}))} onChange={(id:string)=>switchIdentity(()=>saveSettings({selectedAccount:id}))}/></Field>}
     {role?.profiles?.length>1&&<Field label="游戏角色"><Select label="切换游戏角色" value={role.uuid} disabled={locked||switching} options={role.profiles.map((p:any)=>({value:p.id,label:p.name}))} onChange={(uuid:string)=>switchIdentity(async()=>{await invoke('account.profile',{id:role.id,uuid});await reload();})}/></Field>}

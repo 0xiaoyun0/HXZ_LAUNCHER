@@ -1,3 +1,4 @@
+import * as v8 from '../shared/arcade-engine-v8.mjs';
 import * as v7 from '../shared/arcade-engine-v7.mjs';
 import * as v6 from '../shared/arcade-engine-v6.mjs';
 import * as v5 from '../shared/arcade-engine-v5.mjs';
@@ -26,8 +27,8 @@ export function createArcade({db,auth,admin,body,send,limit,broadcast,points}){
     if(url.pathname.endsWith('/start')){
       const now=Date.now();for(const [id,r] of runs)if(now-r.updated>20*60000||r.uid===user.uid)runs.delete(id);
       if(runs.size>=5000)throw Error('游戏服务繁忙');
-      const rulesVersion=input.rulesVersion==null?2:input.rulesVersion;if(![2,3,4,5,6,7,8].includes(rulesVersion))throw Error('小游戏规则版本不受支持，请更新社区服务端');const engine=rulesVersion===8?{GAMES}:rulesVersion===7?v7:rulesVersion===6?v6:rulesVersion===5?v5:rulesVersion===4?v4:rulesVersion===3?previous:legacy;if(!engine.GAMES.some(g=>g.id===game))throw Error('请更新启动器，以使用这个小游戏的新版规则');
-      const id=randomUUID(),seed=randomBytes(4).readUInt32LE();runs.set(id,{uid:user.uid,game,seed,started:now,updated:now,rulesVersion,state:(rulesVersion===8?createGame:rulesVersion===7?v7.createGame:rulesVersion===6?v6.createGame:rulesVersion===5?v5.createGame:rulesVersion===4?v4.createGame:rulesVersion===3?previous.createGame:legacy.createGame)(game,seed)});send(res,200,{id,seed,maxTicks:game==='blocks'?MAX_TICKS:null,checkpoint:true,rulesVersion});
+      const rulesVersion=input.rulesVersion==null?2:input.rulesVersion;if(![2,3,4,5,6,7,8,9].includes(rulesVersion))throw Error('小游戏规则版本不受支持，请更新社区服务端');const engine=rulesVersion===9?{GAMES}:rulesVersion===8?v8:rulesVersion===7?v7:rulesVersion===6?v6:rulesVersion===5?v5:rulesVersion===4?v4:rulesVersion===3?previous:legacy;if(!engine.GAMES.some(g=>g.id===game))throw Error('请更新启动器，以使用这个小游戏的新版规则');
+      const id=randomUUID(),seed=randomBytes(4).readUInt32LE();runs.set(id,{uid:user.uid,game,seed,started:now,updated:now,rulesVersion,state:(rulesVersion===9?createGame:rulesVersion===8?v8.createGame:rulesVersion===7?v7.createGame:rulesVersion===6?v6.createGame:rulesVersion===5?v5.createGame:rulesVersion===4?v4.createGame:rulesVersion===3?previous.createGame:legacy.createGame)(game,seed)});send(res,200,{id,seed,maxTicks:game==='blocks'?MAX_TICKS:null,checkpoint:true,rulesVersion});
     }else if(url.pathname.endsWith('/finish')||url.pathname.endsWith('/checkpoint')){
       limit('arcade-submit:'+user.uid,12);
       const run=runs.get(input.id);if(!run||run.uid!==user.uid||run.game!==game)throw Error('本局已过期，请重新开始');
@@ -37,7 +38,7 @@ export function createArcade({db,auth,admin,body,send,limit,broadcast,points}){
         const from=input.from||0;if(!Number.isSafeInteger(from)||from<0||from>run.state.tick||!Array.isArray(input.inputs))throw Error('成绩分段顺序不一致，请重试同步');
         // A lost acknowledgement can resend an already verified prefix. Never
         // reapply that prefix or trust a client state; replay only new inputs.
-        run.state=(run.rulesVersion===8?replaySegment:run.rulesVersion===7?v7.replaySegment:run.rulesVersion===6?v6.replaySegment:run.rulesVersion===5?v5.replaySegment:run.rulesVersion===4?v4.replaySegment:run.rulesVersion===3?previous.replaySegment:legacy.replaySegment)(run.state,input.ticks,input.inputs.filter(e=>!Array.isArray(e)||e[0]>run.state.tick));
+        run.state=(run.rulesVersion===9?replaySegment:run.rulesVersion===8?v8.replaySegment:run.rulesVersion===7?v7.replaySegment:run.rulesVersion===6?v6.replaySegment:run.rulesVersion===5?v5.replaySegment:run.rulesVersion===4?v4.replaySegment:run.rulesVersion===3?previous.replaySegment:legacy.replaySegment)(run.state,input.ticks,input.inputs.filter(e=>!Array.isArray(e)||e[0]>run.state.tick));
       }
       run.updated=Date.now();
       if(url.pathname.endsWith('/checkpoint')){send(res,200,{ticks:run.state.tick,score:run.state.score});return true;}

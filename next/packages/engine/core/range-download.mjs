@@ -2,6 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {setTimeout as delay} from 'node:timers/promises';
+import {transferFetch} from './download-http.mjs';
+import {observeSource} from './source-health.mjs';
 
 // Fixed, independently retriable ranges with a work queue: a fast connection
 // takes another block instead of waiting for a slow quarter of the file.
@@ -32,7 +34,7 @@ export async function downloadRanges(urls,file,options,{slot,hash,noLinks,writeJ
      const touch=()=>{clearTimeout(timer);timer=setTimeout(()=>timeout.abort(Error('分段下载长时间没有数据')),options.idleTimeoutMs??(active()<=Math.max(1,limit/4)?12000:20000));};
      try{
       release=await slot(transfer);timer=setTimeout(()=>timeout.abort(Error('连接分段下载节点超时')),options.connectTimeoutMs??6000);
-      const res=await fetch(url,{headers:{...options.headers,'Accept-Encoding':'identity',Range:`bytes=${start}-${end}`},signal:transfer});
+      const res=await transferFetch(url,{headers:{...options.headers,'Accept-Encoding':'identity',Range:`bytes=${start}-${end}`},signal:transfer},options.originURL||urls[0]);
       if(res.status!==206||res.headers.get('content-range')!==`bytes ${start}-${end}/${options.size}`){await res.body?.cancel();const e=Error('分段下载节点返回 '+res.status);e.permanent=res.status<500&&![408,429].includes(res.status);if(res.status===429){const raw=res.headers.get('retry-after'),ms=/^\d+$/.test(raw||'')?Number(raw)*1000:Date.parse(raw)-Date.now();cooldowns.set(url,Date.now()+Math.max(1000,Number.isFinite(ms)?ms:10000));e.cooldown=true;}throw e;}
       touch();
       let position=start,paceTime=Date.now(),paceBytes=0;
@@ -42,7 +44,7 @@ export async function downloadRanges(urls,file,options,{slot,hash,noLinks,writeJ
        received[part]+=chunk.length;options.onProgress?.(chunk.length);options.onTransfer?.({bytes:received.reduce((a,b)=>a+b,0),total:options.size,source:new URL(url).hostname});
       }
       if(position!==end+1)throw Error('分段下载不完整');done[part]=true;await persist();failure=null;break sources;
-     }catch(e){if(signal.aborted)throw signal.reason;failure=e;if(e.permanent){unavailable.add(url);break;}if(e.cooldown||String(e.message).includes('持续低速')||attempt===5)break;}
+     }catch(e){if(signal.aborted)throw signal.reason;failure=e;observeSource(url,{state:'error',reason:timeout.signal.aborted?String(timeout.signal.reason.message):e.message,checkKind:'transfer'});if(e.permanent){unavailable.add(url);break;}if(timeout.signal.aborted||e.cooldown||String(e.message).includes('持续低速')||attempt===5)break;}
      finally{clearTimeout(timer);release?.();}
      report({source:new URL(url).hostname,message:`分段连接重试 ${attempt}/5，已完成分段保留`});await delay(options.retryDelay??Math.min(2000,250*2**(attempt-1)),undefined,{signal});
      }

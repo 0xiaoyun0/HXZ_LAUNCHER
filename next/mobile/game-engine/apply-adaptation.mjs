@@ -6,7 +6,7 @@ const here=path.dirname(fileURLToPath(import.meta.url)),root=path.resolve(here,'
 const fork=path.resolve(process.argv[2]||'.runtime/fcl-source/FoldCraftLauncher-efe4dcc5dbc78c55be177c330239e12845ae7ccf');
 const java=path.join(fork,'FCL/src/main/java');
 const gradleFile=path.join(fork,'FCL/build.gradle.kts');
-await fs.writeFile(gradleFile,(await fs.readFile(gradleFile,'utf8')).replace(/versionCode = 7000[0-3]/,'versionCode = 70003'));
+await fs.writeFile(gradleFile,(await fs.readFile(gradleFile,'utf8')).replace(/versionCode\s*=\s*\d+/,'versionCode = 80300').replace(/versionName\s*=\s*"[^"]+"/,'versionName = "0.8.3"'));
 let build=await fs.readFile(gradleFile,'utf8');if(!build.includes('implementation("com.squareup.okhttp3:okhttp:4.12.0")')){build=build.replace('dependencies {','dependencies {\n    implementation("com.squareup.okhttp3:okhttp:4.12.0")');await fs.writeFile(gradleFile,build);}
 build=build.replace('implementation("com.squareup.okhttp3:okhttp:4.12.0")\n','implementation("com.squareup.okhttp3:okhttp:4.12.0") { exclude(group = "org.jetbrains.kotlin") }\n');await fs.writeFile(gradleFile,build);
 await fs.cp(path.join(here,'src'),java,{recursive:true});
@@ -100,6 +100,12 @@ await patch('com/tungsten/fclcore/download/DefaultGameBuilder.java',[
  ['    private final DefaultDependencyManager dependencyManager;','    private final DefaultDependencyManager dependencyManager;\n    private boolean preserveFilesOnFailure;\n    public void setPreserveFilesOnFailure(boolean value) { preserveFilesOnFailure = value; }'],
  ['            if (exception != null)\n                dependencyManager','            if (exception != null && !preserveFilesOnFailure)\n                dependencyManager']
 ]);
+// Regenerate only our SHA1 override, including maintained forks with an older
+// observer-only body. Updating a template must never insert a second execute().
+const fileTask=path.join(java,'com/tungsten/fclcore/task/FileDownloadTask.java');
+let fileTaskCode=await fs.readFile(fileTask,'utf8');
+fileTaskCode=fileTaskCode.replace(/    @Override\r?\n    public void execute\(\) throws Exception \{[\s\S]*?\r?\n    \}\r?\n\r?\n/g,body=>body.includes('up.hxz.AndroidDownloads.download')?'':body);
+await fs.writeFile(fileTask,fileTaskCode);
 await patch('com/tungsten/fclcore/task/FileDownloadTask.java',[
  ['this(urls, file, integrityCheck, 3);','this(urls, file, integrityCheck, 5);'],
  ['    @Override\n    protected EnumCheckETag shouldCheckETag()',`    @Override
@@ -115,7 +121,7 @@ await patch('com/tungsten/fclcore/task/FileDownloadTask.java',[
                 downloadedBytes = done; totalBytes = total;
                 if (total > 0) updateProgress(Math.min(done, total), total);
                 if (received > 0) updateDownloadSpeed(received);
-            });
+            }, this::isCancelled);
             if (isCancelled()) throw new java.util.concurrent.CancellationException();
             for (IntegrityCheckHandler handler : integrityCheckHandlers) handler.checkIntegrity(staged, file.toPath());
             Files.createDirectories(file.toPath().toAbsolutePath().getParent());
@@ -130,7 +136,12 @@ await patch('com/tungsten/fclcore/task/FileDownloadTask.java',[
  ['                Files.deleteIfExists(file.toPath());','                if (integrityCheck != null) integrityCheck.performCheck(digest);'],
  ['                // Integrity check\n                if (integrityCheck != null) {\n                    integrityCheck.performCheck(digest);\n                }','                // Integrity was verified before the destination was replaced.']
 ]);
+const verifiedFileTask=await fs.readFile(fileTask,'utf8');
+if((verifiedFileTask.match(/public void execute\(\)/g)||[]).length!==1||!verifiedFileTask.includes('}, this::isCancelled);'))throw Error('FileDownloadTask SHA1 bridge was not applied exactly once');
 // Keep the shared PC transport unchanged; this observer is only in the Android copy.
+// Refresh the shared transport before applying the Android-only observer so a
+// maintained fork does not silently keep an old downloader after a PC repair.
+for(const file of ['Network.java','DownloadRateLimiter.java'])await fs.copyFile(path.join(root,'resources/installer/src/up/hxz',file),path.join(java,'up/hxz',file));
 await patch('up/hxz/Network.java',[
  ['private static final ExecutorService SOURCES=Executors.newFixedThreadPool(128,r->{Thread t=new Thread(null,r,"hxz-download-source",256*1024);t.setDaemon(true);return t;});',`private static final ExecutorService SOURCES=downloadPool();
     private static ExecutorService downloadPool(){ThreadPoolExecutor pool=(ThreadPoolExecutor)Executors.newFixedThreadPool(64,r->{Thread t=new Thread(null,r,"hxz-download-source",256*1024);t.setDaemon(true);return t;});pool.setKeepAliveTime(30,TimeUnit.SECONDS);pool.allowCoreThreadTimeOut(true);return pool;}`],

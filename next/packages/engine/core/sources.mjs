@@ -6,6 +6,9 @@ export function setDownloadMode(value) {
   mode = value === "domestic" ? "domestic" : "official";
 }
 export function downloadSources(raw) {
+  const publicURL = new URL(raw);
+  // Never copy credentials or a signed query to another operator.
+  if(publicURL.protocol!=='https:' || publicURL.username || publicURL.password || publicURL.search || publicURL.hash || publicURL.port)return [raw];
   const u = new URL(raw),
     out = [],
     base = "https://bmclapi2.bangbang93.com",
@@ -21,12 +24,12 @@ export function downloadSources(raw) {
         out.push(base + p);
         break;
       case "libraries.minecraft.net":
-        out.push(base+'/libraries'+p);
-        out.push('https://repo.maven.apache.org/maven2'+p,'https://maven.aliyun.com/repository/public'+p,'https://repo.huaweicloud.com/repository/maven'+p);
+        out.push(base+'/maven'+p);
+        out.push('https://repo.maven.apache.org/maven2'+p,'https://repo1.maven.org/maven2'+p,'https://maven.aliyun.com/repository/public'+p,'https://repo.huaweicloud.com/repository/maven'+p);
         break;
       case "repo.maven.apache.org":
       case "repo1.maven.org":
-        if(u.pathname.startsWith('/maven2/'))out.push('https://maven.aliyun.com/repository/public'+p.slice(7),'https://repo.huaweicloud.com/repository/maven'+p.slice(7));
+        if(u.pathname.startsWith('/maven2/'))out.push((u.hostname==='repo1.maven.org'?'https://repo.maven.apache.org':'https://repo1.maven.org')+p,'https://maven.aliyun.com/repository/public'+p.slice(7),'https://repo.huaweicloud.com/repository/maven'+p.slice(7));
         break;
       case "maven.fabricmc.net":
       case "maven.minecraftforge.net":

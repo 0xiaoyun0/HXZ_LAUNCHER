@@ -1,4 +1,6 @@
 import {managedUpdateConfig} from './managed-update.mjs';
+import {installationRequest} from './install-request.mjs';
+import {downloadNodeStatus,probeDownloadNodes,cancelNodeProbe} from './source-health.mjs';
 import {createAssetExporter} from './asset-export.mjs';
 import {parseInvitation} from './direct-wire.mjs';
 import {describeRoomInstance,roomInstancePlan,compatibleRoomGame,loaderVersion} from './room-instance.mjs';
@@ -112,7 +114,7 @@ export async function createServices({
     theme: "light",
     fontSize: 16,
     accentColor: "#5668bc",
-    cardLayouts: {},cardPlacements:{},widgets:[],shortcuts:{},shortcutEnabled:true,voiceOverlay:false,gameWindowAction:'minimize',gameSleep:true,memoryOptimization:true,onboardingDone:false,
+    cardLayouts: {},cardPlacements:{},widgets:[],shortcuts:{},shortcutEnabled:true,voiceOverlay:false,gameWindowAction:'minimize',gameSleep:true,memoryOptimization:true,onboardingDone:false,onboardingVersion:0,
     cardStyle: {color:'',opacity:1,gap:14,radius:10},
     backgroundColor: "",
     blueprintInstance:"",showCover:true,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
@@ -304,6 +306,7 @@ export async function createServices({
     uuid: a.uuid,
     profiles: a.profiles || [],
     persistent,
+    authenticated: !!a.accessToken,
     avatar: a.avatars?.[a.uuid]
   });
   async function saveAccounts() {
@@ -836,22 +839,7 @@ export async function createServices({
       /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(id)
     )
       throw Error("实例名称无效");
-    const request = {
-      gameVersion: pack?.minecraft || input.minecraft,
-      loader: {
-        type: pack?.loader || input.loader || "",
-        version: pack?.loaderVersion || input.loaderVersion || ""
-      }
-    };
-    if (
-      typeof request.gameVersion !== "string" ||
-      !/^[\w.+-]{1,100}$/.test(request.gameVersion) ||
-      !["", "fabric", "quilt", "forge", "neoforge"].includes(
-        request.loader.type
-      ) ||
-      (request.loader.type && !/^[\w.+-]{1,100}$/.test(request.loader.version))
-    )
-      throw Error("游戏或加载器版本无效");
+    const request = installationRequest(input, pack);
     const controller = new AbortController();
     task = controller;
     if(!continuation){logs = [];emit({ type: "logs-reset" });}
@@ -1041,6 +1029,9 @@ export async function createServices({
     async "catalog.versions"() {
       return catalog.versions();
     },
+    async 'download.sources'(){return downloadNodeStatus();},
+    async 'download.probe'(input){return probeDownloadNodes(Array.isArray(input.ids)?input.ids:undefined);},
+    async 'download.probe.cancel'(){cancelNodeProbe();return downloadNodeStatus();},
     async "catalog.loaders"(input) {
       return catalog.loaders(input.minecraft, input.loader);
     },
@@ -2159,6 +2150,7 @@ export async function createServices({
   };
   let exclusive = false;
   return {
+    hasAuthenticatedAccount() { return accounts.some(a => a.id === settings.selectedAccount && !!a.accessToken); },
     async invoke(action, input = {}) {
       if (!Object.hasOwn(actions, action)) throw Error("不支持的操作");
       if (input == null || typeof input !== "object" || Array.isArray(input))

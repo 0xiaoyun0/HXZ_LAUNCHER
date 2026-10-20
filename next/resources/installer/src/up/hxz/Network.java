@@ -29,11 +29,41 @@ final class Network {
     private final ConcurrentHashMap<String,Long> latency=new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String,Long> cooldown=new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String,Long> reported=new ConcurrentHashMap<>();
-    private static String host(String url){try{return new URL(url).getHost();}catch(Exception e){return url;}}
+    private static String host(String url){try{return new URL(url).getHost();}catch(Exception e){return "地址无效";}}
+    static String safeURL(String raw){
+        try{URI uri=new URI(raw);String scheme=uri.getScheme(),host=uri.getHost();if(scheme==null||host==null)return "[地址已隐藏]";return scheme+"://"+host+(uri.getPort()<0?"":":"+uri.getPort())+(uri.getRawPath()==null?"":uri.getRawPath());}
+        catch(Exception ignored){return "[地址已隐藏]";}
+    }
+    static String safeMessage(String value){
+        if(value==null)return "网络请求失败";
+        java.util.regex.Matcher matches=java.util.regex.Pattern.compile("(?i)https?://[^\\s<>\\\"']+").matcher(value);StringBuffer out=new StringBuffer();
+        while(matches.find())matches.appendReplacement(out,java.util.regex.Matcher.quoteReplacement(safeURL(matches.group())));matches.appendTail(out);return out.toString();
+    }
+    // Never retain a raw nested cause: JDK/Gson messages can embed a complete URL.
+    static IOException safeFailure(Throwable failure){return safeFailure(failure,0);}
+    private static IOException safeFailure(Throwable failure,int depth){
+        String message=safeMessage(failure.getMessage());IOException copy;
+        if(failure instanceof HttpFailure){HttpFailure http=(HttpFailure)failure;copy=new HttpFailure(message,http.status,http.retryAfter);}
+        else if(failure instanceof SocketTimeoutException)copy=new SocketTimeoutException(message);
+        else if(failure instanceof UnknownHostException)copy=new UnknownHostException(message);
+        else if(failure instanceof SocketException)copy=new SocketException(message);
+        else if(failure instanceof javax.net.ssl.SSLException)copy=new javax.net.ssl.SSLException(message);
+        else if(failure instanceof InterruptedIOException)copy=new InterruptedIOException(message);
+        else if(failure instanceof NetworkFailure)copy=new NetworkFailure(message);
+        else if(failure instanceof FileSystemException){FileSystemException file=(FileSystemException)failure;copy=new FileSystemException(safeMessage(file.getFile()),file.getOtherFile()==null?null:safeMessage(file.getOtherFile()),safeMessage(file.getReason()));}
+        else copy=new IOException(message);
+        copy.setStackTrace(failure.getStackTrace());
+        if(depth<8){if(failure.getCause()!=null&&failure.getCause()!=failure)copy.initCause(safeFailure(failure.getCause(),depth+1));for(Throwable suppressed:failure.getSuppressed())if(suppressed!=failure)copy.addSuppressed(safeFailure(suppressed,depth+1));}
+        return copy;
+    }
     final AtomicLong received=new AtomicLong();
     private final AtomicLong verified=new AtomicLong();
     private final Set<RaceState> transfers=ConcurrentHashMap.newKeySet();
-    void cancelActive(){for(RaceState state:transfers){state.cancelled=true;for(HttpURLConnection c:state.connections)c.disconnect();}}
+    void cancelActive(){cancelActive(null);}
+    void cancelActive(Thread owner){for(RaceState state:transfers){if(owner!=null&&state.owner!=owner)continue;synchronized(state){state.cancelled=true;state.notifyAll();}for(HttpURLConnection c:state.connections)c.disconnect();}}
+    private static void pause(RaceState state,long millis)throws IOException,InterruptedException{
+        long end=System.nanoTime()+TimeUnit.MILLISECONDS.toNanos(millis);synchronized(state){while(!state.cancelled){checkCancelled();long remaining=end-System.nanoTime();if(remaining<=0)return;TimeUnit.NANOSECONDS.timedWait(state,remaining);}throw new InterruptedIOException("下载已取消");}
+    }
     long usefulBytes(){long sum=verified.get();for(RaceState state:transfers)sum+=state.bytes.get();return sum;}
     String currentFile(){for(RaceState state:transfers)return describe(state);return "";}
     List<String> activeDetails(){List<String> out=new ArrayList<>();for(RaceState state:transfers){out.add(describe(state));if(out.size()>=8)break;}return out;}
@@ -44,6 +74,7 @@ final class Network {
         this.timeout=seconds*1000;this.retries=retries;concurrency(concurrency);System.setProperty("http.maxConnections",String.valueOf(Math.max(16,concurrency)));
     }
     private static final class RaceState {
+        final Thread owner=Thread.currentThread();
         final AtomicLong bytes=new AtomicLong();
         String label;
         long expected;
@@ -70,15 +101,18 @@ final class Network {
         return connect(raw,tracked,state,offset,-1);
     }
     private HttpURLConnection connect(String raw,Set<HttpURLConnection> tracked,RaceState state,long offset,long end)throws IOException{
-        URL url=new URL(raw);if(!url.getProtocol().equals("https")&&!url.getProtocol().equals("http"))throw new IOException("只允许 HTTP(S) 下载");
+        try{return connectRaw(raw,tracked,state,offset,end);}catch(IOException failure){throw safeFailure(failure);}
+    }
+    private HttpURLConnection connectRaw(String raw,Set<HttpURLConnection> tracked,RaceState state,long offset,long end)throws IOException{
+        URL url;try{url=new URL(raw);}catch(MalformedURLException e){throw safeFailure(e);}if(!url.getProtocol().equals("https")&&!url.getProtocol().equals("http"))throw new IOException("只允许 HTTP(S) 下载");
         for(int i=0;i<6;i++){
-            HttpURLConnection c=(HttpURLConnection)url.openConnection();c.setConnectTimeout(Math.min(timeout,6000));c.setReadTimeout(Math.min(timeout,10000));c.setInstanceFollowRedirects(false);c.setRequestProperty("User-Agent","HXZ-UP/1.0");
+            HttpURLConnection c=(HttpURLConnection)url.openConnection();c.setConnectTimeout(Math.max(1,Integer.getInteger("hxz.download.connectMillis",Math.min(timeout,6000))));c.setReadTimeout(Math.max(1,Integer.getInteger("hxz.download.idleMillis",Math.min(timeout,10000))));c.setInstanceFollowRedirects(false);c.setRequestProperty("User-Agent","HXZ-UP/1.0");
             c.setRequestProperty("Accept-Encoding","identity");if(offset>0||end>=0)c.setRequestProperty("Range","bytes="+offset+"-"+(end>=0?end:""));
             if(state!=null&&state.cancelled)throw new InterruptedIOException("下载已取消");
             if(tracked!=null)tracked.add(c);
             int status;
             try{checkCancelled();status=c.getResponseCode();}
-            catch(IOException e){c.disconnect();if(tracked!=null)tracked.remove(c);throw e;}
+            catch(IOException e){c.disconnect();if(tracked!=null)tracked.remove(c);throw safeFailure(e);}
             if(status>=300&&status<400){String location=c.getHeaderField("Location");c.disconnect();if(tracked!=null)tracked.remove(c);if(location==null)throw new IOException("重定向缺少地址");URL next=new URL(url,location);if(!next.getProtocol().equals("http")&&!next.getProtocol().equals("https"))throw new IOException("无效重定向协议");if(url.getProtocol().equals("https")&&!next.getProtocol().equals("https"))throw new IOException("拒绝从 HTTPS 降级");url=next;continue;}
             if(status!=200&&!(status==206&&(offset>0||end>=0))){String retryAfter=c.getHeaderField("Retry-After");c.disconnect();if(tracked!=null)tracked.remove(c);throw new HttpFailure(status,raw,retryAfter);}return c;
         }throw new IOException("重定向次数过多");
@@ -86,7 +120,8 @@ final class Network {
     private static final class HttpFailure extends NetworkFailure {
         final int status;
         final long retryAfter;
-        HttpFailure(int status,String url,String header){super("HTTP "+status+" · "+url);this.status=status;this.retryAfter=parseRetryAfter(header);}
+        HttpFailure(int status,String url,String header){this("HTTP "+status+" · "+safeURL(url),status,parseRetryAfter(header));}
+        HttpFailure(String message,int status,long retryAfter){super(message);this.status=status;this.retryAfter=retryAfter;}
     }
     private static long parseRetryAfter(String header){
         if(header==null)return 0;
@@ -115,7 +150,7 @@ final class Network {
             byte[] buffer=new byte[8192];int n;
             while((n=input.read(buffer))!=-1){if(output.size()+n>limit)throw new IOException("页面超过大小限制");output.write(buffer,0,n);}
             return new String(output.toByteArray(),StandardCharsets.UTF_8);
-        }finally{connection.disconnect();}
+        }catch(IOException e){throw safeFailure(e);}finally{connection.disconnect();}
     }
     JsonObject json(String url)throws IOException{
         return json(url,null);
@@ -126,9 +161,9 @@ final class Network {
         Network metadata=new Network(Math.max(1,Math.min(seconds,timeout/1000)),0,1);
         Future<JsonObject> task=SOURCES.submit(()->metadata.json(url,state));
         try{return task.get(seconds,TimeUnit.SECONDS);}
-        catch(TimeoutException e){throw new SocketTimeoutException("更新信息请求超时: "+url);}
+        catch(TimeoutException e){throw new SocketTimeoutException("更新信息请求超时: "+safeURL(url));}
         catch(InterruptedException e){Thread.currentThread().interrupt();throw new InterruptedIOException("更新检查已取消");}
-        catch(ExecutionException e){if(e.getCause() instanceof IOException)throw (IOException)e.getCause();throw new IOException("更新信息读取失败",e.getCause());}
+        catch(ExecutionException e){throw safeFailure(e.getCause());}
         finally{state.cancelled=true;task.cancel(true);for(HttpURLConnection c:state.connections)SOURCES.execute(c::disconnect);}
     }
     static boolean unavailable(Throwable failure){
@@ -146,7 +181,7 @@ final class Network {
             @Override public int read(byte[] b,int off,int len)throws IOException{int n=in.read(b,off,len);if(n>0){count+=n;if(count>IO.MAX_JSON)throw new IOException("服务端元数据过大");}return n;}
         },StandardCharsets.UTF_8)){
             return JsonParser.parseReader(reader).getAsJsonObject();
-        }catch(JsonParseException|IllegalStateException e){throw new IOException("服务端返回无效 JSON",e);}finally{c.disconnect();if(state!=null)state.connections.remove(c);}
+        }catch(JsonParseException|IllegalStateException e){throw new IOException("服务端返回无效 JSON",safeFailure(e));}catch(IOException e){throw safeFailure(e);}finally{c.disconnect();if(state!=null)state.connections.remove(c);}
     }
     Path race(List<String> urls,Path directory,String sha1,long expected)throws IOException,InterruptedException{
         String label="";if(!urls.isEmpty())try{String path=new URI(urls.get(0)).getPath();label=path.substring(path.lastIndexOf('/')+1);}catch(Exception ignored){}
@@ -222,7 +257,7 @@ final class Network {
                             boolean acquired=false;Path file=null;
                             try{
                                 long pause=Math.max(stagger,cooldown.getOrDefault(host(url),0L)-System.currentTimeMillis());
-                                if(pause>0)Thread.sleep(pause);
+                                if(pause>0)pause(state,pause);
                                 if(closed.get())return null;
                                 slots.acquire();acquired=true;if(closed.get())return null;
                                 long started=System.nanoTime();file=downloadSource(url,directory,sha1,expected,requiredArray,state);
@@ -230,6 +265,7 @@ final class Network {
                                 if(!closed.get()&&winner.compareAndSet(null,file))return file;
                                 return null;
                             }catch(IOException failure){
+                                failure=safeFailure(failure);if(state.cancelled)throw failure;
                                 if(closed.get())return null;
                                 if(Thread.currentThread().isInterrupted())throw new InterruptedException("下载已取消");
                                 errors.put(url,host(url)+" → "+failure.getMessage());
@@ -256,7 +292,7 @@ final class Network {
                 }
                 if(permanent.size()==unique.size()||(retries==0||System.currentTimeMillis()>=deadline))
                     throw new NetworkFailure("下载暂未完成，可继续任务\n"+String.join("\n",errors.values()));
-                Thread.sleep(Math.min(30000,1000L<<Math.min(round,5)));
+                pause(state,Math.min(30000,1000L<<Math.min(round,5)));
             }
         }finally{synchronized(state.partials){state.cancelled=true;for(Path partial:state.partials.values())Files.deleteIfExists(partial);state.partials.clear();}for(HttpURLConnection c:state.connections)c.disconnect();transfers.remove(state);}
     }
@@ -285,21 +321,22 @@ final class Network {
                 slots.acquire();try{
                     Path file=downloadSource(url,directory,sha1,size,requiredArray,state);verified.addAndGet(Files.size(file));synchronized(state.partials){for(Path stale:state.partials.values())Files.deleteIfExists(stale);state.partials.clear();}if(state.persistent){Path ready=Files.createTempFile(directory,"verified-",".part");Files.move(file,ready,StandardCopyOption.REPLACE_EXISTING);file=ready;}return file;
                 }catch(IOException failure){
-                    if(Thread.currentThread().isInterrupted()||failure instanceof FileSystemException)throw failure;last=failure;long retry=retryDelay(failure,localAttempt-1);
+                    failure=safeFailure(failure);
+                    if(Thread.currentThread().isInterrupted()||state.cancelled||failure instanceof FileSystemException)throw failure;last=failure;long retry=retryDelay(failure,localAttempt-1);
                     // Retry time measures failed attempts, not minutes spent making useful progress.
                     long retained=0;synchronized(state.partials){Path p=state.partials.get(url);if(p!=null&&Files.isRegularFile(p))retained=Files.size(p);}
                     if(deadline==Long.MAX_VALUE||retained>savedBytes.getOrDefault(url,0L))deadline=System.currentTimeMillis()+budget;
                     savedBytes.put(url,retained);
                     if(retry<0||failure.getMessage().contains("校验失败")||failure.getMessage().contains("长度不匹配")){permanent.add(url);moveOn=true;}
-                    else if(retry>2500||failure.getMessage().contains("持续低速")){if(retry>2500)cooldown.put(host(url),System.currentTimeMillis()+retry);moveOn=true;}
+                    else if(failure instanceof SocketTimeoutException||retry>2500||failure.getMessage().contains("持续低速")){if(retry>2500)cooldown.put(host(url),System.currentTimeMillis()+retry);moveOn=true;}
                     else localWait=retry;
                     long stamp=System.currentTimeMillis(),prior=reported.getOrDefault(host(url),0L);if(stamp-prior>5000){reported.put(host(url),stamp);System.err.println("[下载节点] "+label+" · "+host(url)+" · "+failure.getMessage()+" · "+localAttempt+"/5，进度已保留");}
                 }finally{slots.release();}
-                if(moveOn||localAttempt==5)break;if(localWait>0)Thread.sleep(localWait);checkCancelled();
+                if(moveOn||localAttempt==5)break;if(localWait>0)pause(state,localWait);checkCancelled();
                 }
             }
             if(permanent.size()==urls.size()||retries==0||System.currentTimeMillis()>=deadline)throw new NetworkFailure(label+" · 下载节点暂时无法完成传输，已保留下载进度，可继续任务",last);
-            Thread.sleep(Math.min(Math.min(Math.max(250,pause),10000),Math.max(1,deadline-System.currentTimeMillis())));
+            pause(state,Math.min(Math.min(Math.max(250,pause),10000),Math.max(1,deadline-System.currentTimeMillis())));
         }}finally{state.cancelled=true;for(HttpURLConnection c:state.connections)c.disconnect();if(!state.persistent)synchronized(state.partials){for(Path p:state.partials.values())Files.deleteIfExists(p);}transfers.remove(state);}
     }
     private static final ConcurrentHashMap<String,Object> rangeLocks=new ConcurrentHashMap<>();
@@ -355,9 +392,9 @@ final class Network {
                                 Files.move(pending,index,StandardCopyOption.REPLACE_EXISTING);
                             }
                             complete=true;failure=null;break;
-                        }catch(IOException e){if(Thread.currentThread().isInterrupted()||state.cancelled)throw new InterruptedIOException("下载已取消");if(e instanceof FileSystemException)throw e;failure=e;delay=retryDelay(e,attempt%5);nextSource=delay<0||delay>2500||e.getMessage().contains("持续低速")||e.getMessage().contains("不支持可靠")||e.getMessage().contains("不匹配");}
+                        }catch(IOException e){if(Thread.currentThread().isInterrupted()||state.cancelled)throw new InterruptedIOException("下载已取消");if(e instanceof FileSystemException)throw e;failure=e;delay=retryDelay(e,attempt%5);nextSource=e instanceof SocketTimeoutException||delay<0||delay>2500||e.getMessage().contains("持续低速")||e.getMessage().contains("不支持可靠")||e.getMessage().contains("不匹配");}
                         finally{if(!complete)state.bytes.addAndGet(-progress);if(conn!=null){state.connections.remove(conn);if(!complete)conn.disconnect();}if(acquired)slots.release();}
-                        if(nextSource)attempt=(attempt/5+1)*5-1;else if(attempt%5<4&&delay>0)Thread.sleep(delay);
+                        if(nextSource)attempt=(attempt/5+1)*5-1;else if(attempt%5<4&&delay>0)pause(state,delay);
                     }
                     if(failure!=null)throw failure;
                 }}finally{if(extra)extraRanges.release();exit.countDown();} }));
@@ -380,9 +417,11 @@ final class Network {
         checkCancelled();Path temp;synchronized(state.partials){temp=state.partials.remove(url);}if(temp==null)temp=state.cachePaths.get(url);if(temp==null)temp=Files.createTempFile(directory,"download-",".part");else if(!Files.exists(temp))Files.createFile(temp);
         HttpURLConnection c=null;boolean keep=false,retain=false;long offset=Files.size(temp);
         try{
-            if(state.cancelled)throw new InterruptedIOException("下载已取消");c=connect(url,state.connections,state,offset);checkCancelled();
+            if(state.cancelled)throw new InterruptedIOException("下载已取消");
+            if(offset>0&&sha1!=null&&(expected<0||offset==expected)&&IO.hash(temp).equalsIgnoreCase(sha1)){keep=true;state.bytes.set(offset);return temp;}
+            try{c=connect(url,state.connections,state,offset);}catch(HttpFailure failure){if(failure.status!=416||offset==0)throw failure;Files.newOutputStream(temp,StandardOpenOption.TRUNCATE_EXISTING).close();offset=0;c=connect(url,state.connections,state,0);}checkCancelled();
             if(offset>0&&c.getResponseCode()!=206)offset=0;
-            if(offset>0){String range=c.getHeaderField("Content-Range");if(range==null||!range.startsWith("bytes "+offset+"-"))throw new IOException("断点范围不匹配");}
+            if(c.getResponseCode()==206){String range=c.getHeaderField("Content-Range");java.util.regex.Matcher match=java.util.regex.Pattern.compile("bytes ([0-9]+)-([0-9]+)/([0-9]+)").matcher(range==null?"":range);if(!match.matches()||!match.group(1).equals(String.valueOf(offset))||(expected>=0&&!match.group(3).equals(String.valueOf(expected)))||Long.parseLong(match.group(2))<offset||Long.parseLong(match.group(2))>=Long.parseLong(match.group(3)))throw new IOException("断点范围不匹配");}
             long advertised=c.getContentLengthLong();if(expected>=0&&advertised>=0&&advertised+offset!=expected)throw new IOException("长度不匹配");
             long maximum=requiredArray!=null?IO.MAX_JSON:8L*1024*1024*1024;if(advertised>maximum)throw new IOException("文件超过大小限制");
             MessageDigest digest=IO.digest();Pace pace=new Pace();long count=offset;byte[] buffer=new byte[128*1024];
@@ -396,6 +435,7 @@ final class Network {
             if(requiredArray!=null)validateJson(temp,requiredArray);
             keep=true;return temp;
         }catch(IOException e){
+            e=safeFailure(e);
             boolean permanent=e.getMessage()!=null&&(e.getMessage().contains("校验")||e.getMessage().contains("不匹配")||e.getMessage().contains("大小限制"));
             if(sha1!=null&&!permanent&&retryDelay(e,0)>=0&&Files.size(temp)>0){synchronized(state.partials){if(state.persistent||(!state.cancelled&&!Thread.currentThread().isInterrupted())){state.partials.put(url,temp);retain=true;}}}throw e;
         }finally{

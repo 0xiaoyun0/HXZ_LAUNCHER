@@ -1,6 +1,6 @@
-# 幻想镇 Android 游戏运行组件 0.7.0
+# 幻想镇 Android 游戏运行组件 0.8.3
 
-2026-10-12 安卓安装适配修订：构建号 70003。实测设备为小米 Pad 8 Pro；交付至 `release/0.7.0/android/revision-70003`，使用现有运行组件更新通道分发。幻想镇社区本体保持 0.7.0，账号桥修订同为 70003，无需卸载或清空游戏数据。
+2026-10-20 下载恢复修订：构建号 80300。交付目录 `release/0.8.3/android/game-engine`，签名更新清单位于 `release/0.8.3/updates/game-engine-latest.json`。本轮新增验证来自本机 JVM 和 APK 构建，未新增实体手机兼容性结论。旧 0.7.0 / 70003 的小米 Pad 8 Pro 验证记录保留在下文及历史文档。
 
 可选的 ARM64 原生游戏引擎。社区本体无需安装它也能正常使用聊天、语音、论坛和活动。组件通过同签名的本地权限接收幻想镇社区的三服安装与启动请求；应用身份为 top.hxzmc.gameengine。请勿使用第三方修改包接收账号令牌。
 
@@ -18,11 +18,11 @@
 
 ## 源码与许可
 
-运行组件基于 [FoldCraftLauncher](https://github.com/FCL-Team/FoldCraftLauncher)，固定提交 efe4dcc5dbc78c55be177c330239e12845ae7ccf，遵循其 GPL-3.0 及各依赖许可。本修订的完整修改源码与构建说明随 HXZ-GameEngine-0.7.0-70003-source.zip 交付。组件与幻想镇社区分别打包，保留上游版权。
+运行组件基于 [FoldCraftLauncher](https://github.com/FCL-Team/FoldCraftLauncher)，固定提交 efe4dcc5dbc78c55be177c330239e12845ae7ccf，遵循其 GPL-3.0 及各依赖许可。本修订的完整修改源码与构建说明随 HXZ-GameEngine-0.8.3-80300-source.zip 交付。组件与幻想镇社区分别打包，保留上游版权。
 
 新增入口：com.tungsten.fcl.hxz.HxzBridgeActivity、HxzRunner，以及 up.hxz.AndroidPack 和适配的更新器。修改范围包括签名权限、私有实例目录、幻想镇账号桥、更新包映射、默认下载策略、品牌身份与构建配置。
 
-不要对已修改的源码再次执行 prepare-source.mjs；它仅用于首次在固定上游提交上生成适配内容。交付源码已经包含所有最终修改。
+不要对已修改的源码再次执行 prepare-source.mjs；它仅用于首次在固定上游提交上生成适配内容。交付源码已经包含所有最终修改。维护已有 fork 可运行 apply-adaptation.mjs，它会刷新共享下载引擎再加入 Android 观察器；本版会将 versionCode 设为 80300、versionName 设为 0.8.3。
 
 ## 构建 70001 的安装适配
 
@@ -51,3 +51,9 @@ Sable Java 适配器来自 [sable-android-patch 2.0.3](https://github.com/sa1672
 ## 本轮验证边界
 
 已通过原生 APK 编译及定向本机 JVM 检查：断流续传、404 换源、UTF-8 日志、完成记录、更新前过滤、备份恢复、必需依赖保护、HXZUP 目录映射，以及实际两服清单的规则核验。70003 还验证了用户所报 Nashorn 超时的换源路径、实际认证提供器和 HXZUP 更新门控。实体平板已确认账号/皮肤导入、皮肤站验证、HXZUP 同步，并用系统 Vulkan 越过内置驱动的窗口初始化失败；进服与内存相关的最终结果见适配修订文档，不将单台设备结果推广到所有设备。
+
+## 0.8.3 构建与校验
+
+使用 JDK 21、Gradle 8.14.4、SDK 35，在固定 FCL fork 执行 `:FCL:assembleRelease --console=plain`。运行 `node scripts/package-gameengine-revision.mjs --version=0.8.3 --build=80300` 生成同证书签名 APK、GPL 对应完整源码包、散列记录和签名更新清单；打包脚本不会上传或激活更新通道。签名材料由本机专用配置读取，不进入源码包。
+
+纯原版 `vanilla` 兼容、无进度节点直接换源、416 过期断点重启与完成断点校验后复用均经过本机 Node/Java 边界回归。Android 候选不再把 Fabric/Forge 专用坐标盲目重写到 Maven Central；具体节点用途、公网样本结果与验证限制见 `docs/0.8.3下载源与恢复.md`。

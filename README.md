@@ -1,10 +1,10 @@
-# 幻想镇 · 0.8.2
+# 幻想镇 · 0.8.3
 
-游戏启动与社区客户端：新增骰子战术与航线经营肉鸽，拓展构筑与关卡变化，清理退役功能残留入口，更新 LINKING 观察委托。
+游戏启动与社区客户端：修复原版安装和卡片高度，增加下载节点状态、全屏登录及逐页功能引导，优化肉鸽挑战。
 
-[下载 0.8.2](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.2) · [源码与构建](next/README.md) · [完整更新](next/docs/0.8.2发布说明.md) · [使用与升级](next/docs/0.8.2使用与升级.md)
+[下载 0.8.3](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.3) · [源码与构建](next/README.md) · [完整更新](next/docs/0.8.3发布说明.md) · [使用与升级](next/docs/0.8.3使用与升级.md)
 
-游戏服务端桥沿用 0.8.0 原附件与版本；可选 Android 游戏组件仍为 70003。
+游戏服务端桥沿用 0.8.0 原附件与版本；可选 Android 游戏组件仍为 80300。
 
 ---
 

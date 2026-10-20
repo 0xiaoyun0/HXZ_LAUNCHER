@@ -103,6 +103,7 @@ final class GameInstaller {
     String install(JsonObject profile)throws Exception{
         String gameVersion=IO.str(profile,"gameVersion","");if(gameVersion.isEmpty())return "";
         validateVersion(gameVersion);JsonObject loader=IO.object(profile,"loader");String type=IO.str(loader,"type",""),version=IO.str(loader,"version","");
+        if(type.equals("vanilla"))type="";
         if(!type.isEmpty())validateVersion(version);
         phase("正在读取 Minecraft "+gameVersion+" 版本信息");
         preparedVersion=gameVersion;
@@ -316,17 +317,19 @@ final class GameInstaller {
     }
     private List<String> sources(String raw)throws MalformedURLException{
         List<String> result=new ArrayList<>();URL url=new URL(raw);
+        if(!url.getProtocol().equals("https")||url.getUserInfo()!=null||url.getQuery()!=null||url.getRef()!=null||url.getPort()!=-1)return Collections.singletonList(raw);
         // Optional URL-prefix overrides make controlled mirrors and isolated installer tests possible.
         for(Map.Entry<String,JsonElement> override:mirrors.entrySet())if(raw.startsWith(override.getKey()))result.add(override.getValue().getAsString()+raw.substring(override.getKey().length()));
         if(!result.isEmpty())return result;
+        // Signed URLs and credentials belong only to their issuing origin.
         boolean official=Boolean.parseBoolean(System.getProperty("hxz.launcher.official","true"));String path=url.getFile();String mirror="https://bmclapi2.bangbang93.com";
         switch(url.getHost()){
             case "piston-meta.mojang.com":result.add("https://launchermeta.mojang.com"+path);result.add(mirror+path);break;
             case "piston-data.mojang.com":result.add("https://launcher.mojang.com"+path);result.add(mirror+path);break;
             case "launcher.mojang.com":result.add("https://piston-data.mojang.com"+path);result.add(mirror+path);break;
             case "launchermeta.mojang.com":result.add("https://piston-meta.mojang.com"+path);result.add(mirror+path);break;
-            case "libraries.minecraft.net":result.add(mirror+"/libraries"+path);result.add("https://repo.maven.apache.org/maven2"+path);result.add("https://maven.aliyun.com/repository/public"+path);result.add("https://repo.huaweicloud.com/repository/maven"+path);break;
-            case "repo.maven.apache.org":case "repo1.maven.org":if(path.startsWith("/maven2/")){String artifact=path.substring(7);result.add("https://maven.aliyun.com/repository/public"+artifact);result.add("https://repo.huaweicloud.com/repository/maven"+artifact);}break;
+            case "libraries.minecraft.net":result.add(mirror+"/maven"+path);result.add("https://repo.maven.apache.org/maven2"+path);result.add("https://repo1.maven.org/maven2"+path);result.add("https://maven.aliyun.com/repository/public"+path);result.add("https://repo.huaweicloud.com/repository/maven"+path);break;
+            case "repo.maven.apache.org":case "repo1.maven.org":if(path.startsWith("/maven2/")){String artifact=path.substring(7);result.add((url.getHost().equals("repo1.maven.org")?"https://repo.maven.apache.org":"https://repo1.maven.org")+path);result.add("https://maven.aliyun.com/repository/public"+artifact);result.add("https://repo.huaweicloud.com/repository/maven"+artifact);}break;
             case "resources.download.minecraft.net":result.add(mirror+"/assets"+path);break;
             case "meta.fabricmc.net":result.add(mirror+"/fabric-meta"+path);break;
             case "maven.fabricmc.net":case "maven.minecraftforge.net":result.add(mirror+"/maven"+path);break;
