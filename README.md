@@ -4,7 +4,7 @@ Windows 64/32 位、安卓社区与同包游戏引擎、社区服务端已集中
 
 [完整下载](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.4) · [源码与构建](next/README.md) · [更新说明](next/docs/0.8.4发布说明.md)
 
-安卓当前修订为 **80403**，可覆盖安装；[安卓修订源码](https://github.com/0xiaoyun0/HXZ_LAUNCHER/tree/v0.8.4-android.80403/next) 与首批 Windows/服务端源码分别保留。运行资源仍使用 80400 模块。
+安卓当前修订为 **80404**，可覆盖安装；[安卓修订源码](https://github.com/0xiaoyun0/HXZ_LAUNCHER/tree/v0.8.4-android.80404/next) 与首批 Windows/服务端源码分别保留。运行资源仍使用 80400 模块。
 
 游戏服务端桥保留 0.8.0 原附件及散列；Android 不再安装单独的游戏引擎 APK。
 

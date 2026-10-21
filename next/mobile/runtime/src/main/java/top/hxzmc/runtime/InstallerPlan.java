@@ -177,13 +177,13 @@ public final class InstallerPlan {
     private static String resolveData(String key,Map<String,String> raw,Map<String,String> vars,Set<String> resolving,File root)throws Exception {
         if(vars.containsKey(key))return vars.get(key);if(!resolving.add(key)||resolving.size()>64)throw new IOException("Cyclic installer data variable: "+key);
         String value=raw.get(key);if(value==null)throw new IOException("Unknown installer variable: "+key);
-        Matcher matcher=Pattern.compile("\\{([^}]+)}").matcher(value);
+        Matcher matcher=Pattern.compile("\\{([^}]+)\\}").matcher(value);
         while(matcher.find())resolveData(matcher.group(1),raw,vars,resolving,root);
         value=literal(value,vars,root);vars.put(key,value);resolving.remove(key);return value;
     }
     public static String literal(String value,Map<String,String> vars,File root)throws Exception {
         if(value.startsWith("'")&&value.endsWith("'")&&value.length()>=2)return value.substring(1,value.length()-1);
-        Matcher matcher=Pattern.compile("\\{([^}]+)}").matcher(value);StringBuffer result=new StringBuffer();
+        Matcher matcher=Pattern.compile("\\{([^}]+)\\}").matcher(value);StringBuffer result=new StringBuffer();
         while(matcher.find()){String replacement=vars.get(matcher.group(1));if(replacement==null)throw new IOException("Unknown installer variable: "+matcher.group(1));matcher.appendReplacement(result,Matcher.quoteReplacement(replacement));}
         matcher.appendTail(result);String text=result.toString();
         if(text.startsWith("[")&&text.endsWith("]"))return RuntimeFiles.inside(root,"libraries/"+RuntimeFiles.maven(text.substring(1,text.length()-1))).getAbsolutePath();

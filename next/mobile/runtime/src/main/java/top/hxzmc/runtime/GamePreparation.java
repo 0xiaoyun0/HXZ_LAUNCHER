@@ -353,7 +353,7 @@ public final class GamePreparation {
         }return result;
     }
     public static String replace(String value,Map<String,String> vars)throws IOException {
-        Matcher matcher=Pattern.compile("\\$\\{([^}]+)}").matcher(value);StringBuffer result=new StringBuffer();
+        Matcher matcher=Pattern.compile("\\$\\{([^}]+)\\}").matcher(value);StringBuffer result=new StringBuffer();
         while(matcher.find()){String replacement=vars.get(matcher.group(1));if(replacement==null)throw new IOException("Unknown launch placeholder: "+matcher.group(1));matcher.appendReplacement(result,Matcher.quoteReplacement(replacement));}
         matcher.appendTail(result);return result.toString();
     }
