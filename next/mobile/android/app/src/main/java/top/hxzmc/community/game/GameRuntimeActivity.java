@@ -35,12 +35,12 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
         super.onCreate(saved);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
         try {
             request=new JSONObject(getIntent().getStringExtra("job"));if(request.optInt("protocol")!=1||Math.abs(System.currentTimeMillis()-request.getLong("created"))>300000)throw new IOException("游戏准备请求已过期，请返回社区重试");
-            File module=new File(request.getString("runtimeRoot")).getCanonicalFile(),moduleBase=new File(getFilesDir(),"runtime-modules").getCanonicalFile();
+            File module=new File(request.getString("runtimeRoot")).toPath().toRealPath().toFile(),moduleBase=new File(AppPrivateStorage.resolve(getFilesDir()),"runtime-modules");
             if(!module.toPath().startsWith(moduleBase.toPath())||module.equals(moduleBase))throw new IOException("运行模块位置无效");
             host=new AndroidEngineHost(this,module);options=request.optJSONObject("options");if(options==null)options=new JSONObject();
             android.content.SharedPreferences savedOptions=getSharedPreferences("hxz-game-controls",0);for(String key:Arrays.asList("controlSize","sensitivity","resolutionPercent"))if(!options.has(key)&&savedOptions.contains(key))options.put(key,savedOptions.getFloat(key,1));hostPort=options.optInt("hostLanPort");
             buildScreen();if(request.optBoolean("accountOnly")){settings();return;}
-            root=new File(getFilesDir(),"minecraft/.minecraft");if(!root.isDirectory()&&!root.mkdirs())throw new IOException("无法创建游戏目录");
+            root=RuntimeFiles.inside(host.storage,"minecraft/.minecraft");if(!root.isDirectory()&&!root.mkdirs())throw new IOException("无法创建游戏目录");
             work.execute(this::prepareAndPlay);
         }catch(Exception e){if(frame==null)buildScreen();failed(e);}
     }
@@ -78,7 +78,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             ServerPresets.Preset preset=null;for(ServerPresets.Preset p:ServerPresets.read(presets))if(p.id.equals(selected.getString("id")))preset=p;if(preset==null)throw new IOException("未知默认服务器");
             JSONObject adjusted=preset.json();if(!preset.updateRequired)adjusted.put("autoUpdate",options.optBoolean("autoUpdate",true));adjusted.put("autoJoin",options.optBoolean("autoJoin",true));
             for(int i=0;i<presets.length();i++)if(presets.getJSONObject(i).getString("id").equals(preset.id))presets.put(i,adjusted);for(ServerPresets.Preset p:ServerPresets.read(presets))if(p.id.equals(selected.getString("id")))preset=p;
-            run=new File(root,"versions/"+preset.id);if(!run.isDirectory()&&!run.mkdirs())throw new IOException("无法创建实例目录");
+            run=RuntimeFiles.inside(root,"versions/"+preset.id);if(!run.isDirectory()&&!run.mkdirs())throw new IOException("无法创建实例目录");
             JSONObject account=account(),rendererInfo=selectRenderer();if(!surfaceReady.await(15,TimeUnit.SECONDS)||!surfaceLive)throw new IOException("游戏画面尚未准备好，请返回后重试");cancellation.check();
             int width=surfacePixelWidth,height=surfacePixelHeight;if(width<1||height<1){width=getResources().getDisplayMetrics().widthPixels;height=getResources().getDisplayMetrics().heightPixels;}
             int longSide=Math.max(width,height),shortSide=Math.min(width,height);double requested=Math.max(.35,Math.min(1,options.optDouble("resolutionPercent",70)/100));

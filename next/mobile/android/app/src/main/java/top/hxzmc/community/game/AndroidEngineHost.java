@@ -11,15 +11,17 @@ import java.util.concurrent.TimeUnit;
 import android.system.Os;
 import android.system.OsConstants;
 import top.hxzmc.runtime.EngineHost;
+import top.hxzmc.runtime.RuntimeFiles;
 
 /** Installer JVMs are separate processes. Game JNI is reserved for the private game Activity. */
 final class AndroidEngineHost implements EngineHost {
     static final class ProcessorFailure extends IOException {
         ProcessorFailure(int exit,String mainClass,String tail){super("游戏安装或更新处理器退出（代码 "+exit+"，入口 "+mainClass+"）\n"+tail);}
     }
-    final Context context;final File module,logs;
+    final Context context;final File module,logs,storage;
     AndroidEngineHost(Context context,File module)throws IOException {
-        this.context=context;this.module=module;logs=new File(context.getFilesDir(),"minecraft/logs");if(!logs.isDirectory()&&!logs.mkdirs())throw new IOException("无法创建游戏日志目录");
+        this.context=context;this.module=module;storage=AppPrivateStorage.resolve(context.getFilesDir());
+        logs=RuntimeFiles.inside(storage,"minecraft/logs");if(!logs.isDirectory()&&!logs.mkdirs())throw new IOException("无法创建游戏日志目录");
     }
     File resource(String path)throws IOException {
         File file=new File(module,"app_runtime/"+path);String base=new File(module,"app_runtime").getCanonicalPath()+File.separator;
