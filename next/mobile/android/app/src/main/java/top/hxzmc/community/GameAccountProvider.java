@@ -32,11 +32,12 @@ public final class GameAccountProvider extends ContentProvider {
             }catch(Exception e){result.putBoolean("active",false);}
             return result;
         }
-        if (!"selectedAccount".equals(method)) throw new IllegalArgumentException("Unknown operation");
+        boolean launch="launchAccount".equals(method);
+        if (!launch&&!"selectedAccount".equals(method)) throw new IllegalArgumentException("Unknown operation");
         Bundle result = new Bundle();
         try {
             CommunityApp app = (CommunityApp) getContext().getApplicationContext();
-            JSONObject c = app.gameCredentials(), p = c.optJSONObject("selectedProfile");
+            JSONObject c = launch?app.gameLaunchCredentials(extras==null?"":extras.getString("uuid","")):app.gameCredentials(), p = c.optJSONObject("selectedProfile");
             if (p == null || c.optString("accessToken").isEmpty() || c.optString("clientToken").isEmpty()) {
                 result.putString("message", "请先在幻想镇社区登录皮肤站并选择角色");
                 return result;
@@ -45,7 +46,7 @@ public final class GameAccountProvider extends ContentProvider {
                     "username", c.optString("loginUsername", p.getString("name")), "uuid", p.getString("id"),
                     "accessToken", c.getString("accessToken"), "clientToken", c.getString("clientToken")).toString());
         } catch (Exception e) {
-            result.putString("message", "社区账号暂时无法读取，请返回社区重新登录后重试");
+            result.putString("message", launch&&e instanceof java.io.IOException?e.getMessage():"社区账号暂时无法读取，请返回社区重新登录后重试");
         }
         return result;
     }

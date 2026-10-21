@@ -173,7 +173,18 @@ bool loadEgl(void* lib,EglApi& api){
            load(lib,"eglSwapInterval",api.swapInterval)&&load(lib,"eglGetProcAddress",api.getProcAddress);
 }
 void enqueue(Event value){
-    if(!events.empty()&&(value.type==3||value.type==kSurfaceResize)&&events.back().type==value.type){events.back()=value;eventReady.notify_one();return;}
+    if(!events.empty()&&events.back().type==value.type){
+        auto& previous=events.back();
+        if(value.type==kSurfaceResize||(value.type==3&&!value.c&&!previous.c)){
+            previous=value;eventReady.notify_one();return;
+        }
+        // Relative positions are displacements, so replacing them loses motion.
+        // Saturate the wire integer without changing ordering across absolute moves.
+        if(value.type==3&&value.c&&previous.c){
+            auto add=[](int a,int b){return static_cast<int>(std::clamp<int64_t>(static_cast<int64_t>(a)+b,std::numeric_limits<int>::min(),std::numeric_limits<int>::max()));};
+            previous.a=add(previous.a,value.a);previous.b=add(previous.b,value.b);eventReady.notify_one();return;
+        }
+    }
     if(events.size()>=kQueueLimit){
         events.clear();
         for(size_t i=0;i<keys.size();++i)if(keys[i]==GLFW_PRESS)events.push_back({1,static_cast<int>(i),0,GLFW_RELEASE,0});
@@ -249,8 +260,14 @@ extern "C" void hxz_event(int type,int a,int b,int c,int d){
 }
 extern "C" void hxz_release_inputs(void){
     std::lock_guard<std::mutex> lock(mu);
-    for(size_t i=0;i<keys.size();++i)if(keys[i]==GLFW_PRESS)enqueue({1,static_cast<int>(i),0,GLFW_RELEASE,0});
-    for(size_t i=0;i<buttons.size();++i)if(buttons[i]==GLFW_PRESS)enqueue({2,static_cast<int>(i),GLFW_RELEASE,0,0});
+    auto heldKeys=keys;auto heldButtons=buttons;
+    // A press may still be waiting for the game thread to poll it.
+    for(const auto& e:events){
+        if(e.type==1)heldKeys[e.a]=e.c==GLFW_RELEASE?GLFW_RELEASE:GLFW_PRESS;
+        else if(e.type==2)heldButtons[e.a]=e.b==GLFW_RELEASE?GLFW_RELEASE:GLFW_PRESS;
+    }
+    for(size_t i=0;i<heldKeys.size();++i)if(heldKeys[i]==GLFW_PRESS)enqueue({1,static_cast<int>(i),0,GLFW_RELEASE,0});
+    for(size_t i=0;i<heldButtons.size();++i)if(heldButtons[i]==GLFW_PRESS)enqueue({2,static_cast<int>(i),GLFW_RELEASE,0,0});
 }
 extern "C" void hxz_virtual_size(int width,int height){
     if(width<1||height<1||width>4096||height>4096){report(GLFW_INVALID_VALUE,"Invalid virtual game size");return;}
@@ -472,7 +489,19 @@ extern "C" void glfwSwapInterval(int interval){if(backend==Backend::egl&&display
 extern "C" GLFWglproc glfwGetProcAddress(const char* name){if(!name||!current){report(GLFW_NO_CURRENT_CONTEXT,"No current context for GL symbol");return nullptr;}
     if(backend==Backend::osmesa)return reinterpret_cast<GLFWglproc>(osmesa.getProc(name));
     auto result=egl.getProcAddress(name);if(!result&&glesLib)result=reinterpret_cast<__eglMustCastToProperFunctionPointerType>(dlsym(glesLib,name));return reinterpret_cast<GLFWglproc>(result);}
-extern "C" int glfwExtensionSupported(const char* name){if(!name||!current){report(GLFW_NO_CURRENT_CONTEXT,"No current context for extension query");return GLFW_FALSE;}
+extern "C" int glfwExtensionSupported(const char* name){
+    if(!current){report(GLFW_NO_CURRENT_CONTEXT,"No current context for extension query");return GLFW_FALSE;}
+    if(!name||!*name||std::strpbrk(name," \t\r\n")){report(GLFW_INVALID_VALUE,"Invalid OpenGL extension name");return GLFW_FALSE;}
+    // Core contexts prohibit glGetString(GL_EXTENSIONS); query indexed names.
+    using GetInteger=void(*)(unsigned int,int*);using GetStringi=const unsigned char*(*)(unsigned int,unsigned int);
+    if(auto integer=reinterpret_cast<GetInteger>(glfwGetProcAddress("glGetIntegerv"));integer&&hints.major>=3){
+        auto indexed=reinterpret_cast<GetStringi>(glfwGetProcAddress("glGetStringi"));
+        if(!indexed)return GLFW_FALSE;
+        int count=0;integer(0x821D,&count);
+        if(count<0||count>65536)return GLFW_FALSE;
+        for(int i=0;i<count;++i){const auto* extension=indexed(0x1F03,static_cast<unsigned int>(i));if(extension&&std::strcmp(reinterpret_cast<const char*>(extension),name)==0)return GLFW_TRUE;}
+        return GLFW_FALSE;
+    }
     using GetString=const unsigned char*(*)(unsigned int);auto fn=reinterpret_cast<GetString>(glfwGetProcAddress("glGetString"));if(!fn)return GLFW_FALSE;
     const char* extensions=reinterpret_cast<const char*>(fn(0x1F03));if(!extensions)return GLFW_FALSE;
     std::string needle=name;const char* match=extensions;while((match=std::strstr(match,needle.c_str()))){if((match==extensions||match[-1]==' ')&&(match[needle.size()]==' '||match[needle.size()]=='\0'))return GLFW_TRUE;match+=needle.size();}return GLFW_FALSE;}

@@ -18,7 +18,16 @@ unsigned char fakeBind(void* context,void*,unsigned int,int,int){mesaCurrent=con
 void fakeDestroy(void*){assert(!mesaCurrent);}
 void fakeFinish(){assert(mesaCurrent);}
 void fakePixelStore(int,int){}
-void* fakeProc(const char* name){return std::strcmp(name,"glFinish")==0?reinterpret_cast<void*>(&fakeFinish):nullptr;}
+const unsigned char* fakeString(unsigned int name){assert(name!=0x1F03);return nullptr;}
+const unsigned char* fakeStringi(unsigned int name,unsigned int index){assert(name==0x1F03);return index==0?reinterpret_cast<const unsigned char*>("GL_TEST_core_extension"):nullptr;}
+void fakeInteger(unsigned int name,int* value){*value=name==0x821B?3:name==0x821D?1:0;}
+void* fakeProc(const char* name){
+    if(std::strcmp(name,"glFinish")==0)return reinterpret_cast<void*>(&fakeFinish);
+    if(std::strcmp(name,"glGetString")==0)return reinterpret_cast<void*>(&fakeString);
+    if(std::strcmp(name,"glGetStringi")==0)return reinterpret_cast<void*>(&fakeStringi);
+    if(std::strcmp(name,"glGetIntegerv")==0)return reinterpret_cast<void*>(&fakeInteger);
+    return nullptr;
+}
 struct BootError:std::runtime_error {using std::runtime_error::runtime_error;};
 void bootError(int,const char* message){throw BootError(message);}
 void expectError(int expected){assert(glfwGetError(nullptr)==expected);}
@@ -60,7 +69,7 @@ int main(int argc,char** argv){
         // 1.21.1 calls this unconditionally before replacing bootCrash callback.
         try{glfwSetWindowSizeLimits(w,GLFW_DONT_CARE,GLFW_DONT_CARE,16384,16384);}
         catch(const BootError&){if(argc==2&&std::string(argv[1])=="--expect-legacy-failure")return 0;throw;}
-        if(argc==2)return 91; // A legacy reproduction must actually fail here.
+        if(argc==2&&std::string(argv[1])=="--expect-legacy-failure")return 91; // A legacy reproduction must actually fail here.
         glfwSetWindowPos(w,120,80);int x=0,y=0;glfwGetWindowPos(w,&x,&y);assert(x==120&&y==80);
         unsigned char pixel[4]{};GLFWimage image{1,1,pixel};glfwSetWindowIcon(w,1,&image);
         glfwSetWindowIcon(w,0,nullptr);glfwShowWindow(w);assert(glfwGetWindowAttrib(w,GLFW_VISIBLE));
@@ -79,6 +88,27 @@ int main(int argc,char** argv){
     }
     bootWindow(3);auto* w=glfwCreateWindow(854,480,"Minecraft",nullptr,nullptr);assert(w);
     glfwSetErrorCallback(nullptr);
+    if(argc==2&&std::string(argv[1])=="--review-input"){
+        hxz_event(3,1000,2000,1,0);hxz_event(3,2000,3000,1,0);glfwPollEvents();
+        double cx=0,cy=0;glfwGetCursorPos(w,&cx,&cy);assert(cx==3&&cy==5);
+        hxz_event(3,5000,7000,0,0);hxz_event(3,1000,-1000,1,0);glfwPollEvents();
+        glfwGetCursorPos(w,&cx,&cy);assert(cx==6&&cy==6);
+        hxz_event(3,3000,4000,0,0);hxz_event(3,1000,2000,0,0);glfwPollEvents();
+        glfwGetCursorPos(w,&cx,&cy);assert(cx==1&&cy==2);
+        hxz_event(3,INT32_MAX,0,1,0);hxz_event(3,INT32_MAX,0,1,0);glfwPollEvents();
+        glfwGetCursorPos(w,&cx,&cy);assert(cx>0&&std::isfinite(cx));
+        hxz_event(1,GLFW_KEY_W,0,GLFW_PRESS,0);hxz_event(2,0,GLFW_PRESS,0,0);
+        hxz_release_inputs();glfwPollEvents();assert(glfwGetKey(w,GLFW_KEY_W)==GLFW_RELEASE&&glfwGetMouseButton(w,0)==GLFW_RELEASE);
+        std::puts("Relative movement accumulation, mode boundaries, overflow and queued input release passed");return 0;
+    }
+    if(argc==2&&std::string(argv[1])=="--review-extensions"){
+        glfwMakeContextCurrent(w);
+        assert(glfwExtensionSupported("GL_TEST_core_extension"));
+        assert(!glfwExtensionSupported("GL_TEST_core"));
+        assert(!glfwExtensionSupported(""));expectError(GLFW_INVALID_VALUE);
+        assert(!glfwExtensionSupported("GL invalid"));expectError(GLFW_INVALID_VALUE);
+        std::puts("Core-profile indexed extensions and invalid names passed");return 0;
+    }
     glfwSetWindowSizeLimits(w,100,100,50,50);expectError(GLFW_INVALID_VALUE);
     glfwSetWindowSizeLimits(w,-2,-1,-1,-1);expectError(GLFW_INVALID_VALUE);
     glfwSetWindowAspectRatio(w,0,9);expectError(GLFW_INVALID_VALUE);

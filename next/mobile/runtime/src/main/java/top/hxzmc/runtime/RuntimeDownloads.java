@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.zip.ZipFile;
 
 /** Official first, equivalent mirrors second. Stages, resumes and verifies before activation. */
 public final class RuntimeDownloads {
@@ -21,15 +22,28 @@ public final class RuntimeDownloads {
     }
     public static final class FileSpec {
         public final File file; public final String url,sha1,sha256; public final long size;
+        private final boolean archiveIntegrity;
         public FileSpec(File file,String url,String sha1,long size) {this(file,url,sha1,"",size);}
         public FileSpec(File file,String url,String sha1,String sha256,long size) {
+            this(file,url,sha1,sha256,size,false);
+        }
+        private FileSpec(File file,String url,String sha1,String sha256,long size,boolean archiveIntegrity) {
             if(size< -1 || size>8L*1024*1024*1024 || (sha1!=null&&!sha1.isEmpty()&&!sha1.matches("(?i)[0-9a-f]{40}"))
                     || (sha256!=null&&!sha256.isEmpty()&&!sha256.matches("(?i)[0-9a-f]{64}"))) throw new IllegalArgumentException("Invalid integrity metadata");
             this.file=file; this.url=url==null?"":url; this.sha1=sha1==null?"":sha1; this.sha256=sha256==null?"":sha256; this.size=size;
+            this.archiveIntegrity=archiveIntegrity;
+        }
+        /** Structural validation is separate from the digest: hashless repositories may serve HTML with HTTP 200. */
+        public FileSpec withArchiveIntegrity() {return new FileSpec(file,url,sha1,sha256,size,true);}
+        private boolean formatValid(File candidate) throws IOException {
+            if(!archiveIntegrity)return true;
+            try(ZipFile archive=new ZipFile(candidate)) {return true;}
+            catch(java.util.zip.ZipException malformed) {return false;}
         }
         public boolean valid() throws Exception {
             RuntimeFiles.noLinks(file);
             if(!file.isFile() || file.length()==0 || (size>=0&&file.length()!=size))return false;
+            if(!formatValid(file))return false;
             if(!sha1.isEmpty()&&!sha1.equalsIgnoreCase(RuntimeFiles.hash(file,"SHA-1")))return false;
             if(!sha256.isEmpty()&&!sha256.equalsIgnoreCase(RuntimeFiles.hash(file,"SHA-256")))return false;
             if(!sha1.isEmpty()||!sha256.isEmpty())return true;
@@ -114,13 +128,14 @@ public final class RuntimeDownloads {
                 if(!verified(partial,spec)) {Files.deleteIfExists(partial.toPath());throw new PermanentDownloadException("Download integrity mismatch: "+spec.file.getName());}
                 activate(partial,spec);return;
             } catch(java.util.concurrent.CancellationException e) {throw e;}
-            catch(PermanentDownloadException e){failure=e;permanentlyFailed.add(source);}
-            catch(Exception e){failure=e;}
+            catch(PermanentDownloadException e){cancel.check();failure=e;permanentlyFailed.add(source);}
+            catch(Exception e){cancel.check();failure=e;}
         }
         throw new IOException("All equivalent sources failed for "+spec.file.getName(),failure);
     }
     private static boolean verified(File file,FileSpec spec) throws Exception {
         if(!file.isFile()||file.length()==0||(spec.size>=0&&file.length()!=spec.size))return false;
+        if(!spec.formatValid(file))return false;
         return (spec.sha1.isEmpty()||spec.sha1.equalsIgnoreCase(RuntimeFiles.hash(file,"SHA-1")))
                 &&(spec.sha256.isEmpty()||spec.sha256.equalsIgnoreCase(RuntimeFiles.hash(file,"SHA-256")));
     }

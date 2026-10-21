@@ -270,7 +270,9 @@ public final class GamePreparation {
             String path=artifact==null?RuntimeFiles.maven(name):artifact.optString("path",RuntimeFiles.maven(name));
             File file=RuntimeFiles.inside(root,"libraries/"+path);
             String repository=library.optString("url","https://libraries.minecraft.net/").replaceAll("/+$","");
-            if(artifact==null)artifact=new JSONObject();result.add(spec(file,artifact,repository+"/"+path));
+            if(artifact==null)artifact=new JSONObject();RuntimeDownloads.FileSpec dependency=spec(file,artifact,repository+"/"+path);
+            String lower=path.toLowerCase(Locale.ROOT);if(lower.endsWith(".jar")||lower.endsWith(".zip"))dependency=dependency.withArchiveIntegrity();
+            result.add(dependency);
         }return result;
     }
     public List<RuntimeDownloads.FileSpec> files(JSONObject metadata,JSONObject index,Context context)throws Exception {
@@ -341,7 +343,8 @@ public final class GamePreparation {
             // Keep that client jar available without also exposing it as a bootstrap module beside patched Minecraft.
             if(ignored.contains(id+".jar")&&!ignored.contains(jar.getName()))jvm.set(i,argument+","+jar.getName());
         }
-        if(!jvm.contains("-cp")&&!jvm.contains("-classpath")&&!jvm.contains("--class-path")){jvm.add("-cp");jvm.add(vars.get("classpath"));}
+        if(jvm.stream().noneMatch(arg->arg.equals("-cp")||arg.equals("-classpath")||arg.equals("--class-path")
+                ||arg.startsWith("--class-path=")||arg.startsWith("-Djava.class.path="))){jvm.add("-cp");jvm.add(vars.get("classpath"));}
         if(jvm.stream().noneMatch(s->s.startsWith("-Djava.library.path=")))jvm.add("-Djava.library.path="+context.natives.getAbsolutePath());
         jvm.add(0,"-Xmx"+context.memoryMB+"M");jvm.add(1,"-Dfile.encoding=UTF-8");jvm.add(2,"-Dlog4j2.formatMsgNoLookups=true");
         JSONObject logging=metadata.optJSONObject("logging"),log=logging==null?null:logging.optJSONObject("client");

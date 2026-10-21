@@ -46,18 +46,26 @@ public final class InstallerPlan {
         if(type.equals("forge")){coordinate="net.minecraftforge:forge:"+(loaderVersion.startsWith(minecraft+"-")?loaderVersion:minecraft+"-"+loaderVersion)+":installer";repository="https://maven.minecraftforge.net/";}
         else if(type.equals("neoforge")){coordinate="net.neoforged:neoforge:"+loaderVersion+":installer";repository="https://maven.neoforged.net/releases/";}
         else throw new IOException("Unsupported installer type");
-        String path=RuntimeFiles.maven(coordinate);return new RuntimeDownloads.FileSpec(RuntimeFiles.inside(root,"libraries/"+path),repository+path,"",sha256,-1);
+        String path=RuntimeFiles.maven(coordinate);return new RuntimeDownloads.FileSpec(RuntimeFiles.inside(root,"libraries/"+path),repository+path,"",sha256,-1).withArchiveIntegrity();
     }
     public static InstallerPlan read(File installer,File root,String minecraft,int javaMajor,GamePreparation.Context context) throws Exception {
         RuntimeFiles.id(minecraft);RuntimeFiles.noLinks(installer);RuntimeFiles.noLinks(root);
         String fingerprint=RuntimeFiles.hash(installer,"SHA-256");File work=RuntimeFiles.inside(root,".hxz/installers/"+fingerprint);
         try(JarFile archive=new JarFile(installer)) {
             JSONObject profile=json(archive,"install_profile.json");
-            if(!minecraft.equals(profile.optString("minecraft")))throw new IOException("Installer Minecraft version mismatch");
-            if(profile.has("versionInfo"))throw new IOException("Legacy Forge installer format is unsupported; no installation was marked complete");
-            JSONObject version=json(archive,profile.optString("json","/version.json"));
+            boolean legacy=profile.has("versionInfo");JSONObject install=legacy?profile.getJSONObject("install"):profile;
+            if(!minecraft.equals(install.optString("minecraft")))throw new IOException("Installer Minecraft version mismatch");
+            JSONObject version=legacy?new JSONObject(profile.getJSONObject("versionInfo").toString()):json(archive,profile.optString("json","/version.json"));
             if(!minecraft.equals(version.optString("inheritsFrom",minecraft)))throw new IOException("Loader inheritance mismatch");
             Map<String,String> vars=new LinkedHashMap<>();Map<String,File> extractions=new LinkedHashMap<>();
+            if(legacy) {
+                String coordinate=install.getString("path"),path=RuntimeFiles.maven(coordinate),entry=entryName(install.getString("filePath"));
+                if(!coordinate.startsWith("net.minecraftforge:forge:"))throw new IOException("Unexpected legacy Forge core coordinate");
+                boolean declared=false;JSONArray entries=version.getJSONArray("libraries");
+                for(int i=0;i<entries.length();i++)declared|=coordinate.equals(entries.getJSONObject(i).optString("name"));
+                if(!declared)throw new IOException("Legacy Forge core is absent from version dependencies");
+                requireEntry(archive,entry,1L<<30);extractions.put(entry,RuntimeFiles.inside(root,"libraries/"+path));
+            }
             vars.put("SIDE","client");vars.put("MINECRAFT_VERSION",minecraft);vars.put("ROOT",root.getAbsolutePath());
             vars.put("INSTALLER",installer.getAbsolutePath());vars.put("LIBRARY_DIR",new File(root,"libraries").getAbsolutePath());
             vars.put("MINECRAFT_JAR",RuntimeFiles.inside(root,"versions/"+minecraft+"/"+minecraft+".jar").getAbsolutePath());
@@ -72,7 +80,7 @@ public final class InstallerPlan {
                 }else raw.put(key,client);
             }
             for(String key:raw.keySet())resolveData(key,raw,vars,new HashSet<>(),root);
-            GamePreparation preparation=new GamePreparation(root,new RuntimeDownloads());List<RuntimeDownloads.FileSpec> dependencies=preparation.libraries(profile,context);
+            GamePreparation preparation=new GamePreparation(root,new RuntimeDownloads());List<RuntimeDownloads.FileSpec> dependencies=preparation.libraries(legacy?version:profile,context);
             // Installer jars commonly bundle their own loader core under maven/.
             LinkedHashSet<String> embedded=new LinkedHashSet<>();JSONArray declared=profile.optJSONArray("libraries");
             if(declared!=null)for(int i=0;i<declared.length();i++)embedded.add(declared.getJSONObject(i).getString("name"));
@@ -127,6 +135,15 @@ public final class InstallerPlan {
             boolean valid=!processor.outputs.isEmpty();
             for(Map.Entry<File,String> output:processor.outputs.entrySet())valid&=new RuntimeDownloads.FileSpec(output.getKey(),"",output.getValue(),-1).valid();
             if(!valid) {
+                // A resumed processor may refuse to overwrite a damaged previous result.
+                // Remove only declared outputs that failed their authoritative digest.
+                for(Map.Entry<File,String> output:processor.outputs.entrySet()) {
+                    cancel.check();File file=output.getKey();
+                    if(!new RuntimeDownloads.FileSpec(file,"",output.getValue(),-1).valid()) {
+                        RuntimeFiles.noLinks(file);Files.deleteIfExists(file.toPath());
+                        File stamp=new File(file.getPath()+".hxz-sha256");RuntimeFiles.noLinks(stamp);Files.deleteIfExists(stamp.toPath());
+                    }
+                }
                 Map<String,String> options=options(processor.arguments);
                 if("DOWNLOAD_MOJMAPS".equals(options.get("--task"))&&"client".equals(options.get("--side"))) {
                     String v=options.get("--version"),output=options.get("--output");

@@ -59,7 +59,8 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
         Button cancel=new Button(this);cancel.setText("返回社区");cancel.setTextColor(0xff5868bb);cancel.setAllCaps(false);cancel.setOnClickListener(v->leave());panel.addView(cancel,new LinearLayout.LayoutParams(-2,dp(48)));
     }
     private Bundle bridge(String method,Bundle input){return getContentResolver().call(Uri.parse("content://"+getPackageName()+".game-account"),method,null,input);}
-    private JSONObject account()throws Exception{Bundle reply=bridge("selectedAccount",null);if(reply==null||!reply.containsKey("account"))throw new IOException(reply==null?"无法读取社区账号":reply.getString("message"));JSONObject account=new JSONObject(reply.getString("account"));JSONObject requested=request.optJSONObject("account");String uuid=account.getString("uuid");if(!accountId.isEmpty()&&!accountId.equals(uuid)||requested!=null&&!requested.getString("uuid").equals(uuid))throw new IOException("社区角色已切换，请重新启动游戏");accountId=uuid;for(String key:Arrays.asList("accessToken","clientToken")){String secret=account.optString(key);if(!secret.isEmpty())secrets.add(secret);}return account;}
+    private JSONObject account()throws Exception{return account(false);}
+    private JSONObject account(boolean validate)throws Exception{JSONObject requested=request.optJSONObject("account");Bundle query=new Bundle();query.putString("uuid",!accountId.isEmpty()?accountId:requested==null?"":requested.optString("uuid"));Bundle reply=bridge(validate?"launchAccount":"selectedAccount",query);if(reply==null||!reply.containsKey("account"))throw new IOException(reply==null?"无法读取社区账号":reply.getString("message"));JSONObject account=new JSONObject(reply.getString("account"));String uuid=account.getString("uuid");if(!accountId.isEmpty()&&!accountId.equals(uuid)||requested!=null&&!requested.getString("uuid").equals(uuid))throw new IOException("社区角色已切换，请重新启动游戏");accountId=uuid;for(String key:Arrays.asList("accessToken","clientToken")){String secret=account.optString(key);if(!secret.isEmpty())secrets.add(secret);}return account;}
     private int memory(){ActivityManager.MemoryInfo info=new ActivityManager.MemoryInfo();((ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(info);long available=info.availMem/1048576;int ceiling=(int)Math.max(512,Math.min(6144,available-768));int requested=options.optInt("memoryMB");return Math.min(ceiling,requested>0?Math.max(512,requested):(int)Math.max(512,Math.min(4096,available*.45)));}
     private void update(String phase,String item,long completed,long total){
         if(!phase.equals(lastDiagnosticPhase)){lastDiagnosticPhase=phase;recordDiagnosticPhase(phase);}
@@ -83,7 +84,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             JSONObject adjusted=preset.json();if(!preset.updateRequired)adjusted.put("autoUpdate",options.optBoolean("autoUpdate",true));adjusted.put("autoJoin",options.optBoolean("autoJoin",true));
             for(int i=0;i<presets.length();i++)if(presets.getJSONObject(i).getString("id").equals(preset.id))presets.put(i,adjusted);for(ServerPresets.Preset p:ServerPresets.read(presets))if(p.id.equals(selected.getString("id")))preset=p;
             run=RuntimeFiles.inside(root,"versions/"+preset.id);if(!run.isDirectory()&&!run.mkdirs())throw new IOException("无法创建实例目录");
-            JSONObject account=account(),rendererInfo=selectRenderer();if(!surfaceReady.await(15,TimeUnit.SECONDS)||!surfaceLive)throw new IOException("游戏画面尚未准备好，请返回后重试");cancellation.check();
+            JSONObject account=account(true),rendererInfo=selectRenderer();if(!surfaceReady.await(15,TimeUnit.SECONDS)||!surfaceLive)throw new IOException("游戏画面尚未准备好，请返回后重试");cancellation.check();
             int width=surfacePixelWidth,height=surfacePixelHeight;if(width<1||height<1){width=getResources().getDisplayMetrics().widthPixels;height=getResources().getDisplayMetrics().heightPixels;}
             int longSide=Math.max(width,height),shortSide=Math.min(width,height);double requested=Math.max(.35,Math.min(1,options.optDouble("resolutionPercent",70)/100));
             boolean defaultScale=!options.has("resolutionPercent");
@@ -106,12 +107,13 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             String lwjgl=lwjgl(plan);File nativeLibs=host.resource("lwjgl/"+lwjgl);
             String rendererPath=rendererInfo.getString("library");if(!rendererPath.startsWith("app_runtime/renderers/"))throw new IOException("图形运行模块路径无效");File renderer=host.resource(rendererPath.substring("app_runtime/".length()));
             List<String> extra=new ArrayList<>(Arrays.asList("-Dorg.lwjgl.librarypath="+nativeLibs,"-Dorg.lwjgl.system.allocator=system","-Dorg.lwjgl.glfw.libname="+new File(getApplicationInfo().nativeLibraryDir,"libhxz_runtime.so"),"-Dorg.lwjgl.opengl.contextAPI=OSMesa","-Dorg.lwjgl.opengl.osmesa.libname="+renderer,"-Dorg.lwjgl.openal.libname="+host.resource("audio/libopenal.so"),"-javaagent:"+host.resource("tools/authlib-injector.jar")+"=https://skin.hxzmc.top/api/yggdrasil"));
+            if(plan.mainClass.startsWith("org.quiltmc."))extra.add("-Dloader.disable_forked_guis=true");
             if(lwjgl.equals("3.3.3"))extra.add("-Dorg.lwjgl.opengl.libname="+renderer);
             if(lwjgl.equals("3.4.1"))extra.add("-Dorg.lwjgl.freetype.libname="+host.resource("lwjgl/3.4.1/libfreetype.so"));
             String jna=jna(plan);if(jna!=null){File dispatch=host.resource("jna/"+jna+"/libjnidispatch.so");if(!dispatch.isFile())throw new IOException("运行模块缺少此游戏需要的 JNA "+jna+"，请更新运行模块");extra.add("-Djna.boot.library.path="+dispatch.getParent());extra.add("-Djna.nosys=true");extra.add("-Djna.nounpack=true");}
             List<String> game=new ArrayList<>();String address=options.optString("joinServer");if(!address.isEmpty())game.addAll(Arrays.asList("--quickPlayMultiplayer",address));
             if(hostPort>0){extra.add("-javaagent:"+host.resource("tools/direct-lobby.jar"));touchRoomControl();}
-            jobFile=host.job(freshJob(plan.javaJob(),account().getString("accessToken")),extra,game);log=new File(host.logs,"game-latest.log");rendererDiagnostic+="\n游戏渲染尺寸："+renderWidth+" × "+renderHeight;Files.write(log.toPath(),("[HXZ graphics] "+scrub(rendererDiagnostic)+"\n").getBytes(StandardCharsets.UTF_8));roomLogOffset=0;roomLogLine.reset();
+            jobFile=host.job(freshJob(plan.javaJob(),account(true).getString("accessToken")),extra,game);log=new File(host.logs,"game-latest.log");rendererDiagnostic+="\n游戏渲染尺寸："+renderWidth+" × "+renderHeight;Files.write(log.toPath(),("[HXZ graphics] "+scrub(rendererDiagnostic)+"\n").getBytes(StandardCharsets.UTF_8));roomLogOffset=0;roomLogLine.reset();
             cancellation.check();
             String socket=new File(getCacheDir(),"game-"+android.os.Process.myPid()+".sock").getAbsolutePath();String error=NativeRuntime.start(socket,renderWidth,renderHeight);if(error!=null)throw new IOException(error);
             File executable=new File(getApplicationInfo().nativeLibraryDir,"libhxz_jvm_exec.so");if(!executable.canExecute())throw new IOException("游戏进程组件缺失，请更新社区应用");
@@ -282,5 +284,24 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     @Override public void surfaceCreated(SurfaceHolder holder){android.graphics.Rect bounds=holder.getSurfaceFrame();surfacePixelWidth=bounds.width();surfacePixelHeight=bounds.height();surfaceLive=true;NativeRuntime.surface(holder.getSurface(),renderWidth,renderHeight);surfaceReady.countDown();}
     @Override public void surfaceChanged(SurfaceHolder holder,int format,int w,int h){surfacePixelWidth=w;surfacePixelHeight=h;surfaceLive=true;NativeRuntime.surface(holder.getSurface(),renderWidth,renderHeight);}
     @Override public void surfaceDestroyed(SurfaceHolder holder){surfaceLive=false;NativeRuntime.surface(null,0,0);}
-    @Override public boolean dispatchKeyEvent(KeyEvent event){if(playing){int key=GameControlsView.glfwKey(event.getKeyCode());if(key!=-1){int action=event.getAction()==KeyEvent.ACTION_UP?0:event.getRepeatCount()>0?2:1;NativeRuntime.event(1,key,event.getScanCode(),action,(event.isShiftPressed()?1:0)|(event.isCtrlPressed()?2:0)|(event.isAltPressed()?4:0));if(action!=0&&event.getUnicodeChar()>0)NativeRuntime.event(5,event.getUnicodeChar(),0,0,0);return true;}}return super.dispatchKeyEvent(event);}
+    @Override public boolean dispatchKeyEvent(KeyEvent event){
+        if(playing&&textDialog==null){
+            if(controls.handleMouseKeyEvent(event))return true;
+            if(event.getAction()==KeyEvent.ACTION_DOWN||event.getAction()==KeyEvent.ACTION_UP){
+                int key=GameControlsView.glfwKey(event.getKeyCode());
+                if(key!=-1){
+                    int action=event.getAction()==KeyEvent.ACTION_UP?0:event.getRepeatCount()>0?2:1;
+                    NativeRuntime.event(1,key,event.getScanCode(),action,GameKeyMap.modifiers(event.getMetaState()));
+                    int code=event.getUnicodeChar();
+                    if(action!=0&&GameKeyMap.printable(code,event.isCtrlPressed(),event.isAltPressed(),event.isMetaPressed()))NativeRuntime.event(5,code,0,0,0);
+                    return true;
+                }
+            }
+        }
+        return super.dispatchKeyEvent(event);
+    }
+    @Override public boolean onGenericMotionEvent(MotionEvent event){
+        if(playing&&textDialog==null&&controls.handleMouseEvent(event))return true;
+        return super.onGenericMotionEvent(event);
+    }
 }

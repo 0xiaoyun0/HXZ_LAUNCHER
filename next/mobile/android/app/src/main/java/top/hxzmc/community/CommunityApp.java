@@ -82,6 +82,10 @@ public final class CommunityApp extends Application {
         if(!pathname.matches("/(api/[A-Za-z0-9_/-]+|health)")) throw new IOException("接口路径无效");
         return base+path;
     }
+    static final class HttpFailure extends IOException {
+        final int status;
+        HttpFailure(int status,String message){super(message);this.status=status;}
+    }
     Object request(String url,String method,JSONObject body,String bearer) throws Exception {
         Request.Builder b=new Request.Builder().url(url).header("Accept","application/json");
         if(!bearer.isEmpty()) b.header("Authorization","Bearer "+bearer);
@@ -92,7 +96,7 @@ public final class CommunityApp extends Application {
             Object result=text.isEmpty()?obj("ok",true):new JSONTokener(text).nextValue();
             if(!r.isSuccessful()) {
                 String error = result instanceof JSONObject?((JSONObject)result).optString("errorMessage",((JSONObject)result).optString("error","HTTP "+r.code())):"HTTP "+r.code();
-                throw new IOException(error);
+                throw new HttpFailure(r.code(),error);
             }
             return result;
         }
@@ -105,6 +109,32 @@ public final class CommunityApp extends Application {
         }
     }
     JSONObject gameCredentials() throws Exception { synchronized(authLock){return new JSONObject(credentials.toString());} }
+    /** Launch-only validation at the skin site; never fall back to a cached invalid session. */
+    JSONObject gameLaunchCredentials(String expectedUuid) throws Exception { synchronized(authLock) {
+        JSONObject selected=credentials.optJSONObject("selectedProfile");
+        String access=credentials.optString("accessToken"),client=credentials.optString("clientToken");
+        if(selected==null||selected.optString("id").isEmpty()||access.isEmpty()||client.isEmpty())throw new IOException("请先在社区登录皮肤站并选择角色");
+        String uuid=selected.getString("id");
+        if(expectedUuid!=null&&!expectedUuid.isEmpty()&&!expectedUuid.equals(uuid))throw new IOException("社区角色已切换，请重新启动游戏");
+        boolean invalid=false;
+        try {request(SKIN+"/authserver/validate","POST",obj("accessToken",access,"clientToken",client),"");}
+        catch(HttpFailure failure) {
+            if(failure.status==403)invalid=true;
+            else throw new IOException("皮肤站暂时无法验证账号，请稍后重试");
+        } catch(Exception failure) {throw new IOException("皮肤站暂时无法验证账号，请检查网络后重试");}
+        if(invalid) {
+            Object response;
+            try {response=request(SKIN+"/authserver/refresh","POST",obj("accessToken",access,"clientToken",client,"selectedProfile",selected,"requestUser",true),"");}
+            catch(HttpFailure failure) {throw new IOException(failure.status==403?"皮肤站登录凭据已失效，请返回社区重新登录":"皮肤站暂时无法刷新账号，请稍后重试");}
+            catch(Exception failure) {throw new IOException("皮肤站暂时无法刷新账号，请检查网络后重试");}
+            if(!(response instanceof JSONObject))throw new IOException("皮肤站返回的登录信息无效");
+            JSONObject renewed=(JSONObject)response,profile=renewed.optJSONObject("selectedProfile");
+            if(profile==null||!uuid.equals(profile.optString("id"))||profile.optString("name").isEmpty()||renewed.optString("accessToken").isEmpty()||!client.equals(renewed.optString("clientToken")))
+                throw new IOException("皮肤站返回的角色或登录信息不匹配，请重新登录");
+            saveCredentials(renewed);
+        }
+        return new JSONObject(credentials.toString());
+    }}
     synchronized void saveCredentials(JSONObject next) throws Exception {
         if(!next.has("accessToken"))throw new IOException("皮肤站没有返回有效登录凭据");
         if(!next.has("availableProfiles") && credentials.has("availableProfiles"))next.put("availableProfiles",credentials.get("availableProfiles"));

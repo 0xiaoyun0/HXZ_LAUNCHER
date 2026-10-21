@@ -13,6 +13,8 @@ import android.system.OsConstants;
 import top.hxzmc.runtime.EngineHost;
 import top.hxzmc.runtime.RuntimeFiles;
 import top.hxzmc.runtime.ProcessorProgress;
+import top.hxzmc.runtime.JvmLaunchArguments;
+import top.hxzmc.runtime.JavaRuntimeMetadata;
 
 /** Installer JVMs are separate processes. Game JNI is reserved for the private game Activity. */
 final class AndroidEngineHost implements EngineHost {
@@ -32,6 +34,7 @@ final class AndroidEngineHost implements EngineHost {
     }
     File javaHome(int major)throws IOException {
         File home=resource("java/"+major);if(!new File(home,"lib/server/libjvm.so").isFile())throw new IOException("此游戏需要 Java "+major+"，当前模块尚未提供");
+        JavaRuntimeMetadata.requireArm64(home,major);
         long pageSize;try{pageSize=Os.sysconf(OsConstants._SC_PAGESIZE);}catch(Exception e){throw new IOException("无法检测设备内存页大小",e);}
         if(pageSize>4096){
             try(java.util.stream.Stream<Path> files=Files.walk(new File(home,"lib").toPath())){
@@ -60,22 +63,18 @@ final class AndroidEngineHost implements EngineHost {
     }
     static void field(DataOutputStream out,String text)throws IOException {byte[] value=text.getBytes(StandardCharsets.UTF_8);if(value.length>1024*1024||text.indexOf('\0')>=0)throw new IOException("运行参数无效");out.writeInt(value.length);out.write(value);}
     File job(JavaJob job,List<String> extra,List<String> gameExtra)throws Exception {
-        File home=javaHome(job.javaMajor);List<String> jvm=new ArrayList<>();boolean classpath=false;
-        // JNI accepts --module-path=value; the java executable also accepts a separate following word.
-        for(int i=0;i<job.jvmArguments.size();i++) {
-            String arg=job.jvmArguments.get(i);
-            if(Arrays.asList("-cp","-classpath","--class-path").contains(arg)) {
-                if(++i>=job.jvmArguments.size())throw new IOException("缺少游戏类路径");jvm.add("-Djava.class.path="+job.jvmArguments.get(i));classpath=true;
-            } else if(Arrays.asList("--module-path","-p","--add-modules","--add-opens","--add-exports","--add-reads","--patch-module","--limit-modules").contains(arg)) {
-                if(++i>=job.jvmArguments.size())throw new IOException("缺少 Java 模块参数");jvm.add((arg.equals("-p")?"--module-path":arg)+"="+job.jvmArguments.get(i));
-            } else jvm.add(arg);
-        }
-        if(!classpath&&!job.classpath.isEmpty()){List<String> paths=new ArrayList<>();for(File f:job.classpath)paths.add(f.getAbsolutePath());jvm.add("-Djava.class.path="+String.join(File.pathSeparator,paths));}
+        File home=javaHome(job.javaMajor);List<String> jvm=JvmLaunchArguments.forJni(job.jvmArguments,job.classpath);
         jvm.add("-Djava.io.tmpdir="+context.getCacheDir().getAbsolutePath());jvm.addAll(extra);
         List<String> args=new ArrayList<>(job.arguments);args.addAll(gameExtra);
         File file=File.createTempFile("java-job-",".bin",context.getCacheDir());file.setReadable(false,false);file.setReadable(true,true);file.setWritable(false,false);file.setWritable(true,true);
-        try(DataOutputStream out=new DataOutputStream(new FileOutputStream(file))){out.write("HXZJVM01".getBytes(StandardCharsets.US_ASCII));field(out,home.getCanonicalPath());field(out,job.workingDirectory.getCanonicalPath());field(out,job.mainClass);for(List<String> list:Arrays.asList(jvm,args)){field(out,Integer.toString(list.size()));for(String value:list)field(out,value);}}
-        return file;
+        boolean complete=false;
+        try {
+            try(DataOutputStream out=new DataOutputStream(new FileOutputStream(file))){out.write("HXZJVM01".getBytes(StandardCharsets.US_ASCII));field(out,home.getCanonicalPath());field(out,job.workingDirectory.getCanonicalPath());field(out,job.mainClass);for(List<String> list:Arrays.asList(jvm,args)){field(out,Integer.toString(list.size()));for(String value:list)field(out,value);}}
+            complete=true;return file;
+        } finally {
+            // A failed writer never hands its filename to the caller's normal cleanup path.
+            if(!complete)Files.deleteIfExists(file.toPath());
+        }
     }
     @Override public int runJava(JavaJob job,Cancellation cancel,Progress progress)throws Exception {
         cancel.check();File executable=new File(context.getApplicationInfo().nativeLibraryDir,"libhxz_jvm_exec.so");
