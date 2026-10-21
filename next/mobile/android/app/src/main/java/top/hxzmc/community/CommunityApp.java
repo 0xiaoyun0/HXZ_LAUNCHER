@@ -24,6 +24,7 @@ public final class CommunityApp extends Application {
     Vault vault;
     AppUpdater updater;
     GameEngine gameEngine;
+    GameLobby gameLobby;
     volatile JSONObject credentials = new JSONObject(), user = new JSONObject();
     volatile String base, token = "", connection = "未登录", selfId = "", room = "";
     volatile boolean connected, foreground, musicSharing, muted, deafened, ptt, pressing;
@@ -43,7 +44,9 @@ public final class CommunityApp extends Application {
         }
     }};
     @Override public void onCreate() {
-        super.onCreate(); vault = new Vault(this);updater=new AppUpdater(this);gameEngine=new GameEngine(this);
+        super.onCreate();
+        if(!getPackageName().equals(Application.getProcessName()))return;
+        vault = new Vault(this);updater=new AppUpdater(this);gameEngine=new GameEngine(this);gameLobby=new GameLobby(this);
         base = getSharedPreferences("settings",0).getString("server","https://qqbot.hxzmc.top");
         try { credentials = vault.read(); } catch(Exception e) { vault.clear(); }
     }
@@ -111,6 +114,7 @@ public final class CommunityApp extends Application {
         vault.write(next); credentials=next;
     }
     Object login(JSONObject input) throws Exception { synchronized(authLock) {
+        endGameSession();
         disconnect(true);
         JSONObject next=(JSONObject)request(SKIN+"/authserver/authenticate","POST",obj("agent",obj("name","Minecraft","version",1),"username",input.getString("username"),"password",input.getString("password"),"clientToken",UUID.randomUUID().toString(),"requestUser",true),"");
         next.put("loginUsername",input.getString("username"));credentials=new JSONObject(); saveCredentials(next); token=""; expires=0;
@@ -123,6 +127,7 @@ public final class CommunityApp extends Application {
         JSONArray profiles=credentials.optJSONArray("availableProfiles"); JSONObject selected=null;
         if(profiles!=null)for(int i=0;i<profiles.length();i++)if(profiles.getJSONObject(i).optString("id").equals(id))selected=profiles.getJSONObject(i);
         if(selected==null)throw new IOException("角色不存在，请重新登录");
+        endGameSession();
         disconnect(true);
         saveCredentials((JSONObject)request(SKIN+"/authserver/refresh","POST",obj("accessToken",credentials.getString("accessToken"),"clientToken",credentials.getString("clientToken"),"selectedProfile",selected,"requestUser",true),""));
         token=""; expires=0; user=new JSONObject(); messages=new JSONArray();
@@ -145,12 +150,15 @@ public final class CommunityApp extends Application {
         return request(url,method,input.optJSONObject("body"),auth);
     }}
     void logout() { synchronized(authLock) {
+        endGameSession();
         clearWidget();disconnect(true); SkinSession.reset(); vault.clear(); credentials=new JSONObject(); token=""; expires=0; user=new JSONObject(); users=new JSONArray(); messages=new JSONArray(); connection="未登录"; changed();
     }}
     void setServer(String value) throws Exception { synchronized(authLock) {
+        endGameSession();
         String next=validBase(value); clearWidget();disconnect(true); base=next; token=""; expires=0; user=new JSONObject(); messages=new JSONArray(); users=new JSONArray();
         getSharedPreferences("settings",0).edit().putString("server",next).apply(); main.post(this::connect); changed();
     }}
+    private void endGameSession(){if(gameEngine!=null)gameEngine.accountChanged();if(gameLobby!=null)gameLobby.close("账号或社区连接配置已更改");}
     synchronized void connect() {
         if(connected||connecting||(!foreground&&room.isEmpty()&&recoveryRoom.isEmpty()))return;
         if(credentials.optJSONObject("selectedProfile")==null){connection=credentials.has("accessToken")?"请选择角色":"未登录";changed();return;}

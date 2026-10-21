@@ -1,10 +1,10 @@
-# 幻想镇 · 0.8.3
+# 幻想镇 · 0.8.4 预发布候选
 
-游戏启动与社区客户端：修复原版安装和卡片高度，增加下载节点状态、全屏登录及逐页功能引导，优化肉鸽挑战。
+桌面与社区、同包 Android 独立游戏引擎的验收候选。Android 游戏仍需用户在真实设备手动验证，不视为已完成实机验收。
 
-[下载 0.8.3](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.3) · [源码与构建](next/README.md) · [完整更新](next/docs/0.8.3发布说明.md) · [使用与升级](next/docs/0.8.3使用与升级.md)
+[预发布下载](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.4) · [源码与构建](next/README.md) · [更新说明](next/docs/0.8.4发布说明.md)
 
-游戏服务端桥沿用 0.8.0 原附件与版本；可选 Android 游戏组件仍为 80300。
+游戏服务端桥保留 0.8.0 原附件及散列；Android 不再安装单独的游戏引擎 APK。
 
 ---
 

@@ -3,27 +3,30 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="top.hxzmc.permission.GAME_ENGINE" />
-    <permission android:name="top.hxzmc.community.permission.GAME_ACCOUNT" android:protectionLevel="signature" />
-    <queries><package android:name="top.hxzmc.gameengine" /></queries>
     <application android:name=".CommunityApp" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:usesCleartextTraffic="false"
         android:label="幻想镇社区" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:theme="@style/AppTheme" android:supportsRtl="true">
         <provider android:name=".UpdateProvider" android:authorities="${applicationId}.updates" android:exported="false" android:grantUriPermissions="true" />
-        <provider android:name=".GameAccountProvider" android:authorities="${applicationId}.game-account" android:exported="true" android:permission="top.hxzmc.community.permission.GAME_ACCOUNT" />
+        <provider android:name=".GameAccountProvider" android:authorities="${applicationId}.game-account" android:exported="false" />
         <activity android:name=".NeteaseActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".SkinActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <activity android:name=".game.GameRuntimeActivity" android:process=":game" android:exported="false" android:launchMode="singleTask"
+            android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:hardwareAccelerated="true" android:resizeableActivity="true" />
         <receiver android:name=".CommunityWidget" android:exported="false" android:label="幻想镇 · 社区随行"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/community_widget"/></receiver>
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode">
             <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
         </activity>
         <service android:name=".VoiceService" android:exported="false" android:foregroundServiceType="microphone|mediaPlayback" android:stopWithTask="true" />
+        <service android:name=".GameLobbyService" android:exported="false" android:foregroundServiceType="connectedDevice" android:stopWithTask="true" />
     </application>
 </manifest>

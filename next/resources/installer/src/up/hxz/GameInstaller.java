@@ -315,6 +315,24 @@ final class GameInstaller {
     private JsonObject metadata(String raw)throws IOException{
         return network.jsonSources(sources(raw),temp,"游戏版本信息",raw.endsWith("/profile/json")?"libraries":"versions");
     }
+    private void centralSources(List<String> result,String path){
+        result.add("https://repo.maven.apache.org/maven2"+path);result.add("https://repo1.maven.org/maven2"+path);
+        result.add("https://maven.aliyun.com/repository/public"+path);result.add("https://repo.huaweicloud.com/repository/maven"+path);
+        result.add("https://mirrors.cloud.tencent.com/nexus/repository/maven-public"+path);
+        result.add("https://maven-central.storage-download.googleapis.com/maven2"+path);
+        result.add("https://maven-central-eu.storage-download.googleapis.com/maven2"+path);
+        result.add("https://maven-central-asia.storage-download.googleapis.com/maven2"+path);
+        result.add("https://repository.jboss.org/nexus/content/repositories/central"+path);
+        result.add("https://repo.eclipse.org/repository/maven-central"+path);
+        result.add("https://repo.spongepowered.org/repository/maven-central"+path);
+        result.add("https://repo.papermc.io/repository/maven-public"+path);
+        result.add("https://cache-redirector.jetbrains.com/repo.maven.apache.org/maven2"+path);
+        result.add("https://repository.mulesoft.org/nexus/content/repositories/public"+path);
+        result.add("https://mirrors.163.com/maven/repository/maven-public"+path);
+        result.add("https://repo.nju.edu.cn/maven"+path);
+        result.add("https://maven.proxy.ustclug.org/maven2"+path);
+        result.add("https://maven.reposilite.com/maven-central"+path);
+    }
     private List<String> sources(String raw)throws MalformedURLException{
         List<String> result=new ArrayList<>();URL url=new URL(raw);
         if(!url.getProtocol().equals("https")||url.getUserInfo()!=null||url.getQuery()!=null||url.getRef()!=null||url.getPort()!=-1)return Collections.singletonList(raw);
@@ -328,15 +346,20 @@ final class GameInstaller {
             case "piston-data.mojang.com":result.add("https://launcher.mojang.com"+path);result.add(mirror+path);break;
             case "launcher.mojang.com":result.add("https://piston-data.mojang.com"+path);result.add(mirror+path);break;
             case "launchermeta.mojang.com":result.add("https://piston-meta.mojang.com"+path);result.add(mirror+path);break;
-            case "libraries.minecraft.net":result.add(mirror+"/maven"+path);result.add("https://repo.maven.apache.org/maven2"+path);result.add("https://repo1.maven.org/maven2"+path);result.add("https://maven.aliyun.com/repository/public"+path);result.add("https://repo.huaweicloud.com/repository/maven"+path);break;
-            case "repo.maven.apache.org":case "repo1.maven.org":if(path.startsWith("/maven2/")){String artifact=path.substring(7);result.add((url.getHost().equals("repo1.maven.org")?"https://repo.maven.apache.org":"https://repo1.maven.org")+path);result.add("https://maven.aliyun.com/repository/public"+artifact);result.add("https://repo.huaweicloud.com/repository/maven"+artifact);}break;
+            case "libraries.minecraft.net":result.add(mirror+"/maven"+path);centralSources(result,path);break;
+            case "repo.maven.apache.org":case "repo1.maven.org":if(path.startsWith("/maven2/"))centralSources(result,path.substring(7));break;
             case "resources.download.minecraft.net":result.add(mirror+"/assets"+path);break;
             case "meta.fabricmc.net":result.add(mirror+"/fabric-meta"+path);break;
-            case "maven.fabricmc.net":case "maven.minecraftforge.net":result.add(mirror+"/maven"+path);break;
-            case "maven.neoforged.net":if(path.startsWith("/releases/"))result.add(mirror+"/maven/"+path.substring("/releases/".length()));break;
+            case "authlib-injector.yushi.moe":
+                java.util.regex.Matcher file=java.util.regex.Pattern.compile("^/artifact/\\d+/authlib-injector-(\\d+\\.\\d+\\.\\d+)\\.jar$").matcher(path);
+                if(file.matches()){String release="https://github.com/yushijinhun/authlib-injector/releases/download/v"+file.group(1)+"/authlib-injector-"+file.group(1)+".jar";result.add(release);result.add(mirror+"/mirrors/authlib-injector"+path);result.add("https://gh-proxy.com/"+release);result.add("https://ghproxy.net/"+release);}break;
+            case "maven.fabricmc.net":result.add(mirror+"/maven"+path);result.add("https://repo.spongepowered.org/repository/fabricmc-proxy"+path);break;
+            case "maven.minecraftforge.net":result.add(mirror+"/maven"+path);result.add("https://repo.spongepowered.org/repository/forge-proxy"+path);break;
+            case "maven.quiltmc.org":if(path.startsWith("/repository/release/"))result.add("https://repo.spongepowered.org/repository/quiltmc/"+path.substring(20));break;
+            case "maven.neoforged.net":if(path.startsWith("/releases/")){result.add(mirror+"/maven/"+path.substring(10));result.add("https://repo.spongepowered.org/repository/neoforge-releases/"+path.substring(10));}break;
             case "cdn.modrinth.com":case "edge.forgecdn.net":case "mediafilez.forgecdn.net":result.add("https://mod.mcimirror.top"+path);break;
             default:break;
-        }if(official)result.add(0,raw);else result.add(raw);return result;
+        }result.remove(raw);if(official)result.add(0,raw);else result.add(raw);return new ArrayList<>(new LinkedHashSet<>(result));
     }
     Path resolve(String relative)throws IOException{
         if(relative.startsWith("/")||relative.contains("\\")||relative.contains(":"))throw new IOException("无效安装路径");Path target=(relative.startsWith("versions/")?versionWorkspace.resolve(relative.substring(9)):game.resolve(relative)).normalize();if(!target.startsWith(game)||target.equals(game))throw new IOException("安装路径越界");IO.noLinks(target);return target;

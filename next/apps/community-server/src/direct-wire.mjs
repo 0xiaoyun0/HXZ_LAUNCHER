@@ -25,7 +25,8 @@ export function invitationCode(raw){
 export function roomGame(value){
  if(value==null)return null;
  if(typeof value!=='object'||!/^[-\w.+]{1,100}$/.test(value.minecraft)||!['','fabric','quilt','forge','neoforge'].includes(value.loader)||typeof value.loaderVersion!=='string'||!/^[-\w.+]{0,100}$/.test(value.loaderVersion)||!Number.isInteger(value.modCount)||value.modCount<0||value.modCount>10000||!(/^[a-f0-9]{64}$/.test(value.mods)||value.mods===''))throw Error('房间游戏配置无效');
- return {minecraft:value.minecraft,loader:value.loader,loaderVersion:value.loaderVersion,modCount:value.modCount,mods:value.mods,preset:/^HXZ-(survival|mod-[12])$/.test(value.preset)?value.preset:''};
+ if(value.platform!==undefined&&!['android','desktop'].includes(value.platform)||value.compatibilityPolicy!==undefined&&(value.platform!=='android'||value.compatibilityPolicy!=='hxz-android-1'))throw Error('房间平台兼容配置无效');
+ return {minecraft:value.minecraft,loader:value.loader,loaderVersion:value.loaderVersion,modCount:value.modCount,mods:value.mods,preset:/^HXZ-(survival|mod-[12])$/.test(value.preset)?value.preset:'',...(value.platform?{platform:value.platform}:{}),...(value.compatibilityPolicy?{compatibilityPolicy:value.compatibilityPolicy}:{})};
 }
 export function parseInvitation(raw){
  const code=invitationCode(raw);let value;

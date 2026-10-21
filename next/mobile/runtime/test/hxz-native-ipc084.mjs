@@ -1,0 +1,23 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+
+const root=path.resolve('mobile/runtime/native');
+const ndk=process.env.HXZ_ANDROID_NDK||'E:/hxz_up/hxzup/tools/android-ndk-r30';
+const bin=path.join(ndk,'toolchains/llvm/prebuilt/windows-x86_64/bin');
+const tmp=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-native-ipc-'));
+const runtime=path.join(tmp,'libhxz_runtime.so');
+const executor=path.join(tmp,'libhxz_jvm_exec.so');
+const compiler=path.join(bin,'clang++.exe');
+const common=['--target=aarch64-linux-android29','-std=c++17','-Wall','-Wextra','-Werror','-I',root];
+execFileSync(compiler,[...common,'-fPIC','-shared',...['hxz_android.cpp','hxz_jvm.cpp','hxz_glfw.cpp','hxz_ipc.cpp'].map(f=>path.join(root,f)),'-landroid','-llog','-ldl','-lEGL','-Wl,--no-undefined','-o',runtime]);
+execFileSync(compiler,[...common,path.join(root,'hxz_jvm_exec.cpp'),'-L',tmp,'-lhxz_runtime','-Wl,--no-undefined','-o',executor]);
+const symbols=execFileSync(path.join(bin,'llvm-nm.exe'),['-D','--defined-only',runtime],{encoding:'utf8'});
+for(const name of ['Java_top_hxzmc_community_game_NativeRuntime_start','Java_top_hxzmc_community_game_NativeRuntime_stop','Java_top_hxzmc_community_game_NativeRuntime_surface','Java_top_hxzmc_community_game_NativeRuntime_event','Java_top_hxzmc_community_game_NativeRuntime_release','Java_top_hxzmc_community_game_NativeRuntime_captured'])assert(symbols.includes(name),name+' missing');
+const dynamic=execFileSync(path.join(bin,'llvm-readelf.exe'),['-d',executor],{encoding:'utf8'});
+assert.match(dynamic,/Shared library: \[libhxz_runtime\.so\]/);
+const exeSymbols=execFileSync(path.join(bin,'llvm-nm.exe'),['-D',executor],{encoding:'utf8'});
+assert.match(exeSymbols,/hxz_ipc_child_connect/);
+console.log(JSON.stringify({passed:true,target:'aarch64-linux-android29',scope:'warning-clean native runtime/executor link, JNI entry points and shared GLFW runtime dependency; no device IPC or JVM execution'}));

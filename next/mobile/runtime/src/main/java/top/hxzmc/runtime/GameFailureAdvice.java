@@ -1,0 +1,25 @@
+package top.hxzmc.runtime;
+
+import java.util.Locale;
+
+/** Explain recognizable runtime evidence. Never infer a mod removal from a crash alone. */
+public final class GameFailureAdvice {
+    private GameFailureAdvice() {}
+    public static String explain(String evidence) {
+        if(evidence==null)return "";
+        String text=evidence.toLowerCase(Locale.ROOT);
+        if(text.contains("outofmemoryerror")||text.contains("native memory allocation (malloc) failed")||text.contains("could not reserve enough space for")||text.contains("out of swap space"))
+            return "游戏内存不足。请先关闭其他应用、降低视距和分辨率；不要把全部可用内存分给 Java。存档和已下载文件已保留。";
+        if(text.contains("unsatisfiedlinkerror")&&(text.contains("x86")||text.contains("amd64")||text.contains("wrong elf")||text.contains("em_x86_64")||text.contains("e_machine")))
+            return "某个模组或组件正在调用电脑架构的本地库，手机无法加载。请复制诊断定位该组件；不会自动删除服务器要求的模组。";
+        if(text.contains("failed to create an opengl context")||text.contains("glfw error 65542")||text.contains("opengl version 3.2 or higher is required")||text.contains("failed to create osmesa"))
+            return "当前图形驱动未能建立游戏画面。请在游戏运行设置更换渲染器并降低分辨率；若仍失败，请附诊断反馈设备型号。";
+        if(text.contains("unsupportedclassversionerror"))
+            return "游戏或模组要求更高的 Java 版本。请检查运行模块更新，并确认整合包版本匹配；重复下载整合包不能修复 Java 版本不匹配。";
+        if(text.contains("failed to verify username")||text.contains("authentication servers are down")||text.contains("invalid session (try restarting your game"))
+            return "服务器未能完成账号验证。请先确认社区当前角色已登录；若重新登录后仍失败，需要检查服务器的皮肤站认证连接。";
+        if(text.contains("mismatched mod channel list")||text.contains("incompatible fml modded server")||text.contains("failed to synchronize registry data"))
+            return "客户端与服务器的模组或注册数据不一致。请检查 HXZUP 更新并确认选中了正确服务器；不要删除内容模组来绕过检查。";
+        return "";
+    }
+}

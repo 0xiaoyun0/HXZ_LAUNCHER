@@ -224,7 +224,7 @@ final class Network {
         }catch(IllegalStateException e){throw new IOException("无效安装元数据",e);}
     }
     private Path race(List<String> urls,Path directory,String sha1,long expected,String label,String requiredArray)throws IOException,InterruptedException{
-        List<String> unique=new ArrayList<>(new LinkedHashSet<>(urls));if(unique.isEmpty())throw new IOException("没有下载地址");if(unique.size()>12)throw new IOException("单文件下载源超过 12 个");
+        List<String> unique=new ArrayList<>(new LinkedHashSet<>(urls));if(unique.isEmpty())throw new IOException("没有下载地址");if(unique.size()>32)throw new IOException("单文件下载源超过 32 个");
         if(sha1!=null&&expected>=4L*1024*1024&&expected<=8L*1024*1024*1024){
             try{return segments(unique,directory,sha1,expected,label);}catch(IOException e){if(Thread.currentThread().isInterrupted()||e instanceof NetworkFailure||e instanceof FileSystemException)throw e;System.err.println("[下载] "+label+" · 分段不可用，回退完整文件校验："+e.getMessage());}
         }

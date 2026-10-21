@@ -12,7 +12,6 @@ import java.io.*;
 public final class UpdateProvider extends ContentProvider {
     @Override public boolean onCreate(){return true;}
     private File file(Uri uri) throws FileNotFoundException{
-        if("/engine.apk".equals(uri.getPath()))return new File(getContext().getCacheDir(),"game-engine/engine.apk");
         if(!"/community.apk".equals(uri.getPath()))throw new FileNotFoundException();
         return new File(getContext().getCacheDir(),"app-update/community.apk");
     }

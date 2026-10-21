@@ -1,0 +1,23 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+
+const root=path.resolve('mobile/runtime/native');
+const ndk=process.env.HXZ_ANDROID_NDK||'E:/hxz_up/hxzup/tools/android-ndk-r30';
+const bin=path.join(ndk,'toolchains/llvm/prebuilt/windows-x86_64/bin');
+const sysroot=path.join(ndk,'toolchains/llvm/prebuilt/windows-x86_64/sysroot');
+const output=path.join(await fs.mkdtemp(path.join(os.tmpdir(),'hxz-glfw-abi-')),'libhxz_glfw_smoke.so');
+const clang=path.join(bin,'clang++.exe');
+const common=['--target=aarch64-linux-android29','--sysroot='+sysroot,'-std=c++17','-Wall','-Wextra','-Werror'];
+execFileSync(clang,[...common,'-fsyntax-only',path.join(root,'hxz_glfw.cpp')],{stdio:'pipe'});
+execFileSync(clang,[...common,'-shared','-fPIC','-Wl,--no-undefined','-o',output,path.join(root,'hxz_glfw.cpp'),'-landroid','-ldl'],{stdio:'pipe'});
+const header=await fs.readFile(path.join(root,'include/glfw3.h'),'utf8');
+const publicAbi=[...header.matchAll(/^GLFWAPI\s+.*?\b(glfw[A-Za-z0-9_]+)\s*\(/gm)].map(v=>v[1]);
+const symbols=execFileSync(path.join(bin,'llvm-nm.exe'),['-D','--defined-only',output],{encoding:'utf8'});
+const exported=new Set([...symbols.matchAll(/\b(glfw[A-Za-z0-9_]+|hxz_[A-Za-z0-9_]+)$/gm)].map(v=>v[1]));
+const missing=publicAbi.filter(name=>!exported.has(name));
+assert.deepEqual(missing,[],`GLFW 3.4 ABI exports missing: ${missing.join(', ')}`);
+for(const name of ['hxz_surface','hxz_surface_resolution','hxz_event','hxz_release_inputs','hxz_virtual_size','hxz_request_close','hxz_configure_renderer','hxz_last_error','hxz_cursor_captured','hxz_set_frame_sink','hxz_present_frame'])assert(exported.has(name),name+' missing');
+console.log(JSON.stringify({passed:true,target:'aarch64-linux-android29',glfwSymbols:publicAbi.length,hostSymbols:11,scope:'NDK C++ warning-clean compilation, shared-library link and official GLFW 3.4 C ABI exports; no device rendering or game execution'}));

@@ -1,8 +1,8 @@
 .home-instance-list{display:flex;flex-direction:column;min-height:0;height:100%}
 /* Pass the card's available height through both local and portable hosts.
    Only the instance rows scroll; tools and the final action keep their space. */
-.card-inner:has(> .home-instance-list),.card-inner:has(> .foreign-card-content > .home-instance-list),.foreign-card-content:has(> .home-instance-list){height:100%;min-height:0}
-.home-game-rows{max-height:340px;min-height:0;flex:1 1 auto;scrollbar-gutter:stable}
+.card-slot .card-inner:has(> .home-instance-list),.card-slot .card-inner:has(> .foreign-card-content > .home-instance-list),.foreign-card-content:has(> .home-instance-list){height:100%;min-height:0}
+.home-game-rows{min-height:0;flex:1 1 auto;scrollbar-gutter:stable}
 .home-list-tools,.home-list-footer,.home-list-empty{flex-shrink:0}
 .home-list-footer{margin-top:auto;min-height:44px;flex-wrap:wrap}
 .home-list-footer>span{flex:1 1 160px;line-height:1.6}

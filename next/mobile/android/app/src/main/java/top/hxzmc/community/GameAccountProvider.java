@@ -10,15 +10,27 @@ import android.os.Bundle;
 import org.json.JSONObject;
 import java.util.Arrays;
 
-/** Local, same-certificate bridge. Never accessible to the WebView or arbitrary applications. */
+/** Private bridge between this application's community and game processes. */
 public final class GameAccountProvider extends ContentProvider {
     @Override public boolean onCreate() { return true; }
     @Override public Bundle call(String method, String arg, Bundle extras) {
-        PackageManager pm = getContext().getPackageManager();
-        String[] callers = pm.getPackagesForUid(Binder.getCallingUid());
-        if (callers == null || !Arrays.asList(callers).contains(GameEngine.PACKAGE)
-                || pm.checkSignatures(getContext().getPackageName(), GameEngine.PACKAGE) != PackageManager.SIGNATURE_MATCH) {
-            throw new SecurityException("Only the signed HXZ game engine may import this account");
+        if(Binder.getCallingUid()!=android.os.Process.myUid())throw new SecurityException("Private game bridge");
+        CommunityApp owner=(CommunityApp)getContext().getApplicationContext();
+        if("roomState".equals(method)){
+            Bundle result=new Bundle();
+            try{
+                JSONObject host=owner.gameLobby.hostConfig();int port=extras==null?0:extras.getInt("port",0);
+                boolean active=host!=null&&host.optInt("port")==port;result.putBoolean("active",active);
+                if(active&&extras!=null){
+                    String game=extras.getString("game","");if(!game.isEmpty())owner.gameLobby.setGame(new JSONObject(game));
+                    String error=extras.getString("error","");
+                    if(extras.getBoolean("exited")){owner.gameLobby.close("游戏已退出");result.putBoolean("active",false);}
+                    else if(!error.isEmpty())owner.gameLobby.markError(error);
+                    else if(extras.getBoolean("ready"))owner.gameLobby.markReady(port);
+                    else if(!extras.getBoolean("poll"))owner.gameLobby.markWaiting();
+                }
+            }catch(Exception e){result.putBoolean("active",false);}
+            return result;
         }
         if (!"selectedAccount".equals(method)) throw new IllegalArgumentException("Unknown operation");
         Bundle result = new Bundle();

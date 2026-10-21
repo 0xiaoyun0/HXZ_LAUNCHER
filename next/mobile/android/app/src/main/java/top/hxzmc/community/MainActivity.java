@@ -261,6 +261,7 @@ public final class MainActivity extends Activity {
                             if(value.optString("action").equals("finish")){JSONObject info=assetExport.info();File staged=assetExport.finish(value.getString("id"));app.main.post(()->chooseDownload(id,info,staged));return;}
                             output=assetExport.accept(value);break;
                         case "gameEngine":output=app.gameEngine.call(value);break;
+                        case "lobby":output=app.gameLobby.call(value);break;
                         case "music":output=new MusicLibrary(app).call(value);break;
                         case "state":output=app.state();break;
                         case "widgetTarget":output=CommunityApp.obj("target",takeWidgetTarget());break;

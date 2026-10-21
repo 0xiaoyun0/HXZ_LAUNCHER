@@ -96,7 +96,7 @@ function drainDownloads(){while(activeDownloads<downloadLimit&&downloadQueue.len
 async function downloadSlot(signal){signal?.throwIfAborted();return new Promise((resolve,reject)=>{const entry={signal,resolve:release=>{signal?.removeEventListener('abort',abort);resolve(release);},reject};const abort=()=>{const i=downloadQueue.indexOf(entry);if(i>=0)downloadQueue.splice(i,1);reject(signal.reason);};signal?.addEventListener('abort',abort,{once:true});downloadQueue.push(entry);drainDownloads();});}
 const statusTimes=new Map();
 function sourceStatus(error,url,attempt){const host=new URL(url).hostname,now=Date.now();observeSource(url,{state:'error',reason:networkAdvice(error,host),checkKind:'transfer'});if(now-(statusTimes.get(host)||0)>5000){statusTimes.set(host,now);downloadObserver({source:host,attempt,message:networkAdvice(error,host)});}}
-function preferHealthy(urls){return [...urls].sort((a,b)=>(sourceFailures.get(new URL(a).host)>Date.now()?1:0)-(sourceFailures.get(new URL(b).host)>Date.now()?1:0));}
+function preferHealthy(urls){return getDownloadMode()==='official'?[...urls]:[...urls].sort((a,b)=>(sourceFailures.get(new URL(a).host)>Date.now()?1:0)-(sourceFailures.get(new URL(b).host)>Date.now()?1:0));}
 export async function remoteJSON(url, options = {}) {
   const until=Date.now()+(options.retryBudgetMs||0);
   for(let attempt=0;;attempt++)try{return await remoteJSONAttempt(url,options);}catch(error){

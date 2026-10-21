@@ -10,7 +10,7 @@ const index=ref(0),current=computed(()=>entries.value[Math.min(index.value,entri
 const scroll=ref(),heading=ref();
 watch(()=>entries.value.length,count=>{index.value=Math.min(index.value,count-1);});
 const stepTitle={minecraft:'服务器',chat:'文字大厅',voice:'语音房间',forum:'论坛',blueprint:'蓝图',lobby:'联机大厅',guild:'冒险家协会',games:'小游戏',shop:'积分商城',inventory:'我的背包',linking:'LINKING',music:'音乐',me:'我的',inbox:'收件箱',settings:'设置',feedback:'问题反馈',admin:'社区管理'};
-const mobileCopy={home:{title:'选择服务器，开始冒险',body:'在“游戏”的服务器页选择三个默认服务器。准备游戏运行组件后，即可安装并进入；也可以只安装服务器整合包。',tip:'手机模组兼容性与电脑不同。首次使用请阅读运行提示，预留存储空间。'},instances:{title:'让游戏适合你的手机',body:'展开服务器页底部的运行设置，调整内存、渲染器、自动更新和自动进入服务器。',tip:'保持自动设置即可开始；运行组件的触控与高级设置在组件详情中。'},resources:{title:'准备游戏运行组件',body:'服务器页可以查看运行组件状态、下载与安装进度。发生错误时保留具体原因，按提示重新检查或继续。',tip:'大型游戏整合包需要时间与空间；建议连接稳定的 Wi-Fi 后安装。'},sources:{title:'让应用保持更新',body:'打开“我的 → 设置”，在下载与更新中检查幻想镇社区的新版本，并查看更新说明。',tip:'社区应用与游戏运行组件分别更新，服务器页负责游戏组件。'}};
+const mobileCopy={home:{title:'选择服务器，开始冒险',body:'在“游戏”的服务器页选择默认服务器，确认运行提示后点击“准备并进入”。缺少的运行资源会在社区应用内自动下载，完成后继续启动。',tip:'手机模组兼容性与电脑不同；首次使用需要 ARM64 手机与充足存储空间。'},instances:{title:'让游戏适合你的手机',body:'展开服务器页底部的运行设置，调整内存、渲染器、自动更新和自动进入服务器。',tip:'保持自动设置即可开始；触控与高级设置可从游戏运行模块详情打开。'},resources:{title:'准备游戏运行资源',body:'服务器页可以查看同包运行模块的状态与下载进度，也可以预先下载。暂停后可继续下载，启动时仍会自动准备缺少的资源。',tip:'大型游戏整合包需要时间与空间；建议连接稳定的 Wi-Fi。'},sources:{title:'让应用保持更新',body:'打开“我的 → 设置”，在下载与更新中检查幻想镇社区的新版本，并查看更新说明。',tip:'游戏运行模块在社区应用内启用；服务器页可检查模块更新，无需另装应用。'}};
 const copy=computed(()=>mobileCopy[current.value.id]||current.value);
 async function select(value){index.value=value;await nextTick();if(scroll.value)scroll.value.scrollTop=0;heading.value?.focus({preventScroll:true});}
 function next(){if(index.value===entries.value.length-1)emit('finish');else select(index.value+1);}

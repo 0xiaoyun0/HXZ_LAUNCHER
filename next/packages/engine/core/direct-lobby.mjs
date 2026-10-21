@@ -49,7 +49,7 @@ export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfa
     track(socket);socket.setNoDelay(true);socket.setKeepAlive(true,15000);
     void (async()=>{
      try{
-      const input=await readLine(socket);if(room!==hosting)throw Error('房间已关闭');if(!authorizedHello(input,hosting))throw Error('房间邀请已失效');
+      const input=await readLine(socket);if(room!==hosting)throw Error('房间已关闭');if(hosting.expires<=Date.now()||hosting.leaseExpires<=Date.now()){void close('开房授权或邀请已到期');throw Error('房间邀请已失效');}if(!authorizedHello(input,hosting))throw Error('房间邀请已失效');
       if(input.operation==='probe'){socket.end(JSON.stringify({ok:true,name:hosting.name,ready:state.ready,connections:peers.size})+'\n',()=>socket.destroy());return;}
       if(input.operation!=='join')throw Error('未知房间操作');if(!state.ready)throw Error('房主尚未进入世界，请稍后重试');if(peers.size>=32)throw Error('房间连接数已满');
       const upstream=track(net.connect({host:'127.0.0.1',port:hosting.gamePort}));upstream.setNoDelay(true);
@@ -99,9 +99,9 @@ export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfa
    current();update({transport:hosting.hosts.length?(hosting.scope==='virtual'?'virtual':'direct'):'p2p',mode:'host',phase:'房间已创建 · 等待进入单人世界，伙伴加入时验证通路'});
    void publish();directoryTimer=setInterval(()=>void publish(),30000);directoryTimer.unref?.();
    renewTimer=setInterval(async()=>{
-    if(room!==hosting||renewing)return;if(hosting.leaseExpires<=Date.now()){void close('开房授权已过期').then(()=>update({error:'请重新连接社区并验证开房权限'}));return;}
+    if(room!==hosting||renewing)return;if(hosting.leaseExpires<=Date.now()||hosting.expires<=Date.now()){void close('开房授权或邀请已过期').then(()=>update({error:'请重新连接社区并验证开房权限'}));return;}
     renewing=true;try{const value=await request('/api/lobby/lease',{method:'POST',body:{}});if(room!==hosting)return;if(!value.allowed||value.uid!==hosting.owner){await close('开房权限已变更');return;}hosting.leaseExpires=value.expiresAt;}
-    catch(error){if(error.status===403)await close('管理员已撤销开房权限');else update({error:'暂时无法续验开房权限，将在授权到期时关闭房间'});}finally{renewing=false;}
+    catch(error){if(room===hosting){if(error.status===403)await close('管理员已撤销开房权限');else update({error:'暂时无法续验开房权限，将在授权到期时关闭房间'});}}finally{renewing=false;}
    },120000);renewTimer.unref?.();return snapshot();
   }catch(error){if(token===generation){await close('创建未完成');update({error:error.message});}throw error;}
  }

@@ -18,7 +18,12 @@ export async function describeRoomInstance(root,id,settings={},presets=[]){
  await noLinks(cacheFile);await writeJSON(cacheFile,cache);
  return {minecraft:target.minecraft,loader:target.loader,loaderVersion:loaderVersion(meta,target.loader),modCount:entries.length,mods:entries.length?createHash('sha256').update(Object.values(cache).map(v=>v.hash).sort().join('\n')).digest('hex'):'',preset:presets.some(p=>p.id===id)?id:''};
 }
-export function compatibleRoomGame(a,b){return !!a&&!!b&&a.minecraft===b.minecraft&&a.loader===b.loader&&a.loaderVersion===b.loaderVersion&&a.mods===b.mods&&a.modCount===b.modCount;}
+export function compatibleRoomGame(a,b){
+ if(!a||!b||a.minecraft!==b.minecraft||a.loader!==b.loader||a.loaderVersion!==b.loaderVersion)return false;
+ // An invitation's platform/preset marker cannot prove which substitutions are installed.
+ // Keep the room strict until a verified per-pack mapping can attest both inventories.
+ return a.mods===b.mods&&a.modCount===b.modCount;
+}
 export async function roomInstancePlan(root,target,settings,presets,preferred=''){
  if(!root||!path.isAbsolute(root))throw Error('请先在设置中选择游戏目录，再安装或加入房间');
  if(!target.game)return {legacy:true,instance:preferred,download:false,reason:'旧版邀请没有版本清单，请手动选择与房主相同的整合包。'};

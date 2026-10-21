@@ -1,0 +1,36 @@
+{
+  "version": "0.8.4",
+  "previous": "0.8.3",
+  "tag": "v0.8.4",
+  "date": "2026-10-21",
+  "prerelease": true,
+  "source": "next",
+  "platforms": [
+    "windows-x64",
+    "windows-ia32",
+    "android"
+  ],
+  "androidVersionCode": 80400,
+  "runtimeModuleVersion": "0.8.4",
+  "communityVersion": "0.8.4",
+  "gameBridgeVersion": "0.8.0",
+  "gameBridges": {
+    "version": "0.8.0",
+    "reusedFrom": "0.8.0",
+    "files": [
+      {
+        "name": "hxz-community-bridge-0.8.0-mcdr.mcdr",
+        "size": 5286,
+        "sha256": "6524ae95962c53f0b539c7d5f3bfdd8d477445348a71d017f8ce668e6bee7678"
+      },
+      {
+        "name": "hxz-community-bridge-0.8.0-neoforge-1.21.1.jar",
+        "size": 18914,
+        "sha256": "f7f804859f8ed281689726a39ec91fdcd11e1f0e4211a98c537198cc7b6274ee"
+      }
+    ]
+  },
+  "release": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.4",
+  "notes": "next/docs/0.8.4发布说明.md",
+  "deviceTested": false
+}

@@ -15,7 +15,7 @@ export type CardSpec = {id:string; title:string; content:React.ReactNode; x?:num
 type Saved = {items:LayoutItem[]; hidden:string[]; locked?:string[]; fixed?:string[]};
 const clone = <T,>(value:T):T => JSON.parse(JSON.stringify(value));
 const ROW = 22;
-const SCROLL_REGIONS='.chat-history,.music-track-list,.home-game-rows,.log-output,.forum-list,.lobby-room-list,.lobby-grants';
+const SCROLL_REGIONS='.chat-history,.music-track-list,.home-game-rows,.log-output,.forum-list,.lobby-room-list,.lobby-grants,.download-source-grid';
 function contentHeight(el:HTMLElement) {
   const {height,minHeight}=el.style;
   el.style.height='auto';el.style.minHeight='0';
@@ -203,7 +203,9 @@ function CardContents({fit,paused,gap,onHeight,onMinimum,children}:{fit:boolean;
       const natural=contentHeight(el)+(heading?.offsetHeight||40)+padding+gap+2;
       // Histories keep a bounded viewport. Ordinary forms grow with their
       // controls instead of silently turning auto height into fixed height.
-      const limit=Math.max(12,Math.min(40,Math.floor((window.innerHeight-170)/ROW)));
+      // The download grid already supplies a bounded viewport. Its toolbar and
+      // one complete row must remain usable at large font sizes.
+      const limit=el.querySelector('.download-source-grid')?100:Math.max(12,Math.min(40,Math.floor((window.innerHeight-170)/ROW)));
       if(fit)callback.current(Math.max(4,Math.min(scrollPositions.length?limit:100,Math.ceil(natural/ROW))));
       const min=minimumContent(el),sidePadding=parseFloat(css.paddingLeft)+parseFloat(css.paddingRight);
       for(const {node,top,left} of scrollPositions){node.scrollTop=top;node.scrollLeft=left;}
