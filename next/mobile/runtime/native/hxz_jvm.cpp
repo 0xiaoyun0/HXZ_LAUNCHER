@@ -1,4 +1,5 @@
 #include "hxz_jvm.h"
+#include "hxz_jvm_shutdown.h"
 #include <jni.h>
 #include <dlfcn.h>
 #include <unistd.h>
@@ -34,7 +35,7 @@ static bool exception(JNIEnv* env) {
     if(!env->ExceptionCheck())return false;
     env->ExceptionDescribe();env->ExceptionClear();return true;
 }
-int hxz_java(const HxzJavaJob& j) {
+int hxz_java(const HxzJavaJob& j,bool installerProcess) {
     try {
         if(j.home.empty()||j.home[0]!='/'||j.directory.empty()||j.directory[0]!='/'||j.mainClass.empty())throw std::runtime_error("Invalid Java launch plan");
         if(chdir(j.directory.c_str())!=0)throw std::runtime_error("Cannot open game working directory");
@@ -77,9 +78,7 @@ int hxz_java(const HxzJavaJob& j) {
         env->CallStaticVoidMethod(main,method,argv);bool failed=exception(env);
         if(failed)return 75;
         std::fprintf(stderr,"[HXZ-JVM] main-complete\n");
-        // Installer main() may return while worker threads still write processor output.
-        result=vm->DestroyJavaVM();
-        if(result==JNI_OK)std::fprintf(stderr,"[HXZ-JVM] shutdown-complete\n");
-        return result==JNI_OK?0:76;
+        // Unknown processors and games may still have workers writing output.
+        return hxz_finish_java(env,vm,installerProcess,j.mainClass);
     } catch(const std::exception& e) {fprintf(stderr,"HXZ: %s\n",e.what());return 70;}
 }

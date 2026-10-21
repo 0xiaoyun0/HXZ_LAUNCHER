@@ -19,7 +19,7 @@ int main(int argc,char** argv) {
             if(!error.empty()){fprintf(stderr,"HXZ IPC: %s\n",error.c_str());return 66;}
             if(hxz_configure_renderer(argv[3],argv[4])!=0){fprintf(stderr,"HXZ renderer: %s\n",hxz_last_error());hxz_ipc_child_close();return 67;}
         }
-        int result=hxz_java(job);if(argc==5)hxz_ipc_child_close();return result;
+        int result=hxz_java(job,argc==2);if(argc==5)hxz_ipc_child_close();return result;
     }
     catch(const std::exception& e){fprintf(stderr,"HXZ: %s\n",e.what());return 65;}
 }
