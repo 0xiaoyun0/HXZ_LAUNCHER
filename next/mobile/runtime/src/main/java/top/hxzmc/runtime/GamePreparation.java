@@ -334,6 +334,13 @@ public final class GamePreparation {
         vars.put("resolution_width",String.valueOf(context.width));vars.put("resolution_height",String.valueOf(context.height));
         JSONObject arguments=metadata.optJSONObject("arguments");
         List<String> jvm=flatten(arguments==null?null:arguments.optJSONArray("jvm"),context,vars);
+        if("cpw.mods.bootstraplauncher.BootstrapLauncher".equals(metadata.optString("mainClass")))for(int i=0;i<jvm.size();i++) {
+            String argument=jvm.get(i);if(!argument.startsWith("-DignoreList="))continue;
+            List<String> ignored=Arrays.asList(argument.substring("-DignoreList=".length()).split(","));
+            // Forge/NeoForge ignores ${version_name}.jar, but inherited profiles keep the parent's filename.
+            // Keep that client jar available without also exposing it as a bootstrap module beside patched Minecraft.
+            if(ignored.contains(id+".jar")&&!ignored.contains(jar.getName()))jvm.set(i,argument+","+jar.getName());
+        }
         if(!jvm.contains("-cp")&&!jvm.contains("-classpath")&&!jvm.contains("--class-path")){jvm.add("-cp");jvm.add(vars.get("classpath"));}
         if(jvm.stream().noneMatch(s->s.startsWith("-Djava.library.path=")))jvm.add("-Djava.library.path="+context.natives.getAbsolutePath());
         jvm.add(0,"-Xmx"+context.memoryMB+"M");jvm.add(1,"-Dfile.encoding=UTF-8");jvm.add(2,"-Dlog4j2.formatMsgNoLookups=true");

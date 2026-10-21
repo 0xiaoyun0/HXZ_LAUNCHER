@@ -29,7 +29,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     private final CountDownLatch surfaceReady=new CountDownLatch(1);
     private JSONObject request,options;private File root,run,log;private AndroidEngineHost host;private volatile String clientModDiagnostic="";
     private FrameLayout frame;private LinearLayout panel;private TextView heading,detail;private ProgressBar progress;private Button diagnosticButton;private File diagnosticLog;private volatile String lastDiagnosticPhase="",diagnosticText="";
-    private SurfaceView surface;private GameControlsView controls;private Dialog textDialog;private volatile Process process;private volatile boolean playing,closing;
+    private SurfaceView surface;private GameControlsView controls;private Dialog textDialog;private volatile Process process;private volatile boolean playing,closing,gameStarted;private volatile String gameDiagnostic="";
     private long lastProgress,roomLogOffset;private final ByteArrayOutputStream roomLogLine=new ByteArrayOutputStream();private final Set<String> secrets=ConcurrentHashMap.newKeySet();private volatile int surfacePixelWidth,surfacePixelHeight;private volatile boolean surfaceLive;private int renderWidth=1280,renderHeight=720,hostPort;private String accountId="";
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -74,7 +74,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
         try{if(file.length()<16384)Files.write(file.toPath(),(System.currentTimeMillis()+" "+phase.replaceAll("[^A-Za-z0-9_-]","")+"\n").getBytes(StandardCharsets.UTF_8),StandardOpenOption.CREATE,StandardOpenOption.APPEND);}catch(IOException ignored){}
     }
     private void prepareAndPlay(){
-        File jobFile=null;
+        File jobFile=null;GameCrashDiagnostics crashCapture=null;
         try {
             diagnosticLog=new File(host.logs,"preparation-latest.log");Files.write(diagnosticLog.toPath(),new byte[0]);lastDiagnosticPhase="";
             JSONObject selected=request.getJSONObject("server");JSONArray presets=new JSONArray();for(ServerPresets.Preset p:ServerPresets.defaults())presets.put(p.id.equals(selected.getString("id"))?selected:p.json());
@@ -114,11 +114,11 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             File executable=new File(getApplicationInfo().nativeLibraryDir,"libhxz_jvm_exec.so");if(!executable.canExecute())throw new IOException("游戏进程组件缺失，请更新社区应用");
             ProcessBuilder builder=new ProcessBuilder(executable.getAbsolutePath(),jobFile.getAbsolutePath(),socket,renderer.getAbsolutePath(),"osmesa").directory(run).redirectErrorStream(true).redirectOutput(log);
             builder.environment().put("LD_LIBRARY_PATH",renderer.getParent()+":"+nativeLibs+":"+host.resource("audio")+":"+host.javaHome(plan.javaMajor)+"/lib/server:"+host.javaHome(plan.javaMajor)+"/lib:"+getApplicationInfo().nativeLibraryDir);
-            builder.environment().put("TMPDIR",getCacheDir().getAbsolutePath());builder.environment().put("GALLIUM_DRIVER",rendererInfo.getString("driver"));if(rendererInfo.getString("driver").equals("softpipe"))builder.environment().put("LIBGL_ALWAYS_SOFTWARE","1");process=builder.start();playing=true;
+            builder.environment().put("TMPDIR",getCacheDir().getAbsolutePath());builder.environment().put("GALLIUM_DRIVER",rendererInfo.getString("driver"));if(rendererInfo.getString("driver").equals("softpipe"))builder.environment().put("LIBGL_ALWAYS_SOFTWARE","1");crashCapture=new GameCrashDiagnostics(run);process=builder.start();gameStarted=true;playing=true;
             ui.post(()->{((View)panel.getParent()).setVisibility(View.GONE);controls.configure(options.optInt("controlSize",100)/100f,(float)options.optDouble("sensitivity",1),renderWidth,renderHeight);controls.setVisibility(View.VISIBLE);});
             long lastRoom=0;while(!process.waitFor(250,TimeUnit.MILLISECONDS)){cancellation.check();if(hostPort>0&&SystemClock.elapsedRealtime()-lastRoom>2500){lastRoom=SystemClock.elapsedRealtime();touchRoomControl();}}
-            int exit=process.exitValue();playing=false;if(exit!=0)throw new IOException("游戏退出（代码 "+exit+"）。安装进度和存档已保留，日志在游戏诊断中。\n"+logTail());ui.post(this::leave);
-        }catch(Exception e){if(!closing)failed(e);}finally {playing=false;stopGame();if(jobFile!=null)try{Files.deleteIfExists(jobFile.toPath());}catch(IOException ignored){}roomExited();}
+            int exit=process.exitValue();playing=false;if(exit!=0)throw new IOException("游戏退出（代码 "+exit+"）。安装进度和存档已保留，日志在游戏诊断中。");ui.post(this::leave);
+        }catch(Exception e){if(!closing){if(gameStarted&&crashCapture!=null)gameDiagnostic=scrub(crashCapture.collect(log));failed(e);}}finally {playing=false;stopGame();if(jobFile!=null)try{Files.deleteIfExists(jobFile.toPath());}catch(IOException ignored){}roomExited();}
     }
     private static EngineHost.JavaJob freshJob(EngineHost.JavaJob original,String token)throws Exception {
         List<String> args=new ArrayList<>(original.arguments);boolean replaced=false;
@@ -193,15 +193,15 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
         else return;bridge("roomState",input);
     }
     private void roomExited(){if(hostPort<=0)return;try{if(run!=null)Files.deleteIfExists(new File(run,".hxzl/direct-lobby.properties").toPath());Bundle input=new Bundle();input.putInt("port",hostPort);input.putBoolean("exited",true);bridge("roomState",input);}catch(Exception ignored){}}
-    private String logTail(){if(log==null)return "";try(RandomAccessFile file=new RandomAccessFile(log,"r")){file.seek(Math.max(0,file.length()-6000));byte[] bytes=new byte[(int)Math.min(6000,file.length())];file.readFully(bytes);return scrub(new String(bytes,StandardCharsets.UTF_8));}catch(Exception e){return "";}}
     private String scrub(String input){String value=input==null?"":input;JSONObject original=request==null?null:request.optJSONObject("account");if(original!=null)for(String key:Arrays.asList("accessToken","clientToken")){String secret=original.optString(key);if(!secret.isEmpty())value=value.replace(secret,"[已隐藏]");}
         for(String secret:secrets)if(!secret.isEmpty())value=value.replace(secret,"[已隐藏]");
         value=value.replaceAll("(?i)(https?://[^\\s?#]+)\\?[^\\s#]+","$1?[查询已隐藏]");
-        value=value.replaceAll("(?i)(\\\"(?:accessToken|clientToken|token|password|secret)\\\"\\s*:\\s*\\\")[^\\\"]+","$1[已隐藏]");
+        value=value.replaceAll("(?i)(\\\"(?:accessToken|clientToken|token|password|secret|authorization)\\\"\\s*:\\s*\\\")[^\\\"]+","$1[已隐藏]");
+        value=value.replaceAll("(?i)(authorization\\s*[=:]\\s*)(?:Bearer|Basic)\\s+[^\\s,;]+","$1[已隐藏]");
         value=value.replaceAll("(?i)((?:accessToken|clientToken|authorization|password|secret|session|token)\\s*[=:]\\s*)[^\\s,;]+","$1[已隐藏]");
         return value.replaceAll("(?im)^.*(?:command\\s*line|vm arguments|jvm arguments|java_command|sun\\.java\\.command|--accessToken|-Dorg\\.lwjgl|-javaagent:).*$","[启动参数已隐藏]");
     }
-    private String brief(Throwable error){StringBuilder evidence=new StringBuilder();for(Throwable current=error;current!=null&&evidence.length()<24576;current=current.getCause())evidence.append(current.getMessage()).append('\n');String advice=GameFailureAdvice.explain(evidence.toString());if(!advice.isEmpty())return advice;for(Throwable current=error;current!=null;current=current.getCause()){
+    private String brief(Throwable error){StringBuilder evidence=new StringBuilder(gameDiagnostic);for(Throwable current=error;current!=null&&evidence.length()<24576;current=current.getCause())evidence.append(current.getMessage()).append('\n');String advice=GameFailureAdvice.explain(evidence.toString());if(!advice.isEmpty())return advice;for(Throwable current=error;current!=null;current=current.getCause()){
         if(current instanceof AndroidEngineHost.ProcessorFailure)return "游戏安装或更新处理器失败。复制技术诊断可查看退出码和日志。";
         if(current instanceof java.net.UnknownHostException||current instanceof java.net.ConnectException||current instanceof java.net.SocketTimeoutException||current instanceof javax.net.ssl.SSLException)return "当前下载节点连接失败，请检查网络后重试；已下载内容会保留。";
         if(current instanceof FileNotFoundException||current instanceof NoSuchFileException)return "缺少运行资源或游戏文件，请检查安装状态后重试。";
@@ -210,10 +210,13 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
         if(lower.contains("missing")||lower.contains("not found")||lower.contains("资源缺失"))return "缺少运行资源或游戏文件，请检查安装状态后重试。";
         if(lower.contains("integrity")||lower.contains("checksum")||lower.contains("完整性")||lower.contains("散列"))return "资源校验失败，请重新下载或修复运行模块。";
     }String detail=scrub(error.getMessage());int newline=detail.indexOf('\n');if(newline>=0)detail=detail.substring(0,newline);return detail.length()>180?detail.substring(0,180)+"…":detail.isEmpty()?"游戏准备失败，请复制技术诊断查看原因。":detail;}
-    private String technical(Throwable error){StringBuilder out=new StringBuilder("HXZ Android 游戏诊断\n");out.append(top.hxzmc.community.BuildConfig.VERSION_NAME).append(" / ").append(top.hxzmc.community.BuildConfig.VERSION_CODE).append('\n');out.append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append(" · Android ").append(Build.VERSION.RELEASE).append('\n');if(!clientModDiagnostic.isEmpty())out.append("客户端适配:\n").append(clientModDiagnostic);int depth=0;for(Throwable current=error;current!=null&&depth++<8;current=current.getCause())out.append(current.getClass().getSimpleName()).append(": ").append(current.getMessage()).append('\n');
-        if(host!=null){String processor=host.processorDiagnostic();if(!processor.isEmpty())out.append("当前/最近处理器:\n").append(processor).append('\n');}
-        File file=diagnosticLog;if(file!=null&&file.isFile())try{byte[] bytes=Files.readAllBytes(file.toPath());out.append("准备阶段:\n").append(new String(bytes,0,Math.min(bytes.length,16384),StandardCharsets.UTF_8));}catch(IOException ignored){}
+    private String technical(Throwable error){StringBuilder out=new StringBuilder("HXZ Android 游戏诊断\n");out.append(top.hxzmc.community.BuildConfig.VERSION_NAME).append(" / ").append(top.hxzmc.community.BuildConfig.VERSION_CODE).append('\n');out.append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append(" · Android ").append(Build.VERSION.RELEASE).append('\n');StringBuilder failure=new StringBuilder();int depth=0;for(Throwable current=error;current!=null&&depth++<8;current=current.getCause())failure.append(current.getClass().getSimpleName()).append(": ").append(diagnosticPart(current.getMessage(),8192)).append('\n');out.append(diagnosticPart(failure.toString(),gameStarted?2048:8192));
+        if(!gameDiagnostic.isEmpty())out.append(gameDiagnostic).append('\n');
+        if(!clientModDiagnostic.isEmpty())out.append("客户端适配:\n").append(diagnosticPart(clientModDiagnostic,2048)).append('\n');
+        if(host!=null&&!gameStarted){String processor=host.processorDiagnostic();if(!processor.isEmpty())out.append("处理器记录（准备阶段上下文）:\n").append(processor).append('\n');}
+        File file=diagnosticLog;if(file!=null&&file.isFile())out.append("准备阶段:\n").append(GameCrashDiagnostics.readTail(file,2048));
         String result=scrub(out.toString());return result.length()>24576?result.substring(0,24576):result;}
+    private String diagnosticPart(String value,int limit){String safe=scrub(value);return safe.length()>limit?safe.substring(0,limit)+"\n[已截断]":safe;}
     private void failed(Exception error){String summary=brief(error),details=technical(error);ui.post(()->{if(closing)return;diagnosticText=details;playing=false;controls.setVisibility(View.GONE);((View)panel.getParent()).setVisibility(View.VISIBLE);heading.setText("暂时未能进入游戏");detail.setText(summary);progress.setVisibility(View.GONE);diagnosticButton.setVisibility(View.VISIBLE);});}
     private void settings(){try{JSONObject account=account();heading.setText("游戏运行设置");detail.setText("当前角色："+account.getString("name")+"\n角色与社区同步，无需再次导入。\n左侧移动，右侧拖动视角；支持键盘输入。调整自动保存，下次启动生效。");progress.setVisibility(View.GONE);slider("controlSize","触控按钮大小",70,150,100);slider("resolutionPercent","渲染分辨率",35,100,70);slider("sensitivity","视角灵敏度",25,200,100);}catch(Exception e){failed(e);}}
     private void tapKey(int key){NativeRuntime.event(1,key,0,1,0);NativeRuntime.event(1,key,0,0,0);}
