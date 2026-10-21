@@ -25,7 +25,7 @@ final class GameEngine {
     private volatile String phase="idle",message="首次启动游戏时自动下载运行资源",checkedEnvelope="";
     private volatile long received,total,identityGeneration;
     private volatile JSONObject manifest,pending;
-    private String activeKey="";private long activeChecked;private volatile long launchRequestedAt;private JSONObject activeValue;
+    private String activeKey="",activeFailure="";private long activeChecked;private volatile long launchRequestedAt;private JSONObject activeValue;
     GameEngine(CommunityApp app){
         this.app=app;prefs=app.getSharedPreferences("game-engine",0);runtimePrefs=app.getSharedPreferences("hxz-runtime-module",0);
         File cache=new File(app.getCacheDir(),"game-runtime");cache.mkdirs();archive=new File(cache,"runtime.zip");part=new File(cache,"runtime.part");
@@ -40,11 +40,21 @@ final class GameEngine {
     private boolean supported(){return unsupportedReason().isEmpty();}
     private Intent runtimeIntent(){return new Intent().setClassName(app.getPackageName(),"top.hxzmc.community.game.GameRuntimeActivity");}
     private boolean backendReady(){return app.getPackageManager().resolveActivity(runtimeIntent(),0)!=null;}
-    private synchronized JSONObject active(){String key=prefs.getString("activation","{}");long now=android.os.SystemClock.elapsedRealtime();if(key.equals(activeKey)&&now-activeChecked<5000)return activeValue;activeKey=key;activeChecked=now;activeValue=null;try{
+    private synchronized JSONObject active(){String key=prefs.getString("activation","{}");long now=android.os.SystemClock.elapsedRealtime();if(key.equals(activeKey)&&now-activeChecked<5000)return activeValue;activeKey=key;activeChecked=now;activeValue=null;activeFailure="";try{
         JSONObject activation=new JSONObject(key);JSONObject m=verify(activation.getString("envelope"));File root=new File(activation.getString("root"));
-        if(!root.isAbsolute()||!root.getCanonicalPath().startsWith(modules.getCanonicalPath()+File.separator)||!root.getCanonicalFile().equals(root.getAbsoluteFile())||!GameRuntimeStore.valid(root,m))return null;
+        root=GameRuntimeStore.activationRoot(modules,root);GameRuntimeStore.requireValid(root,m,false);
         activeValue=m;return m;
-    }catch(Exception e){return null;}}
+    }catch(Exception e){activeFailure=CommunityApp.reason(e);return null;}}
+    private synchronized void activate(File extracted)throws Exception{
+        File root=GameRuntimeStore.activationRoot(modules,extracted);JSONObject selected=verify(checkedEnvelope);
+        GameRuntimeStore.requireValid(root,selected,false);
+        String previous=prefs.getString("activation","{}");
+        String activation=new JSONObject().put("envelope",checkedEnvelope).put("root",root.getAbsolutePath()).toString();
+        if(!prefs.edit().putString("activation",activation).commit())throw new IOException("无法保存运行模块启用记录");
+        // Retrying the same module must not reuse a cached failure from before extraction.
+        activeKey="";activeChecked=0;activeValue=null;
+        if(active()==null){String failure=activeFailure;prefs.edit().putString("activation",previous).commit();activeKey="";activeChecked=0;throw new IOException("运行模块启用失败："+failure);}
+    }
     synchronized JSONObject state(){JSONObject m=active();boolean backend=backendReady();String unsupported=unsupportedReason();return CommunityApp.obj("phase",phase,"message",!unsupported.isEmpty()?unsupported:backend?message:"专用游戏引擎正在开发，本构建尚不能启动手机游戏","received",received,"total",total,"busy",busy,"supported",unsupported.isEmpty(),"backendReady",backend,"module",true,"installed",m!=null&&backend,"trusted",m!=null,"version",m==null?"":m.optString("versionName"),"riskAccepted",prefs.getBoolean("riskAccepted",false),"ready",m!=null&&backend&&unsupported.isEmpty(),"renderers",m==null?new JSONArray():m.optJSONArray("renderers"));}
     private synchronized void publish(String stage,String text){phase=stage;message=text;app.event("gameEngine",state());}
     void accountChanged(){identityGeneration++;pending=null;cancelled=true;Call call=transfer;if(call!=null)call.cancel();}
@@ -53,7 +63,7 @@ final class GameEngine {
             case "accept":prefs.edit().putBoolean("riskAccepted",input.optBoolean("accepted")).apply();return state();
             case "download":case "install":download(null);return state();
             case "cancel":pending=null;cancelled=true;if(transfer!=null)transfer.cancel();return state();
-            case "launch":case "settings":case "importAccount":eligible();if(active()==null)download(input);else perform(input);return state();
+            case "launch":case "settings":case "importAccount":eligible();if(busy)throw new IOException("运行模块正在准备中，请等待完成");if(active()==null)download(input);else perform(input);return state();
             default:return state();
         }
     }
@@ -118,15 +128,15 @@ final class GameEngine {
         worker.execute(()->{
             try{
                 manifest=check();total=manifest.getLong("size");JSONObject current=active();
-                if(current==null||current.getLong("versionCode")<manifest.getLong("versionCode")){
+                boolean repair=current==null;
+                if(!repair){File installed=GameRuntimeStore.activationRoot(modules,new File(new JSONObject(prefs.getString("activation","{}")).getString("root")));repair=!GameRuntimeStore.validDeep(installed,current);}
+                if(repair||current.getLong("versionCode")<manifest.getLong("versionCode")||!current.getString("sha256").equals(manifest.getString("sha256"))){
                     boolean cached=archive.isFile()&&archive.length()==total&&GameRuntimeStore.sha(archive).equals(manifest.getString("sha256"));if(!cached)fetchArchive();
                     if(cancelled||ticket!=identityGeneration)throw new IOException("已暂停");publish("extracting","正在校验并准备游戏运行资源");
                     File root=GameRuntimeStore.extract(archive,modules,manifest,()->cancelled||ticket!=identityGeneration);
                     if(cancelled||ticket!=identityGeneration)throw new IOException("已暂停");if(gameProcessRunning())throw new IOException("游戏进程正在使用运行资源，请退出游戏后继续");
                     // Manifest and root are one atomic activation; failed writes preserve the previous generation.
-                    String activation=new JSONObject().put("envelope",checkedEnvelope).put("root",root.getAbsolutePath()).toString();
-                    if(!prefs.edit().putString("activation",activation).commit())throw new IOException("无法启用运行模块");
-                    if(active()==null)throw new IOException("运行模块未能完整启用，请重试");
+                    activate(root);
                 }
                 publish("ready","运行模块已就绪，无需另行安装应用");JSONObject action=pending;pending=null;
                 if(action!=null&&!cancelled&&ticket==identityGeneration){if(app.foreground&&app.activity.get()!=null)perform(action);else publish("ready","运行模块已就绪，返回游戏页面即可启动");}

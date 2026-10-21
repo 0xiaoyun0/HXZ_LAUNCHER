@@ -3,14 +3,14 @@
   "previous": "0.8.3",
   "tag": "v0.8.4",
   "date": "2026-10-21",
-  "prerelease": true,
+  "prerelease": false,
   "source": "next",
   "platforms": [
     "windows-x64",
     "windows-ia32",
     "android"
   ],
-  "androidVersionCode": 80401,
+  "androidVersionCode": 80402,
   "runtimeModuleVersion": "0.8.4",
   "communityVersion": "0.8.4",
   "gameBridgeVersion": "0.8.0",
@@ -33,6 +33,6 @@
   "release": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.4",
   "notes": "next/docs/0.8.4发布说明.md",
   "deviceTested": false,
-  "androidSourceTag": "v0.8.4-android.80401",
+  "androidSourceTag": "v0.8.4-android.80402",
   "runtimeModuleVersionCode": 80400
 }

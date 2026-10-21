@@ -18,6 +18,13 @@ final class GameRuntimeStore {
         StringBuilder out=new StringBuilder();for(byte b:digest.digest())out.append(String.format(Locale.ROOT,"%02x",b&255));return out.toString();
     }
     static String sha(byte[] bytes)throws Exception{MessageDigest digest=MessageDigest.getInstance("SHA-256");digest.update(bytes);StringBuilder out=new StringBuilder();for(byte b:digest.digest())out.append(String.format(Locale.ROOT,"%02x",b&255));return out.toString();}
+    /** Android app-data ancestors may be system aliases. Only the managed module itself must not be a link. */
+    static File activationRoot(File parent,File stored)throws IOException{
+        if(!stored.isAbsolute()||Files.isSymbolicLink(stored.toPath()))throw new IOException("运行模块目录无效");
+        File base=parent.getCanonicalFile(),root=stored.getCanonicalFile();
+        if(!base.equals(root.getParentFile())||!root.getName().matches("[0-9]+-[a-f0-9]{16}"))throw new IOException("运行模块目录不在应用资源目录内");
+        return root;
+    }
     static String safe(String name)throws IOException{
         if(name==null||name.length()>240||!name.matches("[A-Za-z0-9_./+-]+")||name.startsWith("/")||Arrays.asList(name.split("/",-1)).stream().anyMatch(p->p.equals("..")||p.equals(".")||p.isEmpty()))throw new IOException("运行资源路径无效");
         if(!name.equals("module.json")&&!name.startsWith("app_runtime/"))throw new IOException("运行资源包含不允许的内容");
@@ -51,8 +58,9 @@ final class GameRuntimeStore {
         Map<String,JSONObject> expected=new HashMap<>();Set<String> folded=new HashSet<>();long total=0;
         for(int i=0;i<rows.length();i++){JSONObject row=rows.getJSONObject(i);String name=safe(row.getString("path"));long size=row.getLong("size");if(!name.startsWith("app_runtime/")||size<0||size>LIMIT||!row.getString("sha256").matches("[a-f0-9]{64}")||expected.put(name,row)!=null||!folded.add(name.toLowerCase(Locale.ROOT))||(total+=size)>LIMIT)throw new IOException("运行资源清单无效");}
         if(!parent.isDirectory()&&!parent.mkdirs())throw new IOException("无法创建运行资源目录");
-        if(parent.getUsableSpace()<total+32L*1024*1024)throw new IOException("存储空间不足，请为运行资源留出更多空间");
         File staging=new File(parent,"pending-"+UUID.randomUUID()),ready=new File(parent,outer.getLong("versionCode")+"-"+outer.getString("sha256").substring(0,16));
+        if(ready.exists()&&validDeep(ready,outer))return ready;
+        if(parent.getUsableSpace()<total+32L*1024*1024)throw new IOException("存储空间不足，请为运行资源留出更多空间");
         if(!staging.mkdir())throw new IOException("无法准备运行资源目录");
         try(ZipFile archive=new ZipFile(zip)){
             Set<String> seen=new HashSet<>();Enumeration<? extends ZipEntry> entries=archive.entries();long bytes=0;
@@ -71,12 +79,19 @@ final class GameRuntimeStore {
             Files.write(new File(staging,"module.json").toPath(),moduleBytes);
             if(!new File(staging,"module.json").setReadOnly())throw new IOException("无法保护运行模块清单");
             Files.write(new File(staging,"verified.json").toPath(),outer.toString().getBytes(StandardCharsets.UTF_8));
+            File previous=null;
             if(ready.exists()){
-                // Reuse only a fully verified extraction; do not overwrite a live module.
                 if(validDeep(ready,outer)){remove(staging,parent);return ready;}
-                throw new IOException("已有运行资源损坏，请在未运行游戏时清理资源后重试");
+                activationRoot(parent,ready);
+                previous=new File(parent,"pending-"+UUID.randomUUID());
+                if(!ready.renameTo(previous))throw new IOException("无法替换损坏的运行资源，请退出游戏后重试");
             }
-            if(!staging.renameTo(ready))throw new IOException("无法保存已校验的运行资源");
+            if(!staging.renameTo(ready)){
+                if(previous!=null&&!previous.renameTo(ready))throw new IOException("运行资源替换中断，已保留原目录，下次重试会重新准备");
+                throw new IOException("无法保存已校验的运行资源");
+            }
+            // A failed cleanup must not turn a successful activation into a failed installation.
+            if(previous!=null)try{remove(previous,parent);}catch(IOException ignored){}
             return ready;
         }finally{if(staging.exists())remove(staging,parent);}
     }
@@ -91,12 +106,14 @@ final class GameRuntimeStore {
         if(!saved.getString("sha256").equals(outer.getString("sha256"))||saved.getLong("versionCode")!=outer.getLong("versionCode"))throw new IOException("运行模块激活记录不匹配");
         return new JSONObject(new String(bytes,StandardCharsets.UTF_8));
     }
-    private static boolean valid(File dir,JSONObject outer,boolean deep){try{
-        JSONObject metadata=checkedMetadata(dir,outer);JSONArray files=metadata.getJSONArray("files");if(files.length()<1||files.length()>2000)return false;
+    static void requireValid(File dir,JSONObject outer,boolean deep)throws Exception{
+        JSONObject metadata=checkedMetadata(dir,outer);JSONArray files=metadata.getJSONArray("files");if(files.length()<1||files.length()>2000)throw new IOException("运行资源清单数量异常");
         for(int i=0;i<files.length();i++){JSONObject row=files.getJSONObject(i);String name=safe(row.getString("path"));File file=new File(dir,name);
-            if(!noLinks(dir,name)||!file.isFile()||file.length()!=row.getLong("size")||(deep&&!sha(file).equals(row.getString("sha256"))))return false;}
-        return true;
-    }catch(Exception e){return false;}}
+            if(!noLinks(dir,name))throw new IOException("运行资源包含链接："+name);
+            if(!file.isFile())throw new IOException("运行资源缺失："+name);
+            if(file.length()!=row.getLong("size")||(deep&&!sha(file).equals(row.getString("sha256"))))throw new IOException("运行资源损坏："+name);}
+    }
+    private static boolean valid(File dir,JSONObject outer,boolean deep){try{requireValid(dir,outer,deep);return true;}catch(Exception e){return false;}}
     static boolean valid(File dir,JSONObject outer){return valid(dir,outer,false);}
     /** Full integrity check for activation and launch, never for frequent status polling. */
     static boolean validDeep(File dir,JSONObject outer){return valid(dir,outer,true);}
