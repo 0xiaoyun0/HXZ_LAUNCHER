@@ -8,6 +8,8 @@ public final class GameFailureAdvice {
     public static String explain(String evidence) {
         if(evidence==null)return "";
         String text=evidence.toLowerCase(Locale.ROOT);
+        if(text.contains("shared frame descriptor is too small")||text.contains("android shared frame buffer size")||text.contains("shared frame buffer is too small"))
+            return "启动器未能建立游戏画面通道。已下载文件和存档已保留，无需重新下载整合包；请更新社区应用后重试，仍失败时复制当前诊断反馈。";
         if(text.contains("outofmemoryerror")||text.contains("native memory allocation (malloc) failed")||text.contains("could not reserve enough space for")||text.contains("out of swap space"))
             return "游戏内存不足。请先关闭其他应用、降低视距和分辨率；不要把全部可用内存分给 Java。存档和已下载文件已保留。";
         if(text.contains("unsatisfiedlinkerror")&&(text.contains("x86")||text.contains("amd64")||text.contains("wrong elf")||text.contains("em_x86_64")||text.contains("e_machine")))

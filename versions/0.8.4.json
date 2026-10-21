@@ -10,7 +10,7 @@
     "windows-ia32",
     "android"
   ],
-  "androidVersionCode": 80407,
+  "androidVersionCode": 80408,
   "runtimeModuleVersion": "0.8.4",
   "communityVersion": "0.8.4",
   "gameBridgeVersion": "0.8.0",
@@ -33,6 +33,6 @@
   "release": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.4",
   "notes": "next/docs/0.8.4发布说明.md",
   "deviceTested": false,
-  "androidSourceTag": "v0.8.4-android.80407",
+  "androidSourceTag": "v0.8.4-android.80408",
   "runtimeModuleVersionCode": 80400
 }

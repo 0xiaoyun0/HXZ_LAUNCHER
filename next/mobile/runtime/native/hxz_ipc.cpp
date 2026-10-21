@@ -1,5 +1,6 @@
 #include "hxz_ipc.h"
 #include "hxz_glfw.h"
+#include "hxz_shared_frames.h"
 
 #include <android/sharedmem.h>
 #include <sys/mman.h>
@@ -132,6 +133,7 @@ std::string hxz_ipc_start(const std::string& path,int width,int height){
     std::lock_guard<std::mutex> guard(globalLock);if(host)return "Native runtime is already started";
     auto s=std::make_shared<State>();s->path=path;s->width=width;s->height=height;s->desiredWidth=width;s->desiredHeight=height;s->slotBytes=static_cast<size_t>(width)*height*4;
     s->fd=ASharedMemory_create("hxz-frames",s->slotBytes*2);if(s->fd<0)return "Cannot allocate shared frame buffer";
+    const std::string capacityError=hxz_check_shared_frames(s->fd,s->slotBytes*2);if(!capacityError.empty())return capacityError;
     s->pixels=static_cast<unsigned char*>(mmap(nullptr,s->slotBytes*2,PROT_READ|PROT_WRITE,MAP_SHARED,s->fd,0));
     if(s->pixels==MAP_FAILED){s->pixels=nullptr;return "Cannot map shared frame buffer";}
     int sock=socket(AF_UNIX,SOCK_SEQPACKET|SOCK_CLOEXEC,0);if(sock<0)return "Cannot create IPC socket";
@@ -177,7 +179,7 @@ std::string hxz_ipc_child_connect(const std::string& path){
     s->fd=fd;s->width=setup.a;s->height=setup.b;s->generation.store(setup.generation);
     if(s->width<1||s->height<1||s->width>4096||s->height>4096)return "Invalid shared frame dimensions";
     s->slotBytes=static_cast<size_t>(s->width)*s->height*4;
-    struct stat st{};if(fstat(fd,&st)<0||st.st_size<static_cast<off_t>(s->slotBytes*2))return "Shared frame descriptor is too small";
+    const std::string capacityError=hxz_check_shared_frames(fd,s->slotBytes*2);if(!capacityError.empty())return capacityError;
     s->pixels=static_cast<unsigned char*>(mmap(nullptr,s->slotBytes*2,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0));
     if(s->pixels==MAP_FAILED){s->pixels=nullptr;return "Cannot map game frame buffer";}
     child=s;hxz_set_frame_sink(frameSink);std::thread(childLoop,s).detach();return {};
