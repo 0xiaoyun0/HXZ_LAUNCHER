@@ -8,7 +8,7 @@ android {
         applicationId 'top.hxzmc.community'
         minSdk 29
         targetSdk 35
-        versionCode 80404
+        versionCode 80405
         versionName '0.8.4'
         externalNativeBuild { cmake { abiFilters 'arm64-v8a'; arguments '-DANDROID_STL=c++_shared' } }
     }

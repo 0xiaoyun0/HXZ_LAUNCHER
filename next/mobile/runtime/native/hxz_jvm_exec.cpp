@@ -1,12 +1,14 @@
 #include "hxz_jvm.h"
 #include "hxz_glfw.h"
 #include "hxz_ipc.h"
+#include "hxz_vm_heap.h"
 #include <cstdio>
 #include <exception>
 #include <csignal>
 #include <sys/prctl.h>
 #include <unistd.h>
 int main(int argc,char** argv) {
+    if(!hxz_prepare_vm_heap())return 69;
     const pid_t parent=getppid();
     if(parent<=1||prctl(PR_SET_PDEATHSIG,SIGTERM)!=0||getppid()!=parent){fprintf(stderr,"HXZ: parent process is unavailable\n");return 68;}
     if(argc!=2&&argc!=5){fprintf(stderr,"HXZ: expected job [socket renderer-path renderer-kind]\n");return 64;}
