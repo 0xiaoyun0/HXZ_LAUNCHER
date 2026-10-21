@@ -224,9 +224,41 @@ public final class RuntimeCoreTest {
                 rejects("source cancellation never falls back to cached launch",()->cancelling.prepare(cachedPreset,context,real,cancelled,null));
                 File clientJar=RuntimeFiles.inside(root,"versions/1.21.1/1.21.1.jar");byte[] oldClient=Files.readAllBytes(clientJar.toPath());bytes(clientJar,new byte[]{1});fault.set(1);
                 rejects("network outage cannot bypass incomplete game installation",()->updater.prepare(cachedPreset,context,real,new EngineHost.Cancellation(),null));bytes(clientJar,oldClient);
+                fault.set(0);testPackWithoutAutoUpdate(output,downloads,hxzupTool,cachedPreset,responses,fault);
                 testStalledMetadata(root,downloads,hxzupTool,context,cachedPreset,real);
             }finally{server.stop(0);}
         }
+    }
+    static void testPackWithoutAutoUpdate(File output,RuntimeDownloads downloads,File tool,ServerPresets.Preset preset,Map<String,byte[]> responses,AtomicInteger fault)throws Exception {
+        File root=Files.createTempDirectory(output.toPath(),"pack-repair-").toFile();JSONObject definition=preset.json().put("autoUpdate",false);JSONArray definitions=new JSONArray().put(definition);
+        for(ServerPresets.Preset item:ServerPresets.defaults())if(!item.id.equals(preset.id))definitions.put(item.json());ServerPresets.Preset noUpdate=ServerPresets.read(definitions).get(0);
+        GamePreparation.Context context=new GamePreparation.Context(RuntimeFiles.inside(root,"versions/"+preset.id),RuntimeFiles.inside(root,".engine/natives"),"Test","uuid","token","msa","","",512,800,600,Collections.emptyMap());
+        byte[] original=responses.get("/manifest.json"),mod="required-server-mod-fixture".getBytes(StandardCharsets.UTF_8);JSONObject manifest=new JSONObject(new String(original,StandardCharsets.UTF_8));
+        manifest.getJSONArray("files").put(new JSONObject().put("path","1/mods/required.jar").put("sha1",digest(mod,"SHA-1")).put("fileSize",mod.length));responses.put("/manifest.json",manifest.toString().getBytes(StandardCharsets.UTF_8));responses.put("/1/mods/required.jar",mod);
+        AtomicInteger jobs=new AtomicInteger();EngineHost real=(job,c,p)->{jobs.incrementAndGet();List<String> command=new ArrayList<>();command.add(new File(System.getProperty("java.home"),"bin/java").getAbsolutePath());command.addAll(job.jvmArguments);command.add("-cp");command.add(job.classpath.get(0).getAbsolutePath());command.add(job.mainClass);command.addAll(job.arguments);Process process=new ProcessBuilder(command).directory(job.workingDirectory).redirectErrorStream(true).redirectOutput(new File(root,"updater-"+jobs.get()+".log")).start();if(!process.waitFor(30,TimeUnit.SECONDS)){process.destroyForcibly();throw new IOException("Fixture updater deadline");}return process.exitValue();};
+        ServerPreparation service=new ServerPreparation(root,downloads,tool);
+        try {
+            rejects("initial HXZUP failure cannot return launch with automatic updates off",()->service.prepare(noUpdate,context,(job,c,p)->7,new EngineHost.Cancellation(),null));
+            check("initial updater failure leaves independently complete game",new GamePreparation(root,downloads).inspect(preset.id,context).complete);
+            service.prepare(noUpdate,context,real,new EngineHost.Cancellation(),null);check("retry with autoUpdate off still performs missing first pack sync",jobs.get()==1&&RuntimeFiles.inside(context.run,"mods/required.jar").isFile());
+            File required=RuntimeFiles.inside(context.run,"mods/required.jar");bytes(required,new byte[]{1});service.prepare(noUpdate,context,real,new EngineHost.Cancellation(),null);
+            check("autoUpdate off repairs corrupted required pack JAR",jobs.get()==2&&Arrays.equals(Files.readAllBytes(required.toPath()),mod));
+            Files.delete(required.toPath());service.prepare(noUpdate,context,real,new EngineHost.Cancellation(),null);
+            check("autoUpdate off repairs missing required pack JAR",jobs.get()==3&&required.isFile());
+            File receipt=RuntimeFiles.inside(context.run,"updater/.updater/local-completion.json");byte[] committed=Files.readAllBytes(receipt.toPath());bytes(required,new byte[]{1});
+            EngineHost maintenance=(job,c,p)->{fault.set(4);try{return real.runJava(job,c,p);}finally{fault.set(0);}};
+            rejects("maintenance race returning zero cannot complete a repair",()->service.prepare(noUpdate,context,maintenance,new EngineHost.Cancellation(),null));
+            check("no-op repair preserves previous receipt rather than blessing damaged bytes",Arrays.equals(committed,Files.readAllBytes(receipt.toPath()))&&required.length()==1);
+            service.prepare(noUpdate,context,real,new EngineHost.Cancellation(),null);
+            bytes(receipt,"{invalid".getBytes(StandardCharsets.UTF_8));service.prepare(noUpdate,context,real,new EngineHost.Cancellation(),null);
+            check("actual repair can replace an unreadable completion receipt",RuntimeFiles.json(receipt).getInt("schema")==1&&Arrays.equals(Files.readAllBytes(required.toPath()),mod));
+            ServerPreparation noNetwork=new ServerPreparation(root,downloads,tool,(url,timeout,cancel)->{throw new AssertionError("Complete pack should not check remote version when automatic updates are off");});
+            check("autoUpdate off complete cached pack launches without source or updater",noNetwork.prepare(noUpdate,context,(job,c,p)->{throw new AssertionError("Unexpected updater");},new EngineHost.Cancellation(),null).versionId.equals(preset.id));
+            Files.delete(required.toPath());rejects("autoUpdate off incomplete pack cannot use unavailable source",()->new ServerPreparation(root,downloads,tool,(url,timeout,cancel)->{throw new SocketTimeoutException("fixture unavailable");}).prepare(noUpdate,context,real,new EngineHost.Cancellation(),null));
+            definition.put("profileSource","manual").put("version","1.21.1").put("loader","").put("fabricAPI",false).put("updateUrls",new JSONArray()).put("autoUpdate",true);
+            ServerPresets.Preset noSource=ServerPresets.read(definitions).get(0);
+            rejects("manual preset without URLs cannot abandon incomplete HXZUP history",()->service.prepare(noSource,context,real,new EngineHost.Cancellation(),null));
+        } finally {responses.put("/manifest.json",original);responses.remove("/1/mods/required.jar");}
     }
     static void testStalledMetadata(File root,RuntimeDownloads downloads,File tool,GamePreparation.Context context,ServerPresets.Preset preset,EngineHost host)throws Exception {
         HttpServer stalled=HttpServer.create(new InetSocketAddress("127.0.0.1",0),0);CountDownLatch release=new CountDownLatch(1),secondRequest=new CountDownLatch(1);AtomicInteger requests=new AtomicInteger();

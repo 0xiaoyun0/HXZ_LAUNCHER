@@ -55,10 +55,25 @@ public final class ServerPreparation {
         GamePreparation.InstallationState previousState=preparation.inspect(preset.id,context);
         JSONObject previous=null;try{previous=preparation.readVersion(preset.id).optJSONObject("hxzGameProfile");}catch(Exception ignored){}
         boolean needsSync=preset.autoUpdate||preset.updateRequired||(!previousState.complete&&preset.profileSource.equals("hxzup"));
+        // Disabling remote version checks never makes the independently installed game a
+        // completed modpack. A failed first sync can already have published game metadata.
+        // Existing manual presets with HXZUP history need the same local-file protection.
+        boolean managedPack=preset.profileSource.equals("hxzup");
+        for(String path:Arrays.asList("updater/portable.json","updater/.updater/local-version.json","updater/.updater/local-manifest.json","updater/.updater/local-completion.json"))
+            managedPack|=RuntimeFiles.inside(expectedRun,path).exists();
+        Exception incompletePack=null;
+        if(!needsSync&&managedPack) {
+            try{HxzupPlan.assertLocalPackComplete(expectedRun,cancel);}
+            catch(java.util.concurrent.CancellationException e){throw e;}
+            catch(Exception e){incompletePack=e;needsSync=true;}
+        }
         boolean needsSource=needsSync||(!previousState.complete&&preset.profileSource.equals("hxzup"));
         HxzupPlan.Source source=null;
         if(needsSource) {
-            if(preset.updateUrls.isEmpty()) {if(preset.updateRequired||preset.profileSource.equals("hxzup"))throw new IOException("Update source missing");needsSync=false;}
+            if(preset.updateUrls.isEmpty()) {
+                if(preset.updateRequired||preset.profileSource.equals("hxzup")||incompletePack!=null)throw new IOException("Update source missing; an incomplete local pack cannot be launched",incompletePack);
+                if(managedPack)HxzupPlan.assertLocalPackComplete(expectedRun,cancel);needsSync=false;
+            }
             else try {source=HxzupPlan.readSource(preset.updateUrls,preset.profileSource.equals("hxzup"),metadata,cancel);}
             catch(HxzupPlan.SourceUnavailableException failure) {
                 cancel.check();

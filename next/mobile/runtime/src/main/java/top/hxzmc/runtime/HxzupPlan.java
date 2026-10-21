@@ -99,19 +99,35 @@ public final class HxzupPlan {
         if(source.maintenance()){assertComplete();if(!preparation.inspect(launchVersion,context).complete)throw new IOException("Maintenance: no complete local game installation");return;}
         if(!sources.contains(ServerPresets.updateUrl(source.base)))throw new IOException("Source is not in preset");
         if(!preparation.inspect(launchVersion,context).complete)throw new IOException("Install game and loader before pack synchronization");
+        boolean repair=false;
+        try{assertLocalPackComplete(instance,cancel);}
+        catch(java.util.concurrent.CancellationException e){throw e;}
+        catch(Exception incomplete){repair=true;}
         Files.createDirectories(updater.toPath());JSONObject config=new JSONObject();File configFile=RuntimeFiles.inside(updater,"config.json");
         if(configFile.exists())config=RuntimeFiles.json(configFile);
         List<String> preferred=new ArrayList<>();preferred.add(source.base);for(String base:sources)if(!base.equals(source.base))preferred.add(base);
         config.put("servers",new JSONArray(preferred));config.put("gameDir",root.getAbsolutePath());
         config.put("gameRunDir","versions/"+instance.getName());config.put("maxParentLevels",1);config.put("showChangelog",false);
+        // The real updater intentionally skips manifest/rule evaluation for an unchanged
+        // version. Request its existing repair mode when local completion did not verify.
+        config.put("repairGameFiles",repair);
         RuntimeFiles.writeJson(configFile,config);
         // Reuses HXZUP's published portable profile compatibility guard and file mapping level 1.
         RuntimeFiles.writeJson(RuntimeFiles.inside(updater,"portable.json"),new JSONObject().put("gameVersion",profile.getString("gameVersion")).put("loader",profile.optJSONObject("loader")==null?new JSONObject():profile.getJSONObject("loader")));
+        File local=RuntimeFiles.inside(updater,".updater/local-version.json");String previousCommit=local.isFile()?RuntimeFiles.hash(local,"SHA-256"):"";
         int exit=host.runJava(job(javaMajor),cancel,progress);cancel.check();if(exit!=0)throw new IOException("HXZUP failed (exit "+exit+")");
         assertComplete();
-        File local=RuntimeFiles.inside(updater,".updater/local-version.json");if(!local.isFile()||!source.status.getString("version").equals(RuntimeFiles.json(local).optString("version")))throw new IOException("HXZUP did not commit the requested update version");
+        if(!local.isFile()||!source.status.getString("version").equals(RuntimeFiles.json(local).optString("version")))throw new IOException("HXZUP did not commit the requested update version");
+        // A maintenance pause may return zero while retaining the same version marker.
+        // Repair must have committed a fresh marker (the updater includes updatedAt),
+        // otherwise missing bytes cannot be reclassified as intentional rule deletions.
+        if(repair&&previousCommit.equals(RuntimeFiles.hash(local,"SHA-256")))throw new IOException("HXZUP repair did not commit; the local pack is still incomplete");
         GamePreparation.InstallationState state=preparation.inspect(launchVersion,context);if(!state.complete)throw new IOException("Pack synchronization invalidated game files: "+state.problems);
-        recordLocalCompletion(instance,cancel);
+        File completion=RuntimeFiles.inside(updater,".updater/local-completion.json"),manifest=RuntimeFiles.inside(updater,".updater/local-manifest.json");
+        JSONObject receipt=!repair&&completion.isFile()?RuntimeFiles.json(completion):null;
+        // Keep a previously verified receipt on the updater's same-version no-op. Never
+        // silently bless changed JAR bytes merely because a child returned zero.
+        if(repair||receipt==null||!source.status.getString("version").equals(receipt.optString("version"))||!RuntimeFiles.hash(manifest,"SHA-256").equals(receipt.optString("manifestSha256")))recordLocalCompletion(instance,cancel);
     }
     private static File mapped(File instance,String value)throws Exception {
         if(value==null||!value.matches("[01]/.+"))throw new IOException("Invalid local pack mapping");

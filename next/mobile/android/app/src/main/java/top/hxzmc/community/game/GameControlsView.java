@@ -16,20 +16,15 @@ final class GameControlsView extends View {
     private final Map<Integer,Control> pressed=new HashMap<>();
     private final Map<Integer,PointF> looking=new HashMap<>();
     private final Set<Integer> dragged=new HashSet<>();
-    private float unit,desiredUnit,sensitivity=1;private int renderWidth=1280,renderHeight=720;private Runnable exitAction;private Control exitControl;
+    private float unit,desiredUnit,sensitivity=1;private int renderWidth=1280,renderHeight=720;private Runnable exitAction,keyboardAction;private Control exitControl,keyboardControl;
     GameControlsView(Context context){super(context);setFocusableInTouchMode(true);setContentDescription("游戏触控：左侧移动，右侧视角，右下角跳跃与操作");}
     void setExitAction(Runnable action){exitAction=action;}
+    void setKeyboardAction(Runnable action){keyboardAction=action;}
     void configure(float size,float sensitivity,int w,int h){desiredUnit=getResources().getDisplayMetrics().density*48*Math.max(.7f,Math.min(1.5f,size));this.sensitivity=Math.max(.25f,Math.min(3,sensitivity));renderWidth=w;renderHeight=h;layoutControls();invalidate();}
-    private void add(float x,float y,String text,int key,int button){controls.add(new Control(new RectF(x,y,x+unit,y+unit),text,key,button));}
     private void layoutControls(){
-        if(desiredUnit==0)desiredUnit=48*getResources().getDisplayMetrics().density;controls.clear();if(getWidth()<1||getHeight()<1)return;unit=Math.min(desiredUnit,Math.min(getWidth()/9.5f,getHeight()/4f));float gap=unit*.12f,left=unit*.35f,bottom=getHeight()-unit*1.25f;
-        add(left+unit+gap,bottom-unit-gap,"↑",87,-1);add(left,bottom,"←",65,-1);add(left+unit+gap,bottom,"↓",83,-1);add(left+(unit+gap)*2,bottom,"→",68,-1);
-        float right=getWidth()-unit*1.35f;add(right,bottom,"跳跃",32,-1);add(right-unit-gap,bottom,"放置",0,1);add(right,bottom-unit-gap,"攻击",0,0);
-        add(left,unit*.25f,"菜单",256,-1);add(left+unit+gap,unit*.25f,"背包",69,-1);add(left+(unit+gap)*2,unit*.25f,"潜行",340,-1);
-        float exitLeft=Math.max(getWidth()-unit*1.9f,left+(unit+gap)*3+gap);exitControl=exitLeft+unit*1.6f<=getWidth()?new Control(new RectF(exitLeft,unit*.25f,exitLeft+unit*1.6f,unit*1.25f),"返回社区",-1,-1):null;if(exitControl!=null)controls.add(exitControl);
-        float hotbar=Math.max(left+3*(unit+gap)+gap,(getWidth()-9*unit*.7f)/2);
-        if(getWidth()>unit*17)for(int i=0;i<9;i++)controls.add(new Control(new RectF(hotbar+i*unit*.7f,unit*.25f,hotbar+i*unit*.7f+unit*.6f,unit*.95f),""+(i+1),49+i,-1));
-        else{float slots=getWidth()/2f-unit;add(slots,unit*.25f,"上一格",-2,-1);add(slots+unit+gap,unit*.25f,"下一格",-3,-1);}
+        if(desiredUnit==0)desiredUnit=48*getResources().getDisplayMetrics().density;controls.clear();exitControl=null;keyboardControl=null;
+        if(getWidth()<1||getHeight()<1)return;GameTouchLayout layout=new GameTouchLayout(getWidth(),getHeight(),desiredUnit);unit=layout.unit;
+        for(GameTouchLayout.Item item:layout.items){Control c=new Control(new RectF(item.x,item.y,item.x+item.width,item.y+item.height),item.label,item.key,item.button);controls.add(c);if(item.key==GameTouchLayout.EXIT)exitControl=c;if(item.key==GameTouchLayout.KEYBOARD)keyboardControl=c;}
     }
     @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){release();layoutControls();}
     @Override protected void onDraw(Canvas canvas){
@@ -46,7 +41,7 @@ final class GameControlsView extends View {
             if(hit!=null){boolean was=pressed.containsValue(hit);pressed.put(id,hit);if(!was)control(hit,true);}else {looking.put(id,new PointF(x,y));if(!NativeRuntime.captured())NativeRuntime.event(3,(int)(x/getWidth()*renderWidth*1000),(int)(y/getHeight()*renderHeight*1000),0,0);}invalidate();return true;
         }
         if(action==MotionEvent.ACTION_MOVE){for(int i=0;i<event.getPointerCount();i++){int pointer=event.getPointerId(i);PointF old=looking.get(pointer);if(old==null)continue;float x=event.getX(i),y=event.getY(i),dx=x-old.x,dy=y-old.y;if(Math.abs(dx)+Math.abs(dy)>2)dragged.add(pointer);if(NativeRuntime.captured())NativeRuntime.event(3,(int)(dx*sensitivity*1000),(int)(dy*sensitivity*1000),1,0);else NativeRuntime.event(3,(int)(x/getWidth()*renderWidth*1000),(int)(y/getHeight()*renderHeight*1000),0,0);old.set(x,y);}return true;}
-        if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_POINTER_UP){Control c=pressed.remove(id);if(c!=null&&c==exitControl&&exitAction!=null&&c.rect.contains(event.getX(index),event.getY(index))){release();exitAction.run();performClick();return true;}if(c!=null&&!pressed.containsValue(c))control(c,false);else if(looking.containsKey(id)&&!dragged.contains(id)&&!NativeRuntime.captured()){NativeRuntime.event(2,0,1,0,0);NativeRuntime.event(2,0,0,0,0);}looking.remove(id);dragged.remove(id);invalidate();performClick();return true;}
+        if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_POINTER_UP){Control c=pressed.remove(id);Runnable selected=c==exitControl?exitAction:c==keyboardControl?keyboardAction:null;if(c!=null&&selected!=null&&c.rect.contains(event.getX(index),event.getY(index))){release();selected.run();performClick();return true;}if(c!=null&&!pressed.containsValue(c))control(c,false);else if(looking.containsKey(id)&&!dragged.contains(id)&&!NativeRuntime.captured()){NativeRuntime.event(2,0,1,0,0);NativeRuntime.event(2,0,0,0,0);}looking.remove(id);dragged.remove(id);invalidate();performClick();return true;}
         return true;
     }
     @Override public boolean performClick(){super.performClick();return true;}

@@ -17,6 +17,13 @@ import org.json.*;
 final class AppUpdater {
     static final String REPO="https://github.com/0xiaoyun0/HXZ_LAUNCHER/";
     static final String MANIFEST=REPO+"releases/latest/download/android-latest.json";
+    static String[] manifestUrls(String versionName){
+        // A prerelease can replace its own build without moving the stable latest pointer.
+        // Never discover another version's prerelease from an installed stable build.
+        if(versionName!=null&&versionName.matches("[0-9]+\\.[0-9]+\\.[0-9]+"))
+            return new String[]{REPO+"releases/download/v"+versionName+"/android-latest.json",MANIFEST};
+        return new String[]{MANIFEST};
+    }
     static final String[] MIRRORS={"https://gh-proxy.org/","https://gh-proxy.com/","https://ghproxy.net/","https://ghfast.top/",""};
     private final CommunityApp app;
     private final SharedPreferences prefs;
@@ -70,18 +77,20 @@ final class AppUpdater {
         worker.execute(()->{
             try{
                 JSONObject candidate=null;String envelope=null;Exception failure=null;
-                ExecutorService pool=Executors.newFixedThreadPool(MIRRORS.length);
+                String[] manifests=manifestUrls(BuildConfig.VERSION_NAME);
+                int requests=manifests.length*MIRRORS.length;
+                ExecutorService pool=Executors.newFixedThreadPool(requests);
                 CompletionService<String> completed=new ExecutorCompletionService<>(pool);
                 try{
-                    for(String prefix:MIRRORS)completed.submit(()->{
-                        ensureActive();Call call=http.newBuilder().connectTimeout(4,TimeUnit.SECONDS).callTimeout(5,TimeUnit.SECONDS).build().newCall(new Request.Builder().url(prefix+MANIFEST+"?t="+(System.currentTimeMillis()/45000)).header("Cache-Control","no-cache").build());
+                    for(String manifestUrl:manifests)for(String prefix:MIRRORS)completed.submit(()->{
+                        ensureActive();Call call=http.newBuilder().connectTimeout(4,TimeUnit.SECONDS).callTimeout(5,TimeUnit.SECONDS).build().newCall(new Request.Builder().url(prefix+manifestUrl+"?t="+(System.currentTimeMillis()/45000)).header("Cache-Control","no-cache").build());
                         checks.add(call);try(Response response=call.execute()){
                             if(!response.isSuccessful()||response.body()==null)throw new IOException("HTTP "+response.code());
                             return new String(CommunityApp.bounded(response.body().byteStream(),128*1024),StandardCharsets.UTF_8);
                         }finally{checks.remove(call);}
                     });
                     long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(7);
-                    for(int i=0;i<MIRRORS.length;i++){
+                    for(int i=0;i<requests;i++){
                         ensureActive();long left=deadline-System.nanoTime();if(left<=0)break;
                         Future<String> future=completed.poll(left,TimeUnit.NANOSECONDS);if(future==null)break;
                         try{String raw=future.get();JSONObject found=verifyManifest(raw);if(candidate==null||found.getLong("versionCode")>candidate.getLong("versionCode")){candidate=found;envelope=raw;}}

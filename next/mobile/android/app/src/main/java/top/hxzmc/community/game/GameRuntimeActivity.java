@@ -7,6 +7,10 @@ import android.graphics.Color;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.view.*;
+import android.view.inputmethod.InputMethodManager;
+import android.view.inputmethod.EditorInfo;
+import android.text.InputFilter;
+import android.text.InputType;
 import android.widget.*;
 import java.io.*;
 import java.lang.Process;
@@ -25,7 +29,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     private final CountDownLatch surfaceReady=new CountDownLatch(1);
     private JSONObject request,options;private File root,run,log;private AndroidEngineHost host;private volatile String clientModDiagnostic="";
     private FrameLayout frame;private LinearLayout panel;private TextView heading,detail;private ProgressBar progress;private Button diagnosticButton;private File diagnosticLog;private volatile String lastDiagnosticPhase="",diagnosticText="";
-    private SurfaceView surface;private GameControlsView controls;private volatile Process process;private volatile boolean playing,closing;
+    private SurfaceView surface;private GameControlsView controls;private Dialog textDialog;private volatile Process process;private volatile boolean playing,closing;
     private long lastProgress,roomLogOffset;private final ByteArrayOutputStream roomLogLine=new ByteArrayOutputStream();private final Set<String> secrets=ConcurrentHashMap.newKeySet();private volatile int surfacePixelWidth,surfacePixelHeight;private volatile boolean surfaceLive;private int renderWidth=1280,renderHeight=720,hostPort;private String accountId="";
     @Override public void onCreate(Bundle saved){
         super.onCreate(saved);getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -45,7 +49,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     private void buildScreen(){
         frame=new FrameLayout(this);frame.setBackgroundColor(0xfff3f5fa);setContentView(frame);
         surface=new SurfaceView(this);surface.getHolder().addCallback(this);frame.addView(surface,new FrameLayout.LayoutParams(-1,-1));
-        controls=new GameControlsView(this);controls.setExitAction(this::leave);controls.setVisibility(View.GONE);frame.addView(controls,new FrameLayout.LayoutParams(-1,-1));
+        controls=new GameControlsView(this);controls.setExitAction(this::leave);controls.setKeyboardAction(this::openTextInput);controls.setVisibility(View.GONE);frame.addView(controls,new FrameLayout.LayoutParams(-1,-1));
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);FrameLayout.LayoutParams sc=new FrameLayout.LayoutParams(Math.min(dp(680),getResources().getDisplayMetrics().widthPixels-dp(48)),-2,Gravity.CENTER);sc.setMargins(dp(24),dp(20),dp(24),dp(20));frame.addView(scroll,sc);
         panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setPadding(dp(24),dp(20),dp(24),dp(20));GradientDrawable background=new GradientDrawable();background.setColor(0xfffcfdff);background.setCornerRadius(dp(18));panel.setBackground(background);scroll.addView(panel);
         heading=text("准备进入世界",22,0xff263354);panel.addView(heading);detail=text("正在检查账号与游戏资源",14,0xff697592);LinearLayout.LayoutParams line=new LinearLayout.LayoutParams(-1,-2);line.topMargin=dp(14);panel.addView(detail,line);
@@ -208,17 +212,35 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
         String result=scrub(out.toString());return result.length()>24576?result.substring(0,24576):result;}
     private void failed(Exception error){String summary=brief(error),details=technical(error);ui.post(()->{if(closing)return;diagnosticText=details;playing=false;controls.setVisibility(View.GONE);((View)panel.getParent()).setVisibility(View.VISIBLE);heading.setText("暂时未能进入游戏");detail.setText(summary);progress.setVisibility(View.GONE);diagnosticButton.setVisibility(View.VISIBLE);});}
     private void settings(){try{JSONObject account=account();heading.setText("游戏运行设置");detail.setText("当前角色："+account.getString("name")+"\n角色与社区同步，无需再次导入。\n左侧移动，右侧拖动视角；支持键盘输入。调整自动保存，下次启动生效。");progress.setVisibility(View.GONE);slider("controlSize","触控按钮大小",70,150,100);slider("resolutionPercent","渲染分辨率",35,100,70);slider("sensitivity","视角灵敏度",25,200,100);}catch(Exception e){failed(e);}}
+    private void tapKey(int key){NativeRuntime.event(1,key,0,1,0);NativeRuntime.event(1,key,0,0,0);}
+    private void openTextInput(){
+        if(!playing||closing||textDialog!=null)return;
+        boolean chat=NativeRuntime.captured();controls.release();if(chat)tapKey(84);
+        Dialog dialog=new Dialog(this);textDialog=dialog;dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(20),dp(16),dp(20),dp(16));GradientDrawable background=new GradientDrawable();background.setColor(0xfffcfdff);background.setCornerRadius(dp(18));background.setStroke(dp(1),0xffdce2f1);card.setBackground(background);
+        card.addView(text(chat?"游戏聊天":"输入文字",18,0xff263354));
+        EditText input=new EditText(this);input.setSingleLine(true);input.setTextColor(0xff263354);input.setTextSize(16);input.setHint(chat?"消息或 /命令":"输入到当前游戏文本框");input.setHintTextColor(0xff697592);input.setInputType(InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);input.setImeOptions(EditorInfo.IME_ACTION_DONE|EditorInfo.IME_FLAG_NO_EXTRACT_UI);input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(256)});input.setPadding(dp(12),dp(8),dp(12),dp(8));GradientDrawable field=new GradientDrawable();field.setColor(0xfff3f5fa);field.setCornerRadius(dp(10));field.setStroke(dp(1),0xffdce2f1);input.setBackground(field);LinearLayout.LayoutParams inputLayout=new LinearLayout.LayoutParams(-1,dp(52));inputLayout.topMargin=dp(12);inputLayout.bottomMargin=dp(12);card.addView(input,inputLayout);
+        LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.END);card.addView(actions,new LinearLayout.LayoutParams(-1,-2));
+        Button cancel=textButton("取消",false),submit=textButton(chat?"发送":"输入",true);actions.addView(cancel,new LinearLayout.LayoutParams(dp(88),dp(44)));LinearLayout.LayoutParams submitLayout=new LinearLayout.LayoutParams(dp(88),dp(44));submitLayout.leftMargin=dp(10);actions.addView(submit,submitLayout);
+        Runnable commit=()->{if(!playing||closing){dialog.dismiss();return;}String value=input.getText().toString();if(value.isEmpty()){input.requestFocus();return;}GameTextInput.send(value,code->NativeRuntime.event(5,code,0,0,0));if(chat)tapKey(257);dialog.dismiss();};
+        cancel.setOnClickListener(v->dialog.cancel());submit.setOnClickListener(v->commit.run());input.setOnEditorActionListener((v,action,event)->{if(action==EditorInfo.IME_ACTION_DONE){commit.run();return true;}return false;});
+        dialog.setOnCancelListener(v->{if(chat&&playing&&!closing)tapKey(256);});
+        dialog.setOnDismissListener(v->{((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(input.getWindowToken(),0);if(textDialog==dialog)textDialog=null;if(playing&&!closing)controls.requestFocus();});
+        dialog.setContentView(card);Window window=dialog.getWindow();if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);window.setGravity(Gravity.TOP|Gravity.CENTER_HORIZONTAL);window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE);}
+        dialog.setOnShowListener(v->{if(window!=null){window.setLayout(Math.max(dp(200),Math.min(dp(680),frame.getWidth()-dp(32))),-2);WindowManager.LayoutParams attributes=window.getAttributes();attributes.y=dp(12);window.setAttributes(attributes);}input.requestFocus();input.postDelayed(()->{if(dialog.isShowing())((InputMethodManager)getSystemService(INPUT_METHOD_SERVICE)).showSoftInput(input,InputMethodManager.SHOW_IMPLICIT);},120);});dialog.show();
+    }
+    private Button textButton(String label,boolean primary){Button button=new Button(this);button.setText(label);button.setTextSize(14);button.setAllCaps(false);button.setTextColor(primary?Color.WHITE:0xff5868bb);button.setPadding(dp(10),0,dp(10),0);GradientDrawable background=new GradientDrawable();background.setColor(primary?0xff5868bb:0xfff3f5fa);background.setCornerRadius(dp(10));button.setBackground(background);return button;}
     private void slider(String key,String label,int minimum,int maximum,int initial){android.content.SharedPreferences prefs=getSharedPreferences("hxz-game-controls",0);float value=prefs.getFloat(key,key.equals("sensitivity")?1:initial);int current=key.equals("sensitivity")?Math.round(value*100):Math.round(value);TextView caption=text(label+" · "+current+"%",14,0xff394568);caption.setPadding(0,dp(14),0,0);panel.addView(caption,panel.getChildCount()-1);SeekBar seek=new SeekBar(this);seek.setMin(minimum);seek.setMax(maximum);seek.setProgress(current);panel.addView(seek,panel.getChildCount()-1,new LinearLayout.LayoutParams(-1,dp(44)));seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int n,boolean user){caption.setText(label+" · "+n+"%");if(user)prefs.edit().putFloat(key,key.equals("sensitivity")?n/100f:n).apply();}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}});}
     private synchronized void stopGame(){
         NativeRuntime.stop();Process current=process;if(current==null||!current.isAlive())return;
         // Closing GLFW lets Minecraft flush world data. Force only after the bounded graceful wait.
         boolean interrupted=Thread.interrupted();try{if(!current.waitFor(20,TimeUnit.SECONDS)){current.destroy();if(!current.waitFor(3,TimeUnit.SECONDS))current.destroyForcibly();}}catch(InterruptedException e){current.destroy();Thread.currentThread().interrupt();}finally{if(interrupted)Thread.currentThread().interrupt();}
     }
-    private void leave(){if(closing)return;closing=true;cancellation.cancel();if(controls!=null)controls.release();NativeRuntime.stop();heading.setText("正在退出游戏");detail.setText("正在等待游戏保存世界…");((View)panel.getParent()).setVisibility(View.VISIBLE);work.execute(()->{stopGame();roomExited();ui.post(()->{finish();ui.postDelayed(()->android.os.Process.killProcess(android.os.Process.myPid()),300);});});}
+    private void leave(){if(closing)return;closing=true;if(textDialog!=null)textDialog.dismiss();cancellation.cancel();if(controls!=null)controls.release();NativeRuntime.stop();heading.setText("正在退出游戏");detail.setText("正在等待游戏保存世界…");((View)panel.getParent()).setVisibility(View.VISIBLE);work.execute(()->{stopGame();roomExited();ui.post(()->{finish();ui.postDelayed(()->android.os.Process.killProcess(android.os.Process.myPid()),300);});});}
     @Override public void onBackPressed(){if(playing){NativeRuntime.event(1,256,0,1,0);NativeRuntime.event(1,256,0,0,0);}else leave();}
     @Override protected void onPause(){super.onPause();if(controls!=null)controls.release();NativeRuntime.event(6,0,0,0,0);}
     @Override protected void onResume(){super.onResume();NativeRuntime.event(6,1,0,0,0);}
-    @Override protected void onDestroy(){cancellation.cancel();NativeRuntime.stop();work.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){closing=true;if(textDialog!=null)textDialog.dismiss();cancellation.cancel();NativeRuntime.stop();work.shutdown();super.onDestroy();}
     @Override public void surfaceCreated(SurfaceHolder holder){android.graphics.Rect bounds=holder.getSurfaceFrame();surfacePixelWidth=bounds.width();surfacePixelHeight=bounds.height();surfaceLive=true;NativeRuntime.surface(holder.getSurface(),renderWidth,renderHeight);surfaceReady.countDown();}
     @Override public void surfaceChanged(SurfaceHolder holder,int format,int w,int h){surfacePixelWidth=w;surfacePixelHeight=h;surfaceLive=true;NativeRuntime.surface(holder.getSurface(),renderWidth,renderHeight);}
     @Override public void surfaceDestroyed(SurfaceHolder holder){surfaceLive=false;NativeRuntime.surface(null,0,0);}

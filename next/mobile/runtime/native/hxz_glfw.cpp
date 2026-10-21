@@ -30,6 +30,12 @@ struct GLFWwindow {
     int width=0, height=0, x=0, y=0;
     std::atomic<bool> close{false}; bool visible=true, focused=true;
     bool maximized=false;
+    bool iconified=false, resizable=true, decorated=false, floating=false;
+    bool autoIconify=true, focusOnShow=true, mousePassthrough=false;
+    float opacity=1.0f;
+    int minWidth=GLFW_DONT_CARE,minHeight=GLFW_DONT_CARE;
+    int maxWidth=GLFW_DONT_CARE,maxHeight=GLFW_DONT_CARE;
+    int aspectNumerator=GLFW_DONT_CARE,aspectDenominator=GLFW_DONT_CARE;
     GLFWmonitor* attachedMonitor=nullptr;
     std::string title;
     int cursor=GLFW_CURSOR_NORMAL;
@@ -72,7 +78,9 @@ constexpr int OSMESA_CONTEXT_MAJOR_VERSION=0x36, OSMESA_CONTEXT_MINOR_VERSION=0x
 constexpr int OSMESA_Y_UP=0x11, GL_RGBA_VALUE=0x1908, GL_UNSIGNED_BYTE_VALUE=0x1401;
 struct Event {int type,a,b,c,d;};
 struct Hints {int api=GLFW_OPENGL_API, major=1, minor=0, profile=GLFW_OPENGL_ANY_PROFILE;
-              int creation=GLFW_NATIVE_CONTEXT_API, samples=0;bool visible=true;};
+              int creation=GLFW_NATIVE_CONTEXT_API, samples=0;bool visible=true;
+              bool resizable=true,decorated=true,focused=true,maximized=false,floating=false;
+              bool autoIconify=true,focusOnShow=true,mousePassthrough=false;};
 enum class Backend { none, osmesa, egl };
 struct OSMesaApi {
     void* (*create)(const int*,void*)=nullptr;
@@ -195,7 +203,8 @@ bool updateEglSurface(GLFWwindow* w){
 }
 void destroyWindow(GLFWwindow* w){
     if(!w)return;
-    if(current==w){if(backend==Backend::egl)egl.makeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);current=nullptr;}
+    if(current==w){if(backend==Backend::egl)egl.makeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);
+        else if(backend==Backend::osmesa)osmesa.makeCurrent(nullptr,nullptr,0,0,0);current=nullptr;w->owner={};}
     if(backend==Backend::osmesa&&w->context)osmesa.destroy(w->context);
     if(backend==Backend::egl){if(w->eglSurface!=EGL_NO_SURFACE)egl.destroySurface(display,w->eglSurface);if(w->eglContext!=EGL_NO_CONTEXT)egl.destroyContext(display,w->eglContext);}
     delete w;
@@ -299,8 +308,11 @@ extern "C" void glfwWindowHint(int hint,int value){switch(hint){
     case GLFW_CONTEXT_VERSION_MINOR:hints.minor=value;break;case GLFW_OPENGL_PROFILE:hints.profile=value;break;
     case GLFW_CONTEXT_CREATION_API:hints.creation=value;break;case GLFW_SAMPLES:hints.samples=value;break;
     case GLFW_VISIBLE:hints.visible=value==GLFW_TRUE;break;
-    case GLFW_RESIZABLE:case GLFW_DECORATED:case GLFW_FOCUSED:case GLFW_AUTO_ICONIFY:case GLFW_FLOATING:
-    case GLFW_MAXIMIZED:case GLFW_CENTER_CURSOR:case GLFW_TRANSPARENT_FRAMEBUFFER:case GLFW_FOCUS_ON_SHOW:
+    case GLFW_RESIZABLE:hints.resizable=value==GLFW_TRUE;break;case GLFW_DECORATED:hints.decorated=value==GLFW_TRUE;break;
+    case GLFW_FOCUSED:hints.focused=value==GLFW_TRUE;break;case GLFW_MAXIMIZED:hints.maximized=value==GLFW_TRUE;break;
+    case GLFW_FLOATING:hints.floating=value==GLFW_TRUE;break;case GLFW_AUTO_ICONIFY:hints.autoIconify=value==GLFW_TRUE;break;
+    case GLFW_FOCUS_ON_SHOW:hints.focusOnShow=value==GLFW_TRUE;break;case GLFW_MOUSE_PASSTHROUGH:hints.mousePassthrough=value==GLFW_TRUE;break;
+    case GLFW_CENTER_CURSOR:case GLFW_TRANSPARENT_FRAMEBUFFER:
     case GLFW_SCALE_TO_MONITOR:case GLFW_RED_BITS:case GLFW_GREEN_BITS:case GLFW_BLUE_BITS:
     case GLFW_ALPHA_BITS:case GLFW_DEPTH_BITS:case GLFW_STENCIL_BITS:case GLFW_DOUBLEBUFFER:
     case GLFW_SRGB_CAPABLE:case GLFW_OPENGL_FORWARD_COMPAT:case GLFW_OPENGL_DEBUG_CONTEXT:break;
@@ -315,6 +327,8 @@ extern "C" GLFWwindow* glfwCreateWindow(int width,int height,const char* title,G
     if(backend==Backend::none){report(GLFW_API_UNAVAILABLE,"No verified renderer has been configured");return nullptr;}
     auto* w=new(std::nothrow) GLFWwindow();if(!w){report(GLFW_OUT_OF_MEMORY,"Cannot allocate GLFW window");return nullptr;}
     w->width=width;w->height=height;w->visible=hints.visible;w->attachedMonitor=targetMonitor;w->title=title?title:"";
+    w->resizable=hints.resizable;w->decorated=hints.decorated;w->focused=hints.focused;w->maximized=hints.maximized;
+    w->floating=hints.floating;w->autoIconify=hints.autoIconify;w->focusOnShow=hints.focusOnShow;w->mousePassthrough=hints.mousePassthrough;
     if(backend==Backend::osmesa){
         if(hints.api!=GLFW_OPENGL_API){delete w;report(GLFW_API_UNAVAILABLE,"OSMesa provides desktop OpenGL only");return nullptr;}
         if(hints.creation!=GLFW_NATIVE_CONTEXT_API&&hints.creation!=GLFW_OSMESA_CONTEXT_API){delete w;report(GLFW_API_UNAVAILABLE,"Requested context provider does not match OSMesa");return nullptr;}
@@ -345,37 +359,61 @@ extern "C" void glfwDestroyWindow(GLFWwindow* w){if(!w)return;if(w!=window){repo
     if(w->owner!=std::thread::id{}&&w->owner!=std::this_thread::get_id()){report(GLFW_PLATFORM_ERROR,"Release the OpenGL context on its owner thread before destroying the window");return;}
     {std::lock_guard<std::mutex> lock(mu);window=nullptr;events.clear();keys.fill(0);buttons.fill(0);}destroyWindow(w);}
 extern "C" int glfwWindowShouldClose(GLFWwindow* w){return hasWindow(w)&&w->close?GLFW_TRUE:GLFW_FALSE;}
-extern "C" void glfwSetWindowShouldClose(GLFWwindow* w,int value){if(hasWindow(w))w->close=value!=0;}
+extern "C" void glfwSetWindowShouldClose(GLFWwindow* w,int value){if(hasWindow(w)){w->close=value!=0;eventReady.notify_all();}}
 extern "C" const char* glfwGetWindowTitle(GLFWwindow* w){return hasWindow(w)?w->title.c_str():nullptr;}
 extern "C" void glfwSetWindowTitle(GLFWwindow* w,const char* title){if(hasWindow(w))w->title=title?title:"";}
-extern "C" void glfwSetWindowIcon(GLFWwindow* w,int,const GLFWimage*){if(hasWindow(w))report(GLFW_FEATURE_UNAVAILABLE,"Android window icons are not supported");}
+extern "C" void glfwSetWindowIcon(GLFWwindow* w,int count,const GLFWimage* images){
+    if(!hasWindow(w))return;
+    if(count<0||(count>0&&!images)){report(GLFW_INVALID_VALUE,"Invalid window icons");return;}
+    for(int i=0;i<count;++i)if(images[i].width<1||images[i].height<1||!images[i].pixels){report(GLFW_INVALID_VALUE,"Invalid window icon image");return;}
+    // Android owns the launcher icon. A valid desktop icon request is harmless.
+}
 extern "C" void glfwGetWindowPos(GLFWwindow* w,int* x,int* y){if(!hasWindow(w))return;if(x)*x=w->x;if(y)*y=w->y;}
-extern "C" void glfwSetWindowPos(GLFWwindow* w,int x,int y){if(!hasWindow(w))return;if(x||y)report(GLFW_FEATURE_UNAVAILABLE,"Android Surface position is controlled by the host");}
+extern "C" void glfwSetWindowPos(GLFWwindow* w,int x,int y){if(!hasWindow(w))return;w->x=x;w->y=y;if(w->posCb)w->posCb(w,x,y);}
 extern "C" void glfwGetWindowSize(GLFWwindow* w,int* width,int* height){if(!hasWindow(w))return;if(width)*width=w->width;if(height)*height=w->height;}
-extern "C" void glfwSetWindowSize(GLFWwindow* w,int width,int height){if(!hasWindow(w))return;if(width<1||height<1){report(GLFW_INVALID_VALUE,"Invalid window size");return;}
+extern "C" void glfwSetWindowSize(GLFWwindow* w,int width,int height){if(!hasWindow(w))return;if(width<1||height<1||width>16384||height>16384){report(GLFW_INVALID_VALUE,"Invalid window size");return;}
     w->width=width;w->height=height;if(w->sizeCb)w->sizeCb(w,width,height);if(window==w&&w->framebufferCb)w->framebufferCb(w,width,height);}
 extern "C" void glfwGetFramebufferSize(GLFWwindow* w,int* width,int* height){glfwGetWindowSize(w,width,height);}
 extern "C" void glfwGetWindowFrameSize(GLFWwindow* w,int* l,int* t,int* r,int* b){if(!hasWindow(w))return;if(l)*l=0;if(t)*t=0;if(r)*r=0;if(b)*b=0;}
 extern "C" void glfwGetWindowContentScale(GLFWwindow* w,float* x,float* y){if(!hasWindow(w))return;if(x)*x=1;if(y)*y=1;}
-extern "C" float glfwGetWindowOpacity(GLFWwindow* w){return hasWindow(w)?1.0f:0.0f;}
-extern "C" void glfwSetWindowOpacity(GLFWwindow* w,float opacity){if(hasWindow(w)&&opacity!=1.0f)report(GLFW_FEATURE_UNAVAILABLE,"Android Surface opacity is controlled by the host");}
-extern "C" void glfwSetWindowSizeLimits(GLFWwindow* w,int,int,int,int){if(hasWindow(w))report(GLFW_FEATURE_UNAVAILABLE,"Android Surface size is controlled by the host");}
-extern "C" void glfwSetWindowAspectRatio(GLFWwindow* w,int,int){if(hasWindow(w))report(GLFW_FEATURE_UNAVAILABLE,"Android Surface aspect ratio is controlled by the host");}
-extern "C" void glfwShowWindow(GLFWwindow* w){if(hasWindow(w))report(GLFW_FEATURE_UNAVAILABLE,"Android Surface visibility is controlled by the host");}
-extern "C" void glfwHideWindow(GLFWwindow* w){if(hasWindow(w))report(GLFW_FEATURE_UNAVAILABLE,"Android Surface visibility is controlled by the host");}
-extern "C" void glfwFocusWindow(GLFWwindow* w){if(hasWindow(w)&&!w->focused)report(GLFW_FEATURE_UNAVAILABLE,"Android focus is controlled by the host");}
-extern "C" void glfwRequestWindowAttention(GLFWwindow* w){if(hasWindow(w))report(GLFW_FEATURE_UNAVAILABLE,"Android attention requests are unavailable");}
-extern "C" void glfwIconifyWindow(GLFWwindow* w){if(hasWindow(w))report(GLFW_FEATURE_UNAVAILABLE,"Android window iconification is unavailable");}
-extern "C" void glfwRestoreWindow(GLFWwindow* w){if(hasWindow(w))report(GLFW_FEATURE_UNAVAILABLE,"Android window restoration is controlled by the host");}
-extern "C" void glfwMaximizeWindow(GLFWwindow* w){if(hasWindow(w))report(GLFW_FEATURE_UNAVAILABLE,"Android window maximization is controlled by the host");}
+extern "C" float glfwGetWindowOpacity(GLFWwindow* w){return hasWindow(w)?w->opacity:0.0f;}
+extern "C" void glfwSetWindowOpacity(GLFWwindow* w,float opacity){if(!hasWindow(w))return;
+    if(!std::isfinite(opacity)||opacity<0||opacity>1){report(GLFW_INVALID_VALUE,"Invalid window opacity");return;}w->opacity=opacity;}
+extern "C" void glfwSetWindowSizeLimits(GLFWwindow* w,int minW,int minH,int maxW,int maxH){
+    if(!hasWindow(w))return;
+    if((minW<0&&minW!=GLFW_DONT_CARE)||(minH<0&&minH!=GLFW_DONT_CARE)||
+       (maxW<0&&maxW!=GLFW_DONT_CARE)||(maxH<0&&maxH!=GLFW_DONT_CARE)||
+       (minW!=GLFW_DONT_CARE&&maxW!=GLFW_DONT_CARE&&maxW<minW)||
+       (minH!=GLFW_DONT_CARE&&maxH!=GLFW_DONT_CARE&&maxH<minH)){report(GLFW_INVALID_VALUE,"Invalid window size limits");return;}
+    // Minecraft calls this with its fatal boot callback installed. Keep the
+    // virtual-window request; Android retains physical Surface control.
+    w->minWidth=minW;w->minHeight=minH;w->maxWidth=maxW;w->maxHeight=maxH;
+}
+extern "C" void glfwSetWindowAspectRatio(GLFWwindow* w,int numerator,int denominator){if(!hasWindow(w))return;
+    if(!((numerator==GLFW_DONT_CARE&&denominator==GLFW_DONT_CARE)||(numerator>0&&denominator>0))){report(GLFW_INVALID_VALUE,"Invalid window aspect ratio");return;}
+    w->aspectNumerator=numerator;w->aspectDenominator=denominator;}
+extern "C" void glfwShowWindow(GLFWwindow* w){if(hasWindow(w))w->visible=true;}
+extern "C" void glfwHideWindow(GLFWwindow* w){if(hasWindow(w))w->visible=false;}
+extern "C" void glfwFocusWindow(GLFWwindow* w){if(hasWindow(w)&&!w->focused){w->focused=true;if(w->focusCb)w->focusCb(w,GLFW_TRUE);}}
+extern "C" void glfwRequestWindowAttention(GLFWwindow* w){(void)hasWindow(w);}
+extern "C" void glfwIconifyWindow(GLFWwindow* w){if(hasWindow(w)&&!w->iconified){w->iconified=true;if(w->iconifyCb)w->iconifyCb(w,GLFW_TRUE);}}
+extern "C" void glfwRestoreWindow(GLFWwindow* w){if(!hasWindow(w))return;bool iconified=w->iconified,maximized=w->maximized;w->iconified=false;w->maximized=false;
+    if(iconified&&w->iconifyCb)w->iconifyCb(w,GLFW_FALSE);if(window==w&&maximized&&w->maximizeCb)w->maximizeCb(w,GLFW_FALSE);}
+extern "C" void glfwMaximizeWindow(GLFWwindow* w){if(hasWindow(w)&&!w->maximized){w->maximized=true;if(w->maximizeCb)w->maximizeCb(w,GLFW_TRUE);}}
 extern "C" int glfwGetWindowAttrib(GLFWwindow* w,int attrib){if(!hasWindow(w))return 0;switch(attrib){
-    case GLFW_FOCUSED:return w->focused;case GLFW_ICONIFIED:return GLFW_FALSE;case GLFW_VISIBLE:return w->visible;
-    case GLFW_MAXIMIZED:return w->maximized;case GLFW_RESIZABLE:return GLFW_TRUE;case GLFW_DECORATED:return GLFW_FALSE;
-    case GLFW_FLOATING:return GLFW_FALSE;case GLFW_CLIENT_API:return hints.api;
+    case GLFW_FOCUSED:return w->focused;case GLFW_ICONIFIED:return w->iconified;case GLFW_VISIBLE:return w->visible;
+    case GLFW_MAXIMIZED:return w->maximized;case GLFW_RESIZABLE:return w->resizable;case GLFW_DECORATED:return w->decorated;
+    case GLFW_FLOATING:return w->floating;case GLFW_AUTO_ICONIFY:return w->autoIconify;case GLFW_FOCUS_ON_SHOW:return w->focusOnShow;
+    case GLFW_MOUSE_PASSTHROUGH:return w->mousePassthrough;case GLFW_CLIENT_API:return hints.api;
     case GLFW_CONTEXT_VERSION_MAJOR:return hints.major;case GLFW_CONTEXT_VERSION_MINOR:return hints.minor;
     case GLFW_OPENGL_PROFILE:return hints.profile;case GLFW_CONTEXT_CREATION_API:return backend==Backend::osmesa?GLFW_OSMESA_CONTEXT_API:GLFW_EGL_CONTEXT_API;
     default:report(GLFW_INVALID_ENUM,"Unsupported GLFW window attribute");return 0;}}
-extern "C" void glfwSetWindowAttrib(GLFWwindow* w,int attrib,int value){(void)attrib;(void)value;if(hasWindow(w))report(GLFW_FEATURE_UNAVAILABLE,"Android window attributes are controlled by the host");}
+extern "C" void glfwSetWindowAttrib(GLFWwindow* w,int attrib,int value){if(!hasWindow(w))return;
+    if(value!=GLFW_TRUE&&value!=GLFW_FALSE){report(GLFW_INVALID_VALUE,"Invalid window attribute value");return;}
+    switch(attrib){case GLFW_RESIZABLE:w->resizable=value;break;case GLFW_DECORATED:w->decorated=value;break;
+    case GLFW_FLOATING:w->floating=value;break;case GLFW_AUTO_ICONIFY:w->autoIconify=value;break;
+    case GLFW_FOCUS_ON_SHOW:w->focusOnShow=value;break;case GLFW_MOUSE_PASSTHROUGH:w->mousePassthrough=value;break;
+    default:report(GLFW_INVALID_ENUM,"Unsupported GLFW window attribute");break;}}
 extern "C" void glfwSetWindowUserPointer(GLFWwindow* w,void* value){if(hasWindow(w))w->user=value;}
 extern "C" void* glfwGetWindowUserPointer(GLFWwindow* w){return hasWindow(w)?w->user:nullptr;}
 extern "C" GLFWmonitor* glfwGetPrimaryMonitor(void){return initialized?&monitor:nullptr;}
@@ -394,10 +432,12 @@ extern "C" const GLFWgammaramp* glfwGetGammaRamp(GLFWmonitor* m){if(m==&monitor)
 extern "C" void glfwSetGammaRamp(GLFWmonitor* m,const GLFWgammaramp*){if(m==&monitor)report(GLFW_FEATURE_UNAVAILABLE,"Android display gamma ramp is unavailable");else report(GLFW_INVALID_VALUE,"Invalid monitor");}
 extern "C" GLFWmonitor* glfwGetWindowMonitor(GLFWwindow* w){return hasWindow(w)?w->attachedMonitor:nullptr;}
 extern "C" void glfwSetWindowMonitor(GLFWwindow* w,GLFWmonitor* m,int x,int y,int width,int height,int){if(!hasWindow(w))return;if(m&&m!=&monitor){report(GLFW_INVALID_VALUE,"Invalid monitor");return;}
-    if(x||y)report(GLFW_FEATURE_UNAVAILABLE,"Android Surface position is controlled by the host");w->attachedMonitor=m;glfwSetWindowSize(w,width,height);}
+    w->attachedMonitor=m;glfwSetWindowPos(w,x,y);if(window==w)glfwSetWindowSize(w,width,height);}
 extern "C" GLFWmonitorfun glfwSetMonitorCallback(GLFWmonitorfun cb){auto old=monitorCallback;monitorCallback=cb;return old;}
 extern "C" void glfwMakeContextCurrent(GLFWwindow* w){
-    if(!w){if(current&&backend==Backend::egl)egl.makeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);if(current)current->owner={};current=nullptr;return;}
+    if(!w){if(current&&backend==Backend::egl)egl.makeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);
+        else if(current&&backend==Backend::osmesa&&!osmesa.makeCurrent(nullptr,nullptr,0,0,0)){report(GLFW_PLATFORM_ERROR,"OSMesa context release failed");return;}
+        if(current)current->owner={};current=nullptr;return;}
     if(!hasWindow(w))return;
     if(w->owner!=std::thread::id{}&&w->owner!=std::this_thread::get_id()){report(GLFW_PLATFORM_ERROR,"OpenGL context belongs to another thread");return;}
     if(backend==Backend::osmesa){if(!resizeOSMesa(w,w->width,w->height))return;if(!osmesa.makeCurrent(w->context,w->pixels.data(),GL_UNSIGNED_BYTE_VALUE,w->width,w->height)){report(GLFW_PLATFORM_ERROR,"OSMesaMakeCurrent failed");return;}if(osmesa.pixelStore){osmesa.pixelStore(OSMESA_Y_UP,0);w->topDown=true;}}
@@ -437,9 +477,9 @@ extern "C" void glfwPollEvents(void){
             if(window==w){GLFWframebuffersizefun framebuffer=w->framebufferCb;if(framebuffer)framebuffer(w,e.a,e.b);}break;}
         default:break;}}
 }
-extern "C" void glfwWaitEvents(void){{std::unique_lock<std::mutex> lock(mu);eventReady.wait(lock,[]{return !events.empty()||!initialized;});}glfwPollEvents();}
+extern "C" void glfwWaitEvents(void){{std::unique_lock<std::mutex> lock(mu);eventReady.wait(lock,[]{return !events.empty()||!initialized||(window&&window->close.load());});}glfwPollEvents();}
 extern "C" void glfwWaitEventsTimeout(double timeout){if(!std::isfinite(timeout)||timeout<0){report(GLFW_INVALID_VALUE,"Invalid event timeout");return;}
-    {std::unique_lock<std::mutex> lock(mu);eventReady.wait_for(lock,std::chrono::duration<double>(timeout),[]{return !events.empty()||!initialized;});}glfwPollEvents();}
+    {std::unique_lock<std::mutex> lock(mu);eventReady.wait_for(lock,std::chrono::duration<double>(timeout),[]{return !events.empty()||!initialized||(window&&window->close.load());});}glfwPollEvents();}
 extern "C" void glfwPostEmptyEvent(void){std::lock_guard<std::mutex> lock(mu);enqueue({0,0,0,0,0});}
 extern "C" double glfwGetTime(void){return timeOffset+std::chrono::duration<double>(Clock::now()-epoch).count();}
 extern "C" void glfwSetTime(double value){if(!std::isfinite(value)||value<0){report(GLFW_INVALID_VALUE,"Invalid GLFW time");return;}epoch=Clock::now();timeOffset=value;}

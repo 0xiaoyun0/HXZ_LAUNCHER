@@ -66,21 +66,47 @@ final class GameEngine {
         if(!"android-runtime-module".equals(m.optString("kind"))||!app.getPackageName().equals(m.optString("package"))||m.optInt("interfaceVersion")!=1||!"arm64-v8a".equals(m.optString("abi"))||m.optInt("minSdk",29)>Build.VERSION.SDK_INT||m.optInt("minimumAppVersionCode",80400)>BuildConfig.VERSION_CODE||!m.getString("url").matches("https://github\\.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/[A-Za-z0-9._-]+/HXZ-Runtime-[A-Za-z0-9._-]+\\.zip")||m.getLong("size")<=0||m.getLong("size")>768L*1024*1024||!m.getString("sha256").matches("[a-f0-9]{64}")||!m.optString("moduleSha256").matches("[a-f0-9]{64}")||m.getLong("versionCode")<80400)throw new IOException("运行模块与当前社区版本不兼容，请先更新社区应用");return m;
     }
     private List<String> sources(){LinkedHashSet<String> all=new LinkedHashSet<>();all.add("");Collections.addAll(all,AppUpdater.MIRRORS);return new ArrayList<>(all);}
+    private static String moduleNode(String prefix){
+        if(prefix.isEmpty())return "GitHub 官方";
+        String host=java.net.URI.create(prefix).getHost();return host!=null&&host.matches("[a-z0-9.-]{1,100}")?host:"镜像节点";
+    }
+    private static String manifestIssue(Exception error){
+        if(error instanceof IOException){String reason=error.getMessage();if("运行模块签名不匹配".equals(reason))return "签名不匹配";if(reason!=null&&reason.startsWith("运行模块与当前社区版本不兼容"))return "与当前社区版本不兼容";}
+        return "清单格式或签名无效";
+    }
+    private static String connectionIssue(Exception error){
+        if(error instanceof java.net.SocketTimeoutException||error instanceof java.io.InterruptedIOException)return "连接超时";
+        if(error instanceof java.net.UnknownHostException)return "域名解析失败";
+        if(error instanceof javax.net.ssl.SSLException)return "TLS 校验失败";
+        return "连接失败";
+    }
     private JSONObject check()throws Exception{
-        Exception failure=null;
         String pinned="releases/download/v"+BuildConfig.VERSION_NAME+"/game-runtime-latest.json",latest="releases/latest/download/game-runtime-latest.json";
         // A fresh installation should not wait through older stable releases that predate this module.
         List<String> paths=active()==null?Arrays.asList(pinned,latest):Arrays.asList(latest,pinned);
+        Map<String,String> official=new HashMap<>(),mirrors=new HashMap<>();Exception failure=null,pinnedValidationFailure=null;
         for(String path:paths)for(String prefix:sources()){
+            String node=moduleNode(prefix),issue;
             if(cancelled)throw new IOException("已暂停");try{
                 transfer=http.newBuilder().callTimeout(7,TimeUnit.SECONDS).build().newCall(new Request.Builder().url(prefix+AppUpdater.REPO+path).header("Cache-Control","no-cache").build());
                 try(Response r=transfer.execute()){
-                    if(!r.isSuccessful()||r.body()==null)throw new IOException("HTTP "+r.code());String raw=new String(CommunityApp.bounded(r.body().byteStream(),128*1024),StandardCharsets.UTF_8);
-                    JSONObject m=verify(raw);checkedEnvelope=raw;return m;
+                    if(!r.isSuccessful()||r.body()==null){issue="HTTP "+r.code();}
+                    else {String raw=new String(CommunityApp.bounded(r.body().byteStream(),128*1024),StandardCharsets.UTF_8);
+                        try{JSONObject m=verify(raw);checkedEnvelope=raw;return m;}
+                        catch(Exception invalid){failure=invalid;issue=manifestIssue(invalid);
+                            if(path.equals(pinned)&&prefix.isEmpty())pinnedValidationFailure=invalid;
+                        }
+                    }
                 }
-            }catch(Exception e){failure=e;}
+            }catch(Exception e){if(cancelled)throw new IOException("已暂停",e);failure=e;
+                issue=connectionIssue(e);
+            }
+            if(prefix.isEmpty())official.put(path,node+"："+issue);else mirrors.putIfAbsent(path,node+"："+issue);
         }
-        throw new IOException("暂时无法获取运行模块，已保留进度，请稍后继续",failure);
+        String fixed=official.getOrDefault(pinned,mirrors.getOrDefault(pinned,"未响应"));
+        String current=official.getOrDefault(latest,mirrors.getOrDefault(latest,"未响应"));
+        if(pinnedValidationFailure!=null)throw new IOException("固定版 "+BuildConfig.VERSION_NAME+" 清单校验失败（"+fixed+"）；其他节点暂时不可用，可稍后重试",pinnedValidationFailure);
+        throw new IOException("暂时无法获取运行模块（固定版 "+BuildConfig.VERSION_NAME+"："+fixed+"；最新版："+current+"），已保留进度，可稍后重试",failure);
     }
     private boolean gameProcessRunning(){
         ActivityManager manager=(ActivityManager)app.getSystemService(Context.ACTIVITY_SERVICE);List<ActivityManager.RunningAppProcessInfo> list=manager.getRunningAppProcesses();if(list==null)return false;
