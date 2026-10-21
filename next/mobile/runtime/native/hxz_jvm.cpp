@@ -76,7 +76,10 @@ int hxz_java(const HxzJavaJob& j) {
         env->DeleteLocalRef(charset);
         env->CallStaticVoidMethod(main,method,argv);bool failed=exception(env);
         if(failed)return 75;
+        std::fprintf(stderr,"[HXZ-JVM] main-complete\n");
         // Installer main() may return while worker threads still write processor output.
-        result=vm->DestroyJavaVM();return result==JNI_OK?0:76;
+        result=vm->DestroyJavaVM();
+        if(result==JNI_OK)std::fprintf(stderr,"[HXZ-JVM] shutdown-complete\n");
+        return result==JNI_OK?0:76;
     } catch(const std::exception& e) {fprintf(stderr,"HXZ: %s\n",e.what());return 70;}
 }

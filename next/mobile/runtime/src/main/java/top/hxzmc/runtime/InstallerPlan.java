@@ -139,7 +139,7 @@ public final class InstallerPlan {
                     try(JarFile jar=new JarFile(processor.classpath.get(0))){Manifest manifest=jar.getManifest();main=manifest==null?null:manifest.getMainAttributes().getValue("Main-Class");}
                     if(main==null)throw new IOException("Processor has no Main-Class: "+processor.jar);
                     EngineHost.JavaJob job=new EngineHost.JavaJob(javaMajor,main,work,processor.classpath,
-                            Arrays.asList("-Xmx512m","-Djava.awt.headless=true"),processor.arguments);
+                            Arrays.asList("-Xmx512m","-Djava.awt.headless=true","-Dnet.neoforged.progressmanager.enabled=true"),processor.arguments);
                     int exit=host.runJava(job,cancel,progress);cancel.check();
                     if(exit!=0)throw new IOException("Installer processor failed: "+processor.jar+" (exit "+exit+")");
                 }

@@ -12,6 +12,7 @@ import android.system.Os;
 import android.system.OsConstants;
 import top.hxzmc.runtime.EngineHost;
 import top.hxzmc.runtime.RuntimeFiles;
+import top.hxzmc.runtime.ProcessorProgress;
 
 /** Installer JVMs are separate processes. Game JNI is reserved for the private game Activity. */
 final class AndroidEngineHost implements EngineHost {
@@ -19,6 +20,8 @@ final class AndroidEngineHost implements EngineHost {
         ProcessorFailure(int exit,String mainClass,String tail){super("游戏安装或更新处理器退出（代码 "+exit+"，入口 "+mainClass+"）\n"+tail);}
     }
     final Context context;final File module,logs,storage;
+    private volatile File processorLog;
+    private volatile String processorState="";
     AndroidEngineHost(Context context,File module)throws IOException {
         this.context=context;this.module=module;storage=AppPrivateStorage.resolve(context.getFilesDir());
         logs=RuntimeFiles.inside(storage,"minecraft/logs");if(!logs.isDirectory()&&!logs.mkdirs())throw new IOException("无法创建游戏日志目录");
@@ -78,15 +81,20 @@ final class AndroidEngineHost implements EngineHost {
         cancel.check();File executable=new File(context.getApplicationInfo().nativeLibraryDir,"libhxz_jvm_exec.so");
         if(!executable.isFile()||!executable.canExecute())throw new IOException("安装处理器运行组件未完整打包，请更新社区应用");
         File request=job(job,Collections.emptyList(),Collections.emptyList()),log=new File(logs,"installer-"+System.currentTimeMillis()+".log");
+        processorLog=log;processorState=job.mainClass;
         Process process=null;
         try {
             ProcessBuilder builder=new ProcessBuilder(executable.getAbsolutePath(),request.getAbsolutePath()).directory(job.workingDirectory).redirectErrorStream(true).redirectOutput(log);
             builder.environment().put("LD_LIBRARY_PATH",javaHome(job.javaMajor)+"/lib/server:"+javaHome(job.javaMajor)+"/lib:"+context.getApplicationInfo().nativeLibraryDir);
             builder.environment().put("TMPDIR",context.getCacheDir().getAbsolutePath());process=builder.start();
-            long start=System.nanoTime();while(!process.waitFor(250,TimeUnit.MILLISECONDS)) {
-                cancel.check();if(progress!=null)progress.update("processor",job.mainClass,(System.nanoTime()-start)/1000000000L,-1);
+            ProcessorProgress status=new ProcessorProgress(job.mainClass,android.os.SystemClock.elapsedRealtime());
+            ProcessorLogReader reader=new ProcessorLogReader(log);long lastReport=0;
+            while(!process.waitFor(250,TimeUnit.MILLISECONDS)) {
+                cancel.check();long now=android.os.SystemClock.elapsedRealtime();
+                if(now-lastReport>=1000){reportProcessor(job,status,reader,now,progress);lastReport=now;}
                 // No arbitrary timeout: mod loader processors can legitimately take minutes.
             }
+            reportProcessor(job,status,reader,android.os.SystemClock.elapsedRealtime(),progress);
             int exit=process.exitValue();if(progress!=null)progress.update("processor-exit",job.mainClass,exit,0);
             if(exit!=0)throw new ProcessorFailure(exit,job.mainClass,tail(log));return exit;
         } finally {
@@ -96,6 +104,40 @@ final class AndroidEngineHost implements EngineHost {
                 catch(InterruptedException interrupted){process.destroyForcibly();Thread.currentThread().interrupt();}
             }
             Files.deleteIfExists(request.toPath());
+        }
+    }
+    private void reportProcessor(JavaJob job,ProcessorProgress status,ProcessorLogReader reader,long now,Progress progress){
+        try{reader.read(status,now);}catch(IOException ignored){/* A log-read failure must not abort the installer. */}
+        ProcessorProgress.Snapshot snapshot=status.snapshot(now);
+        String message=snapshot.title+"\n"+snapshot.detail;
+        processorState=job.mainClass+"\n"+message;
+        if(progress!=null)progress.update("processor-progress",message,snapshot.completed,snapshot.total);
+    }
+    String processorDiagnostic(){
+        File file=processorLog;if(file==null)return "";
+        try{return processorState+"\n处理器日志:\n"+tail(file);}catch(IOException ignored){return processorState+"\n处理器日志暂不可读";}
+    }
+    /** Read bounded complete UTF-8 lines; never block on a still-running process pipe. */
+    private static final class ProcessorLogReader {
+        final File file;long offset;boolean oversized;
+        final ByteArrayOutputStream line=new ByteArrayOutputStream();
+        ProcessorLogReader(File file){this.file=file;}
+        void read(ProcessorProgress status,long now)throws IOException {
+            if(!file.isFile())return;
+            try(RandomAccessFile in=new RandomAccessFile(file,"r")){
+                if(in.length()<offset){offset=0;line.reset();oversized=false;}
+                in.seek(offset);byte[] buffer=new byte[8192];int budget=262144,n;
+                while(budget>0&&(n=in.read(buffer,0,Math.min(buffer.length,budget)))>0){
+                    offset+=n;budget-=n;
+                    for(int i=0;i<n;i++){
+                        int b=buffer[i]&255;
+                        if(b=='\n'){
+                            if(!oversized)status.accept(new String(line.toByteArray(),StandardCharsets.UTF_8),now);
+                            line.reset();oversized=false;
+                        }else if(!oversized){if(line.size()<8192)line.write(b);else {line.reset();oversized=true;}}
+                    }
+                }
+            }
         }
     }
     private static String tail(File file)throws IOException {
