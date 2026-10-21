@@ -27,7 +27,8 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     private final EngineHost.Cancellation cancellation=new EngineHost.Cancellation();
     private final Handler ui=new Handler(Looper.getMainLooper());
     private final CountDownLatch surfaceReady=new CountDownLatch(1);
-    private JSONObject request,options;private File root,run,log;private AndroidEngineHost host;private volatile String clientModDiagnostic="";
+    private JSONObject request,options;private File root,run,log;private AndroidEngineHost host;private volatile String clientModDiagnostic="",rendererDiagnostic="";
+    private boolean softwareRenderer;
     private FrameLayout frame;private LinearLayout panel;private TextView heading,detail;private ProgressBar progress;private Button diagnosticButton;private File diagnosticLog;private volatile String lastDiagnosticPhase="",diagnosticText="";
     private SurfaceView surface;private GameControlsView controls;private Dialog textDialog;private volatile Process process;private volatile boolean playing,closing,gameStarted;private volatile String gameDiagnostic="";
     private long lastProgress,roomLogOffset;private final ByteArrayOutputStream roomLogLine=new ByteArrayOutputStream();private final Set<String> secrets=ConcurrentHashMap.newKeySet();private volatile int surfacePixelWidth,surfacePixelHeight;private volatile boolean surfaceLive;private int renderWidth=1280,renderHeight=720,hostPort;private String accountId="";
@@ -85,7 +86,9 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             JSONObject account=account(),rendererInfo=selectRenderer();if(!surfaceReady.await(15,TimeUnit.SECONDS)||!surfaceLive)throw new IOException("游戏画面尚未准备好，请返回后重试");cancellation.check();
             int width=surfacePixelWidth,height=surfacePixelHeight;if(width<1||height<1){width=getResources().getDisplayMetrics().widthPixels;height=getResources().getDisplayMetrics().heightPixels;}
             int longSide=Math.max(width,height),shortSide=Math.min(width,height);double requested=Math.max(.35,Math.min(1,options.optDouble("resolutionPercent",70)/100));
-            double maximum=Math.min(1920.0/longSide,1080.0/shortSide),minimum=Math.max(640.0/longSide,360.0/shortSide);
+            boolean defaultScale=!options.has("resolutionPercent");
+            double maxWidth=defaultScale?(softwareRenderer?960:1280):1920,maxHeight=defaultScale?(softwareRenderer?540:720):1080;
+            double maximum=Math.min(maxWidth/longSide,maxHeight/shortSide),minimum=Math.max(640.0/longSide,360.0/shortSide);
             double scale=minimum<=maximum?Math.max(minimum,Math.min(requested,maximum)):maximum;
             renderWidth=Math.max(1,(int)Math.round(longSide*scale));renderHeight=Math.max(1,(int)Math.round(shortSide*scale));
             File nativeRoot=host.resource("lwjgl");GamePreparation.Context context=new GamePreparation.Context(run,nativeRoot,account.getString("name"),account.getString("uuid"),account.getString("accessToken"),"mojang","",account.getString("clientToken"),memory(),renderWidth,renderHeight,Collections.singletonMap("has_custom_resolution",true));
@@ -108,13 +111,13 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             String jna=jna(plan);if(jna!=null){File dispatch=host.resource("jna/"+jna+"/libjnidispatch.so");if(!dispatch.isFile())throw new IOException("运行模块缺少此游戏需要的 JNA "+jna+"，请更新运行模块");extra.add("-Djna.boot.library.path="+dispatch.getParent());extra.add("-Djna.nosys=true");extra.add("-Djna.nounpack=true");}
             List<String> game=new ArrayList<>();String address=options.optString("joinServer");if(!address.isEmpty())game.addAll(Arrays.asList("--quickPlayMultiplayer",address));
             if(hostPort>0){extra.add("-javaagent:"+host.resource("tools/direct-lobby.jar"));touchRoomControl();}
-            jobFile=host.job(freshJob(plan.javaJob(),account().getString("accessToken")),extra,game);log=new File(host.logs,"game-latest.log");Files.write(log.toPath(),new byte[0]);roomLogOffset=0;roomLogLine.reset();
+            jobFile=host.job(freshJob(plan.javaJob(),account().getString("accessToken")),extra,game);log=new File(host.logs,"game-latest.log");rendererDiagnostic+="\n游戏渲染尺寸："+renderWidth+" × "+renderHeight;Files.write(log.toPath(),("[HXZ graphics] "+scrub(rendererDiagnostic)+"\n").getBytes(StandardCharsets.UTF_8));roomLogOffset=0;roomLogLine.reset();
             cancellation.check();
             String socket=new File(getCacheDir(),"game-"+android.os.Process.myPid()+".sock").getAbsolutePath();String error=NativeRuntime.start(socket,renderWidth,renderHeight);if(error!=null)throw new IOException(error);
             File executable=new File(getApplicationInfo().nativeLibraryDir,"libhxz_jvm_exec.so");if(!executable.canExecute())throw new IOException("游戏进程组件缺失，请更新社区应用");
-            ProcessBuilder builder=new ProcessBuilder(executable.getAbsolutePath(),jobFile.getAbsolutePath(),socket,renderer.getAbsolutePath(),"osmesa").directory(run).redirectErrorStream(true).redirectOutput(log);
+            ProcessBuilder builder=new ProcessBuilder(executable.getAbsolutePath(),jobFile.getAbsolutePath(),socket,renderer.getAbsolutePath(),"osmesa").directory(run).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.appendTo(log));
             builder.environment().put("LD_LIBRARY_PATH",renderer.getParent()+":"+nativeLibs+":"+host.resource("audio")+":"+host.javaHome(plan.javaMajor)+"/lib/server:"+host.javaHome(plan.javaMajor)+"/lib:"+getApplicationInfo().nativeLibraryDir);
-            builder.environment().put("TMPDIR",getCacheDir().getAbsolutePath());builder.environment().put("GALLIUM_DRIVER",rendererInfo.getString("driver"));if(rendererInfo.getString("driver").equals("softpipe"))builder.environment().put("LIBGL_ALWAYS_SOFTWARE","1");crashCapture=new GameCrashDiagnostics(run);process=builder.start();gameStarted=true;playing=true;
+            rendererEnvironment(builder,rendererInfo.getString("driver"));crashCapture=new GameCrashDiagnostics(run);process=builder.start();gameStarted=true;playing=true;
             ui.post(()->{((View)panel.getParent()).setVisibility(View.GONE);controls.configure(options.optInt("controlSize",100)/100f,(float)options.optDouble("sensitivity",1),renderWidth,renderHeight);controls.setVisibility(View.VISIBLE);});
             long lastRoom=0;while(!process.waitFor(250,TimeUnit.MILLISECONDS)){cancellation.check();if(hostPort>0&&SystemClock.elapsedRealtime()-lastRoom>2500){lastRoom=SystemClock.elapsedRealtime();touchRoomControl();}}
             int exit=process.exitValue();playing=false;if(exit!=0)throw new IOException("游戏退出（代码 "+exit+"）。安装进度和存档已保留，日志在游戏诊断中。");ui.post(this::leave);
@@ -134,10 +137,37 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     private String jna(LaunchPlan plan)throws IOException {String version=null;for(File file:plan.classpath){java.util.regex.Matcher match=java.util.regex.Pattern.compile("jna-([0-9]+\\.[0-9]+\\.[0-9]+)\\.jar").matcher(file.getName());if(match.matches()){String found=match.group(1);if(version!=null&&!version.equals(found))throw new IOException("游戏存在互不兼容的 JNA 版本");version=found;}}if(version!=null&&!Arrays.asList("5.14.0","5.17.0").contains(version))throw new IOException("当前运行模块尚未适配系统接口 JNA "+version);return version;}
     private JSONObject selectRenderer()throws Exception {
         File file=new File(host.module,"module.json");if(!file.isFile()||file.length()>1024*1024)throw new IOException("运行模块清单无效");JSONObject metadata=new JSONObject(new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8));JSONArray renderers=metadata.optJSONArray("renderers");
-        if(renderers==null||renderers.length()==0)throw new IOException("此运行模块尚未包含可用的图形驱动，请更新运行模块");String selected=options.optString("renderer","auto");boolean vulkan=getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL);JSONObject fallback=null;
-        for(int i=0;i<renderers.length();i++){JSONObject item=renderers.getJSONObject(i);if(!item.optString("kind").equals("osmesa")||!Arrays.asList("zink","softpipe").contains(item.optString("driver")))continue;if(item.optBoolean("requiresVulkan")&&!vulkan)continue;
-            if(item.optString("id").equals(selected))return item;if(selected.equals("auto")&&(fallback==null||item.optString("driver").equals("zink")))fallback=item;
-        }if(fallback!=null)return fallback;throw new IOException("当前设备不支持所选渲染器，请在运行设置中选择自动检测");
+        update("graphics","正在检测 GPU 渲染，首次检测可能需要几秒",0,0);
+        RendererSelection.Selection selection=RendererSelection.select(renderers,options.optString("renderer","auto"),this::probeRenderer);
+        softwareRenderer=selection.software;rendererDiagnostic="请求："+options.optString("renderer","auto")+" · 系统 Vulkan 声明："+getPackageManager().hasSystemFeature(android.content.pm.PackageManager.FEATURE_VULKAN_HARDWARE_LEVEL)+"\n"+selection.diagnostic;
+        update("graphics",rendererDiagnostic,1,1);
+        if(softwareRenderer)ui.post(()->{if(!closing)Toast.makeText(this,"当前使用 CPU 软件兼容渲染，帧率可能较低；具体原因已记录在游戏诊断中",Toast.LENGTH_LONG).show();});
+        return selection.renderer;
+    }
+    private void rendererEnvironment(ProcessBuilder builder,String driver)throws IOException {
+        Map<String,String> environment=builder.environment();environment.put("TMPDIR",getCacheDir().getAbsolutePath());environment.put("GALLIUM_DRIVER",driver);
+        environment.remove("LIBGL_ALWAYS_SOFTWARE");environment.remove("MESA_LOADER_DRIVER_OVERRIDE");
+        if(driver.equals("softpipe"))environment.put("LIBGL_ALWAYS_SOFTWARE","1");
+        File cache=new File(host.storage,"graphics-cache");if(cache.isDirectory()||cache.mkdirs())environment.put("MESA_SHADER_CACHE_DIR",cache.getAbsolutePath());
+    }
+    private RendererSelection.ProbeResult probeRenderer(JSONObject item)throws Exception {
+        cancellation.check();String relative=item.getString("library");if(!relative.startsWith("app_runtime/renderers/"))throw new IOException("图形模块路径无效");File library=host.resource(relative.substring("app_runtime/".length()));
+        File executable=new File(getApplicationInfo().nativeLibraryDir,"libhxz_jvm_exec.so"),probeLog=new File(host.logs,"renderer-probe.log");
+        if(!executable.canExecute())throw new IOException("图形检测组件缺失，请更新社区应用");
+        ProcessBuilder builder=new ProcessBuilder(executable.getAbsolutePath(),"--probe-renderer",library.getAbsolutePath()).directory(host.storage).redirectErrorStream(true).redirectOutput(probeLog);
+        builder.environment().put("LD_LIBRARY_PATH",library.getParent()+":"+getApplicationInfo().nativeLibraryDir);rendererEnvironment(builder,item.getString("driver"));
+        Process probe=builder.start();process=probe;boolean timedOut=false;
+        try {
+            long deadline=SystemClock.elapsedRealtime()+12000;
+            while(!probe.waitFor(100,TimeUnit.MILLISECONDS)){cancellation.check();if(SystemClock.elapsedRealtime()>=deadline){timedOut=true;probe.destroyForcibly();break;}}
+            if(timedOut)return new RendererSelection.ProbeResult(false,"","GPU 上下文检测超过 12 秒，已结束检测进程");
+            String evidence=scrub(GameCrashDiagnostics.readTail(probeLog,6000)),name="",vendor="",version="";boolean frame=false;
+            for(String line:evidence.split("\\r?\\n")){if(line.startsWith("HXZ_GPU_RENDERER="))name=line.substring(17);else if(line.startsWith("HXZ_GPU_VENDOR="))vendor=line.substring(15);else if(line.startsWith("HXZ_GPU_VERSION="))version=line.substring(16);else if(line.equals("HXZ_GPU_FRAME_OK=1"))frame=true;}
+            boolean success=probe.exitValue()==0&&frame;String description=success?"驱动 "+vendor+" · "+version+" · 试绘制通过":"检测退出码 "+probe.exitValue()+"\n"+evidence;
+            return new RendererSelection.ProbeResult(success,name,description);
+        } finally {
+            if(probe.isAlive()){probe.destroyForcibly();probe.waitFor(2,TimeUnit.SECONDS);}if(process==probe)process=null;
+        }
     }
     private void clientModReport(ClientModCompatibility.Report report) {
         StringBuilder summary=new StringBuilder(report.summary()).append('\n');
@@ -212,6 +242,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     }String detail=scrub(error.getMessage());int newline=detail.indexOf('\n');if(newline>=0)detail=detail.substring(0,newline);return detail.length()>180?detail.substring(0,180)+"…":detail.isEmpty()?"游戏准备失败，请复制技术诊断查看原因。":detail;}
     private String technical(Throwable error){StringBuilder out=new StringBuilder("HXZ Android 游戏诊断\n");out.append(top.hxzmc.community.BuildConfig.VERSION_NAME).append(" / ").append(top.hxzmc.community.BuildConfig.VERSION_CODE).append('\n');out.append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append(" · Android ").append(Build.VERSION.RELEASE).append('\n');StringBuilder failure=new StringBuilder();int depth=0;for(Throwable current=error;current!=null&&depth++<8;current=current.getCause())failure.append(current.getClass().getSimpleName()).append(": ").append(diagnosticPart(current.getMessage(),8192)).append('\n');out.append(diagnosticPart(failure.toString(),gameStarted?2048:8192));
         if(!gameDiagnostic.isEmpty())out.append(gameDiagnostic).append('\n');
+        if(!rendererDiagnostic.isEmpty())out.append("图形驱动检测:\n").append(diagnosticPart(rendererDiagnostic,2048)).append('\n');
         if(!clientModDiagnostic.isEmpty())out.append("客户端适配:\n").append(diagnosticPart(clientModDiagnostic,2048)).append('\n');
         if(host!=null&&!gameStarted){String processor=host.processorDiagnostic();if(!processor.isEmpty())out.append("处理器记录（准备阶段上下文）:\n").append(processor).append('\n');}
         File file=diagnosticLog;if(file!=null&&file.isFile())out.append("准备阶段:\n").append(GameCrashDiagnostics.readTail(file,2048));

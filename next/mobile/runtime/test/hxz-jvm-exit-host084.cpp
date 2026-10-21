@@ -51,6 +51,7 @@ int hxz_java(const HxzJavaJob&,bool installer){
 #define prctl hxz_test_prctl
 #define _exit hxz_test_exit
 #define main hxz_executor_main
+int hxz_probe_renderer(const char*) { return 80; }
 #include "hxz_jvm_exec.cpp"
 #undef main
 #undef _exit

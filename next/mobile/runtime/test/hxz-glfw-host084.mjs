@@ -29,6 +29,7 @@ extern "C" {void* dlopen(const char*,int);void* dlsym(void*,const char*);int dlc
 for(const dir of ['EGL','KHR','vulkan','vk_video'])await fs.cp(path.join(sysroot,dir),path.join(include,dir),{recursive:true});
 await fs.cp(path.join(native,'include'),path.join(tmp,'include'),{recursive:true});
 await fs.copyFile(path.join(native,'hxz_glfw.h'),path.join(tmp,'hxz_glfw.h'));
+await fs.copyFile(path.join(native,'hxz_frame_present.h'),path.join(tmp,'hxz_frame_present.h'));
 const source=await fs.readFile(path.join(native,'hxz_glfw.cpp'),'utf8');
 const fixture=path.resolve('mobile/runtime/test/hxz-glfw-host084.cpp');
 const defaultZig=path.resolve('.runtime/review084/native-host-tools/ziglang/zig.exe');

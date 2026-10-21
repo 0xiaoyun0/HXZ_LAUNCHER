@@ -1,7 +1,9 @@
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include "include/glfw3.h"
+#include "include/hxz_glfw_ime.h"
 #include "hxz_glfw.h"
+#include "hxz_frame_present.h"
 
 #include <EGL/egl.h>
 #include <android/native_window.h>
@@ -55,6 +57,14 @@ struct GLFWwindow {
     GLFWkeyfun keyCb=nullptr;
     GLFWcharfun charCb=nullptr;
     GLFWcharmodsfun charModsCb=nullptr;
+    GLFWpreeditfun preeditCb=nullptr;
+    GLFWimestatusfun imeStatusCb=nullptr;
+    GLFWpreeditcandidatefun preeditCandidateCb=nullptr;
+    // Android's text dialog owns composition and candidates. Only committed
+    // codepoints cross hxz_event(5); this mode describes the client's IME request,
+    // not the visibility of Android's keyboard, and must not filter those commits.
+    bool imeEnabled=false;
+    int preeditX=0,preeditY=0,preeditWidth=0,preeditHeight=0;
     GLFWdropfun dropCb=nullptr;
     GLFWwindowiconifyfun iconifyCb=nullptr;
     GLFWwindowmaximizefun maximizeCb=nullptr;
@@ -107,6 +117,8 @@ struct EglApi {
 };
 
 std::mutex mu;
+std::mutex presentMu;
+HxzFrameGeometry frameGeometry;
 std::condition_variable eventReady;
 std::deque<Event> events;
 std::array<unsigned char,GLFW_KEY_LAST+1> keys{};
@@ -210,6 +222,10 @@ void destroyWindow(GLFWwindow* w){
     delete w;
 }
 bool hasWindow(GLFWwindow* w){if(w&&w==window)return true;report(GLFW_INVALID_VALUE,"Invalid GLFW window");return false;}
+bool hasImeWindow(GLFWwindow* w){
+    if(!initialized){report(GLFW_NOT_INITIALIZED,"GLFW is not initialized");return false;}
+    return hasWindow(w);
+}
 }
 
 extern "C" void hxz_surface(ANativeWindow* native,int width,int height){
@@ -258,7 +274,7 @@ extern "C" int hxz_configure_renderer(const char* path,const char* kind){
     if(glesLib){dlclose(glesLib);glesLib=nullptr;}
     if(rendererLib)dlclose(rendererLib);
     rendererLib=lib;backend=next;osmesa=mesa;egl=eglApi;
-    {std::lock_guard<std::mutex> lock(mu);rendererError.clear();}
+    {std::lock_guard<std::mutex> lock(mu);++surfaceGeneration;rendererError.clear();}
     return 0;
 }
 extern "C" const char* hxz_last_error(void){std::lock_guard<std::mutex> lock(mu);returnedError=rendererError;return returnedError.c_str();}
@@ -266,22 +282,18 @@ extern "C" int hxz_cursor_captured(void){std::lock_guard<std::mutex> lock(mu);re
 extern "C" void hxz_set_frame_sink(HxzFrameSink sink){frameSink.store(sink,std::memory_order_release);}
 extern "C" int hxz_present_frame(const unsigned char* rgba,int width,int height,int stridePixels,int topDown){
     if(!rgba||width<1||height<1||width>4096||height>4096||stridePixels<width||stridePixels>4096){report(GLFW_INVALID_VALUE,"Invalid shared frame geometry");return -1;}
+    std::unique_lock<std::mutex> presentLock(presentMu);
     ANativeWindow* native;
-    {std::lock_guard<std::mutex> lock(mu);native=surface;if(native)ANativeWindow_acquire(native);}
+    uint64_t generation;
+    {std::lock_guard<std::mutex> lock(mu);native=surface;generation=surfaceGeneration;if(native)ANativeWindow_acquire(native);}
     if(!native)return 0;
-    if(ANativeWindow_setBuffersGeometry(native,width,height,WINDOW_FORMAT_RGBA_8888)!=0){ANativeWindow_release(native);report(GLFW_PLATFORM_ERROR,"Android Surface does not accept RGBA geometry");return -1;}
+    if(frameGeometry.ensure(generation,width,height,[&]{return ANativeWindow_setBuffersGeometry(native,width,height,WINDOW_FORMAT_RGBA_8888);})!=0){ANativeWindow_release(native);presentLock.unlock();report(GLFW_PLATFORM_ERROR,"Android Surface does not accept RGBA geometry");return -1;}
     ANativeWindow_Buffer output{};
-    if(ANativeWindow_lock(native,&output,nullptr)!=0){ANativeWindow_release(native);report(GLFW_PLATFORM_ERROR,"Android Surface lock failed");return -1;}
-    if(output.format!=WINDOW_FORMAT_RGBA_8888||output.bits==nullptr||output.stride<output.width||output.width<1||output.height<1){ANativeWindow_unlockAndPost(native);ANativeWindow_release(native);report(GLFW_FORMAT_UNAVAILABLE,"Android Surface buffer geometry is invalid");return -1;}
-    const int rows=std::min(output.height,height),cols=std::min(output.width,width);
-    for(int y=0;y<rows;++y){auto* dest=static_cast<uint8_t*>(output.bits)+static_cast<size_t>(y)*output.stride*4;
-        const int sourceRow=topDown?y:(height-1-y);
-        const auto* source=rgba+static_cast<size_t>(sourceRow)*stridePixels*4;
-        std::memcpy(dest,source,static_cast<size_t>(cols)*4);
-        if(cols<output.width)std::memset(dest+static_cast<size_t>(cols)*4,0,static_cast<size_t>(output.width-cols)*4);}
-    for(int y=rows;y<output.height;++y)std::memset(static_cast<uint8_t*>(output.bits)+static_cast<size_t>(y)*output.stride*4,0,static_cast<size_t>(output.width)*4);
+    if(ANativeWindow_lock(native,&output,nullptr)!=0){frameGeometry.invalidate();ANativeWindow_release(native);presentLock.unlock();report(GLFW_PLATFORM_ERROR,"Android Surface lock failed");return -1;}
+    if(output.format!=WINDOW_FORMAT_RGBA_8888||output.bits==nullptr||output.stride<output.width||output.width<1||output.height<1){frameGeometry.invalidate();ANativeWindow_unlockAndPost(native);ANativeWindow_release(native);presentLock.unlock();report(GLFW_FORMAT_UNAVAILABLE,"Android Surface buffer geometry is invalid");return -1;}
+    hxzCopyRgbaFrame(rgba,width,height,stridePixels,topDown!=0,output.bits,output.width,output.height,output.stride);
     int result=ANativeWindow_unlockAndPost(native);ANativeWindow_release(native);
-    if(result!=0){report(GLFW_PLATFORM_ERROR,"Android Surface present failed");return -1;}return 0;
+    if(result!=0){frameGeometry.invalidate();presentLock.unlock();report(GLFW_PLATFORM_ERROR,"Android Surface present failed");return -1;}return 0;
 }
 
 extern "C" int glfwInit(void){initialized=true;epoch=Clock::now();return GLFW_TRUE;}
@@ -293,6 +305,7 @@ extern "C" void glfwTerminate(void){glfwDestroyWindow(window);if(window)return;i
     if(glesLib){dlclose(glesLib);glesLib=nullptr;}if(rendererLib){dlclose(rendererLib);rendererLib=nullptr;}backend=Backend::none;
     {std::lock_guard<std::mutex> lock(mu);events.clear();keys.fill(0);buttons.fill(0);++surfaceGeneration;}}
 extern "C" void glfwInitHint(int hint,int value){if(hint==GLFW_PLATFORM){if(value!=GLFW_ANY_PLATFORM&&value!=GLFW_PLATFORM_NULL)report(GLFW_PLATFORM_UNAVAILABLE,"Requested desktop GLFW platform is unavailable");return;}
+    if(hint==GLFW_MANAGE_PREEDIT_CANDIDATE){if(value!=GLFW_FALSE)report(GLFW_FEATURE_UNAVAILABLE,"Android IME owns the candidate window");return;}
     if(hint==GLFW_JOYSTICK_HAT_BUTTONS)return;
     if(hint==GLFW_COCOA_CHDIR_RESOURCES||hint==GLFW_COCOA_MENUBAR||hint==GLFW_WAYLAND_LIBDECOR||hint==GLFW_X11_XCB_VULKAN_SURFACE){report(GLFW_FEATURE_UNAVAILABLE,"Desktop GLFW init hint is unavailable on Android");return;}
     report(GLFW_INVALID_ENUM,"Unsupported GLFW init hint");}
@@ -495,10 +508,42 @@ extern "C" GLFWcursor* glfwCreateCursor(const GLFWimage*,int,int){report(GLFW_FE
 extern "C" GLFWcursor* glfwCreateStandardCursor(int){report(GLFW_FEATURE_UNAVAILABLE,"Native Android cursors are unavailable");return nullptr;}
 extern "C" void glfwDestroyCursor(GLFWcursor*){}
 extern "C" void glfwSetCursor(GLFWwindow* w,GLFWcursor* cursor){if(hasWindow(w)&&cursor)report(GLFW_FEATURE_UNAVAILABLE,"Native Android cursors are unavailable");}
-extern "C" void glfwSetInputMode(GLFWwindow* w,int mode,int value){if(!hasWindow(w))return;if(mode==GLFW_CURSOR){if(value!=GLFW_CURSOR_NORMAL&&value!=GLFW_CURSOR_HIDDEN&&value!=GLFW_CURSOR_DISABLED){report(GLFW_INVALID_ENUM,"Invalid cursor mode");return;}std::lock_guard<std::mutex> lock(mu);w->cursor=value;return;}
+extern "C" void glfwSetInputMode(GLFWwindow* w,int mode,int value){
+    if(mode==GLFW_IME){
+        if(!hasImeWindow(w))return;
+        const bool enabled=value!=GLFW_FALSE;
+        if(w->imeEnabled!=enabled){w->imeEnabled=enabled;auto cb=w->imeStatusCb;if(cb)cb(w);}
+        return; // A callback may have destroyed the window; do not access it again.
+    }
+    if(!hasWindow(w))return;if(mode==GLFW_CURSOR){if(value!=GLFW_CURSOR_NORMAL&&value!=GLFW_CURSOR_HIDDEN&&value!=GLFW_CURSOR_DISABLED){report(GLFW_INVALID_ENUM,"Invalid cursor mode");return;}std::lock_guard<std::mutex> lock(mu);w->cursor=value;return;}
     if(mode==GLFW_STICKY_KEYS||mode==GLFW_STICKY_MOUSE_BUTTONS||mode==GLFW_LOCK_KEY_MODS){if(value!=GLFW_FALSE)report(GLFW_FEATURE_UNAVAILABLE,"Requested GLFW input mode is unavailable");return;}
     if(mode==GLFW_RAW_MOUSE_MOTION){if(value!=GLFW_FALSE)report(GLFW_FEATURE_UNAVAILABLE,"Raw mouse motion is unavailable");return;}report(GLFW_INVALID_ENUM,"Unsupported GLFW input mode");}
-extern "C" int glfwGetInputMode(GLFWwindow* w,int mode){if(!hasWindow(w))return 0;if(mode==GLFW_CURSOR)return w->cursor;if(mode==GLFW_STICKY_KEYS||mode==GLFW_STICKY_MOUSE_BUTTONS||mode==GLFW_LOCK_KEY_MODS||mode==GLFW_RAW_MOUSE_MOTION)return GLFW_FALSE;report(GLFW_INVALID_ENUM,"Unsupported GLFW input mode");return 0;}
+extern "C" int glfwGetInputMode(GLFWwindow* w,int mode){
+    if(mode==GLFW_IME)return hasImeWindow(w)&&w->imeEnabled?GLFW_TRUE:GLFW_FALSE;
+    if(!hasWindow(w))return 0;if(mode==GLFW_CURSOR)return w->cursor;if(mode==GLFW_STICKY_KEYS||mode==GLFW_STICKY_MOUSE_BUTTONS||mode==GLFW_LOCK_KEY_MODS||mode==GLFW_RAW_MOUSE_MOTION)return GLFW_FALSE;report(GLFW_INVALID_ENUM,"Unsupported GLFW input mode");return 0;}
+extern "C" void glfwGetPreeditCursorRectangle(GLFWwindow* w,int* x,int* y,int* width,int* height){
+    if(x)*x=0;if(y)*y=0;if(width)*width=0;if(height)*height=0;
+    if(!hasImeWindow(w))return;
+    if(x)*x=w->preeditX;if(y)*y=w->preeditY;if(width)*width=w->preeditWidth;if(height)*height=w->preeditHeight;
+}
+extern "C" void glfwSetPreeditCursorRectangle(GLFWwindow* w,int x,int y,int width,int height){
+    if(!hasImeWindow(w))return;
+    if(width<0||height<0){report(GLFW_INVALID_VALUE,"Invalid preedit cursor size");return;}
+    // Preserve the client's rectangle. Android places its own candidate UI.
+    w->preeditX=x;w->preeditY=y;w->preeditWidth=width;w->preeditHeight=height;
+}
+extern "C" void glfwResetPreeditText(GLFWwindow* w){
+    if(!hasImeWindow(w))return;
+    // There is no composing text in the runtime. Clear any client preedit view
+    // without dropping committed characters already queued by the Android host.
+    auto cb=w->preeditCb;if(cb)cb(w,0,nullptr,0,nullptr,0,0);
+}
+extern "C" unsigned int* glfwGetPreeditCandidate(GLFWwindow* w,int index,int* textCount){
+    if(textCount)*textCount=0;
+    if(!hasImeWindow(w))return nullptr;
+    if(index<0)report(GLFW_INVALID_VALUE,"Invalid preedit candidate index");
+    return nullptr; // Candidate text remains inside the Android IME.
+}
 extern "C" int glfwRawMouseMotionSupported(void){return GLFW_FALSE;}
 extern "C" const char* glfwGetClipboardString(GLFWwindow* w){return hasWindow(w)?clipboard.c_str():nullptr;}
 extern "C" void glfwSetClipboardString(GLFWwindow* w,const char* value){if(hasWindow(w))clipboard=value?value:"";}
@@ -540,3 +585,9 @@ WINDOW_CALLBACK(glfwSetWindowIconifyCallback,iconifyCb,GLFWwindowiconifyfun)
 WINDOW_CALLBACK(glfwSetWindowMaximizeCallback,maximizeCb,GLFWwindowmaximizefun)
 WINDOW_CALLBACK(glfwSetWindowContentScaleCallback,scaleCb,GLFWwindowcontentscalefun)
 #undef WINDOW_CALLBACK
+
+#define IME_CALLBACK(setter,member,type) extern "C" type setter(GLFWwindow* w,type cb){if(!hasImeWindow(w))return nullptr;auto old=w->member;w->member=cb;return old;}
+IME_CALLBACK(glfwSetPreeditCallback,preeditCb,GLFWpreeditfun)
+IME_CALLBACK(glfwSetIMEStatusCallback,imeStatusCb,GLFWimestatusfun)
+IME_CALLBACK(glfwSetPreeditCandidateCallback,preeditCandidateCb,GLFWpreeditcandidatefun)
+#undef IME_CALLBACK

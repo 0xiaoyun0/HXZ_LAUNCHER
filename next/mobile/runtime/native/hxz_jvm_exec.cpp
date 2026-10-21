@@ -2,6 +2,7 @@
 #include "hxz_glfw.h"
 #include "hxz_ipc.h"
 #include "hxz_vm_heap.h"
+#include "hxz_renderer_probe.h"
 #include <cstdio>
 #include <exception>
 #include <csignal>
@@ -12,6 +13,7 @@ int main(int argc,char** argv) {
         if(!hxz_prepare_vm_heap())return 69;
         const pid_t parent=getppid();
         if(parent<=1||prctl(PR_SET_PDEATHSIG,SIGTERM)!=0||getppid()!=parent){fprintf(stderr,"HXZ: parent process is unavailable\n");return 68;}
+        if(argc==3&&std::string(argv[1])=="--probe-renderer")return hxz_probe_renderer(argv[2]);
         if(argc!=2&&argc!=5){fprintf(stderr,"HXZ: expected job [socket renderer-path renderer-kind]\n");return 64;}
         try{
             HxzJavaJob job=hxz_read_job(argv[1]);

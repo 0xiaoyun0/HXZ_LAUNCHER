@@ -19,7 +19,7 @@ await fs.writeFile(path.join(output,'ScrubProbe.java'),`import java.util.*; impo
 public class ScrubProbe {
   Set<String> secrets=new HashSet<>(Arrays.asList("refreshed-test-credential"));
   JSONObject request=new JSONObject();
-  String clientModDiagnostic="",gameDiagnostic=""; boolean gameStarted=true; File diagnosticLog; Host host=new Host();
+  String clientModDiagnostic="",gameDiagnostic="",rendererDiagnostic=""; boolean gameStarted=true; File diagnosticLog; Host host=new Host();
   static class Host { String processorDiagnostic(){return "PREVIOUS_PROCESSOR_DO_NOT_BLAME";} }
   static class Build { static String MANUFACTURER="Fixture",MODEL="Phone"; static class VERSION {static String RELEASE="35";} }
   static class BuildConfig { static String VERSION_NAME="0.8.4";static int VERSION_CODE=80408; }
