@@ -16,12 +16,14 @@ public final class GameFailureAdvice {
         if((text.contains("unsatisfiedlinkerror")||text.contains("dlopen failed")||text.contains("cannot load runtime library"))
                 &&(text.contains("libfreetype.so")||text.contains("libfontmanager.so")||text.contains("libawt.so")||text.contains("libawt_headless.so")))
             return "Java 字体组件未能加载，这不是存档损坏。请更新社区应用后重试；若仍提示组件文件缺失，请在游戏运行模块中继续下载修复，并附当前诊断反馈。无需删除 ModernUI 或重新下载整个整合包。";
+        if(text.contains("org.lwjgl.util.freetype.freetype$functions")||text.contains("a required function is missing: ft_"))
+            return "游戏字体库初始化失败。请更新社区应用后重试，启动器会为模组指定完整字体库；无需删除领地、火炮或小地图模组，也不要删除配置或存档。";
         if(text.contains("using pojavlauncher")&&text.contains("not supported")&&text.contains("sodium"))
             return "当前 Sodium 渲染模组不支持手机图形环境。请更新社区应用后重新准备游戏，启动器会备份并停用已核验的不兼容客户端渲染组件；无需删除存档或重新下载整个整合包。若手动恢复过这些模组，请在运行设置重新启用客户端兼容适配。";
         if(text.contains("shared frame descriptor is too small")||text.contains("android shared frame buffer size")||text.contains("shared frame buffer is too small"))
             return "启动器未能建立游戏画面通道。已下载文件和存档已保留，无需重新下载整合包；请更新社区应用后重试，仍失败时复制当前诊断反馈。";
         if(text.contains("outofmemoryerror")||text.contains("native memory allocation (malloc) failed")||text.contains("could not reserve enough space for")||text.contains("out of swap space"))
-            return "游戏内存不足。请先关闭其他应用、降低视距和分辨率；不要把全部可用内存分给 Java。存档和已下载文件已保留。";
+            return "游戏内存不足。请关闭其他应用，并在运行设置使用自动分配；可尝试开启“使用交换内存（扩展预算）”，利用设备已有的空闲交换空间，但可能变慢且不能代替物理内存。请降低视距和分辨率，不要把全部内存分给 Java。存档和已下载文件已保留。";
         if(text.contains("unsatisfiedlinkerror")&&(text.contains("x86")||text.contains("amd64")||text.contains("wrong elf")||text.contains("em_x86_64")||text.contains("e_machine")))
             return "某个模组或组件正在调用电脑架构的本地库，手机无法加载。请复制诊断定位该组件；不会自动删除服务器要求的模组。";
         if(text.contains("failed to create an opengl context")||text.contains("glfw error 65542")||text.contains("opengl version 3.2 or higher is required")||text.contains("failed to create osmesa"))

@@ -64,7 +64,16 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     private Bundle bridge(String method,Bundle input){return getContentResolver().call(Uri.parse("content://"+getPackageName()+".game-account"),method,null,input);}
     private JSONObject account()throws Exception{return account(false);}
     private JSONObject account(boolean validate)throws Exception{JSONObject requested=request.optJSONObject("account");Bundle query=new Bundle();query.putString("uuid",!accountId.isEmpty()?accountId:requested==null?"":requested.optString("uuid"));if(validate&&pinAccount)query.putString("lease",sessionLease);Bundle reply=bridge(validate?"launchAccount":"selectedAccount",query);if(reply==null||!reply.containsKey("account"))throw new IOException(reply==null?"无法读取社区账号":reply.getString("message"));JSONObject account=new JSONObject(reply.getString("account"));String uuid=account.getString("uuid");if(!accountId.isEmpty()&&!accountId.equals(uuid)||requested!=null&&!requested.getString("uuid").equals(uuid))throw new IOException("社区角色已切换，请重新启动游戏");accountId=uuid;for(String key:Arrays.asList("accessToken","clientToken")){String secret=account.optString(key);if(!secret.isEmpty())secrets.add(secret);}return account;}
-    private int memory(){ActivityManager.MemoryInfo info=new ActivityManager.MemoryInfo();((ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(info);long available=info.availMem/1048576;int ceiling=(int)Math.max(512,Math.min(6144,available-768));int requested=options.optInt("memoryMB");return Math.min(ceiling,requested>0?Math.max(512,requested):(int)Math.max(512,Math.min(4096,available*.45)));}
+    private String memoryDiagnostic="";
+    private int memory(){
+        ActivityManager.MemoryInfo info=new ActivityManager.MemoryInfo();((ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(info);
+        long total=info.totalMem/1048576,available=info.availMem/1048576,swapFree=0;
+        try(BufferedReader reader=new BufferedReader(new FileReader("/proc/meminfo"))){String line;while((line=reader.readLine())!=null)if(line.startsWith("SwapFree:")){swapFree=Long.parseLong(line.substring(9).trim().split("\\s+")[0])/1024;break;}}catch(IOException|NumberFormatException ignored){/* An unreadable swap counter contributes no memory. */}
+        boolean expanded=options.optBoolean("extendedMemory",false);JSONObject server=request.optJSONObject("server");
+        int heap=GameMemoryBudget.select(total,available,swapFree,options.optInt("memoryMB"),expanded,server!=null&&server.optString("id").startsWith("HXZ-mod-"));
+        memoryDiagnostic="Java 上限 "+heap+" MiB；物理总量 "+total+" MiB，可用 "+available+" MiB；系统空闲交换 "+swapFree+" MiB，扩展预算"+(expanded?"开启":"关闭")+"（由 Android 管理，速度慢于内存）";
+        return heap;
+    }
     private void update(String phase,String item,long completed,long total){
         if(!phase.equals(lastDiagnosticPhase)){lastDiagnosticPhase=phase;recordDiagnosticPhase(phase);}
         if(phase.equals("processor-exit"))return; // Keep the readable final stage; failures are shown by failed().
@@ -120,11 +129,17 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             else{extra.add("-Dorg.lwjgl.opengl.contextAPI=OSMesa");extra.add("-Dorg.lwjgl.opengl.osmesa.libname="+renderer);}
             if(plan.mainClass.startsWith("org.quiltmc."))extra.add("-Dloader.disable_forked_guis=true");
             if(!directRenderer&&lwjgl.equals("3.3.3"))extra.add("-Dorg.lwjgl.opengl.libname="+renderer);
-            if(lwjgl.equals("3.4.1"))extra.add("-Dorg.lwjgl.freetype.libname="+host.resource("lwjgl/3.4.1/libfreetype.so"));
+            // This is plain FreeType, not a versioned LWJGL JNI module. The JRE's
+            // bundled FreeType lacks functions required by LWJGL 3.3.3 too (e.g.
+            // FT_Get_Transform); never let mods resolve that library by SONAME.
+            extra.add("-Dorg.lwjgl.freetype.libname="+host.resource("lwjgl/3.4.1/libfreetype.so"));
             String jna=jna(plan);if(jna!=null){File dispatch=host.resource("jna/"+jna+"/libjnidispatch.so");if(!dispatch.isFile())throw new IOException("运行模块缺少此游戏需要的 JNA "+jna+"，请更新运行模块");extra.add("-Djna.boot.library.path="+dispatch.getParent());extra.add("-Djna.nosys=true");extra.add("-Djna.nounpack=true");}
             List<String> game=new ArrayList<>();String address=options.optString("joinServer");if(!address.isEmpty())game.addAll(Arrays.asList("--quickPlayMultiplayer",address));
             if(hostPort>0){extra.add("-javaagent:"+host.resource("tools/direct-lobby.jar"));touchRoomControl();}
-            pinAccount=true;jobFile=host.job(freshJob(plan.javaJob(),account(true).getString("accessToken")),extra,game);log=new File(host.logs,"game-latest.log");rendererDiagnostic+="\n游戏渲染尺寸："+renderWidth+" × "+renderHeight;Files.write(log.toPath(),("[HXZ graphics] "+scrub(rendererDiagnostic)+"\n[HXZ network] Android 网络 DNS + FCL JNDI/SRV 配置；保留 IPv4/IPv6，认证会话已固定\n").getBytes(StandardCharsets.UTF_8));roomLogOffset=0;roomLogLine.reset();
+            pinAccount=true;EngineHost.JavaJob gameJob=freshJob(plan.javaJob(),account(true).getString("accessToken"));
+            // Downloads/processors may take minutes. Re-evaluate RAM immediately
+            // before the game, not from the old pre-installation snapshot.
+            jobFile=host.job(GameMemoryBudget.apply(gameJob,memory()),extra,game);log=new File(host.logs,"game-latest.log");rendererDiagnostic+="\n游戏渲染尺寸："+renderWidth+" × "+renderHeight;Files.write(log.toPath(),("[HXZ graphics] "+scrub(rendererDiagnostic)+"\n[HXZ memory] "+memoryDiagnostic+"\n[HXZ network] Android 网络 DNS + FCL JNDI/SRV 配置；保留 IPv4/IPv6，认证会话已固定\n").getBytes(StandardCharsets.UTF_8));roomLogOffset=0;roomLogLine.reset();
             cancellation.check();
             String socket=new File(getCacheDir(),"game-"+android.os.Process.myPid()+".sock").getAbsolutePath();
             String error=directRenderer?NativeRuntime.startDirect(socket,renderWidth,renderHeight):NativeRuntime.start(socket,renderWidth,renderHeight);if(error!=null)throw new IOException(error);
@@ -243,14 +258,14 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     }
     private void clientModReport(ClientModCompatibility.Report report) {
         StringBuilder summary=new StringBuilder(report.summary()).append('\n');
-        for(ClientModCompatibility.Finding finding:report.findings)if(!finding.ruleId.isEmpty())summary.append(finding.relativePath).append(" · ").append(finding.decision).append(" · ").append(finding.reason).append('\n');
+        for(ClientModCompatibility.Finding finding:report.findings)if(!finding.ruleId.isEmpty()||finding.decision.equals("patched"))summary.append(finding.relativePath).append(" · ").append(finding.decision).append(" · ").append(finding.reason).append('\n');
         clientModDiagnostic=summary.toString();
         try{RuntimeFiles.writeJson(RuntimeFiles.inside(run,".hxz/client-mods/report.json"),report.toJson());}catch(Exception e){clientModDiagnostic+="兼容性报告写入失败："+e.getClass().getSimpleName()+"\n";}
         if(report.disabled>0)ui.post(()->{if(!closing)Toast.makeText(this,"已停用 "+report.disabled+" 个手机不支持的客户端模组，原件已保留",Toast.LENGTH_LONG).show();});
     }
     private JSONObject describeGame(JSONObject metadata,String preset,ClientModCompatibility compatibility)throws Exception {
         JSONObject profile=metadata.getJSONObject("hxzGameProfile"),loader=profile.optJSONObject("loader");List<String> hashes=new ArrayList<>();File[] jars=new File(run,"mods").listFiles(f->f.isFile()&&f.getName().toLowerCase(Locale.ROOT).endsWith(".jar"));
-        if(jars!=null){if(jars.length>10000)throw new IOException("实例模组数量异常");for(File jar:jars){cancellation.check();if(Files.isSymbolicLink(jar.toPath()))throw new IOException("模组路径不能为符号链接");java.security.MessageDigest digest=java.security.MessageDigest.getInstance("SHA-256");try(InputStream in=new FileInputStream(jar)){byte[] buffer=new byte[65536];int count;while((count=in.read(buffer))!=-1)digest.update(buffer,0,count);}hashes.add(hex(digest.digest()));}}
+        if(jars!=null){if(jars.length>10000)throw new IOException("实例模组数量异常");for(File jar:jars){cancellation.check();if(Files.isSymbolicLink(jar.toPath()))throw new IOException("模组路径不能为符号链接");String original=compatibility.originalRenderDigest(jar,cancellation);if(!original.isEmpty()){hashes.add(original);continue;}java.security.MessageDigest digest=java.security.MessageDigest.getInstance("SHA-256");try(InputStream in=new FileInputStream(jar)){byte[] buffer=new byte[65536];int count;while((count=in.read(buffer))!=-1)digest.update(buffer,0,count);}hashes.add(hex(digest.digest()));}}
         // Match the installed pack, including preserved, byte-verified client-only adjustments.
         // Arbitrary disabled/removed JARs never contribute a fingerprint or bypass room checks.
         for(ClientModCompatibility.QuarantinedFile saved:compatibility.validatedQuarantine(cancellation))hashes.add(saved.sha256);

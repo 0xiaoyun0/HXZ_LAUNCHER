@@ -52,3 +52,17 @@ scratch buffer, restores the original EBO binding, and does not read pixels
 back from the GPU. A logged first-use marker identifies whether this path is
 actually exercised on a device. The supplied regression harness simulates GL
 buffers; it is not device rendering validation.
+
+### HXZ 80420 texture-unit boundary adapter
+
+The original NG binary is still unmodified. Its `config.h` and `state.h`
+allocate 16 texture slots. `samplers.c:gl4es_glBindSampler` incorrectly accepts
+`unit == hardext.maxtex`, which makes `realize_textures` access slot 16 and
+dereference a null pointer. HXZ's GLX provider caps advertised combined/image
+texture units to the supported slot limit. Invalid sampler units are passed
+to NG as an unequivocally invalid unit, preserving its error path without
+mutating texture state. Valid sampler IDs and bindings are unchanged.
+
+The boundary regression reproduces the original off-by-one and passes after
+the adapter. A Xiaomi Pad 8 Pro Android 16 reproduced native PC `0x317340` in
+the original library; the adapter lets the same pack finish resource loading.

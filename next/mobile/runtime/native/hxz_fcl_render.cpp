@@ -21,6 +21,24 @@ void* renderer;
 using Proc=void*(*)(const char*);
 Proc getGlProc;
 void* originalProc(const char* name){auto* address=dlsym(renderer,name);return address?address:(getGlProc?getGlProc(name):nullptr);}
+int textureUnitLimit(){
+    // NG's config.h/state.h have exactly MAX_TEX=16 slots, even when GLES advertises more.
+    using Query=void(*)(unsigned,int*);int units=16;
+    if(auto query=reinterpret_cast<Query>(originalProc("glGetIntegerv")))query(0x84E2,&units);
+    return units>0&&units<16?units:16;
+}
+void safeGetInteger(unsigned token,int* value){
+    using Query=void(*)(unsigned,int*);auto query=reinterpret_cast<Query>(originalProc("glGetIntegerv"));
+    if(!query)return;query(token,value);
+    if(value&&(token==0x8B4D||token==0x8872)&&*value>textureUnitLimit())*value=textureUnitLimit();
+}
+void safeBindSampler(unsigned unit,unsigned sampler){
+    using Bind=void(*)(unsigned,unsigned);auto bind=reinterpret_cast<Bind>(originalProc("glBindSampler"));
+    if(!bind)return;
+    // Upstream tests unit > maxtex; equality incorrectly dirties a nonexistent slot.
+    // A definitely invalid unit lets NG report GL_INVALID_VALUE without mutating any state.
+    bind(unit>=static_cast<unsigned>(textureUnitLimit())?~0u:unit,sampler);
+}
 template<class Draw> bool drawPromoted(unsigned mode,int count,unsigned type,const void* indices,int base,Draw draw){
     // Only replace the affected EBO-backed triangle path. Leave all other GL semantics to NG.
     if(mode!=0x0004||base<=0||count<=0||count>4*1024*1024||(type!=0x1401&&type!=0x1403))return false;
@@ -116,6 +134,8 @@ extern "C" int hxz_fcl_swap(){
 extern "C" void hxz_fcl_interval(int interval){std::lock_guard<std::recursive_mutex> lock(renderMutex);gl_swap_interval(interval);}
 extern "C" void* hxz_fcl_proc(const char* name){
     if(!name||!renderer)return nullptr;
+    if(!strcmp(name,"glGetIntegerv"))return reinterpret_cast<void*>(&safeGetInteger);
+    if(!strcmp(name,"glBindSampler"))return reinterpret_cast<void*>(&safeBindSampler);
     if(!strcmp(name,"glDrawElementsBaseVertex")||!strcmp(name,"glDrawElementsBaseVertexARB")||!strcmp(name,"glDrawElementsBaseVertexEXT")||!strcmp(name,"glDrawElementsBaseVertexOES"))return reinterpret_cast<void*>(&safeDrawBaseVertex);
     if(!strcmp(name,"glDrawElementsInstancedBaseVertex")||!strcmp(name,"glDrawElementsInstancedBaseVertexARB")||!strcmp(name,"glDrawElementsInstancedBaseVertexEXT")||!strcmp(name,"glDrawElementsInstancedBaseVertexOES"))return reinterpret_cast<void*>(&safeDrawInstancedBaseVertex);
     if(!strcmp(name,"glMultiDrawElementsBaseVertex")||!strcmp(name,"glMultiDrawElementsBaseVertexEXT"))return reinterpret_cast<void*>(&safeMultiDrawBaseVertex);

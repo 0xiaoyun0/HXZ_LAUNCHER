@@ -23,7 +23,10 @@ bool gl_init(){return true;}void gl_init_dimensions(void*){}gl_render_window_t* 
 gl_render_window_t* gl_init_context(gl_render_window_t*){return &context;}void gl_make_current(gl_render_window_t*){}
 void gl_destroy_context(gl_render_window_t*){}bool gl_swap_buffers(){return true;}void gl_setup_window(){}void gl_swap_interval(int){}
 }
-static void query(unsigned token,int* value){check(token==0x8895,"EBO binding query");*value=static_cast<int>(bound);}
+static int samplerUnit=-1,samplerId=-1,invalidSamplers=0;
+static void query(unsigned token,int* value){if(token==0x8B4D||token==0x8872){*value=32;return;}if(token==0x84E2){*value=16;return;}check(token==0x8895,"EBO binding query");*value=static_cast<int>(bound);}
+// Reproduce NG's reviewed off-by-one: unit == maxtex is accepted and sets bound_changed=17.
+static void sampler(unsigned unit,unsigned id){if(unit>16){invalidSamplers++;return;}check(unit<16,"NG texture unit 16 must never reach the unsafe off-by-one path");samplerUnit=unit;samplerId=id;}
 static void bufferQuery(unsigned target,unsigned token,int* value){check(target==0x8893,"buffer query target");*value=token==0x8764?static_cast<int>(buffers[bound].size()):0;}
 static void bind(unsigned target,unsigned value){check(target==0x8893,"bind target");bound=value;}
 static void generate(int count,unsigned* value){check(count==1,"one scratch buffer");*value=nextBuffer++;}
@@ -36,6 +39,7 @@ static void oldDraw(unsigned,int,unsigned,const void*,int){originalCalls++;}
 static void oldInstanced(unsigned,int,unsigned,const void*,int amount,int){originalInstanced++;instances=amount;}
 static void* lookup(const char* name){
     if(!std::strcmp(name,"glGetIntegerv"))return reinterpret_cast<void*>(&query);
+    if(!std::strcmp(name,"glBindSampler"))return reinterpret_cast<void*>(&sampler);
     if(!std::strcmp(name,"glGetBufferParameteriv"))return reinterpret_cast<void*>(&bufferQuery);
     if(!std::strcmp(name,"glBindBuffer"))return reinterpret_cast<void*>(&bind);
     if(!std::strcmp(name,"glGenBuffers"))return reinterpret_cast<void*>(&generate);
@@ -53,6 +57,13 @@ extern "C" void* dlsym(void*,const char* name){if(!std::strcmp(name,"glXGetProcA
 int main(){
     uint16_t source[]={0,1,2,2,3,0};buffers[1].resize(sizeof(source));std::memcpy(buffers[1].data(),source,sizeof(source));
     check(hxz_fcl_init("/mock/ng.so")==0,"bridge init");
+    using Query=void(*)(unsigned,int*);using Sampler=void(*)(unsigned,unsigned);
+    int units=0;reinterpret_cast<Query>(glXGetProcAddress("glGetIntegerv"))(0x8B4D,&units);
+    check(units==16,"advertised combined texture units must fit NG's 16-slot state");
+    auto bindSampler=reinterpret_cast<Sampler>(glXGetProcAddress("glBindSampler"));
+    bindSampler(15,42);check(samplerUnit==15&&samplerId==42,"last valid sampler retained");
+    bindSampler(16,0);bindSampler(0xffffffffu,0);
+    check(samplerUnit==15&&invalidSamplers==2,"invalid units report through NG without touching state");
     using DrawBase=void(*)(unsigned,int,unsigned,const void*,int);
     auto call=reinterpret_cast<DrawBase>(glXGetProcAddress("glDrawElementsBaseVertex"));check(call!=nullptr,"LWJGL GLX provider lookup");
     call(4,6,0x1403,nullptr,65536);check(drawn==std::vector<uint32_t>({65536,65537,65538,65538,65539,65536}),"water indices must select intended chunk");check(bound==1&&originalCalls==0&&ordinary==1,"restores EBO and avoids overflow path");

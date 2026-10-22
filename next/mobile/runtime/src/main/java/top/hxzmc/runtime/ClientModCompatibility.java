@@ -18,6 +18,7 @@ public final class ClientModCompatibility {
     public final File instance;
     private final File directory,stateFile;
     private final List<Rule> rules;
+    private final ClientRenderPatch renderPatch;
 
     /** Rules must be changed in source together with primary evidence and exact artifact hashes. */
     public ClientModCompatibility(File instance)throws IOException {this(instance,builtIns());}
@@ -60,7 +61,7 @@ public final class ClientModCompatibility {
     ClientModCompatibility(File instance,List<Rule> rules)throws IOException {
         this.instance=instance.getAbsoluteFile();RuntimeFiles.noLinks(this.instance);
         directory=RuntimeFiles.inside(this.instance,".hxz/client-mods");stateFile=RuntimeFiles.inside(directory,"state.json");
-        this.rules=Collections.unmodifiableList(new ArrayList<>(rules));
+        this.rules=Collections.unmodifiableList(new ArrayList<>(rules));renderPatch=new ClientRenderPatch(this.instance);
     }
     static final class Rule {
         final String id,sha256,reason,evidence;final Set<String> ids;
@@ -106,14 +107,16 @@ public final class ClientModCompatibility {
     /** Restore known originals before any HXZUP or offline pack hash checks, under a held private lock. */
     Session beforePreparation(EngineHost.Cancellation cancel)throws Exception {
         Locked held=new Locked();try {
-            JSONObject state=readState();recover(state,cancel);restore(state,false,cancel);return new Session(held,state);
+            renderPatch.restore(cancel,false);JSONObject state=readState();recover(state,cancel);restore(state,false,cancel);return new Session(held,state);
         }catch(Exception e){held.close();throw e;}
     }
     final class Session implements AutoCloseable {
         final Locked held;final JSONObject state;boolean finished;
         Session(Locked held,JSONObject state){this.held=held;this.state=state;}
         Report finish(EngineHost.Cancellation cancel,EngineHost.Progress progress)throws Exception {
-            if(finished)throw new IOException("Compatibility session already finished");Report report=apply(state,cancel,progress);finished=true;return report;
+            if(finished)throw new IOException("Compatibility session already finished");Report report=apply(state,cancel,progress);
+            String patched=renderPatch.apply(cancel);if(!patched.isEmpty()){List<Finding> findings=new ArrayList<>(report.findings);findings.add(new Finding("mods/"+ClientRenderPatch.NAME,"patched",patched,null));report=new Report(findings,report.inspected,report.disabled);}
+            finished=true;return report;
         }
         // Failed/cancelled preparation never returns a launch plan. Restored originals stay journalled;
         // the next preparation safely restores/rechecks them rather than hiding update transactions.
@@ -129,12 +132,16 @@ public final class ClientModCompatibility {
     }
     /** User restoration is persistent for these exact bytes until a different artifact is installed. */
     public Report restoreAll(EngineHost.Cancellation cancel)throws Exception {
-        try(Locked ignored=new Locked()) {JSONObject state=readState();recover(state,cancel);restore(state,true,cancel);List<Finding> findings=new ArrayList<>();
+        try(Locked ignored=new Locked()) {renderPatch.restore(cancel,true);JSONObject state=readState();recover(state,cancel);restore(state,true,cancel);List<Finding> findings=new ArrayList<>();
             JSONArray rows=state.getJSONArray("entries");for(int i=0;i<rows.length();i++){JSONObject row=rows.getJSONObject(i);String status=row.getString("status");findings.add(new Finding(row.getString("path"),status,status.equals("conflict")?"恢复路径存在其他文件，保留原文件与备份":"用户选择保留该文件",matching(row.getString("sha256"))));}
             return new Report(findings,rows.length(),0);
         }
     }
     /** Read-only revalidation. Unknown disabled files, absent/corrupt originals, forged paths or old rules never supply a digest. */
+    public String originalRenderDigest(File file,EngineHost.Cancellation cancel)throws Exception {
+        if(!file.getName().equals(ClientRenderPatch.NAME))return "";
+        try(Locked ignored=new Locked()){return renderPatch.originalDigest(file,cancel);}
+    }
     public List<QuarantinedFile> validatedQuarantine(EngineHost.Cancellation cancel)throws Exception {
         try(Locked ignored=new Locked()) {
             JSONObject state=readState();List<Mod> mods=inventory(cancel);List<JSONObject> quarantined=new ArrayList<>();

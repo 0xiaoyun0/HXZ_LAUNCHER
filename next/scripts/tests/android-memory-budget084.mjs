@@ -1,0 +1,14 @@
+import fs from 'node:fs/promises';import path from 'node:path';import os from 'node:os';import assert from 'node:assert/strict';import {execFileSync} from 'node:child_process';import {fileURLToPath} from 'node:url';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..'),out=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-memory-budget-'));
+const java=process.env.HXZ_TEST_JAVA_HOME||'C:/Program Files/Java/jdk-21';
+const sources=['mobile/runtime/src/main/java/top/hxzmc/runtime/EngineHost.java','mobile/runtime/src/main/java/top/hxzmc/runtime/GameMemoryBudget.java','mobile/runtime/test/GameMemoryBudgetTest.java'].map(p=>path.join(root,p));
+execFileSync(path.join(java,'bin/javac.exe'),['--release','8','-encoding','UTF-8','-d',out,...sources],{windowsHide:true,stdio:'pipe'});
+console.log(execFileSync(path.join(java,'bin/java.exe'),['-cp',out,'top.hxzmc.runtime.GameMemoryBudgetTest'],{windowsHide:true,encoding:'utf8',stdio:'pipe'}).trim());
+const activity=await fs.readFile(path.join(root,'mobile/android/app/src/main/java/top/hxzmc/community/game/GameRuntimeActivity.java'),'utf8');
+assert.ok(activity.includes('GameMemoryBudget.apply(gameJob,memory())'),'Recompute heap after long installation, immediately before launching');
+assert.ok(activity.includes('"/proc/meminfo"')&&activity.includes('line.startsWith("SwapFree:")'),'Only actual free system swap contributes to expansion');
+assert.ok(activity.includes('options.optBoolean("extendedMemory",false)'),'Native requests without a choice default to physical memory only');
+const ui=await fs.readFile(path.join(root,'mobile/web/src/MobileMinecraft.vue'),'utf8');
+assert.ok(ui.includes('options.extendedMemory')&&ui.includes('不能代替物理内存'),'Setting is wired and describes the swap limitation');
+assert.ok(ui.includes('extendedMemory:saved.extendedMemory===true'),'New and malformed preferences do not opt users into swap');
+console.log('PASS memory setting and final-launch wiring');

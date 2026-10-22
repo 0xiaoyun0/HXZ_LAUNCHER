@@ -16,6 +16,8 @@ public final class GameFailureAdviceTest {
         check("HXZ: Cannot load runtime library: libjli.so not found","登录验证组件");
         check("java.lang.UnsatisfiedLinkError: /app_runtime/java/21/lib/libfontmanager.so: dlopen failed: library \"libfreetype.so\" not found: needed by libfontmanager.so in namespace clns-9","字体组件");
         check("HXZ: Cannot load runtime library: /app_runtime/java/25/lib/libawt_headless.so: missing dependency","字体组件");
+        check("java.lang.NoClassDefFoundError: Could not initialize class org.lwjgl.util.freetype.FreeType$Functions","完整字体库");
+        check("java.lang.NullPointerException: A required function is missing: FT_Get_Transform","完整字体库");
         check("java.lang.NullPointerException: UI recording context has not been created yet, or creation failed\n at icyllis.modernui.core.Core.requireUiRecordingContext(Core.java:582)","ModernUI");
         if(!GameFailureAdvice.explain("Unrelated UI recording context has not been created").isEmpty())throw new AssertionError("Unrelated UI library misclassified");
         if(!GameFailureAdvice.explain("ModernUI font loaded with libfreetype.so").isEmpty())throw new AssertionError("Successful font initialization misclassified");
@@ -23,7 +25,7 @@ public final class GameFailureAdviceTest {
         if(!GameFailureAdvice.explain("Process exit 137").isEmpty())throw new AssertionError("Exit code alone is not memory evidence");
         if(!GameFailureAdvice.explain("Process exit 66").isEmpty())throw new AssertionError("Exit code alone is not shared memory evidence");
         if(!GameFailureAdvice.explain(null).isEmpty())throw new AssertionError("null evidence");
-        System.out.println("Game failure advice: 21 checks passed");
+        System.out.println("Game failure advice: 23 checks passed");
     }
     private static void check(String input,String expected) {if(!GameFailureAdvice.explain(input).contains(expected))throw new AssertionError(input);}
 }
