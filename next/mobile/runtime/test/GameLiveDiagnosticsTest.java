@@ -4,7 +4,7 @@ public final class GameLiveDiagnosticsTest {
     private static void check(boolean ok,String reason){if(!ok)throw new AssertionError(reason);}
     private static int count(String text,String needle){return text.split(java.util.regex.Pattern.quote(needle),-1).length-1;}
     private static String repeat(String text,int n){StringBuilder out=new StringBuilder();for(int i=0;i<n;i++)out.append(text);return out.toString();}
-    public static void main(String[] args){
+    public static void main(String[] args)throws Exception{
         StringBuilder snapshots=new StringBuilder();
         for(int sample=1;sample<=2;sample++){
             snapshots.append("JVM 线程快照 ").append(sample).append(" · 123456789\n堆内存 MiB: used=2048 max=3548\nJVM 未检测到 Java 锁循环；不能排除原生调用或其他等待\n");
@@ -32,6 +32,22 @@ public final class GameLiveDiagnosticsTest {
         check(waiting.contains("未采集到渲染或加载线程"),"idle worker tail presented as the blocking cause");
         String many=GameLiveDiagnostics.summarize(metadata,repeat("[ERROR] "+repeat("x",400)+"\n",100),"",snapshots.toString());
         check(many.length()<=4800&&count(many,"Render thread")==2,"large errors displaced second snapshot");
+        String original="[09:10:00] [modloading-worker-0/ERROR] [ne.ne.fm.ModLoader/]: Failed to create mod instance. ModID: fixture_client\njava.lang.IllegalStateException: Fixture initialization failed\nCaused by: java.lang.UnsatisfiedLinkError: fixture-native-library.so\n  at fixture.Client.initialize(Client.java:7)\n";
+        String cascade=repeat("[09:12:43] [Worker-ResourceReload-4/ERROR] [ne.ne.fm.ModLoader/]: Cowardly refusing to send event net.neoforged.neoforge.client.event.ModelEvent$ModifyBakingResult to a broken mod state\n",100);
+        String broken=GameLiveDiagnostics.summarize(metadata,original+cascade,"",snapshots.toString());
+        check(broken.contains("fixture_client")&&broken.contains("fixture-native-library.so"),"broken-state cascades hid the original loading failure");
+        java.nio.file.Path file=java.nio.file.Files.createTempFile("hxz-loading-errors-",".log");
+        try{
+            java.nio.file.Files.write(file,(original+repeat("[INFO] resource loading\n",3000)+cascade).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            String evidence=GameLiveDiagnostics.readEvidence(file.toFile(),18000);
+            check(evidence.contains("fixture_client")&&evidence.contains("fixture-native-library.so"),"early loading failure outside log tail was lost");
+            String stored="模组加载错误（加载器保留的原始原因）:\n1. fml.modloadingissue.failedtoloadmod\n  模组: fixture_client\n  Caused by: java.lang.UnsatisfiedLinkError: fixture-native-library.so\n"+snapshots;
+            String identified=GameLiveDiagnostics.summarize(metadata,evidence,"",stored);
+            check(identified.indexOf("fixture_client")<identified.indexOf("JVM 线程快照"),"loader original error must appear before routine waiting threads");
+            check(identified.length()<=4800&&count(identified,"\"Render thread\"")==2,"loader error displaced independent render snapshots");
+            java.nio.file.Files.write(file,"[INFO] healthy world\n".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            check(GameLiveDiagnostics.readEvidence(file.toFile(),18000).equals("[INFO] healthy world\n"),"healthy games must keep lightweight tail-only reading");
+        }finally{java.nio.file.Files.deleteIfExists(file);}
         System.out.println("PASS compact diagnostics: both key snapshots, owner/native evidence, log cause and tail, bounded sharing, no invented hang diagnosis");
     }
 }

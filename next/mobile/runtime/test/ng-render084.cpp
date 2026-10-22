@@ -13,6 +13,7 @@ void* glXGetProcAddressARB(const char*);
 static gl_render_window_t context{};
 static std::map<unsigned,std::vector<unsigned char>> buffers;
 static unsigned bound=1,nextBuffer=10;static int ordinary=0,originalCalls=0;
+static int instanced=0,originalInstanced=0,instances=0;static bool restarting=false;
 static std::vector<uint32_t> drawn;
 static void check(bool yes,const char* text){if(!yes){std::fprintf(stderr,"FAIL %s\n",text);std::exit(1);}}
 extern "C" {
@@ -29,8 +30,10 @@ static void generate(int count,unsigned* value){check(count==1,"one scratch buff
 static void data(unsigned target,intptr_t size,const void* bytes,unsigned usage){check(target==0x8893&&usage==0x88E0,"stream index upload");const auto* begin=static_cast<const unsigned char*>(bytes);buffers[bound].assign(begin,begin+size);}
 static void read(unsigned target,intptr_t offset,intptr_t size,void* out){check(target==0x8893,"shadow read target");check(offset>=0&&offset+size<=static_cast<intptr_t>(buffers[bound].size()),"shadow read bounds");std::memcpy(out,buffers[bound].data()+offset,static_cast<size_t>(size));}
 static void draw(unsigned mode,int count,unsigned type,const void*){check(mode==4&&type==0x1405,"triangle draw uses wide indices");drawn.resize(count);std::memcpy(drawn.data(),buffers[bound].data(),count*4);ordinary++;}
-static unsigned char enabled(unsigned){return 0;}
+static void drawInstanced(unsigned mode,int count,unsigned type,const void* offset,int amount){draw(mode,count,type,offset);instanced++;instances=amount;}
+static unsigned char enabled(unsigned){return restarting?1:0;}
 static void oldDraw(unsigned,int,unsigned,const void*,int){originalCalls++;}
+static void oldInstanced(unsigned,int,unsigned,const void*,int amount,int){originalInstanced++;instances=amount;}
 static void* lookup(const char* name){
     if(!std::strcmp(name,"glGetIntegerv"))return reinterpret_cast<void*>(&query);
     if(!std::strcmp(name,"glGetBufferParameteriv"))return reinterpret_cast<void*>(&bufferQuery);
@@ -39,8 +42,10 @@ static void* lookup(const char* name){
     if(!std::strcmp(name,"glBufferData"))return reinterpret_cast<void*>(&data);
     if(!std::strcmp(name,"glGetBufferSubData"))return reinterpret_cast<void*>(&read);
     if(!std::strcmp(name,"glDrawElements"))return reinterpret_cast<void*>(&draw);
+    if(!std::strcmp(name,"glDrawElementsInstanced"))return reinterpret_cast<void*>(&drawInstanced);
     if(!std::strcmp(name,"glIsEnabled"))return reinterpret_cast<void*>(&enabled);
     if(!std::strcmp(name,"glDrawElementsBaseVertex"))return reinterpret_cast<void*>(&oldDraw);
+    if(!std::strcmp(name,"glDrawElementsInstancedBaseVertex"))return reinterpret_cast<void*>(&oldInstanced);
     return nullptr;
 }
 extern "C" void* dlopen(const char*,int){return reinterpret_cast<void*>(1);}
@@ -58,6 +63,19 @@ int main(){
     using Multi=void(*)(unsigned,const int*,unsigned,const void* const*,int,const int*);
     auto multi=reinterpret_cast<Multi>(glXGetProcAddress("glMultiDrawElementsBaseVertex"));int counts[]={6,6},bases[]={65536,131072};const void* offsets[]={nullptr,nullptr};multi(4,counts,0x1403,offsets,2,bases);
     check(ordinary==3&&drawn[0]==131072&&bound==1,"multi draw preserves per-draw bases and binding");
-    check(buffers[1].size()==sizeof(source)&&std::memcmp(buffers[1].data(),source,sizeof(source))==0,"source EBO unchanged");
+    using Instanced=void(*)(unsigned,int,unsigned,const void*,int,int);
+    auto repeated=reinterpret_cast<Instanced>(glXGetProcAddress("glDrawElementsInstancedBaseVertex"));check(repeated!=nullptr,"instanced lookup");
+    repeated(4,6,0x1403,nullptr,7,65536);
+    check(instanced==1&&instances==7&&drawn[0]==65536&&drawn[4]==65539&&bound==1&&originalInstanced==0,"instanced water draw must promote indices and preserve all seven instances");
+    for(const char* name:{"glDrawElementsInstancedBaseVertexARB","glDrawElementsInstancedBaseVertexEXT","glDrawElementsInstancedBaseVertexOES"})check(glXGetProcAddressARB(name)==reinterpret_cast<void*>(repeated),"instanced aliases use repair");
+    repeated(4,6,0x1403,nullptr,3,0);check(originalInstanced==1&&instances==3,"instanced zero base retained");
+    repeated(4,6,0x1403,nullptr,3,-1);check(originalInstanced==2,"negative base retained");
+    repeated(4,6,0x1403,nullptr,0,65536);check(originalInstanced==3&&instanced==1,"zero instances do not upload scratch indices");
+    repeated(4,6,0x1403,reinterpret_cast<void*>(4096),2,65536);check(originalInstanced==4&&bound==1,"instanced invalid offset retained");
+    restarting=true;repeated(4,6,0x1403,nullptr,2,65536);restarting=false;check(originalInstanced==5,"primitive restart semantics retained");
+    check(buffers[1].size()==sizeof(source)&&std::memcmp(buffers[1].data(),source,sizeof(source))==0,"instanced repair must not mutate source EBO");
+    uint8_t shortSource[]={3,2,1};buffers[1].assign(shortSource,shortSource+3);
+    repeated(4,3,0x1401,nullptr,2,131072);check(instanced==2&&instances==2&&drawn==std::vector<uint32_t>({131075,131074,131073})&&bound==1,"byte indices and multiple instances retained");
+    check(buffers[1].size()==sizeof(shortSource)&&std::memcmp(buffers[1].data(),shortSource,sizeof(shortSource))==0,"byte index source unchanged");
     std::puts("PASS production GLX dispatch and NG index repair with simulated GL buffers; no device GPU claim");
 }

@@ -169,10 +169,12 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             String report,brief;
             try {
                 String nonce=UUID.randomUUID().toString();
-                Files.write(new File(liveDiagnosticDirectory,"thread-request").toPath(),nonce.getBytes(StandardCharsets.US_ASCII));
+                String metadata=scrub(technical(null)),gameLog=scrub(GameLiveDiagnostics.readEvidence(log,18000)),instanceLog=scrub(GameLiveDiagnostics.readEvidence(run==null?null:new File(run,"logs/latest.log"),12000));
+                String request=nonce+(GameLiveDiagnostics.brokenState(gameLog)||GameLiveDiagnostics.brokenState(instanceLog)?"\nloader-errors":"");
+                Files.write(new File(liveDiagnosticDirectory,"thread-request").toPath(),request.getBytes(StandardCharsets.US_ASCII));
                 long end=SystemClock.elapsedRealtime()+3500;String stacks="";
                 while(!closing&&playing&&SystemClock.elapsedRealtime()<end){String found=GameCrashDiagnostics.readTail(new File(liveDiagnosticDirectory,"threads.txt"),140000);if(found.startsWith(nonce+"\n")){stacks=found.substring(nonce.length()+1);break;}Thread.sleep(100);}
-                String metadata=scrub(technical(null)),gameLog=scrub(GameCrashDiagnostics.readTail(log,18000)),instanceLog=scrub(GameCrashDiagnostics.readTail(run==null?null:new File(run,"logs/latest.log"),12000));stacks=scrub(stacks);
+                stacks=scrub(stacks);
                 report=metadata+"\n当前游戏日志:\n"+gameLog+"\n实例日志:\n"+instanceLog+"\n"+(stacks.isEmpty()?"JVM 暂未回应快照请求；可能仍在初始化或原生调用中。保留当前日志，不强制结束游戏。":stacks);
                 brief=GameLiveDiagnostics.summarize(metadata,gameLog,instanceLog,stacks);
             }catch(Exception failure){report=scrub(technical(null)+"\n实时诊断暂不可读："+failure.getClass().getSimpleName());brief=GameLiveDiagnostics.summarize(report,"","","");}

@@ -21,37 +21,50 @@ void* renderer;
 using Proc=void*(*)(const char*);
 Proc getGlProc;
 void* originalProc(const char* name){auto* address=dlsym(renderer,name);return address?address:(getGlProc?getGlProc(name):nullptr);}
-void safeDrawBaseVertex(unsigned mode,int count,unsigned type,const void* indices,int base){
-    using DrawBase=void(*)(unsigned,int,unsigned,const void*,int);
-    auto original=reinterpret_cast<DrawBase>(originalProc("glDrawElementsBaseVertex"));
-    if(!original)return;
+template<class Draw> bool drawPromoted(unsigned mode,int count,unsigned type,const void* indices,int base,Draw draw){
     // Only replace the affected EBO-backed triangle path. Leave all other GL semantics to NG.
-    if(mode!=0x0004||base<=0||count<=0||count>4*1024*1024||(type!=0x1401&&type!=0x1403)){original(mode,count,type,indices,base);return;}
+    if(mode!=0x0004||base<=0||count<=0||count>4*1024*1024||(type!=0x1401&&type!=0x1403))return false;
     using Query=void(*)(unsigned,int*);using BufferQuery=void(*)(unsigned,unsigned,int*);
     using Bind=void(*)(unsigned,unsigned);using Generate=void(*)(int,unsigned*);
     using Data=void(*)(unsigned,intptr_t,const void*,unsigned);using Read=void(*)(unsigned,intptr_t,intptr_t,void*);
-    using Draw=void(*)(unsigned,int,unsigned,const void*);using Enabled=unsigned char(*)(unsigned);
+    using Enabled=unsigned char(*)(unsigned);
     auto query=reinterpret_cast<Query>(originalProc("glGetIntegerv"));auto bufferQuery=reinterpret_cast<BufferQuery>(originalProc("glGetBufferParameteriv"));
     auto bind=reinterpret_cast<Bind>(originalProc("glBindBuffer"));auto generate=reinterpret_cast<Generate>(originalProc("glGenBuffers"));
     auto data=reinterpret_cast<Data>(originalProc("glBufferData"));auto read=reinterpret_cast<Read>(originalProc("glGetBufferSubData"));
-    auto draw=reinterpret_cast<Draw>(originalProc("glDrawElements"));auto enabled=reinterpret_cast<Enabled>(originalProc("glIsEnabled"));
-    if(!query||!bufferQuery||!bind||!generate||!data||!read||!draw||!enabled||enabled(0x8F9D)){original(mode,count,type,indices,base);return;}
+    auto enabled=reinterpret_cast<Enabled>(originalProc("glIsEnabled"));
+    if(!query||!bufferQuery||!bind||!generate||!data||!read||!enabled||enabled(0x8F9D))return false;
     int bound=0,size=0,mapped=0;query(0x8895,&bound);
-    if(!bound){original(mode,count,type,indices,base);return;}
+    if(!bound)return false;
     bufferQuery(0x8893,0x8764,&size);bufferQuery(0x8893,0x88BC,&mapped);
     uintptr_t offset=reinterpret_cast<uintptr_t>(indices);size_t bytes=static_cast<size_t>(count)*(type==0x1401?1:2);
-    if(mapped||size<0||offset>static_cast<uintptr_t>(size)||bytes>static_cast<size_t>(size)-offset){original(mode,count,type,indices,base);return;}
+    if(mapped||size<0||offset>static_cast<uintptr_t>(size)||bytes>static_cast<size_t>(size)-offset)return false;
     thread_local std::vector<unsigned char> source;thread_local std::vector<uint32_t> promoted;
     thread_local void* owner=nullptr;thread_local unsigned scratch=0;
-    try{source.resize(bytes);}catch(...){original(mode,count,type,indices,base);return;}
+    try{source.resize(bytes);}catch(...){return false;}
     // glGetBufferSubData reads NG's existing CPU shadow, never a framebuffer/GPU pixel readback.
     read(0x8893,static_cast<intptr_t>(offset),static_cast<intptr_t>(bytes),source.data());
-    if(!hxz_ng_promote_indices(source.data(),count,type,base,promoted)){original(mode,count,type,indices,base);return;}
+    if(!hxz_ng_promote_indices(source.data(),count,type,base,promoted))return false;
     if(owner!=gl_get_current()){owner=gl_get_current();scratch=0;}
-    if(!scratch)generate(1,&scratch);if(!scratch){original(mode,count,type,indices,base);return;}
+    if(!scratch)generate(1,&scratch);if(!scratch)return false;
     bind(0x8893,scratch);data(0x8893,static_cast<intptr_t>(promoted.size()*sizeof(uint32_t)),promoted.data(),0x88E0);
-    draw(mode,count,0x1405,nullptr);bind(0x8893,static_cast<unsigned>(bound));
+    draw();bind(0x8893,static_cast<unsigned>(bound));
     static thread_local bool reported=false;if(!reported){reported=true;fprintf(stderr,"[HXZ graphics] base-vertex 32-bit index repair active\n");}
+    return true;
+}
+void safeDrawBaseVertex(unsigned mode,int count,unsigned type,const void* indices,int base){
+    using DrawBase=void(*)(unsigned,int,unsigned,const void*,int);using Draw=void(*)(unsigned,int,unsigned,const void*);
+    auto original=reinterpret_cast<DrawBase>(originalProc("glDrawElementsBaseVertex"));if(!original)return;
+    auto draw=reinterpret_cast<Draw>(originalProc("glDrawElements"));
+    if(draw&&drawPromoted(mode,count,type,indices,base,[&]{draw(mode,count,0x1405,nullptr);}))return;
+    original(mode,count,type,indices,base);
+}
+void safeDrawInstancedBaseVertex(unsigned mode,int count,unsigned type,const void* indices,int instances,int base){
+    using DrawBase=void(*)(unsigned,int,unsigned,const void*,int,int);using Draw=void(*)(unsigned,int,unsigned,const void*,int);
+    auto original=reinterpret_cast<DrawBase>(originalProc("glDrawElementsInstancedBaseVertex"));if(!original)return;
+    auto draw=reinterpret_cast<Draw>(originalProc("glDrawElementsInstanced"));
+    // Keep the driver instancing path and its attribute divisors; one ordinary draw is not equivalent.
+    if(instances>0&&draw&&drawPromoted(mode,count,type,indices,base,[&]{draw(mode,count,0x1405,nullptr,instances);}))return;
+    original(mode,count,type,indices,instances,base);
 }
 void safeMultiDrawBaseVertex(unsigned mode,const int* counts,unsigned type,const void* const* indices,int draws,const int* bases){
     if(!counts||!indices||!bases||draws<0||draws>65536)return;
@@ -104,6 +117,7 @@ extern "C" void hxz_fcl_interval(int interval){std::lock_guard<std::recursive_mu
 extern "C" void* hxz_fcl_proc(const char* name){
     if(!name||!renderer)return nullptr;
     if(!strcmp(name,"glDrawElementsBaseVertex")||!strcmp(name,"glDrawElementsBaseVertexARB")||!strcmp(name,"glDrawElementsBaseVertexEXT")||!strcmp(name,"glDrawElementsBaseVertexOES"))return reinterpret_cast<void*>(&safeDrawBaseVertex);
+    if(!strcmp(name,"glDrawElementsInstancedBaseVertex")||!strcmp(name,"glDrawElementsInstancedBaseVertexARB")||!strcmp(name,"glDrawElementsInstancedBaseVertexEXT")||!strcmp(name,"glDrawElementsInstancedBaseVertexOES"))return reinterpret_cast<void*>(&safeDrawInstancedBaseVertex);
     if(!strcmp(name,"glMultiDrawElementsBaseVertex")||!strcmp(name,"glMultiDrawElementsBaseVertexEXT"))return reinterpret_cast<void*>(&safeMultiDrawBaseVertex);
     return originalProc(name);
 }

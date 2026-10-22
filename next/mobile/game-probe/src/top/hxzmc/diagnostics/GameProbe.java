@@ -16,9 +16,12 @@ public final class GameProbe {
             while(true)try {
                 Thread.sleep(1000);
                 if(!Files.isRegularFile(request)||Files.size(request)>80)continue;
-                String nonce=new String(Files.readAllBytes(request),StandardCharsets.US_ASCII).trim();Files.deleteIfExists(request);
+                String[] requested=new String(Files.readAllBytes(request),StandardCharsets.US_ASCII).trim().split("\\n",-1);Files.deleteIfExists(request);
+                String nonce=requested[0].trim();
                 if(!nonce.matches("[a-zA-Z0-9-]{16,64}"))continue;
                 StringBuilder out=new StringBuilder(nonce).append('\n');
+                // Only inspect a loader after the host has observed its broken-state log. Never initialize it ourselves.
+                if(requested.length==2&&requested[1].equals("loader-errors"))out.append(loaderErrors(instrumentation));
                 for(int sample=1;sample<=2;sample++){
                     out.append(snapshot(sample));
                     if(sample==1)Thread.sleep(800);
@@ -28,6 +31,35 @@ public final class GameProbe {
             }catch(InterruptedException ended){return;}catch(Exception|LinkageError ignoredFailure){/* Diagnostics must never stop the game. */}
         },"HXZ on-demand diagnostics");watcher.setDaemon(true);watcher.start();
     }
+
+    private static String loaderErrors(Instrumentation instrumentation) {
+        try {
+            Class<?> loader=null;
+            for(Class<?> type:instrumentation.getAllLoadedClasses())if(type.getName().equals("net.neoforged.fml.ModLoader")){loader=type;break;}
+            if(loader==null)return "";
+            Object value=loader.getMethod("getLoadingErrors").invoke(null);if(!(value instanceof List))return "";
+            StringBuilder out=new StringBuilder();int count=0;
+            for(Object issue:(List<?>)value){
+                if(issue==null||count++>=6||out.length()>4000)break;
+                if(out.length()==0)out.append("模组加载错误（加载器保留的原始原因）:\n");
+                Class<?> type=issue.getClass();out.append(count).append(". ").append(evidenceLine(String.valueOf(type.getMethod("translationKey").invoke(issue)),220)).append('\n');
+                Object mod=type.getMethod("affectedMod").invoke(issue);
+                if(mod!=null)try{Class<?> api=loader.getClassLoader().loadClass("net.neoforged.neoforgespi.language.IModInfo");out.append("  模组: ").append(evidenceLine(String.valueOf(api.getMethod("getModId").invoke(mod)),180)).append('\n');}catch(ReflectiveOperationException ignored){}
+                Object path=type.getMethod("affectedPath").invoke(issue);if(path instanceof Path)out.append("  文件: ").append(evidenceLine(path.toString(),350)).append('\n');
+                Object args=type.getMethod("translationArgs").invoke(issue);
+                if(args instanceof List){int argCount=0;for(Object arg:(List<?>)args){if(argCount++>=8)break;if(arg instanceof String||arg instanceof Number)out.append("  参数: ").append(evidenceLine(String.valueOf(arg),300)).append('\n');}}
+                Object cause=type.getMethod("cause").invoke(issue);Set<Throwable> seen=Collections.newSetFromMap(new IdentityHashMap<Throwable,Boolean>());int depth=0;
+                while(cause instanceof Throwable&&seen.add((Throwable)cause)&&depth++<6&&out.length()<5000){
+                    Throwable error=(Throwable)cause;out.append("  Caused by: ").append(evidenceLine(error.toString(),480)).append('\n');
+                    StackTraceElement[] frames=error.getStackTrace();for(int i=0;i<Math.min(3,frames.length);i++)out.append("    at ").append(clean(frames[i].toString(),220)).append('\n');cause=error.getCause();
+                }
+            }
+            // Bound this independently of the two 56 KB thread snapshots and the host's 140 KB reader.
+            return out.length()>6000?out.substring(0,out.lastIndexOf("\n",5999)+1)+"\n":out.append('\n').toString();
+        }catch(ReflectiveOperationException|RuntimeException|LinkageError unavailable){return "模组加载错误记录暂不可读；请保留启动日志。\n\n";}
+    }
+
+    private static String evidenceLine(String value,int limit){if(value==null)return "";return value.length()>limit?"[内容过长，整行省略]":clean(value,limit);}
 
     private static String snapshot(int sample) {
         List<Entry> entries=new ArrayList<>();
