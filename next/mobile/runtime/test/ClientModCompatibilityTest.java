@@ -59,6 +59,27 @@ public final class ClientModCompatibilityTest {
         check("cancellation before rename preserves original and retry recovers journal",mod(beforeMove,"reviewed").isFile()&&transaction.scanAndQuarantine(cancel(),null).disabled==1);
     }
     static ClientModCompatibility scanner(File instance,byte[]... artifacts)throws Exception{List<ClientModCompatibility.Rule> rules=new ArrayList<>();for(int i=0;i<artifacts.length;i++){File tmp=File.createTempFile("rule-",".jar",output);put(tmp,artifacts[i]);try(JarFile jar=new JarFile(tmp)){JSONObject metadata=new JSONObject(new String(read(jar.getInputStream(jar.getEntry("fabric.mod.json"))),StandardCharsets.UTF_8));rules.add(new ClientModCompatibility.Rule("test-"+i,RuntimeFiles.hash(tmp,"SHA-256"),Collections.singleton(metadata.getString("id")),"Fixture-only Android incompatibility","https://example.invalid/fixture-client-only-evidence"));}}return new ClientModCompatibility(instance,rules);}
+    static void renderingBundles()throws Exception {
+        byte[] api=jar("shared_api",null,false,false),bundle=bundle("client_fixture",api,true);
+        File hashFile=File.createTempFile("reviewed-render-",".jar",output);put(hashFile,bundle);
+        ClientModCompatibility.Rule rule=new ClientModCompatibility.Rule("render-fixture",RuntimeFiles.hash(hashFile,"SHA-256"),Arrays.asList("client_fixture","shared_api"),"Reviewed client render bundle","https://example.invalid/render-evidence");
+        rule.reviewedRender=true;rule.ownedIds=Collections.singleton("client_fixture");
+        for(String type:new String[]{"optional","incompatible","required","future-unknown"}) {
+            File dir=fresh();put(mod(dir,"render"),bundle);put(mod(dir,"api-provider"),api);
+            put(mod(dir,"content"),archive(Collections.singletonMap("META-INF/neoforge.mods.toml","[[mods]]\nmodId='content'\n[[dependencies.content]]\nmodId='client_fixture'\ntype='"+type+"'\n")));
+            ClientModCompatibility scanner=new ClientModCompatibility(dir,Collections.singletonList(rule));
+            int expected=Arrays.asList("optional","incompatible").contains(type)?1:0;
+            check("reviewed renderer honors dependency type "+type,scanner.scanAndQuarantine(cancel(),null).disabled==expected);
+            if(expected==1){check("reviewed bundle room identity revalidates",scanner.validatedQuarantine(cancel()).size()==1);scanner.restoreAll(cancel());check("reviewed bundle restore keeps shared API",mod(dir,"render").isFile()&&mod(dir,"api-provider").isFile());}
+        }
+        File missing=fresh();put(mod(missing,"render"),bundle);put(mod(missing,"consumer"),jar("content","shared_api",true,false));
+        check("shared library must retain another provider",new ClientModCompatibility(missing,Collections.singletonList(rule)).scanAndQuarantine(cancel(),null).disabled==0);
+        File shared=fresh();put(mod(shared,"render"),bundle);put(mod(shared,"provider"),api);put(mod(shared,"consumer"),jar("content","shared_api",true,false));
+        ClientModCompatibility group=new ClientModCompatibility(shared,Collections.singletonList(rule));
+        check("shared library alternative provider permits bundle isolation",group.scanAndQuarantine(cancel(),null).disabled==1);
+        try(ClientModCompatibility.Session session=group.beforePreparation(cancel())){check("HXZUP sees original rendering bundle",mod(shared,"render").isFile());session.finish(cancel(),null);}
+        check("render bundle re-isolates after HXZUP",!mod(shared,"render").exists()&&group.validatedQuarantine(cancel()).size()==1);
+    }
     static byte[] read(InputStream in)throws Exception{try(InputStream close=in;ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1)out.write(buffer,0,n);return out.toByteArray();}}
     static File mod(File instance,String name)throws Exception{return RuntimeFiles.inside(instance,"mods/"+name+".jar");}
     static File state(File instance)throws Exception{return RuntimeFiles.inside(instance,".hxz/client-mods/state.json");}
@@ -91,7 +112,7 @@ public final class ClientModCompatibilityTest {
         File forged=fresh();put(mod(forged,"known"),bad);ClientModCompatibility forgedScanner=scanner(forged,bad);forgedScanner.scanAndQuarantine(cancel(),null);journal=RuntimeFiles.json(state(forged));journal.getJSONArray("entries").getJSONObject(0).put("backup","../../user.jar");RuntimeFiles.writeJson(state(forged),journal);rejects("forged backup traversal rejected",()->forgedScanner.validatedQuarantine(cancel()));
         File canceled=fresh();put(mod(canceled,"known"),bad);EngineHost.Cancellation stop=cancel();stop.cancel();rejects("cancellation is propagated",()->scanner(canceled,bad).scanAndQuarantine(stop,null));check("cancellation preserves original bytes",Arrays.equals(Files.readAllBytes(mod(canceled,"known").toPath()),bad));
         File obsolete=fresh();put(mod(obsolete,"known"),bad);ClientModCompatibility old=scanner(obsolete,bad);old.scanAndQuarantine(cancel(),null);ClientModCompatibility removedRule=new ClientModCompatibility(obsolete);check("removed rule does not validate stale quarantine",removedRule.validatedQuarantine(cancel()).isEmpty());check("removed rule restores preserved original",removedRule.scanAndQuarantine(cancel(),null).disabled==0&&mod(obsolete,"known").isFile());
-        metadataFixtures(bad);
+        metadataFixtures(bad);renderingBundles();
         if(args.length>1)testUpdater(new File(args[1]),bad);
         JSONObject results=new JSONObject().put("passed",checks.size()).put("checks",new JSONArray(checks)).put("scope","Synthetic mod metadata and private filesystem transactions; real project HXZUP child JVM on loopback. No Android device or game launch.");RuntimeFiles.writeJson(new File(output,"results.json"),results);System.out.println(results.toString(2));
     }

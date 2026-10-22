@@ -51,6 +51,10 @@ const char* fakeDlerror(){return loaderError.c_str();}
 jint JNICALL create(JavaVM**,void**,void* raw){
     ++creates;auto* args=static_cast<JavaVMInitArgs*>(raw);
     for(int i=0;i<args->nOptions;i++)options.emplace_back(args->options[i].optionString);
+    void* exitHook=nullptr;
+    for(int i=0;i<args->nOptions;i++)if(std::strcmp(args->options[i].optionString,"exit")==0)exitHook=args->options[i].extraInfo;
+    if(!exitHook)throw std::runtime_error("VM exit has no isolated-process cleanup boundary");
+    if(scenario=="vm-exit")reinterpret_cast<void(*)(jint)>(exitHook)(23);
     bool agent=false;for(const auto& option:options)if(option.rfind("-javaagent:",0)==0)agent=true;
     if(agent&&!fakeDlopen("libinstrument.so",RTLD_NOW|RTLD_GLOBAL)){
         std::fprintf(stderr,"Could not find agent library instrument on the library path, with error: %s\n",fakeDlerror());
@@ -78,6 +82,7 @@ void* fakeDlsym(void*,const char* name){
 
 int main(int argc,char** argv){
     assert(argc==2);scenario=argv[1];
+    std::atexit([](){std::fprintf(stderr,"PROCESS_FINALIZER_RAN\n");});
     HxzJavaJob job;job.home=home;job.directory="/private/game";job.mainClass="example.Main";
     job.options={"-Xmx1024M","-Djava.library.path=/private/game/natives","-Djava.class.path=game.jar"};
     job.options.push_back("-Dsun.boot.library.path=/stale/runtime/lib");

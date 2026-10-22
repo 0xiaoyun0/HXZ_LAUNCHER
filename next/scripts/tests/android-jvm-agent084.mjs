@@ -20,7 +20,10 @@ execFileSync(zig,['c++','-std=c++17','-Wall','-Wextra','-Werror','-Wno-format','
   {windowsHide:true,stdio:'pipe',timeout:120000});
 for(const scenario of ['one-agent','two-agents','no-agent','missing-jli','missing-instrument','broken-instrument'])
   console.log(execFileSync(binary,[scenario],{windowsHide:true,encoding:'utf8',stdio:'pipe',timeout:10000}).trim());
-console.log('Production JNI bootstrap: 6 boundary scenarios; mocked Android dlopen/JNI, no device test.');
+try {execFileSync(binary,['vm-exit'],{windowsHide:true,encoding:'utf8',stdio:'pipe',timeout:10000});assert.fail('VM exit hook returned');}
+catch(e){assert.equal(e.status,23);assert.match(e.stderr,/\[HXZ-JVM\] vm-exit=23/);assert.doesNotMatch(e.stderr,/PROCESS_FINALIZER_RAN/);}
+console.log('PASS vm-exit: exit code preserved; process finalizers cannot race detached render/input workers.');
+console.log('Production JNI bootstrap: 7 boundary scenarios; mocked Android dlopen/JNI, no device test.');
 } finally {
   assert.equal(path.dirname(tmp),path.resolve(os.tmpdir()));
   assert.ok(path.basename(tmp).startsWith('hxz-jvm-agent-'));

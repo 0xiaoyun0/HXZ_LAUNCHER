@@ -25,7 +25,27 @@ public final class ClientModCompatibility {
         String evidence="https://modrinth.com/mod/imblocker-original/version/";
         String reason="仅客户端的桌面输入法整合；其桌面 Linux IME 命令/GLFW X11 路径不适用于 Android，手机输入由宿主管理。此规则不声称该模组必然导致崩溃。";
         return Arrays.asList(new Rule("imblocker-neoforge-5.5.4","08c5581bda0ab0fbfdbb10c51102685b403f64b0e712517c4b2d918b2c83cea3",Collections.singleton("imblocker"),reason,evidence+"gom4UX66"),
-                new Rule("imblocker-neoforge-5.6.1","fcdb1755d5729aabc194cbfec65fcb1233b780e44216b037684d3edd256a8289",Collections.singleton("imblocker"),reason,evidence+"JCFs4e8D"));
+                new Rule("imblocker-neoforge-5.6.1","fcdb1755d5729aabc194cbfec65fcb1233b780e44216b037684d3edd256a8289",Collections.singleton("imblocker"),reason,evidence+"JCFs4e8D"),
+                renderRule("android-render-1","fa553bce38bad6fdd478841a270a79a31dc05f87d7892b1cf839850602ac9186",Arrays.asList("sodium_extra"),"sodium_extra",Arrays.asList()),
+                renderRule("android-render-2","2f9e69ec9521e657100ef83b3bdf3f18dba6078d57f9853722d7643a577b2266",Arrays.asList("fabric_api_base","fabric_block_view_api_v2","fabric_renderer_api_v1","fabric_rendering_data_attachment_v1","sodium"),"sodium",Arrays.asList()),
+                renderRule("android-render-3","9259e4adb5b091fe2bd60e57be7f0b2ec9872f1c97ff6d2ed3bb2a9a5ec6407f",Arrays.asList("colorwheel"),"colorwheel",Arrays.asList()),
+                renderRule("android-render-4","f0080f5cb186bf9f785dc5510babab94d97adc7918952cff780d2c5fadf2ac9a",Arrays.asList("createbetterfps"),"createbetterfps",Arrays.asList()),
+                renderRule("android-render-5","85281019547d84f85aebcbe482377ba83381109842990ca77619e125b091657a",Arrays.asList("voxy"),"voxy",Arrays.asList()),
+                renderRule("android-render-6","60d5f8bf52f25e9986440f4a4270a6bd986d9cff994510e1108ac1547063b314",Arrays.asList("fabric_api_base","fabric_block_view_api_v2","fabric_renderer_api_v1","fabric_rendering_data_attachment_v1","iris"),"iris",Arrays.asList()),
+                renderRule("android-render-7","a1927c93535088a079f7b001d69db54795c36fd19ec9f044ea310c8eb3fadee5",Arrays.asList("irisveil"),"irisveil",Arrays.asList("data/irisveil/structure/irisveilgametest.modloaded.nbt")),
+                renderRule("android-render-8","bc4c4d21eed90be29711f601e8c47ca43b313c178975ad125b293174b90fc5a6",Arrays.asList("stellarcreateoptimization"),"stellarcreateoptimization",Arrays.asList()),
+                renderRule("android-render-9","a939d5ac84fe18143492382bfa2a9cb42b3e6df89a2f4ccf86f18631bf25db79",Arrays.asList("colorwheel"),"colorwheel",Arrays.asList()),
+                renderRule("android-render-10","6cae5ca14cf73ad592f92e531e25b652f940e37e26c264dac321e3feb965d5d1",Arrays.asList("fabric_api_base","fabric_block_view_api_v2","fabric_renderer_api_v1","fabric_rendering_data_attachment_v1","flerovium"),"flerovium",Arrays.asList()),
+                renderRule("android-render-11","e4c86cad7c86c3601261441c0282571dc6b1ebeb41b694c11eb58b2becb90b51",Arrays.asList("reeses_sodium_options"),"reeses_sodium_options",Arrays.asList()),
+                renderRule("android-render-12","655b4a25d3d1ccc0f53d0589c676f0a86e46843ae537749048b4b0edc33a0f6f",Arrays.asList("sodium_extra"),"sodium_extra",Arrays.asList()),
+                renderRule("android-render-13","575d187b15328d7bddd8a9b1bee64333c22c14735f5780ec49eac0cd5503c08d",Arrays.asList("fabric_api_base","fabric_block_view_api_v2","fabric_renderer_api_v1","fabric_rendering_data_attachment_v1","sodium"),"sodium",Arrays.asList()),
+                renderRule("android-render-14","2f9d6ab7f3d968b985f30c083b136466b84d54f4cc9d5f05394c39615aae2f8f",Arrays.asList("sodiumextras"),"sodiumextras",Arrays.asList()),
+                renderRule("android-render-15","2ceac9a74e4f715e242ea710a7e5e226601efc0b00aae6ad0d55ccbd9fb6bc00",Arrays.asList("fabric_api_base","fabric_block_view_api_v2","fabric_renderer_api_v1","fabric_rendering_data_attachment_v1","flerovium"),"flerovium",Arrays.asList()));
+    }
+    private static Rule renderRule(String id,String sha,Collection<String> ids,String owned,Collection<String> data) {
+        Rule rule=new Rule(id,sha,ids,"当前 Android 图形通道不支持此版本 Sodium 及其已核验的客户端渲染附属组件；原件已备份，可在运行设置恢复。",
+                "https://github.com/CaffeineMC/sodium/wiki/Supported-Launchers");
+        rule.reviewedRender=true;rule.ownedIds=Collections.singleton(owned);rule.allowedData=new HashSet<>(data);return rule;
     }
     // Package-private injection exists only for protocol fixtures, never an app policy/JSON interface.
     ClientModCompatibility(File instance,List<Rule> rules)throws IOException {
@@ -35,9 +55,10 @@ public final class ClientModCompatibility {
     }
     static final class Rule {
         final String id,sha256,reason,evidence;final Set<String> ids;
+        boolean reviewedRender;Set<String> ownedIds,allowedData=Collections.emptySet();
         Rule(String id,String sha256,Collection<String> ids,String reason,String evidence) {
             if(id==null||!id.matches("[a-z0-9_.-]{1,100}")||sha256==null||!sha256.matches("[a-f0-9]{64}")||ids.isEmpty()||reason==null||reason.isEmpty()||evidence==null||!evidence.startsWith("https://"))throw new IllegalArgumentException("Invalid reviewed client-only rule");
-            this.id=id;this.sha256=sha256;this.ids=Collections.unmodifiableSet(new TreeSet<>(ids));this.reason=reason;this.evidence=evidence;
+            this.id=id;this.sha256=sha256;this.ids=Collections.unmodifiableSet(new TreeSet<>(ids));this.reason=reason;this.evidence=evidence;this.ownedIds=this.ids;
             for(String mod:ids)if(!ID.matcher(mod).matches())throw new IllegalArgumentException("Invalid mod id");
         }
     }
@@ -58,7 +79,7 @@ public final class ClientModCompatibility {
         QuarantinedFile(File file,JSONObject row,Rule rule)throws JSONException {this.file=file;relativePath=row.getString("path");sha256=rule.sha256;ruleId=rule.id;reason=rule.reason;}
     }
     private static final class Mod {
-        final File file;final String path;String sha;final Set<String> ids=new TreeSet<>(),depends=new TreeSet<>();
+        final File file;final String path;String sha;final Set<String> ids=new TreeSet<>(),depends=new TreeSet<>(),required=new TreeSet<>(),contentPaths=new TreeSet<>();
         boolean known,content,nested,server;String problem="";Rule rule;
         Mod(File file,String path,String sha){this.file=file;this.path=path;this.sha=sha;}
     }
@@ -177,7 +198,9 @@ public final class ClientModCompatibility {
         Files.move(from.toPath(),to.toPath());
     }
     private Rule matching(String sha) {for(Rule rule:rules)if(rule.sha256.equals(sha))return rule;return null;}
-    private static boolean eligible(Mod mod,Rule rule){return mod.known&&!mod.content&&!mod.nested&&!mod.server&&mod.sha.equals(rule.sha256)&&mod.ids.equals(rule.ids);}
+    private static boolean eligibleShape(Mod mod,Rule rule){return mod.known&&!mod.server&&mod.ids.equals(rule.ids)
+            &&(rule.reviewedRender?rule.allowedData.containsAll(mod.contentPaths):!mod.content&&!mod.nested);}
+    private static boolean eligible(Mod mod,Rule rule){return eligibleShape(mod,rule)&&mod.sha.equals(rule.sha256);}
     private List<Mod> inventory(EngineHost.Cancellation cancel)throws Exception {
         File folder=RuntimeFiles.inside(instance,"mods");if(!folder.exists())return new ArrayList<>();if(!folder.isDirectory())throw new IOException("mods is not a directory");
         File[] files=folder.listFiles();if(files==null||files.length>LIMIT)throw new IOException("Mod directory unavailable or too large");Arrays.sort(files,Comparator.comparing(File::getName));List<Mod> result=new ArrayList<>();
@@ -193,10 +216,12 @@ public final class ClientModCompatibility {
         Set<Mod> candidates=new LinkedHashSet<>();
         for(Mod mod:mods) {Rule rule=matching(mod.sha);mod.rule=rule;
             if(unknown||rule==null||!eligible(mod,rule)||suppress.contains(mod.sha)||conflicts.contains(mod.path))continue;
-            boolean duplicate=false;for(String id:mod.ids)duplicate|=counts.get(id)>1;if(!duplicate)candidates.add(mod);
+            boolean duplicate=false;for(String id:rule.ownedIds)duplicate|=counts.get(id)>1;if(!duplicate)candidates.add(mod);
         }
         boolean changed;do {changed=false;for(Mod retained:mods)if(!candidates.contains(retained))for(Iterator<Mod> it=candidates.iterator();it.hasNext();) {
-            Mod candidate=it.next();if(!Collections.disjoint(retained.depends,candidate.ids)){it.remove();changed=true;}
+            Mod candidate=it.next();Set<String> lost=new HashSet<>(candidate.ids);
+            if(candidate.rule.reviewedRender)for(Mod provider:mods)if(!candidates.contains(provider))lost.removeAll(provider.ids);
+            if(!Collections.disjoint(candidate.rule.reviewedRender?retained.required:retained.depends,lost)){it.remove();changed=true;}
         }}while(changed);return candidates;
     }
     private Report apply(JSONObject state,EngineHost.Cancellation cancel,EngineHost.Progress progress)throws Exception {
@@ -233,6 +258,7 @@ public final class ClientModCompatibility {
             if(meta.has("provides")&&!(meta.get("provides") instanceof JSONArray))throw new IOException("Unknown Fabric provides structure");
             String environment=meta.optString("environment","*");if(!Arrays.asList("*","client","server").contains(environment))throw new IOException("Unknown Fabric environment");mod.server|=environment.equals("server");
             for(String key:Arrays.asList("depends","recommends","suggests")){if(meta.has(key)&&!(meta.get(key) instanceof JSONObject))throw new IOException("Unknown Fabric dependency structure");dependencies(meta.optJSONObject(key),mod.depends);}
+            dependencies(meta.optJSONObject("depends"),mod.required);
             if(meta.has("jars")){JSONArray jars=meta.getJSONArray("jars");if(jars.length()>256)throw new IOException("Too many Fabric nested jars");for(int i=0;i<jars.length();i++)nested.add(jars.getJSONObject(i).getString("file"));}found=true;
         }
         // Modern NeoForge declares its own metadata. A bundled legacy Forge template is not
@@ -248,13 +274,13 @@ public final class ClientModCompatibility {
             if(data.containsKey("META-INF/MANIFEST.MF")){java.util.jar.Manifest manifest=new java.util.jar.Manifest(new ByteArrayInputStream(data.get("META-INF/MANIFEST.MF")));library|=Arrays.asList("LIBRARY","GAMELIBRARY","LANGPROVIDER").contains(manifest.getMainAttributes().getValue("FMLModType"));}
             if(!library)throw new IOException("No supported mod metadata");
         }
-        mod.nested=!nested.isEmpty(); // Candidate rules cover the complete root artifact, never a bundle of additional mods/libraries.
+        mod.nested=!nested.isEmpty(); // Only explicit whole-artifact rendering rules may include reviewed bundles.
         if(!nested.isEmpty()&&depth>=4)throw new IOException("Nested dependency depth exceeded");
         for(String name:nested) {
             cancel.check();if(name.startsWith("/")||name.contains("\\")||!name.endsWith(".jar"))throw new IOException("Unsafe nested jar path");for(String part:name.split("/",-1))if(part.isEmpty()||part.equals(".")||part.equals(".."))throw new IOException("Unsafe nested jar path");
             byte[] bytes=reader.read(name);if(bytes==null)throw new IOException("Declared nested JAR missing: "+name);
             Mod child=new Mod(mod.file,mod.path+"!"+name,"");nestedMetadata(child,bytes,depth+1,budget,cancel);
-            mod.ids.addAll(child.ids);mod.depends.addAll(child.depends);mod.content|=child.content;mod.server|=child.server;
+            mod.ids.addAll(child.ids);mod.depends.addAll(child.depends);mod.required.addAll(child.required);mod.contentPaths.addAll(child.contentPaths);mod.content|=child.content;mod.server|=child.server;
         }
         mod.known=true;
     }
@@ -263,7 +289,7 @@ public final class ClientModCompatibility {
         Map<String,byte[]> data=new HashMap<>(),jars=new HashMap<>();Set<String> names=new HashSet<>();int count=0;
         try(ZipInputStream zip=new ZipInputStream(new ByteArrayInputStream(bytes))) {ZipEntry row;byte[] buffer=new byte[8192];while((row=zip.getNextEntry())!=null) {
             cancel.check();String name=row.getName();if(++count>100000||!names.add(name))throw new IOException("Ambiguous nested JAR");
-            if(name.startsWith("data/"))mod.content=true;
+            if(name.startsWith("data/")){mod.content=true;if(!row.isDirectory())mod.contentPaths.add(name);}
             if(METADATA.contains(name))data.put(name,bounded(zip,META_LIMIT,cancel,budget));
             else if(name.endsWith(".jar"))jars.put(name,bounded(zip,32*1024*1024,cancel,budget));
             else{int n;while((n=zip.read(buffer))!=-1){cancel.check();budget.add(n);}}
@@ -277,37 +303,38 @@ public final class ClientModCompatibility {
         if(file.length()>256L*1024*1024){mod.problem="JAR 超过保守检查上限";return mod;}
         try(ZipFile zip=new ZipFile(file)) {
             int count=0;Set<String> names=new HashSet<>();Enumeration<? extends ZipEntry> entries=zip.entries();while(entries.hasMoreElements()) {
-                cancel.check();String name=entries.nextElement().getName();if(++count>100000||!names.add(name))throw new IOException("Ambiguous/oversized mod archive");
-                if(name.startsWith("data/"))mod.content=true;
+                cancel.check();ZipEntry row=entries.nextElement();String name=row.getName();if(++count>100000||!names.add(name))throw new IOException("Ambiguous/oversized mod archive");
+                if(name.startsWith("data/")){mod.content=true;if(!row.isDirectory())mod.contentPaths.add(name);}
             }
             Map<String,byte[]> data=new HashMap<>();for(String name:METADATA){byte[] value=entry(zip,zip.getEntry(name));if(value!=null)data.put(name,value);}
             Budget budget=new Budget();metadata(mod,data,false,name->{ZipEntry row=zip.getEntry(name);if(row==null)return null;if(row.getSize()<0||row.getSize()>32*1024*1024)throw new IOException("Nested JAR exceeds read budget");try(InputStream in=zip.getInputStream(row)){return bounded(in,32*1024*1024,cancel,budget);}},0,budget,cancel);
             if(!mod.known)mod.problem="无法可靠读取模组元数据；保留原件";
         }catch(java.util.concurrent.CancellationException e){throw e;}catch(Exception e){mod.known=false;String detail=String.valueOf(e.getMessage());mod.problem="模组元数据检查失败："+e.getClass().getSimpleName()+" "+detail.substring(0,Math.min(240,detail.length()));}
-        if(mod.known&&!mod.content&&!mod.server&&!mod.nested)for(Rule rule:rules)if(rule.ids.equals(mod.ids)){mod.sha=verifiedSha==null?hash(file,cancel):verifiedSha;break;}
+        if(mod.known)for(Rule rule:rules)if(eligibleShape(mod,rule)){mod.sha=verifiedSha==null?hash(file,cancel):verifiedSha;break;}
         return mod;
     }
     /** Small bounded TOML reader for mod identity/dependency data, not an execution engine.
      * Both array-of-tables and equivalent inline arrays are accepted. All declared dependency
      * ids are retained, including optional/incompatible ones, to err toward keeping a mod. */
     private static void parseToml(Mod mod,String text)throws Exception {
-        Toml input=new Toml(text);List<String> section=Collections.emptyList();boolean declared=false,dependencyRow=false,needsId=false,hasId=false;
+        Toml input=new Toml(text);List<String> section=Collections.emptyList();boolean declared=false,dependencyRow=false,needsId=false,hasId=false;Map<String,Object> dependencyFields=new HashMap<>();
         while(input.more()) {
             if(input.peek()=='[') {
                 if(needsId&&!hasId)throw new IOException("Missing modId in TOML identity/dependency row");
+                requiredDependency(dependencyFields,mod.required);dependencyFields.clear();
                 section=input.header();dependencyRow=input.arrayHeader;
                 needsId=section.equals(Collections.singletonList("mods"))||section.get(0).equals("dependencies")&&(dependencyRow||section.size()==2);hasId=false;continue;
             }
             List<String> key=input.key();Object value=input.value(0);input.endStatement();
             boolean dependency=!section.isEmpty()&&section.get(0).equals("dependencies");
-            if(key.get(0).equals("dependencies")) {dependencyValue(value,mod.depends);continue;}
+            if(key.get(0).equals("dependencies")) {dependencyValue(value,mod.depends);requiredValue(value,mod.required);continue;}
             if(section.isEmpty()&&key.size()==1&&key.get(0).equals("mods")) {
                 if(!(value instanceof List))throw new IOException("Unknown inline mod structure");
                 for(Object row:(List<?>)value){if(!(row instanceof Map))throw new IOException("Unknown inline mod entry");mod.ids.add(modId(((Map<?,?>)row).get("modId")));declared=true;}continue;
             }
             if(dependency) {
-                if(section.size()==1&&!dependencyRow) {dependencyRows(value,mod.depends);continue;}
-                if(key.size()==1&&key.get(0).equals("modId")){mod.depends.add(modId(value));hasId=true;}
+                if(section.size()==1&&!dependencyRow) {dependencyRows(value,mod.depends);requiredRows(value,mod.required);continue;}
+                if(key.size()==1){dependencyFields.put(key.get(0),value);if(key.get(0).equals("modId")){mod.depends.add(modId(value));hasId=true;}}
                 // Other properties of dependency tables (including mc-publish sub-tables)
                 // contain tooling/version information, not additional mod identities.
             } else if(section.equals(Collections.singletonList("mods"))&&key.equals(Collections.singletonList("modId"))) {
@@ -315,7 +342,26 @@ public final class ClientModCompatibility {
             }
         }
         if(needsId&&!hasId)throw new IOException("Missing modId in TOML identity/dependency row");
+        requiredDependency(dependencyFields,mod.required);
         if(!declared)throw new IOException("No declared mod identity in TOML");mod.known=true;
+    }
+    // Only reviewed rendering bundles use the required-only graph; old rules retain
+    // their conservative all-dependencies behavior. Unknown dependency types stay required.
+    private static void requiredDependency(Map<?,?> row,Set<String> ids)throws IOException {
+        if(!row.containsKey("modId"))return;
+        String type=String.valueOf(row.get("type"));Object mandatory=row.get("mandatory");
+        if(Arrays.asList("optional","incompatible","discouraged").contains(type.toLowerCase(Locale.ROOT))
+                ||mandatory instanceof Bare&&((Bare)mandatory).value.equals("false"))return;
+        ids.add(modId(row.get("modId")));
+    }
+    private static void requiredRows(Object value,Set<String> ids)throws IOException {
+        if(!(value instanceof List))throw new IOException("Unknown inline dependency rows");
+        for(Object row:(List<?>)value){if(!(row instanceof Map))throw new IOException("Unknown inline dependency row");requiredDependency((Map<?,?>)row,ids);}
+    }
+    private static void requiredValue(Object value,Set<String> ids)throws IOException {
+        if(value instanceof List){requiredRows(value,ids);return;}
+        if(!(value instanceof Map))throw new IOException("Unknown inline dependency map");
+        for(Object row:((Map<?,?>)value).values())requiredRows(row,ids);
     }
     private static String modId(Object value)throws IOException {
         if(!(value instanceof String)||!ID.matcher((String)value).matches())throw new IOException("Unsupported mod id value");return (String)value;

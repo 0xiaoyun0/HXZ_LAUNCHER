@@ -11,6 +11,8 @@ public final class GameFailureAdvice {
         if((text.contains("could not find agent library instrument")||text.contains("cannot load runtime library"))
                 &&(text.contains("libinstrument.so")||text.contains("libjli.so")))
             return "Java 的登录验证组件未能加载，这不是整合包或存档损坏。请更新社区应用后重试；若仍提示组件文件缺失，请在游戏运行模块中继续下载修复，并附当前诊断反馈。";
+        if(text.contains("using pojavlauncher")&&text.contains("not supported")&&text.contains("sodium"))
+            return "当前 Sodium 渲染模组不支持手机图形环境。请更新社区应用后重新准备游戏，启动器会备份并停用已核验的不兼容客户端渲染组件；无需删除存档或重新下载整个整合包。若手动恢复过这些模组，请在运行设置重新启用客户端兼容适配。";
         if(text.contains("shared frame descriptor is too small")||text.contains("android shared frame buffer size")||text.contains("shared frame buffer is too small"))
             return "启动器未能建立游戏画面通道。已下载文件和存档已保留，无需重新下载整合包；请更新社区应用后重试，仍失败时复制当前诊断反馈。";
         if(text.contains("outofmemoryerror")||text.contains("native memory allocation (malloc) failed")||text.contains("could not reserve enough space for")||text.contains("out of swap space"))

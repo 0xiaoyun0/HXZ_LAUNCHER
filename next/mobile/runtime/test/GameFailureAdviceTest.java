@@ -2,6 +2,7 @@ import top.hxzmc.runtime.GameFailureAdvice;
 
 public final class GameFailureAdviceTest {
     public static void main(String[] args) {
+        check("It appears that you are using PojavLauncher, which is not supported when using Sodium. Please check your mods list.","Sodium");
         check("Caused by: java.lang.OutOfMemoryError: Java heap space","内存不足");
         check("java.lang.UnsatisfiedLinkError: dlopen failed: EM_X86_64 instead of EM_AARCH64","电脑架构");
         check("GLFW error 65542: driver","图形驱动");
@@ -17,7 +18,7 @@ public final class GameFailureAdviceTest {
         if(!GameFailureAdvice.explain("Process exit 137").isEmpty())throw new AssertionError("Exit code alone is not memory evidence");
         if(!GameFailureAdvice.explain("Process exit 66").isEmpty())throw new AssertionError("Exit code alone is not shared memory evidence");
         if(!GameFailureAdvice.explain(null).isEmpty())throw new AssertionError("null evidence");
-        System.out.println("Game failure advice: 15 checks passed");
+        System.out.println("Game failure advice: 16 checks passed");
     }
     private static void check(String input,String expected) {if(!GameFailureAdvice.explain(input).contains(expected))throw new AssertionError(input);}
 }

@@ -35,6 +35,15 @@ static bool exception(JNIEnv* env) {
     if(!env->ExceptionCheck())return false;
     env->ExceptionDescribe();env->ExceptionClear();return true;
 }
+// This launcher is used only in disposable :jvm / processor processes. Java's
+// shutdown hooks run before HotSpot invokes this standard JNI exit callback.
+// Skip C++/libc global destruction: detached EGL/input workers may still hold
+// native mutexes. The OS releases surfaces, sockets and mappings on process exit.
+static void JNICALL isolated_vm_exit(jint status) {
+    std::fprintf(stderr,"[HXZ-JVM] vm-exit=%d\n",status);
+    std::fflush(nullptr);
+    std::_Exit(status);
+}
 int hxz_java(const HxzJavaJob& j,bool installerProcess) {
     try {
         if(j.home.empty()||j.home[0]!='/'||j.directory.empty()||j.directory[0]!='/'||j.mainClass.empty())throw std::runtime_error("Invalid Java launch plan");
@@ -66,6 +75,8 @@ int hxz_java(const HxzJavaJob& j,bool installerProcess) {
         options.push_back("-Dsun.boot.library.path="+j.home+"/lib");
         options.insert(options.begin(),{"-Djava.home="+j.home,"-Duser.dir="+j.directory,"-Duser.home="+j.directory,"-Djava.awt.headless=true"});
         std::vector<JavaVMOption> native;for(auto& option:options)native.push_back({option.data(),nullptr});
+        char exitOption[]="exit";
+        native.push_back({exitOption,reinterpret_cast<void*>(&isolated_vm_exit)});
         // The NDK invocation header exposes 1.6; this interface version is
         // sufficient for the calls below and accepted by modern HotSpot.
         JavaVMInitArgs args{};args.version=JNI_VERSION_1_6;args.nOptions=static_cast<jint>(native.size());args.options=native.data();args.ignoreUnrecognized=JNI_FALSE;
