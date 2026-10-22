@@ -37,15 +37,35 @@ public class NetworkProbe {
 }`);
 execFileSync(java+'javac.exe',['--release','8','-encoding','UTF-8','-cp',json,'-d',tmp,path.join(tmp,'NetworkProbe.java'),path.join(tmp,'android/os/SystemClock.java'), 'mobile/runtime/src/main/java/top/hxzmc/runtime/GameDnsConfiguration.java','mobile/runtime/src/main/java/top/hxzmc/runtime/GameSessionLease.java'],{stdio:'pipe'});
 console.log(execFileSync(java+'java.exe',['-cp',tmp+path.delimiter+json,'NetworkProbe'],{encoding:'utf8',stdio:'pipe'}).trim());
-await fs.writeFile(path.join(tmp,'ProbeTarget.java'),'public class ProbeTarget {public static void main(String[] args)throws Exception{Thread.currentThread().setName("SampleModLoader");Thread.sleep(20000);}}');
+await fs.writeFile(path.join(tmp,'ProbeTarget.java'),`import java.util.concurrent.CountDownLatch;
+public class ProbeTarget {
+ static void deepSleep(int n)throws Exception{if(n==0)Thread.sleep(20000);else deepSleep(n-1);}
+ public static void main(String[] args)throws Exception{
+  Thread.currentThread().setName("SampleModLoader");
+  for(int i=0;i<160;i++){Thread t=new Thread(()->{try{deepSleep(36);}catch(Exception ignored){}},String.format("AAA idle worker %03d",i));t.setDaemon(true);t.start();}
+  Object left=new Object(),right=new Object();CountDownLatch ready=new CountDownLatch(2);
+  Thread render=new Thread(()->{synchronized(left){ready.countDown();try{ready.await();}catch(Exception e){}synchronized(right){}}},"Render thread");
+  Thread loader=new Thread(()->{synchronized(right){ready.countDown();try{ready.await();}catch(Exception e){}synchronized(left){}}},"Mod loading worker");
+  render.setDaemon(true);loader.setDaemon(true);render.start();loader.start();
+  ready.await();Thread.sleep(200);System.out.println("READY");System.out.flush();Thread.sleep(20000);
+ }
+}`);
 execFileSync(java+'javac.exe',['--release','8','-encoding','UTF-8','-d',tmp,'mobile/game-probe/src/top/hxzmc/diagnostics/GameProbe.java',path.join(tmp,'ProbeTarget.java')],{stdio:'pipe'});
 await fs.writeFile(path.join(tmp,'MANIFEST.MF'),'Premain-Class: top.hxzmc.diagnostics.GameProbe\n\n');
 execFileSync(java+'jar.exe',['cfm',path.join(tmp,'probe.jar'),path.join(tmp,'MANIFEST.MF'),'-C',tmp,'top/hxzmc/diagnostics'],{stdio:'pipe'});
 const child=spawn(java+'java.exe',['-Dhxz.diagnosticDir='+tmp,'-javaagent:'+path.join(tmp,'probe.jar'),'-cp',tmp,'ProbeTarget'],{windowsHide:true,stdio:'pipe'});
-let errors='';child.stderr.on('data',chunk=>errors+=chunk);
+let errors='',ready='';child.stderr.on('data',chunk=>errors+=chunk);child.stdout.on('data',chunk=>ready+=chunk);
 try{
+ for(let i=0;i<50&&!ready.includes('READY');i++)await new Promise(r=>setTimeout(r,100));
+ assert.ok(ready.includes('READY'),errors||'Thread fixture not ready');
  const nonce='12345678-test-request';await fs.writeFile(path.join(tmp,'thread-request'),nonce);let snapshot='';
  for(let i=0;i<45;i++){try{snapshot=await fs.readFile(path.join(tmp,'threads.txt'),'utf8');}catch{}if(snapshot.startsWith(nonce+'\n'))break;await new Promise(r=>setTimeout(r,100));}
- assert.ok(snapshot.startsWith(nonce+'\n'),errors||'JVM snapshot response missing');assert.ok(snapshot.includes('SampleModLoader'));assert.ok(snapshot.includes('ProbeTarget.main'));assert.ok(snapshot.includes('JVM 线程快照 2'));assert.ok(snapshot.length<150000);
- console.log('PASS on-demand agent: actual HotSpot thread snapshots, two samples, request nonce and bounded output');
+ assert.ok(snapshot.startsWith(nonce+'\n'),errors||'JVM snapshot response missing');
+ const samples=snapshot.split(/JVM 线程快照 [12]/).slice(1);assert.equal(samples.length,2);
+ for(const sample of samples){
+  for(const name of ['Render thread','Mod loading worker','SampleModLoader'])assert.ok(sample.includes('"'+name+'"'),'Key thread missing from an independent snapshot: '+name);
+  assert.ok(sample.includes('锁持有者'),'Lock owner is missing');assert.ok(sample.includes('Java 锁循环'),'Actual JVM lock-cycle evidence is missing');
+ }
+ assert.ok(snapshot.includes('ProbeTarget.main'));assert.ok(Buffer.byteLength(snapshot,'utf8')<125000,'Snapshot response exceeds the Android reader byte budget');
+ console.log('PASS actual HotSpot: 160 idle workers cannot displace key threads in either sample; lock owners, detected lock cycle and UTF-8 byte budget');
 }finally{child.kill();}

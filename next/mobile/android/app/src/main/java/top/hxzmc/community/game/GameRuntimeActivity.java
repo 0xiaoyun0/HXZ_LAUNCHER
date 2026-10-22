@@ -158,24 +158,30 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
         LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(18),dp(14),dp(18),dp(14));
         GradientDrawable background=new GradientDrawable();background.setColor(0xfffcfdff);background.setCornerRadius(dp(16));card.setBackground(background);
         card.addView(text("游戏实时诊断",18,0xff263354));
-        card.addView(text("读取当前日志及两次 JVM 线程快照，不结束游戏。",12,0xff697592));
+        card.addView(text("显示关键线程和日志。点按复制精简诊断，长按复制完整记录。",12,0xff697592));
         TextView output=text("正在读取…",11,0xff263354);output.setTypeface(android.graphics.Typeface.MONOSPACE);output.setTextIsSelectable(true);
         ScrollView scroll=new ScrollView(this);scroll.addView(output);card.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
         LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.END);card.addView(actions,new LinearLayout.LayoutParams(-1,-2));
         Button refresh=textButton("刷新",false),copy=textButton("复制诊断",true),close=textButton("返回游戏",false);
         for(Button button:Arrays.asList(refresh,copy,close)){LinearLayout.LayoutParams size=new LinearLayout.LayoutParams(0,dp(44),1);size.leftMargin=dp(4);button.setMinWidth(0);button.setMinimumWidth(0);button.setTextSize(12);button.setPadding(dp(4),0,dp(4),0);actions.addView(button,size);}
-        Runnable reload=()->{refresh.setEnabled(false);diagnosticWork.execute(()->{
-            String report;
+        final String[] complete={""};copy.setEnabled(false);
+        Runnable reload=()->{refresh.setEnabled(false);copy.setEnabled(false);diagnosticWork.execute(()->{
+            String report,brief;
             try {
                 String nonce=UUID.randomUUID().toString();
                 Files.write(new File(liveDiagnosticDirectory,"thread-request").toPath(),nonce.getBytes(StandardCharsets.US_ASCII));
                 long end=SystemClock.elapsedRealtime()+3500;String stacks="";
                 while(!closing&&playing&&SystemClock.elapsedRealtime()<end){String found=GameCrashDiagnostics.readTail(new File(liveDiagnosticDirectory,"threads.txt"),140000);if(found.startsWith(nonce+"\n")){stacks=found.substring(nonce.length()+1);break;}Thread.sleep(100);}
-                report=technical(null)+"\n当前游戏日志:\n"+scrub(GameCrashDiagnostics.readTail(log,18000))+"\n实例日志:\n"+scrub(GameCrashDiagnostics.readTail(run==null?null:new File(run,"logs/latest.log"),12000))+"\n"+(stacks.isEmpty()?"JVM 暂未回应快照请求；可能仍在初始化或原生调用中。保留当前日志，不强制结束游戏。":scrub(stacks));
-            }catch(Exception failure){report=technical(null)+"\n实时诊断暂不可读："+failure.getClass().getSimpleName();}
-            final String safe=scrub(report);ui.post(()->{if(closing||!dialog.isShowing())return;diagnosticText=safe;output.setText(safe);refresh.setEnabled(true);});
+                String metadata=scrub(technical(null)),gameLog=scrub(GameCrashDiagnostics.readTail(log,18000)),instanceLog=scrub(GameCrashDiagnostics.readTail(run==null?null:new File(run,"logs/latest.log"),12000));stacks=scrub(stacks);
+                report=metadata+"\n当前游戏日志:\n"+gameLog+"\n实例日志:\n"+instanceLog+"\n"+(stacks.isEmpty()?"JVM 暂未回应快照请求；可能仍在初始化或原生调用中。保留当前日志，不强制结束游戏。":stacks);
+                brief=GameLiveDiagnostics.summarize(metadata,gameLog,instanceLog,stacks);
+            }catch(Exception failure){report=scrub(technical(null)+"\n实时诊断暂不可读："+failure.getClass().getSimpleName());brief=GameLiveDiagnostics.summarize(report,"","","");}
+            final String safe=scrub(report),summary=scrub(brief);
+            try{Files.write(new File(liveDiagnosticDirectory,"live-latest.txt").toPath(),safe.getBytes(StandardCharsets.UTF_8));}catch(IOException ignored){}
+            ui.post(()->{if(closing||!dialog.isShowing())return;complete[0]=safe;diagnosticText=summary;output.setText(summary);scroll.scrollTo(0,0);refresh.setEnabled(true);copy.setEnabled(true);});
         });};
         refresh.setOnClickListener(v->reload.run());copy.setOnClickListener(v->{((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("游戏实时诊断",output.getText()));Toast.makeText(this,"诊断已复制",Toast.LENGTH_SHORT).show();});close.setOnClickListener(v->dialog.dismiss());
+        copy.setOnLongClickListener(v->{if(complete[0].isEmpty())return true;((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("完整游戏诊断",complete[0]));Toast.makeText(this,"完整记录已复制",Toast.LENGTH_SHORT).show();return true;});
         dialog.setOnDismissListener(v->{liveDiagnosticDialog=null;if(playing&&!closing)controls.requestFocus();});dialog.setContentView(card);Window window=dialog.getWindow();if(window!=null)window.setBackgroundDrawableResource(android.R.color.transparent);
         dialog.show();if(window!=null)window.setLayout(Math.max(1,Math.min(dp(900),frame.getWidth()-dp(24))),Math.max(1,frame.getHeight()-dp(24)));reload.run();
     }

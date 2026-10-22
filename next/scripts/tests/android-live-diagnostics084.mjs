@@ -1,0 +1,17 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import os from 'node:os';
+import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
+const root=process.cwd(),tmp=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-live-diagnostics-'));
+const java='C:/Program Files/Java/jdk-21/bin/';
+execFileSync(java+'javac.exe',['--release','8','-encoding','UTF-8','-d',tmp,'mobile/runtime/src/main/java/top/hxzmc/runtime/GameLiveDiagnostics.java','mobile/runtime/test/GameLiveDiagnosticsTest.java'],{windowsHide:true,stdio:'pipe'});
+console.log(execFileSync(java+'java.exe',['-Dfile.encoding=UTF-8','-cp',tmp,'GameLiveDiagnosticsTest'],{windowsHide:true,encoding:'utf8',stdio:'pipe'}).trim());
+const source=await fs.readFile(path.join(root,'mobile/android/app/src/main/java/top/hxzmc/community/game/GameRuntimeActivity.java'),'utf8');
+const dialog=source.slice(source.indexOf('private void showLiveDiagnostics()'),source.indexOf('private static EngineHost.JavaJob freshJob'));
+assert.ok(dialog.includes('GameLiveDiagnostics.summarize(')&&dialog.includes('summary=scrub(brief)'),'Summary must pass through production credential redaction');
+assert.ok(dialog.includes('metadata=scrub(technical(null))')&&dialog.includes('gameLog=scrub(GameCrashDiagnostics.readTail')&&dialog.includes('stacks=scrub(stacks)'),'Redact every source before truncation, so a shortened credential cannot escape exact-match redaction');
+assert.ok(dialog.includes('safe=scrub(report)')&&dialog.includes('live-latest.txt')&&dialog.includes('safe.getBytes'),'Stored full report must be redacted too');
+assert.ok(dialog.includes('output.setText(summary)')&&dialog.includes('scroll.scrollTo(0,0)'),'Dialog must show the compact report from the beginning');
+assert.ok(dialog.includes('copy.setEnabled(false)')&&dialog.includes('copy.setOnLongClickListener'),'Copy loading state and full report long press are required');
+console.log('PASS native dialog wiring: bounded default output, redacted persisted full report, copy loading state and long press');
