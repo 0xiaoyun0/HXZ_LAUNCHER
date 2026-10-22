@@ -11,11 +11,13 @@ public final class GameFailureAdviceTest {
         check("HXZ IPC: Shared frame descriptor is too small","画面通道");
         check("Cannot query Android shared frame buffer size","画面通道");
         check("Shared frame buffer is too small: required=128, actual=64","画面通道");
+        check("Could not find agent library instrument on the library path, with error: dlopen failed: library \"libinstrument.so\" not found","登录验证组件");
+        check("HXZ: Cannot load runtime library: libjli.so not found","登录验证组件");
         if(!GameFailureAdvice.explain("Missing optional language file; update available").isEmpty())throw new AssertionError("Benign output misclassified");
         if(!GameFailureAdvice.explain("Process exit 137").isEmpty())throw new AssertionError("Exit code alone is not memory evidence");
         if(!GameFailureAdvice.explain("Process exit 66").isEmpty())throw new AssertionError("Exit code alone is not shared memory evidence");
         if(!GameFailureAdvice.explain(null).isEmpty())throw new AssertionError("null evidence");
-        System.out.println("Game failure advice: 13 checks passed");
+        System.out.println("Game failure advice: 15 checks passed");
     }
     private static void check(String input,String expected) {if(!GameFailureAdvice.explain(input).contains(expected))throw new AssertionError(input);}
 }

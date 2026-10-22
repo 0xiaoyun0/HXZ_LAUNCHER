@@ -41,15 +41,29 @@ int hxz_java(const HxzJavaJob& j,bool installerProcess) {
         if(chdir(j.directory.c_str())!=0)throw std::runtime_error("Cannot open game working directory");
         setenv("JAVA_HOME",j.home.c_str(),1);setenv("HOME",j.directory.c_str(),1);
         unsetenv("JAVA_TOOL_OPTIONS");unsetenv("_JAVA_OPTIONS");unsetenv("JDK_JAVA_OPTIONS");
-        // Native class libraries resolve the selected HotSpot instance, not Android's ART.
+        // Unlike an exec child, an ART-created service does not inherit a new
+        // linker search path when LD_LIBRARY_PATH is changed. FCL preloads the
+        // JRE by absolute path for this reason. libinstrument also needs libjli.
         const std::string lib=j.home+"/lib/";
+        library(lib+"libjli.so",true);
         void* vmLibrary=dlopen((lib+"server/libjvm.so").c_str(),RTLD_NOW|RTLD_GLOBAL);
         if(!vmLibrary)throw std::runtime_error(std::string("Cannot load Java VM: ")+dlerror());
         library(lib+"libverify.so",false);library(lib+"libjava.so",true);library(lib+"libjimage.so",false);
         library(lib+"libnet.so",false);library(lib+"libnio.so",false);library(lib+"libzip.so",false);
+        const auto agents=std::count_if(j.options.begin(),j.options.end(),[](const std::string& option){return option.rfind("-javaagent:",0)==0;});
+        if(agents>0) {
+            library(lib+"libinstrument.so",true);
+            // HotSpot's -javaagent parser loads "instrument" by SONAME. Check
+            // that same lookup now, before JNI_CreateJavaVM can terminate the
+            // process. Keep -javaagent intact (module resolution/JPLIS semantics).
+            library("libinstrument.so",true);
+            fprintf(stderr,"[HXZ-JVM] Java agent native bootstrap ready; agents=%zu\n",static_cast<size_t>(agents));
+        }
         using Create=jint(*)(JavaVM**,void**,void*);
         auto create=reinterpret_cast<Create>(dlsym(vmLibrary,"JNI_CreateJavaVM"));if(!create)throw std::runtime_error("Java VM has no Invocation API");
         std::vector<std::string> options=j.options;
+        options.erase(std::remove_if(options.begin(),options.end(),[](const std::string& option){return option.rfind("-Dsun.boot.library.path=",0)==0;}),options.end());
+        options.push_back("-Dsun.boot.library.path="+j.home+"/lib");
         options.insert(options.begin(),{"-Djava.home="+j.home,"-Duser.dir="+j.directory,"-Duser.home="+j.directory,"-Djava.awt.headless=true"});
         std::vector<JavaVMOption> native;for(auto& option:options)native.push_back({option.data(),nullptr});
         // The NDK invocation header exposes 1.6; this interface version is
