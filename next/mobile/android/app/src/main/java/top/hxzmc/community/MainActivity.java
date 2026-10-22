@@ -238,7 +238,7 @@ public final class MainActivity extends Activity {
             if(raw==null||raw.length()>12*1024*1024)return;
             try{
                 JSONObject call=new JSONObject(raw);if(!bridgeSession.equals(call.optString("bridgeSession")))return;String id=call.getString("id"),op=call.getString("op");JSONObject input=call.optJSONObject("input");if(input==null)input=new JSONObject();final JSONObject value=input;
-                if(app.credentials.optString("accessToken").isEmpty()&&!java.util.Arrays.asList("state","login","profile","logout","open","openSkin","appearance","background","widgetTarget","appUpdate","voiceLeave","voiceSettings","speaker").contains(op)){result(id,null,"请先登录幻想镇皮肤站账号，再使用此功能");return;}
+                if(app.credentials.optString("accessToken").isEmpty()&&!java.util.Arrays.asList("state","gamePlaytime","login","profile","logout","open","openSkin","appearance","background","widgetTarget","appUpdate","voiceLeave","voiceSettings","speaker").contains(op)){result(id,null,"请先登录幻想镇皮肤站账号，再使用此功能");return;}
                 if(op.equals("appUpdate")){try{String action=value.optString("action","state");Object output;switch(action){case "check":output=app.updater.check();break;case "download":output=app.updater.download();break;case "cancel":output=app.updater.cancel();break;case "install":output=app.updater.install();break;case "settings":output=app.updater.settings(value);break;default:output=app.updater.state();}result(id,output,null);}catch(Exception e){result(id,null,CommunityApp.reason(e));}return;}
                 if(op.equals("voiceOverlay")){runOnUiThread(()->{try{if(app.voiceOverlay==null)app.voiceOverlay=new VoiceOverlay(app);boolean enabled=value.optBoolean("enabled");boolean permission=android.provider.Settings.canDrawOverlays(MainActivity.this);if(enabled&&!permission){startActivity(new Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName())));result(id,CommunityApp.obj("enabled",false,"permission",false),null);}else{app.voiceOverlay.enable(enabled);result(id,CommunityApp.obj("enabled",enabled,"permission",permission),null);}}catch(Exception e){result(id,null,CommunityApp.reason(e));}});return;}
                 if(op.equals("voiceJoin")){runOnUiThread(()->beginVoice(id,value.optString("room")));return;}
@@ -261,6 +261,7 @@ public final class MainActivity extends Activity {
                             if(value.optString("action").equals("finish")){JSONObject info=assetExport.info();File staged=assetExport.finish(value.getString("id"));app.main.post(()->chooseDownload(id,info,staged));return;}
                             output=assetExport.accept(value);break;
                         case "gameEngine":output=app.gameEngine.call(value);break;
+                        case "gamePlaytime":output=new top.hxzmc.runtime.GamePlaytime(app.getFilesDir()).snapshot(System.currentTimeMillis());break;
                         case "lobby":output=app.gameLobby.call(value);break;
                         case "music":output=new MusicLibrary(app).call(value);break;
                         case "state":output=app.state();break;

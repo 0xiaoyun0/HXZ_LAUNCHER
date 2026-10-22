@@ -26,6 +26,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     private final ExecutorService work=Executors.newSingleThreadExecutor();
     private final ExecutorService diagnosticWork=Executors.newSingleThreadExecutor();
     private final String sessionLease=UUID.randomUUID().toString();private boolean pinAccount;
+    private GamePlaytime personalPlaytime;private long lastPlaytime;
     private File liveDiagnosticDirectory;private Dialog liveDiagnosticDialog;
     private final EngineHost.Cancellation cancellation=new EngineHost.Cancellation();
     private final Handler ui=new Handler(Looper.getMainLooper());
@@ -153,11 +154,21 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
                 ProcessBuilder builder=new ProcessBuilder(executable.getAbsolutePath(),jobFile.getAbsolutePath(),socket,renderer.getAbsolutePath(),"osmesa").directory(run).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.appendTo(log));
                 builder.environment().put("LD_LIBRARY_PATH",libraries);rendererEnvironment(builder,rendererInfo.getString("driver"));process=builder.start();
             }
-            gameStarted=true;playing=true;
+            gameStarted=true;playing=true;startPlaytime();
             ui.post(()->{((View)panel.getParent()).setVisibility(View.GONE);controls.configure(options.optInt("controlSize",100)/100f,(float)options.optDouble("sensitivity",1),renderWidth,renderHeight);controls.setVisibility(View.VISIBLE);});
-            long lastRoom=0,lastLease=0;while(!(directRenderer?directGame.waitFor(250):process.waitFor(250,TimeUnit.MILLISECONDS))){cancellation.check();long now=SystemClock.elapsedRealtime();if(now-lastLease>20000){lastLease=now;try{Bundle pulse=new Bundle();pulse.putString("lease",sessionLease);bridge("gameSessionPulse",pulse);}catch(RuntimeException ignored){/* Community restart must not terminate a running game. */}}if(hostPort>0&&now-lastRoom>2500){lastRoom=now;touchRoomControl();}}
-            int exit=directRenderer?directGame.exitValue():process.exitValue();playing=false;if(exit!=0)throw new IOException("游戏退出（代码 "+exit+"）。安装进度和存档已保留，日志在游戏诊断中。"+(directRenderer?"\n"+directGame.error():""));ui.post(this::leave);
-        }catch(Exception e){if(!closing){if(gameStarted&&crashCapture!=null)gameDiagnostic=scrub(crashCapture.collect(log));failed(e);}}finally {playing=false;stopGame();try{Bundle end=new Bundle();end.putString("lease",sessionLease);bridge("gameSessionEnd",end);}catch(RuntimeException ignored){}if(jobFile!=null)try{Files.deleteIfExists(jobFile.toPath());}catch(IOException ignored){}roomExited();}
+            long lastRoom=0,lastLease=0;while(!(directRenderer?directGame.waitFor(250):process.waitFor(250,TimeUnit.MILLISECONDS))){cancellation.check();long now=SystemClock.elapsedRealtime();if(now-lastPlaytime>=30000){lastPlaytime=now;pulsePlaytime(false);}if(now-lastLease>20000){lastLease=now;try{Bundle pulse=new Bundle();pulse.putString("lease",sessionLease);bridge("gameSessionPulse",pulse);}catch(RuntimeException ignored){/* Community restart must not terminate a running game. */}}if(hostPort>0&&now-lastRoom>2500){lastRoom=now;touchRoomControl();}}
+            int exit=directRenderer?directGame.exitValue():process.exitValue();playing=false;pulsePlaytime(true);if(exit!=0)throw new IOException("游戏退出（代码 "+exit+"）。安装进度和存档已保留，日志在游戏诊断中。"+(directRenderer?"\n"+directGame.error():""));ui.post(this::leave);
+        }catch(Exception e){pulsePlaytime(true);if(!closing){if(gameStarted&&crashCapture!=null)gameDiagnostic=scrub(crashCapture.collect(log));failed(e);}}finally {playing=false;pulsePlaytime(true);stopGame();try{Bundle end=new Bundle();end.putString("lease",sessionLease);bridge("gameSessionEnd",end);}catch(RuntimeException ignored){}if(jobFile!=null)try{Files.deleteIfExists(jobFile.toPath());}catch(IOException ignored){}roomExited();}
+    }
+    private synchronized void startPlaytime(){
+        if(closing)return;
+        try{personalPlaytime=new GamePlaytime(AppPrivateStorage.resolve(getFilesDir()));lastPlaytime=SystemClock.elapsedRealtime();personalPlaytime.start(System.currentTimeMillis(),lastPlaytime);}
+        catch(Exception e){android.util.Log.w("HXZPlaytime","游玩日历未能开始",e);}
+    }
+    private synchronized void pulsePlaytime(boolean stop){
+        if(personalPlaytime==null)return;
+        try{if(stop)personalPlaytime.stop(System.currentTimeMillis(),SystemClock.elapsedRealtime());else personalPlaytime.pulse(System.currentTimeMillis(),SystemClock.elapsedRealtime());}
+        catch(Exception e){android.util.Log.w("HXZPlaytime","游玩日历未保存",e);}
     }
     private File prepareGameProbe()throws IOException {
         liveDiagnosticDirectory=new File(getCacheDir(),"game-live-diagnostics");
@@ -363,11 +374,11 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
         // Closing GLFW lets Minecraft flush world data. Force only after the bounded graceful wait.
         boolean interrupted=Thread.interrupted();try{if(!current.waitFor(20,TimeUnit.SECONDS)){current.destroy();if(!current.waitFor(3,TimeUnit.SECONDS))current.destroyForcibly();}}catch(InterruptedException e){current.destroy();Thread.currentThread().interrupt();}finally{if(interrupted)Thread.currentThread().interrupt();}
     }
-    private void leave(){if(closing)return;closing=true;if(textDialog!=null)textDialog.dismiss();cancellation.cancel();if(controls!=null)controls.release();NativeRuntime.stop();heading.setText("正在退出游戏");detail.setText("正在等待游戏保存世界…");((View)panel.getParent()).setVisibility(View.VISIBLE);work.execute(()->{stopGame();roomExited();ui.post(()->{finish();ui.postDelayed(()->android.os.Process.killProcess(android.os.Process.myPid()),300);});});}
+    private void leave(){if(closing)return;closing=true;pulsePlaytime(true);if(textDialog!=null)textDialog.dismiss();cancellation.cancel();if(controls!=null)controls.release();NativeRuntime.stop();heading.setText("正在退出游戏");detail.setText("正在等待游戏保存世界…");((View)panel.getParent()).setVisibility(View.VISIBLE);work.execute(()->{stopGame();roomExited();ui.post(()->{finish();ui.postDelayed(()->android.os.Process.killProcess(android.os.Process.myPid()),300);});});}
     @Override public void onBackPressed(){if(playing){NativeRuntime.event(1,256,0,1,0);NativeRuntime.event(1,256,0,0,0);}else leave();}
     @Override protected void onPause(){super.onPause();if(controls!=null)controls.release();NativeRuntime.event(6,0,0,0,0);}
     @Override protected void onResume(){super.onResume();NativeRuntime.event(6,1,0,0,0);}
-    @Override protected void onDestroy(){closing=true;if(textDialog!=null)textDialog.dismiss();if(liveDiagnosticDialog!=null)liveDiagnosticDialog.dismiss();cancellation.cancel();NativeRuntime.stop();GameJvmClient client=directGame;if(client!=null)client.close();diagnosticWork.shutdownNow();work.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){closing=true;pulsePlaytime(true);if(textDialog!=null)textDialog.dismiss();if(liveDiagnosticDialog!=null)liveDiagnosticDialog.dismiss();cancellation.cancel();NativeRuntime.stop();GameJvmClient client=directGame;if(client!=null)client.close();diagnosticWork.shutdownNow();work.shutdown();super.onDestroy();}
     private void updateGameSurface(Surface value){
         NativeRuntime.surface(value,value==null?0:renderWidth,value==null?0:renderHeight);
         GameJvmClient client=directGame;if(client!=null)client.surface(value,renderWidth,renderHeight);

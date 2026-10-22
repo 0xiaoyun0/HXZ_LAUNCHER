@@ -25,7 +25,7 @@ const aliases = {
   lock:'lock-keyhole', image:'image', home:'house', archive:'archive', users:'users-round',
   gamepad:'gamepad-2', feedback:'message-square-warning', palette:'palette', shield:'shield',
   help:'circle-question-mark', 'circle-help':'circle-question-mark', volume:'volume-2',
-  folder:'folder', link:'link', clock:'clock', coins:'coins',
+  folder:'folder', link:'link', clock:'clock', coins:'coins', trophy:'trophy',
 };
 const sourceRoot = path.join(root, 'mobile/web/src');
 const used = new Set(), dynamic = [];
@@ -69,7 +69,8 @@ async function audit(directory) {
           if (node.tag === 'Icon' && property.type === 7 && property.name === 'bind' && property.arg?.content === 'name') {
             const expression = property.exp?.content;
             if (!expression) throw new Error(`Missing Icon name in ${file}`);
-            outputs(parseExpression(expression), file, expression);
+            const literalMap=expression==='sectionIcons[section]'?source.match(/const sectionIcons=(\{[^;]+\});/)?.[1]:null;
+            outputs(parseExpression(literalMap?'('+literalMap+')[section]':expression), file, expression);
             dynamic.push({file, expression});
           }
         }

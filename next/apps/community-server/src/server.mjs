@@ -31,6 +31,7 @@ import {createMedia} from './media.mjs';
 import {createGuild} from './guild.mjs';
 import {createGameTelemetry} from './game-telemetry.mjs';
 import {createGameBridge} from './game-bridge.mjs';
+import {createPlaytime} from './playtime.mjs';
 import { isIP } from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -106,7 +107,8 @@ export function createCommunity(options={}) {
   const musicAccess=createMusicAccess({db,auth,admin,adminIDs,body,send,broadcast,inventory});
   const guild=createGuild({db,auth,admin,body,send,limit,points,media,inbox,inventory});
   const gameTelemetry=createGameTelemetry({db,auth,admin,body,send,limit});
-  const gameBridge=createGameBridge({db,auth,admin,body,send,limit,gameTelemetry,inbox,broadcast});
+  const playtime=createPlaytime({db,auth,admin,body,send,limit,points,inbox});
+  const gameBridge=createGameBridge({db,auth,admin,body,send,limit,gameTelemetry,inbox,broadcast,playtime});
   const linking=createLinking({db,auth,admin,body,send,limit,guild,gameTelemetry,inventory,points});
   const rewards=createRewards({db,auth,admin,body,send,limit,points,inbox});
   const shop=createShop({db,auth,admin,body,send,limit,points,media,inventory});
@@ -130,6 +132,7 @@ export function createCommunity(options={}) {
       const url=new URL(req.url,'http://localhost'),path=url.pathname;limit((/^\/api\/(avatars|chat-media)\//.test(path)?'media-http:':'http:')+clientIP(req),/^\/api\/(avatars|chat-media)\//.test(path)?600:240);
       if(await updates.route(req,res,url))return;
       if(await gameBridge.route(req,res,url))return;
+      if(await playtime.route(req,res,url))return;
       if(await hub.route(req,res,url))return;
       if(await voiceRooms.route(req,res,url))return;
       if(await voiceTools.route(req,res,url))return;
@@ -225,6 +228,6 @@ export function createCommunity(options={}) {
     ws.on('error',()=>{});ws.on('close',()=>{clearTimeout(timer);voiceEvent(clients.get(ws),'leave');clients.delete(ws);presence();});
   });
   const sweep=setInterval(()=>{for(const [id,v] of attempts)if(Date.now()>v.expires)attempts.delete(id);for(const ws of wss.clients){const c=clients.get(ws);if(c&&c.user.exp<Date.now()){ws.close(1008,'登录已过期');continue;}if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();}},15000);sweep.unref();
-  return {server,db,async close(){voiceTools.close();hub.close();gameBridge.close();await chatMedia.close();inventory.close();updates.close();tanks.close();werewolf.close();p2pSignal.close();await boards.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
+  return {server,db,async close(){voiceTools.close();hub.close();gameBridge.close();playtime.close();await chatMedia.close();inventory.close();updates.close();tanks.close();werewolf.close();p2pSignal.close();await boards.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const service=createCommunity();const port=Number(process.env.PORT||8787),host=process.env.HOST||'127.0.0.1';service.server.listen(port,host,()=>{process.send?.({type:'hxz-ready',version:VERSION});console.log(`幻想镇社区服务 http://${host}:${port}\n网页管理：http://127.0.0.1:${port}/admin/\n初始密码见数据目录的 初始管理员密码.txt`);});let closing=false;const shutdown=()=>{if(closing)return;closing=true;void service.close().then(()=>process.exit());};process.on('message',message=>{if(message?.type==='hxz-shutdown')shutdown();});for(const sig of ['SIGINT','SIGTERM'])process.on(sig,shutdown);}

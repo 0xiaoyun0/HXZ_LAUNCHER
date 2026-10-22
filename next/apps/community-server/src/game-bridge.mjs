@@ -8,7 +8,7 @@ const name=value=>{if(typeof value!=='string'||!/^\w{1,16}$/.test(value))fail('�
 const resource=value=>{if(typeof value!=='string'||!/^[a-z0-9_.-]+:[a-z0-9_/.-]{1,180}$/.test(value))fail('资源标识无效');return value;};
 
 // Only typed actions cross this boundary. It deliberately has no console-command API.
-export function createGameBridge({db,auth,admin,body,send,limit,gameTelemetry,inbox,broadcast}){
+export function createGameBridge({db,auth,admin,body,send,limit,gameTelemetry,inbox,broadcast,playtime}){
  db.exec(`
   CREATE TABLE IF NOT EXISTS game_bridge_state(server TEXT PRIMARY KEY,value TEXT NOT NULL,observed INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS game_bridge_access(server TEXT PRIMARY KEY,chat INTEGER NOT NULL DEFAULT 0,whitelist INTEGER NOT NULL DEFAULT 0,updated INTEGER NOT NULL);
@@ -43,6 +43,7 @@ export function createGameBridge({db,auth,admin,body,send,limit,gameTelemetry,in
     const s=input.status||{},players=s.players||[],caps=s.capabilities||[];
     if(!Array.isArray(players)||players.length>1000||!Array.isArray(caps)||caps.length>CAPABILITIES.length)fail('在线状态格式无效');
     const value={version:string(s.version,80,'游戏版本'),loader:string(s.loader,80,'加载器'),online:integer(s.online,0,100000,'在线人数'),max:integer(s.max,1,100000,'人数上限'),capabilities:[...new Set(caps.map(c=>choice(c,CAPABILITIES,'能力')))],players:players.map(v=>({uid:uid(v.uid),name:name(v.name)}))};
+    playtime?.observe(server,value.players);
     db.prepare('INSERT INTO game_bridge_state VALUES(?,?,?) ON CONFLICT(server) DO UPDATE SET value=excluded.value,observed=excluded.observed').run(server,JSON.stringify(value),stamp);
     if(value.online<value.max){
      const watchers=db.prepare('SELECT uid FROM game_bridge_watch WHERE server=? LIMIT 500').all(server);

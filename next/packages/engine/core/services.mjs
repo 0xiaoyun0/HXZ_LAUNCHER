@@ -20,6 +20,7 @@ import {exportPack} from './export-pack.mjs';
 import {inspectInstance,createSnapshot,restoreSnapshot,deleteSnapshot,cloneInstance,migrateGameRoot} from './instance-maintenance.mjs';
 import {BUILTIN_PRESETS,configurationPreset,readPresets} from './instance-presets.mjs';
 import {launchHistory} from './launch-history.mjs';
+import {gamePlaytime} from './game-playtime.mjs';
 import {inspectWorldArchive,extractWorldArchive,exportWorld,putWorldReceipt} from './worlds.mjs';
 import {readLayoutPackage,exportLayoutPackage,applyLayoutPackage,LAYOUT_LIMIT} from './layout-package.mjs';
 import {addonWorlds,addonSearch,addonInstall,modDetails} from './addons.mjs';
@@ -101,6 +102,7 @@ export async function createServices({
   await fs.mkdir(data, { recursive: true });
   const dependencies=await dependencyStore(dependencyRoot,data);
   const performanceHistory=launchHistory(data);
+  const personalPlaytime=gamePlaytime(data,{onError:error=>log('游玩日历未保存：'+error.message)});
   let blueprintDownload=null;
   const configFile = path.join(data, "settings.json"),
     accountFile = path.join(data, "accounts.bin");
@@ -766,6 +768,8 @@ export async function createServices({
         shell: false
       });
       running = child;
+      child.once('spawn',()=>{void personalPlaytime.start(child).catch(error=>log('游玩日历未保存：'+error.message));});
+      child.once('exit',()=>{void personalPlaytime.stop(child).catch(error=>log('游玩日历未保存：'+error.message));});
       attachLog(child.stdout,capture);
       attachLog(child.stderr,capture);
       child.on("error", error => {
@@ -1810,6 +1814,7 @@ export async function createServices({
         : "";
     },
     async "instance.diagnose"(input){const preset=presetCatalog.list().find(p=>p.id===input.id);return diagnoseServer(preset?.address||settings.instanceSettings[input.id]?.serverAddress||'');},
+    async 'game.playtime'(){return personalPlaytime.snapshot();},
     async 'instance.performance'(input){return performanceHistory.list(settings.gameRoot,input.id);},
     async 'storage.destination'(){const value=await dialog.showOpenDialog(window(),{title:'选择迁移目标 · 空目录',properties:['openDirectory','createDirectory']});return value.canceled?null:value.filePaths[0];},
     async 'storage.migrate'(input){
@@ -2204,6 +2209,7 @@ export async function createServices({
       }
     },
     dispose() {
+      personalPlaytime.dispose();
       void assetExporter.close();
       lobby.dispose();void stopDirectHelper?.();
       blueprintDownload?.abort();

@@ -39,6 +39,6 @@ export function appDestination(target){
  if(hub?.retired)return hub.redirect;
  if(hub)return hubDestination(hub.section,hub.item);
  const path=url.pathname;
- if(/^\/(?:community(?:\/(?:voice|forum(?:\/[^/]+)?|blueprints|inbox|notices))?|workshop(?:\/(?:install|addons|blueprints))?|account(?:\/backpack)?|settings|feedback|guild|linking|music|multiplayer|library|arcade(?:\/(?:ranking|shop|social\/werewolf|play\/[\w-]+|board\/(?:chess|gomoku|xiangqi)))?)\/?$/.test(path)||path==='/')return path+url.search;
+ if(/^\/(?:community(?:\/(?:voice|forum(?:\/[^/]+)?|blueprints|inbox|notices|playtime))?|workshop(?:\/(?:install|addons|blueprints))?|account(?:\/backpack)?|settings|feedback|guild|linking|music|multiplayer|library|arcade(?:\/(?:ranking|shop|social\/werewolf|play\/[\w-]+|board\/(?:chess|gomoku|xiangqi)))?)\/?$/.test(path)||path==='/')return path+url.search;
  return null;
 }

@@ -100,7 +100,7 @@ const onlineUsers=computed(()=>[...new Map(state.users.map(u=>[u.uid,u])).values
 const roomName=computed(()=>rooms.value.find(r=>r.id===(state.room||state.recoveringRoom))?.name||''),members=id=>state.users.filter(u=>u.room===id);
 const access=reactive({admin:false,reviewer:false,forumCategories:['交流讨论','游戏求助','作品分享','建议反馈'],blueprintCategories:['生产与加工','仓储与物流','动力与传动','列车与交通','建筑与装饰','其他']});
 async function loadAccess(){Object.assign(access,await api('/api/content/access'));await loadUnread();}
-const unread=ref(0);
+const unread=ref(0),playtimeRequest=ref(null);
 async function loadUnread(){try{unread.value=state.connected?(await api('/api/inbox/unread')).unread:0;}catch{}}
 unsubs.push(on('inbox-changed',loadUnread));
 async function openInboxTarget(target){
@@ -113,6 +113,7 @@ async function openInboxTarget(target){
    const result=message?await api('/api/chat/history?around='+encodeURIComponent(message)):null;
    navigate('chat');if(result){historyPage.value=result.items;nearBottom.value=false;await nextTick();document.querySelector('[data-message="'+Number(message)+'"]')?.scrollIntoView({block:'center'});}
   }else if(u.pathname==='/community/inbox')navigate('inbox');
+  else if(u.pathname==='/community/playtime'){playtimeRequest.value={week:Number(u.searchParams.get('week'))||0,nonce:Date.now()};navigate('minecraft');}
   else if(u.pathname==='/community/voice')navigate('voice');
   else if(u.pathname==='/community/forum'){detail.value=null;navigate('forum');}
   else if(u.pathname==='/community/notices')openSettings('updates');
@@ -313,7 +314,7 @@ onUnmounted(()=>{document.removeEventListener('pointerdown',touchFeedback);pageA
     <KeepAlive><InboxPage v-if="tab==='inbox'" :key="state.user.uid" :admin="access.admin" :open-target="openInboxTarget" @back="navigateBack" @changed="loadUnread"/></KeepAlive><VoicePage v-if="tab==='voice'" :state="state" :settings="settings" :rooms="rooms" :members="members" :room-name="roomName" :speaker="speaker" :busy="busy" @join="join" @mode="setVoiceMode" @change="voiceChange" @leave="leaveVoice" @press="press" @speaker="toggleSpeaker" @login="sheet=state.hasAccount?'connection':'login'"/>
 
 
-    <section v-if="tab==='hub'" class="content-page context-page"><header v-if="hubTarget.area!=='all'" class="hub-context-header"><button class="text-button back" @click="navigate(hubReturn)"><Icon name="back"/>返回</button><h1>{{HUB_AREAS[hubTarget.area]?.title}}</h1></header><HubPage :area="hubTarget.area" :section="hubTarget.section" :item="hubTarget.item" @navigate="openInboxTarget"/></section><InventoryPage v-if="tab==='inventory'"/><MobileMinecraft v-if="tab==='minecraft'" :open-risk-on-entry="minecraftRiskOnEntry" @risk-opened="minecraftRiskOnEntry=false"/><GuildPage v-if="tab==='guild'" :key="guildTask" :task="guildTask"/><LinkingActivity v-if="tab==='linking'" :settings="settings"/><section v-show="tab==='music'" class="content-page context-page"><MusicPage :visible="tab==='music'" :settings="settings" @open="navigate('music')"/></section><LobbyPage v-if="tab==='lobby'" @open-minecraft="openMinecraftRisk"/>
+    <section v-if="tab==='hub'" class="content-page context-page"><header v-if="hubTarget.area!=='all'" class="hub-context-header"><button class="text-button back" @click="navigate(hubReturn)"><Icon name="back"/>返回</button><h1>{{HUB_AREAS[hubTarget.area]?.title}}</h1></header><HubPage :area="hubTarget.area" :section="hubTarget.section" :item="hubTarget.item" @navigate="openInboxTarget"/></section><InventoryPage v-if="tab==='inventory'"/><MobileMinecraft :playtime-request="playtimeRequest" v-if="tab==='minecraft'" :open-risk-on-entry="minecraftRiskOnEntry" @risk-opened="minecraftRiskOnEntry=false"/><GuildPage v-if="tab==='guild'" :key="guildTask" :task="guildTask"/><LinkingActivity v-if="tab==='linking'" :settings="settings"/><section v-show="tab==='music'" class="content-page context-page"><MusicPage :visible="tab==='music'" :settings="settings" @open="navigate('music')"/></section><LobbyPage v-if="tab==='lobby'" @open-minecraft="openMinecraftRisk"/>
     <section v-if="tab==='shop'" class="content-page"><button class="text-button back" @click="navigateBack"><Icon name="back"/>返回</button><ShopPanel :request="api" :dialog-host="shopDialog"/></section>
     <div v-if="tab==='games'" class="games-scroll"><ArcadeGames  :launch-match="boardTarget" :launch-target="arcadeTarget" :request="api" :transport="{send:input=>native('coopControl',input),subscribe:handler=>on('coop-state',handler)}"/></div>
     <section v-if="tab==='forum'" class="content-page">

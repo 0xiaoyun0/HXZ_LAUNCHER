@@ -28,7 +28,7 @@ export function placeTransferredCard(layouts,card,target,current,drop){
 const boards=new Set(CARD_PAGES.map(p=>p[0]));
 const identifier=v=>typeof v==='string'&&/^[a-zA-Z0-9_-]{1,48}$/.test(v)&&!['constructor','prototype','__proto__'].includes(v);
 const text=(v,n)=>typeof v==='string'?v.slice(0,n):'';
-const portableCards={home:['library','launch','roles','monitor'],music:['lyrics','player','library','online','room'],account:['identity','wallet','ledger'],guild:['overview','ongoing','quests'],chat:['panel-0','panel-1'],ranking:['panel-0','panel-1'],install:['panel-0','panel-1'],inbox:['messages'],multiplayer:['default-online','session','host','join','network','guide','rooms','permissions']};
+const portableCards={home:['library','launch','roles','monitor','playtime'],music:['lyrics','player','library','online','room'],account:['identity','wallet','ledger'],guild:['overview','ongoing','quests'],chat:['panel-0','panel-1'],ranking:['panel-0','panel-1'],install:['panel-0','panel-1'],inbox:['messages'],multiplayer:['default-online','session','host','join','network','guide','rooms','permissions']};
 export function isPortableCard(source,card){
  if(source==='games')return /^game-[a-z0-9-]+$/.test(card);
  if(source==='voice')return ['controls','devices','collaboration'].includes(card)||/^room-[a-zA-Z0-9_-]+$/.test(card);

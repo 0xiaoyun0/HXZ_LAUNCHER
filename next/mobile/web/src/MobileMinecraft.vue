@@ -1,6 +1,7 @@
 <script setup>
 import {ref,reactive,computed,onMounted,onUnmounted,watch} from 'vue';import {native,api,on,state} from './native.js';import Icon from './Icon.vue';import AppSelect from './AppSelect.vue';import AppOverlay from './AppOverlay.vue';import ChoiceRows from './ChoiceRows.vue';
-const props=defineProps({openRiskOnEntry:Boolean});
+import PlayCalendar from './PlayCalendar.vue';
+const props=defineProps({openRiskOnEntry:Boolean,playtimeRequest:Object});
 const emit=defineEmits(['risk-opened']);
 const engine=ref({phase:'idle',installed:false,riskAccepted:false}),servers=ref([]),error=ref(''),busy=ref(''),showRisk=ref(false),showProfiles=ref(false),switchTarget=ref(''),advanced=ref(false),componentOpen=ref(false),refreshing=ref(false);
 const moduleReady=computed(()=>!!(engine.value.installed||engine.value.ready));
@@ -30,6 +31,7 @@ onMounted(()=>{if(props.openRiskOnEntry){showRisk.value=true;emit('risk-opened')
  <div class="server-section-heading"><h2>选择服务器</h2><span class="muted">{{servers.length?servers.length+' 个默认服务器':'获取服务器配置'}}</span></div>
  <div v-if="!servers.length" class="card game-server-empty"><p>{{refreshing?'正在获取服务器…':'暂未取得服务器配置'}}</p><button v-if="!refreshing" class="soft-button" @click="refresh">重新获取</button></div>
   <div class="game-server-list"><article v-for="(server,index) in servers" :key="server.id" class="card mobile-server-card"><div class="engine-heading"><span class="server-number">{{String(index+1).padStart(2,'0')}}</span><div><h2>{{server.name}}</h2><p>{{server.profileSource==='hxzup'?'随服务器整合包更新':[server.version,server.loader||'原版'].filter(Boolean).join(' · ')}}</p></div></div><p v-if="!server.enabled" class="muted">服务器当前未开放</p><p v-else-if="server.updateRequired" class="muted">启动前需要完成服务器更新</p><div class="server-actions"><button class="primary" :disabled="!state.selectedProfile?.id||!server.enabled||!!busy||engine.busy" @click="action('launch',{id:server.id,options:{...options}})"><Icon name="play"/>{{busy===server.id?'正在准备…':moduleReady?'开始游戏':'准备并进入'}}</button></div></article></div>
+ <PlayCalendar :request="playtimeRequest"/>
  <section class="card engine-status"><button class="engine-settings-trigger" :aria-expanded="componentOpen" @click="componentOpen=!componentOpen"><div><h2>游戏运行模块</h2><p>{{engine.busy?(engine.message||'正在准备游戏运行资源'):engine.phase==='error'?'准备失败，可继续下载':engine.phase==='paused'?'下载已暂停，可继续下载':moduleReady?'已就绪'+(engine.version?' · '+engine.version:''):engine.message||'首次启动时自动下载运行资源'}}</p></div><Icon name="chevron" :class="{'engine-chevron-open':componentOpen}"/></button>
   <div v-if="engine.busy" class="engine-download" aria-live="polite"><progress v-if="downloading&&engine.total>0" :value="engine.received||0" :max="engine.total"/><progress v-else aria-label="正在准备游戏运行资源"/><p>{{downloading&&engine.total>0?size(engine.received)+' / '+size(engine.total):engine.message||'正在准备游戏运行资源…'}}</p><button v-if="downloading" class="soft-button" :disabled="!!busy" @click="action('cancel')">暂停下载</button></div>
   <p v-if="engine.phase==='error'||engine.phase==='paused'" class="runtime-message" :class="{'is-error':engine.phase==='error'}" role="status">{{engine.message}}</p>
