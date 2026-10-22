@@ -1,0 +1,9 @@
+{
+  "fclCommit": "a36e1e42292d6a67c93be0dafbfdceff01823e71",
+  "fclRepository": "https://github.com/FCL-Team/FoldCraftLauncher",
+  "artifact": "FCL/libs/NG-GL4ES-release.aar",
+  "artifactGitBlob": "c5f55f1f4e1ce42b894b6e8fba543ef483a3eb4a",
+  "arm64Sha256": "cfee8bf238fc508478454c2daf19b518182827b426d5d4556f1e93a0ad348ea7",
+  "ngSource": "https://github.com/FCL-Team/NG-GL4ES",
+  "note": "Binary copied verbatim from the pinned official FCL AAR; no claim that it was built from the current NG main commit."
+}

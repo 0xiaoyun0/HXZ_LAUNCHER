@@ -21,14 +21,14 @@ import java.util.concurrent.*;
 import org.json.*;
 import top.hxzmc.runtime.*;
 
-/** HXZ's own game screen. ART owns input/surface; HotSpot lives in a native child process. */
+/** Game screen; FCL EGL renders in a disposable :jvm service. Installers stay in native exec children. */
 public final class GameRuntimeActivity extends Activity implements SurfaceHolder.Callback {
     private final ExecutorService work=Executors.newSingleThreadExecutor();
     private final EngineHost.Cancellation cancellation=new EngineHost.Cancellation();
     private final Handler ui=new Handler(Looper.getMainLooper());
     private final CountDownLatch surfaceReady=new CountDownLatch(1);
     private JSONObject request,options;private File root,run,log;private AndroidEngineHost host;private volatile String clientModDiagnostic="",rendererDiagnostic="";
-    private boolean softwareRenderer;
+    private boolean softwareRenderer,directRenderer;private volatile GameJvmClient directGame;
     private FrameLayout frame;private LinearLayout panel;private TextView heading,detail;private ProgressBar progress;private Button diagnosticButton;private File diagnosticLog;private volatile String lastDiagnosticPhase="",diagnosticText="";
     private SurfaceView surface;private GameControlsView controls;private Dialog textDialog;private volatile Process process;private volatile boolean playing,closing,gameStarted;private volatile String gameDiagnostic="";
     private long lastProgress,roomLogOffset;private final ByteArrayOutputStream roomLogLine=new ByteArrayOutputStream();private final Set<String> secrets=ConcurrentHashMap.newKeySet();private volatile int surfacePixelWidth,surfacePixelHeight;private volatile boolean surfaceLive;private int renderWidth=1280,renderHeight=720,hostPort;private String accountId="";
@@ -105,24 +105,36 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
                 if(hostPort>0){Bundle info=new Bundle();info.putInt("port",hostPort);info.putString("game",gameDescription.toString());bridge("roomState",info);}
             }
             String lwjgl=lwjgl(plan);File nativeLibs=host.resource("lwjgl/"+lwjgl);
-            String rendererPath=rendererInfo.getString("library");if(!rendererPath.startsWith("app_runtime/renderers/"))throw new IOException("图形运行模块路径无效");File renderer=host.resource(rendererPath.substring("app_runtime/".length()));
-            List<String> extra=new ArrayList<>(Arrays.asList("-Dorg.lwjgl.librarypath="+nativeLibs,"-Dorg.lwjgl.system.allocator=system","-Dorg.lwjgl.glfw.libname="+new File(getApplicationInfo().nativeLibraryDir,"libhxz_runtime.so"),"-Dorg.lwjgl.opengl.contextAPI=OSMesa","-Dorg.lwjgl.opengl.osmesa.libname="+renderer,"-Dorg.lwjgl.openal.libname="+host.resource("audio/libopenal.so"),"-javaagent:"+host.resource("tools/authlib-injector.jar")+"=https://skin.hxzmc.top/api/yggdrasil"));
+            File renderer;
+            if(directRenderer){renderer=new File(getApplicationInfo().nativeLibraryDir,"libng_gl4es.so");if(!renderer.isFile())throw new IOException("缺少 FCL NG 渲染组件，请重新安装本构建");}
+            else{String path=rendererInfo.getString("library");if(!path.startsWith("app_runtime/renderers/"))throw new IOException("图形运行模块路径无效");renderer=host.resource(path.substring("app_runtime/".length()));}
+            List<String> extra=new ArrayList<>(Arrays.asList("-Dorg.lwjgl.librarypath="+nativeLibs,"-Dorg.lwjgl.system.allocator=system","-Dorg.lwjgl.glfw.libname="+new File(getApplicationInfo().nativeLibraryDir,"libhxz_runtime.so"),"-Dorg.lwjgl.openal.libname="+host.resource("audio/libopenal.so"),"-javaagent:"+host.resource("tools/authlib-injector.jar")+"=https://skin.hxzmc.top/api/yggdrasil"));
+            if(directRenderer){extra.add("-Dorg.lwjgl.opengl.libname="+renderer);extra.add("-Dorg.lwjgl.opengl.contextAPI=GLX");}
+            else{extra.add("-Dorg.lwjgl.opengl.contextAPI=OSMesa");extra.add("-Dorg.lwjgl.opengl.osmesa.libname="+renderer);}
             if(plan.mainClass.startsWith("org.quiltmc."))extra.add("-Dloader.disable_forked_guis=true");
-            if(lwjgl.equals("3.3.3"))extra.add("-Dorg.lwjgl.opengl.libname="+renderer);
+            if(!directRenderer&&lwjgl.equals("3.3.3"))extra.add("-Dorg.lwjgl.opengl.libname="+renderer);
             if(lwjgl.equals("3.4.1"))extra.add("-Dorg.lwjgl.freetype.libname="+host.resource("lwjgl/3.4.1/libfreetype.so"));
             String jna=jna(plan);if(jna!=null){File dispatch=host.resource("jna/"+jna+"/libjnidispatch.so");if(!dispatch.isFile())throw new IOException("运行模块缺少此游戏需要的 JNA "+jna+"，请更新运行模块");extra.add("-Djna.boot.library.path="+dispatch.getParent());extra.add("-Djna.nosys=true");extra.add("-Djna.nounpack=true");}
             List<String> game=new ArrayList<>();String address=options.optString("joinServer");if(!address.isEmpty())game.addAll(Arrays.asList("--quickPlayMultiplayer",address));
             if(hostPort>0){extra.add("-javaagent:"+host.resource("tools/direct-lobby.jar"));touchRoomControl();}
             jobFile=host.job(freshJob(plan.javaJob(),account(true).getString("accessToken")),extra,game);log=new File(host.logs,"game-latest.log");rendererDiagnostic+="\n游戏渲染尺寸："+renderWidth+" × "+renderHeight;Files.write(log.toPath(),("[HXZ graphics] "+scrub(rendererDiagnostic)+"\n").getBytes(StandardCharsets.UTF_8));roomLogOffset=0;roomLogLine.reset();
             cancellation.check();
-            String socket=new File(getCacheDir(),"game-"+android.os.Process.myPid()+".sock").getAbsolutePath();String error=NativeRuntime.start(socket,renderWidth,renderHeight);if(error!=null)throw new IOException(error);
-            File executable=new File(getApplicationInfo().nativeLibraryDir,"libhxz_jvm_exec.so");if(!executable.canExecute())throw new IOException("游戏进程组件缺失，请更新社区应用");
-            ProcessBuilder builder=new ProcessBuilder(executable.getAbsolutePath(),jobFile.getAbsolutePath(),socket,renderer.getAbsolutePath(),"osmesa").directory(run).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.appendTo(log));
-            builder.environment().put("LD_LIBRARY_PATH",renderer.getParent()+":"+nativeLibs+":"+host.resource("audio")+":"+host.javaHome(plan.javaMajor)+"/lib/server:"+host.javaHome(plan.javaMajor)+"/lib:"+getApplicationInfo().nativeLibraryDir);
-            rendererEnvironment(builder,rendererInfo.getString("driver"));crashCapture=new GameCrashDiagnostics(run);process=builder.start();gameStarted=true;playing=true;
+            String socket=new File(getCacheDir(),"game-"+android.os.Process.myPid()+".sock").getAbsolutePath();
+            String error=directRenderer?NativeRuntime.startDirect(socket,renderWidth,renderHeight):NativeRuntime.start(socket,renderWidth,renderHeight);if(error!=null)throw new IOException(error);
+            String libraries=renderer.getParent()+":"+nativeLibs+":"+host.resource("audio")+":"+host.javaHome(plan.javaMajor)+"/lib/server:"+host.javaHome(plan.javaMajor)+"/lib:"+getApplicationInfo().nativeLibraryDir;
+            crashCapture=new GameCrashDiagnostics(run);
+            if(directRenderer){
+                GameJvmClient client=new GameJvmClient(this);directGame=client;
+                client.start(jobFile,socket,libraries,log,surfaceLive?surface.getHolder().getSurface():null,renderWidth,renderHeight);
+            }else{
+                File executable=new File(getApplicationInfo().nativeLibraryDir,"libhxz_jvm_exec.so");if(!executable.canExecute())throw new IOException("游戏进程组件缺失，请更新社区应用");
+                ProcessBuilder builder=new ProcessBuilder(executable.getAbsolutePath(),jobFile.getAbsolutePath(),socket,renderer.getAbsolutePath(),"osmesa").directory(run).redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.appendTo(log));
+                builder.environment().put("LD_LIBRARY_PATH",libraries);rendererEnvironment(builder,rendererInfo.getString("driver"));process=builder.start();
+            }
+            gameStarted=true;playing=true;
             ui.post(()->{((View)panel.getParent()).setVisibility(View.GONE);controls.configure(options.optInt("controlSize",100)/100f,(float)options.optDouble("sensitivity",1),renderWidth,renderHeight);controls.setVisibility(View.VISIBLE);});
-            long lastRoom=0;while(!process.waitFor(250,TimeUnit.MILLISECONDS)){cancellation.check();if(hostPort>0&&SystemClock.elapsedRealtime()-lastRoom>2500){lastRoom=SystemClock.elapsedRealtime();touchRoomControl();}}
-            int exit=process.exitValue();playing=false;if(exit!=0)throw new IOException("游戏退出（代码 "+exit+"）。安装进度和存档已保留，日志在游戏诊断中。");ui.post(this::leave);
+            long lastRoom=0;while(!(directRenderer?directGame.waitFor(250):process.waitFor(250,TimeUnit.MILLISECONDS))){cancellation.check();if(hostPort>0&&SystemClock.elapsedRealtime()-lastRoom>2500){lastRoom=SystemClock.elapsedRealtime();touchRoomControl();}}
+            int exit=directRenderer?directGame.exitValue():process.exitValue();playing=false;if(exit!=0)throw new IOException("游戏退出（代码 "+exit+"）。安装进度和存档已保留，日志在游戏诊断中。"+(directRenderer?"\n"+directGame.error():""));ui.post(this::leave);
         }catch(Exception e){if(!closing){if(gameStarted&&crashCapture!=null)gameDiagnostic=scrub(crashCapture.collect(log));failed(e);}}finally {playing=false;stopGame();if(jobFile!=null)try{Files.deleteIfExists(jobFile.toPath());}catch(IOException ignored){}roomExited();}
     }
     private static EngineHost.JavaJob freshJob(EngineHost.JavaJob original,String token)throws Exception {
@@ -138,6 +150,14 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     private String lwjgl(LaunchPlan plan)throws IOException {String version=null;for(File file:plan.classpath){java.util.regex.Matcher match=java.util.regex.Pattern.compile("lwjgl-([0-9]+\\.[0-9]+\\.[0-9]+)(?:-unsafe)?\\.jar").matcher(file.getName());if(match.matches()){String found=match.group(1);if(version!=null&&!version.equals(found))throw new IOException("游戏存在互不兼容的 LWJGL 版本");version=found;}}if(!Arrays.asList("3.3.3","3.4.1").contains(version))throw new IOException("当前运行模块尚未适配图形接口 LWJGL "+version);return version;}
     private String jna(LaunchPlan plan)throws IOException {String version=null;for(File file:plan.classpath){java.util.regex.Matcher match=java.util.regex.Pattern.compile("jna-([0-9]+\\.[0-9]+\\.[0-9]+)\\.jar").matcher(file.getName());if(match.matches()){String found=match.group(1);if(version!=null&&!version.equals(found))throw new IOException("游戏存在互不兼容的 JNA 版本");version=found;}}if(version!=null&&!Arrays.asList("5.14.0","5.17.0").contains(version))throw new IOException("当前运行模块尚未适配系统接口 JNA "+version);return version;}
     private JSONObject selectRenderer()throws Exception {
+        String preference=options.optString("renderer","auto");
+        if(preference.equals("auto")||preference.equals("ng-gl4es")){
+            directRenderer=true;softwareRenderer=false;
+            rendererDiagnostic="FCL NG-GL4ES（Krypton Wrapper） · EGL 直连 Android 画面，不使用 CPU 像素复制\n设备："+Build.MANUFACTURER+" "+Build.MODEL;
+            update("graphics",rendererDiagnostic,1,1);
+            return new JSONObject().put("id","ng-gl4es").put("kind","fcl-egl").put("driver","ng-gl4es");
+        }
+        directRenderer=false;
         File file=new File(host.module,"module.json");if(!file.isFile()||file.length()>1024*1024)throw new IOException("运行模块清单无效");JSONObject metadata=new JSONObject(new String(Files.readAllBytes(file.toPath()),StandardCharsets.UTF_8));JSONArray renderers=metadata.optJSONArray("renderers");
         update("graphics","正在检测 GPU 渲染，首次检测可能需要几秒",0,0);
         RendererSelection.Selection selection=RendererSelection.select(renderers,options.optString("renderer","auto"),this::probeRenderer);
@@ -272,7 +292,9 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     private Button textButton(String label,boolean primary){Button button=new Button(this);button.setText(label);button.setTextSize(14);button.setAllCaps(false);button.setTextColor(primary?Color.WHITE:0xff5868bb);button.setPadding(dp(10),0,dp(10),0);GradientDrawable background=new GradientDrawable();background.setColor(primary?0xff5868bb:0xfff3f5fa);background.setCornerRadius(dp(10));button.setBackground(background);return button;}
     private void slider(String key,String label,int minimum,int maximum,int initial){android.content.SharedPreferences prefs=getSharedPreferences("hxz-game-controls",0);float value=prefs.getFloat(key,key.equals("sensitivity")?1:initial);int current=key.equals("sensitivity")?Math.round(value*100):Math.round(value);TextView caption=text(label+" · "+current+"%",14,0xff394568);caption.setPadding(0,dp(14),0,0);panel.addView(caption,panel.getChildCount()-1);SeekBar seek=new SeekBar(this);seek.setMin(minimum);seek.setMax(maximum);seek.setProgress(current);panel.addView(seek,panel.getChildCount()-1,new LinearLayout.LayoutParams(-1,dp(44)));seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){public void onProgressChanged(SeekBar s,int n,boolean user){caption.setText(label+" · "+n+"%");if(user)prefs.edit().putFloat(key,key.equals("sensitivity")?n/100f:n).apply();}public void onStartTrackingTouch(SeekBar s){}public void onStopTrackingTouch(SeekBar s){}});}
     private synchronized void stopGame(){
-        NativeRuntime.stop();Process current=process;if(current==null||!current.isAlive())return;
+        NativeRuntime.stop();GameJvmClient client=directGame;
+        if(client!=null){try{client.waitFor(20000);}catch(InterruptedException e){Thread.currentThread().interrupt();}finally{client.close();directGame=null;}}
+        Process current=process;if(current==null||!current.isAlive())return;
         // Closing GLFW lets Minecraft flush world data. Force only after the bounded graceful wait.
         boolean interrupted=Thread.interrupted();try{if(!current.waitFor(20,TimeUnit.SECONDS)){current.destroy();if(!current.waitFor(3,TimeUnit.SECONDS))current.destroyForcibly();}}catch(InterruptedException e){current.destroy();Thread.currentThread().interrupt();}finally{if(interrupted)Thread.currentThread().interrupt();}
     }
@@ -280,10 +302,14 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     @Override public void onBackPressed(){if(playing){NativeRuntime.event(1,256,0,1,0);NativeRuntime.event(1,256,0,0,0);}else leave();}
     @Override protected void onPause(){super.onPause();if(controls!=null)controls.release();NativeRuntime.event(6,0,0,0,0);}
     @Override protected void onResume(){super.onResume();NativeRuntime.event(6,1,0,0,0);}
-    @Override protected void onDestroy(){closing=true;if(textDialog!=null)textDialog.dismiss();cancellation.cancel();NativeRuntime.stop();work.shutdown();super.onDestroy();}
-    @Override public void surfaceCreated(SurfaceHolder holder){android.graphics.Rect bounds=holder.getSurfaceFrame();surfacePixelWidth=bounds.width();surfacePixelHeight=bounds.height();surfaceLive=true;NativeRuntime.surface(holder.getSurface(),renderWidth,renderHeight);surfaceReady.countDown();}
-    @Override public void surfaceChanged(SurfaceHolder holder,int format,int w,int h){surfacePixelWidth=w;surfacePixelHeight=h;surfaceLive=true;NativeRuntime.surface(holder.getSurface(),renderWidth,renderHeight);}
-    @Override public void surfaceDestroyed(SurfaceHolder holder){surfaceLive=false;NativeRuntime.surface(null,0,0);}
+    @Override protected void onDestroy(){closing=true;if(textDialog!=null)textDialog.dismiss();cancellation.cancel();NativeRuntime.stop();GameJvmClient client=directGame;if(client!=null)client.close();work.shutdown();super.onDestroy();}
+    private void updateGameSurface(Surface value){
+        NativeRuntime.surface(value,value==null?0:renderWidth,value==null?0:renderHeight);
+        GameJvmClient client=directGame;if(client!=null)client.surface(value,renderWidth,renderHeight);
+    }
+    @Override public void surfaceCreated(SurfaceHolder holder){android.graphics.Rect bounds=holder.getSurfaceFrame();surfacePixelWidth=bounds.width();surfacePixelHeight=bounds.height();surfaceLive=true;updateGameSurface(holder.getSurface());surfaceReady.countDown();}
+    @Override public void surfaceChanged(SurfaceHolder holder,int format,int w,int h){surfacePixelWidth=w;surfacePixelHeight=h;surfaceLive=true;updateGameSurface(holder.getSurface());}
+    @Override public void surfaceDestroyed(SurfaceHolder holder){surfaceLive=false;updateGameSurface(null);}
     @Override public boolean dispatchKeyEvent(KeyEvent event){
         if(playing&&textDialog==null){
             if(controls.handleMouseKeyEvent(event))return true;

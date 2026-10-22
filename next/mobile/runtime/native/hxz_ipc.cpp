@@ -19,13 +19,14 @@
 
 namespace {
 constexpr uint32_t magic=0x48585a34, version=1;
-enum : uint32_t { hello=1, init=2, input=3, release=4, frame=5, ack=6, quit=7, resize=8 };
+enum : uint32_t { hello=1, init=2, input=3, release=4, frame=5, ack=6, quit=7, resize=8, capture=9 };
 struct Packet { uint32_t marker=magic, revision=version, type=0, slot=0; int32_t a=0,b=0,c=0,d=0,e=0; uint64_t sequence=0,generation=0; };
 struct State {
     std::atomic<int> listener{-1},socket{-1};
     std::atomic<bool> stopped{false},captured{false};
     std::mutex sendLock;
     bool connected=false; // Protected by sendLock; INIT must precede resize packets.
+    bool direct=false;
     std::string path;
     int fd=-1,width=0,height=0;
     size_t slotBytes=0;
@@ -78,7 +79,8 @@ void hostLoop(std::shared_ptr<State> s){
         if(!sameUid(peer)){close(peer);continue;}
         s->socket.store(peer);Packet p{};
         if(!receivePacket(peer,p)||p.type!=hello){s->socket.store(-1);close(peer);continue;}
-        Packet setup{};setup.type=init;setup.a=s->width;setup.b=s->height;
+        if((p.e!=0)!=s->direct){s->socket.store(-1);close(peer);continue;}
+        Packet setup{};setup.type=init;setup.a=s->width;setup.b=s->height;setup.e=s->direct?1:0;
         bool negotiated=false;
         {std::lock_guard<std::mutex> guard(s->sendLock);setup.generation=s->generation.load();
             negotiated=sendPacketUnlocked(*s,setup,s->fd);if(negotiated)s->connected=true;}
@@ -94,7 +96,8 @@ void hostLoop(std::shared_ptr<State> s){
                 s->pending[p.slot].store(0);
                 Packet done{};done.type=ack;done.slot=p.slot;done.sequence=p.sequence;
                 if(!sendPacket(*s,done))break;
-            }else if(p.type==quit)break;else break;
+            }else if(p.type==capture&&s->direct){s->captured.store(p.a!=0);}
+            else if(p.type==quit)break;else break;
         }
         {std::lock_guard<std::mutex> guard(s->sendLock);s->connected=false;s->socket.store(-1);}
         shutdown(peer,SHUT_RDWR);close(peer);s->captured.store(false);
@@ -114,7 +117,15 @@ int frameSink(const unsigned char* pixels,int width,int height,int stride,int to
     if(!sendPacket(*s,p)){s->pending[slot].store(0);return -1;}return 0;
 }
 void childLoop(std::shared_ptr<State> s){Packet p{};int sock=s->socket.load();
-    while(!s->stopped.load()&&receivePacket(sock,p)){
+    while(!s->stopped.load()){
+        if(s->direct){
+            bool captured=hxz_cursor_captured()!=0;
+            if(captured!=s->captured.load()){Packet state{};state.type=capture;state.a=captured;
+                if(!sendPacket(*s,state))break;s->captured.store(captured);}
+            pollfd probe{sock,POLLIN,0};int ready=poll(&probe,1,50);
+            if(ready<0&&errno==EINTR)continue;if(ready<0)break;if(ready==0)continue;
+        }
+        if(!receivePacket(sock,p))break;
         if(p.type==input)hxz_event(p.a,p.b,p.c,p.d,p.e);
         else if(p.type==release)hxz_release_inputs();
         else if(p.type==resize){if((p.a!=0||p.b!=0)&&(p.a<1||p.b<1||p.a>s->width||p.b>s->height))break;
@@ -126,16 +137,19 @@ void childLoop(std::shared_ptr<State> s){Packet p{};int sock=s->socket.load();
 }
 }
 
-std::string hxz_ipc_start(const std::string& path,int width,int height){
+std::string hxz_ipc_start(const std::string& path,int width,int height,bool direct){
     sockaddr_un addr{};socklen_t len=0;
     if(!address(path,addr,len))return "Invalid private IPC socket path";
     if(width<1||height<1||width>4096||height>4096||static_cast<uint64_t>(width)*height>16'777'216)return "Invalid render size";
     std::lock_guard<std::mutex> guard(globalLock);if(host)return "Native runtime is already started";
     auto s=std::make_shared<State>();s->path=path;s->width=width;s->height=height;s->desiredWidth=width;s->desiredHeight=height;s->slotBytes=static_cast<size_t>(width)*height*4;
+    s->direct=direct;
+    if(!direct){
     s->fd=ASharedMemory_create("hxz-frames",s->slotBytes*2);if(s->fd<0)return "Cannot allocate shared frame buffer";
     const std::string capacityError=hxz_check_shared_frames(s->fd,s->slotBytes*2);if(!capacityError.empty())return capacityError;
     s->pixels=static_cast<unsigned char*>(mmap(nullptr,s->slotBytes*2,PROT_READ|PROT_WRITE,MAP_SHARED,s->fd,0));
     if(s->pixels==MAP_FAILED){s->pixels=nullptr;return "Cannot map shared frame buffer";}
+    }
     int sock=socket(AF_UNIX,SOCK_SEQPACKET|SOCK_CLOEXEC,0);if(sock<0)return "Cannot create IPC socket";
     s->listener.store(sock);
     struct stat existing{};if(lstat(path.c_str(),&existing)==0){
@@ -169,20 +183,23 @@ void hxz_ipc_resize(int width,int height){std::shared_ptr<State> s;{std::lock_gu
 }
 bool hxz_ipc_captured(){std::lock_guard<std::mutex> guard(globalLock);return host&&host->captured.load();}
 
-std::string hxz_ipc_child_connect(const std::string& path){
+std::string hxz_ipc_child_connect(const std::string& path,bool direct){
     sockaddr_un addr{};socklen_t len=0;if(!address(path,addr,len))return "Invalid private IPC socket path";
     std::lock_guard<std::mutex> guard(globalLock);if(child)return "Game IPC already connected";
     auto s=std::make_shared<State>();int sock=socket(AF_UNIX,SOCK_SEQPACKET|SOCK_CLOEXEC,0);if(sock<0)return "Cannot create game IPC socket";
     s->socket.store(sock);if(connect(sock,reinterpret_cast<sockaddr*>(&addr),len)<0||!sameUid(sock))return "Cannot connect to same-UID game host";
-    Packet greeting{};greeting.type=hello;if(!sendPacket(*s,greeting))return "Cannot negotiate game IPC";
-    Packet setup{};int fd=-1;if(!receivePacket(sock,setup,&fd)||setup.type!=init||fd<0)return "Game IPC setup rejected";
+    s->direct=direct;
+    Packet greeting{};greeting.type=hello;greeting.e=direct?1:0;if(!sendPacket(*s,greeting))return "Cannot negotiate game IPC";
+    Packet setup{};int fd=-1;if(!receivePacket(sock,setup,&fd)||setup.type!=init||(setup.e!=0)!=direct||(!direct&&fd<0)||(direct&&fd>=0)){if(fd>=0)close(fd);return "Game IPC setup rejected";}
     s->fd=fd;s->width=setup.a;s->height=setup.b;s->generation.store(setup.generation);
     if(s->width<1||s->height<1||s->width>4096||s->height>4096)return "Invalid shared frame dimensions";
     s->slotBytes=static_cast<size_t>(s->width)*s->height*4;
+    if(!direct){
     const std::string capacityError=hxz_check_shared_frames(fd,s->slotBytes*2);if(!capacityError.empty())return capacityError;
     s->pixels=static_cast<unsigned char*>(mmap(nullptr,s->slotBytes*2,PROT_READ|PROT_WRITE,MAP_SHARED,fd,0));
     if(s->pixels==MAP_FAILED){s->pixels=nullptr;return "Cannot map game frame buffer";}
-    child=s;hxz_set_frame_sink(frameSink);std::thread(childLoop,s).detach();return {};
+    }
+    child=s;hxz_set_frame_sink(direct?nullptr:frameSink);std::thread(childLoop,s).detach();return {};
 }
 void hxz_ipc_child_close(){std::shared_ptr<State> s;{std::lock_guard<std::mutex> guard(globalLock);s=std::move(child);}
     hxz_set_frame_sink(nullptr);if(!s)return;Packet p{};p.type=quit;sendPacket(*s,p);s->stopped.store(true);

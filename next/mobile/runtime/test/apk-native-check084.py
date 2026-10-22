@@ -31,6 +31,8 @@ if not re.search(r"useLegacyPackaging\s+true", build_file):
     fail("APK native libraries must be extracted into nativeLibraryDir")
 
 required = {"libhxz_runtime.so", "libhxz_jvm_exec.so", "libc++_shared.so"}
+if "hxz_fcl_render.cpp" in Path("mobile/runtime/native/CMakeLists.txt").read_text(encoding="utf-8"):
+    required.add("libng_gl4es.so")
 system = {"libandroid.so", "liblog.so", "libdl.so", "libEGL.so", "libGLESv3.so", "libc.so", "libm.so", "libz.so"}
 prefix = "lib/arm64-v8a/"
 results = {}
@@ -67,11 +69,12 @@ with zipfile.ZipFile(apk) as archive, tempfile.TemporaryDirectory(prefix="hxz-ap
             if struct.unpack_from("<I", data, offset)[0] == 1:
                 file_offset, virtual, align = struct.unpack_from("<QQ", data, offset + 8)[0], struct.unpack_from("<Q", data, offset + 16)[0], struct.unpack_from("<Q", data, offset + 48)[0]
                 loads.append(align)
-                if align < 16384 or file_offset % 16384 != virtual % 16384:
-                    fail(name + " PT_LOAD is not 16 KiB compatible")
+                minimum_alignment = 4096 if name == "libng_gl4es.so" else 16384
+                if align < minimum_alignment or file_offset % minimum_alignment != virtual % minimum_alignment:
+                    fail(name + " PT_LOAD alignment does not meet the documented component requirement")
         if not loads:
             fail(name + " has no PT_LOAD")
         results[name] = {"needed": sorted(needed), "minLoadAlignment": min(loads), "zipMode": oct(info.external_attr >> 16)}
 
-print({"passed": True, "apk": str(apk), "libraries": results,
+print({"upstreamNgRequires4KiBDevicePages": "libng_gl4es.so" in results, "passed": True, "apk": str(apk), "libraries": results,
        "installedExecutePermission": "Android extraction normally sets 0755; device File.canExecute gate remains required"})

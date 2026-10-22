@@ -8,7 +8,7 @@ android {
         applicationId 'top.hxzmc.community'
         minSdk 29
         targetSdk 35
-        versionCode 80411
+        versionCode 80412
         versionName '0.8.4'
         externalNativeBuild { cmake { abiFilters 'arm64-v8a'; arguments '-DANDROID_STL=c++_shared' } }
     }
@@ -16,6 +16,7 @@ android {
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     sourceSets.main {
         assets.srcDir '../../web/dist'
+        assets.srcDir layout.buildDirectory.dir('fcl-notices')
         java.srcDir '../../third_party/concentus'
         java.srcDir '../../runtime/src/main/java'
     }
@@ -33,6 +34,11 @@ android {
     }
     buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
 }
+tasks.register('copyFclNotices', Copy) {
+    from '../../third_party/fcl-renderer'
+    into layout.buildDirectory.dir('fcl-notices/licenses/fcl-renderer')
+}
+tasks.named('preBuild').configure { dependsOn 'copyFclNotices' }
 dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'io.github.webrtc-sdk:android:150.7871.01'

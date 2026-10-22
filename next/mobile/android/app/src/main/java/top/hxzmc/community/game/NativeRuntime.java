@@ -6,6 +6,9 @@ import android.view.Surface;
 final class NativeRuntime {
     static { System.loadLibrary("hxz_runtime"); }
     static native String start(String privateSocket,int width,int height);
+    static native String startDirect(String privateSocket,int width,int height);
+    static native void directSurface(Surface surface,int width,int height);
+    static native int runDirect(String job,String socket,String renderer,String libraries,String log);
     static native void stop();
     static native void surface(Surface surface,int width,int height);
     static native void event(int type,int a,int b,int c,int d);

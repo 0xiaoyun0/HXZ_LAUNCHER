@@ -1,3 +1,5 @@
+> Android 80412 起实际接入 FCL EGL / NG-GL4ES，Android 组合作品按 GPLv3 发布，原 HXZ 代码的 Apache-2.0 通知保留。来源及构建说明见 [接入记录](../docs/0.8.4-FCL直接渲染接入.md) 与 [许可](third_party/fcl-renderer/NOTICE.md)。
+
 # 幻想镇社区 · Android 0.8.1
 
 本版重构手机导航和页面布局，精简重复入口，统一图标。完整更新见 [0.8.1 发布说明](../docs/0.8.1发布说明.md)。

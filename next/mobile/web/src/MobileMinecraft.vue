@@ -4,10 +4,10 @@ const props=defineProps({openRiskOnEntry:Boolean});
 const emit=defineEmits(['risk-opened']);
 const engine=ref({phase:'idle',installed:false,riskAccepted:false}),servers=ref([]),error=ref(''),busy=ref(''),showRisk=ref(false),showProfiles=ref(false),switchTarget=ref(''),advanced=ref(false),componentOpen=ref(false),refreshing=ref(false);
 const moduleReady=computed(()=>!!(engine.value.installed||engine.value.ready));
-const rendererOptions=computed(()=>[{value:'auto',label:'自动检测并适配设备'},...(Array.isArray(engine.value.renderers)?engine.value.renderers:[]).filter(v=>['zink','softpipe'].includes(v.id)).map(v=>({value:v.id,label:v.label||v.id}))]);
+const rendererOptions=computed(()=>[{value:'auto',label:'自动（FCL NG · GPU 直出）'},{value:'ng-gl4es',label:'NG-GL4ES · FCL 渲染器'},...(Array.isArray(engine.value.renderers)?engine.value.renderers:[]).filter(v=>['zink','softpipe'].includes(v.id)).map(v=>({value:v.id,label:v.label||v.id}))]);
 const downloading=computed(()=>engine.value.phase==='downloading');
 let saved={};try{saved=JSON.parse(localStorage.getItem('hxz-mobile-game')||'{}');}catch{}
-const options=reactive({memoryMB:[0,1024,2048,3072,4096,6144].includes(saved.memoryMB)?saved.memoryMB:0,renderer:['auto','softpipe','zink'].includes(saved.renderer)?saved.renderer:'auto',concurrency:[4,8,16,32].includes(saved.concurrency)?saved.concurrency:32,autoUpdate:saved.autoUpdate!==false,autoJoin:saved.autoJoin!==false});
+const options=reactive({memoryMB:[0,1024,2048,3072,4096,6144].includes(saved.memoryMB)?saved.memoryMB:0,renderer:['auto','ng-gl4es','softpipe','zink'].includes(saved.renderer)?saved.renderer:'auto',concurrency:[4,8,16,32].includes(saved.concurrency)?saved.concurrency:32,autoUpdate:saved.autoUpdate!==false,autoJoin:saved.autoJoin!==false});
 watch(options,v=>localStorage.setItem('hxz-mobile-game',JSON.stringify(v)));const unsubscribe=on('gameEngine',v=>engine.value=v);
 async function refresh(){if(refreshing.value)return;refreshing.value=true;error.value='';try{const [e,s]=await Promise.allSettled([native('gameEngine'),api('/api/server-presets')]);if(e.status==='fulfilled')engine.value=e.value;if(s.status==='fulfilled')servers.value=s.value.servers||[];const errors=[e,s].filter(v=>v.status==='rejected').map(v=>v.reason.message);if(errors.length)error.value=errors.join('；');}finally{refreshing.value=false;}}
 let pendingAction=null;

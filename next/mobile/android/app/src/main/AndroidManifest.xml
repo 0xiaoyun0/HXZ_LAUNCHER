@@ -12,7 +12,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <application android:name=".CommunityApp" android:allowBackup="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:usesCleartextTraffic="false"
+    <application android:name=".CommunityApp" android:allowBackup="false" android:allowNativeHeapPointerTagging="false" android:fullBackupContent="false" android:dataExtractionRules="@xml/data_extraction_rules" android:usesCleartextTraffic="false"
         android:label="幻想镇社区" android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:theme="@style/AppTheme" android:supportsRtl="true">
         <provider android:name=".UpdateProvider" android:authorities="${applicationId}.updates" android:exported="false" android:grantUriPermissions="true" />
         <provider android:name=".GameAccountProvider" android:authorities="${applicationId}.game-account" android:exported="false" />
@@ -21,6 +21,7 @@
         <activity android:name=".game.GameRuntimeActivity" android:process=":game" android:exported="false" android:launchMode="singleTask"
             android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
             android:hardwareAccelerated="true" android:resizeableActivity="true" />
+        <service android:name=".game.GameJvmService" android:process=":jvm" android:exported="false" android:stopWithTask="true" />
         <receiver android:name=".CommunityWidget" android:exported="false" android:label="幻想镇 · 社区随行"><intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE"/></intent-filter><meta-data android:name="android.appwidget.provider" android:resource="@xml/community_widget"/></receiver>
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode">

@@ -13,6 +13,11 @@ extern "C" JNIEXPORT jstring JNICALL Java_top_hxzmc_community_game_NativeRuntime
     return error.empty()?nullptr:env->NewStringUTF(error.c_str());
 }
 extern "C" JNIEXPORT void JNICALL Java_top_hxzmc_community_game_NativeRuntime_stop(JNIEnv*,jclass){hxz_ipc_stop();}
+extern "C" JNIEXPORT jstring JNICALL Java_top_hxzmc_community_game_NativeRuntime_startDirect(JNIEnv* env,jclass,jstring path,jint width,jint height) {
+    hxz_surface_resolution(width,height);
+    const std::string error=hxz_ipc_start(string(env,path),width,height,true);
+    return error.empty()?nullptr:env->NewStringUTF(error.c_str());
+}
 extern "C" JNIEXPORT void JNICALL Java_top_hxzmc_community_game_NativeRuntime_surface(JNIEnv* env,jclass,jobject surface,jint w,jint h) {
     ANativeWindow* window=surface?ANativeWindow_fromSurface(env,surface):nullptr;hxz_surface(window,w,h);if(window)ANativeWindow_release(window);hxz_ipc_resize(window?w:0,window?h:0);
 }

@@ -4,6 +4,7 @@
 #include "include/hxz_glfw_ime.h"
 #include "hxz_glfw.h"
 #include "hxz_frame_present.h"
+#include "hxz_fcl_render.h"
 
 #include <EGL/egl.h>
 #include <android/native_window.h>
@@ -91,7 +92,7 @@ struct Hints {int api=GLFW_OPENGL_API, major=1, minor=0, profile=GLFW_OPENGL_ANY
               int creation=GLFW_NATIVE_CONTEXT_API, samples=0;bool visible=true;
               bool resizable=true,decorated=true,focused=true,maximized=false,floating=false;
               bool autoIconify=true,focusOnShow=true,mousePassthrough=false;};
-enum class Backend { none, osmesa, egl };
+enum class Backend { none, osmesa, egl, fcl };
 struct OSMesaApi {
     void* (*create)(const int*,void*)=nullptr;
     unsigned char (*makeCurrent)(void*,void*,unsigned int,int,int)=nullptr;
@@ -226,9 +227,11 @@ bool updateEglSurface(GLFWwindow* w){
 }
 void destroyWindow(GLFWwindow* w){
     if(!w)return;
-    if(current==w){if(backend==Backend::egl)egl.makeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);
+    if(current==w){if(backend==Backend::fcl)hxz_fcl_current(nullptr);
+        else if(backend==Backend::egl)egl.makeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);
         else if(backend==Backend::osmesa)osmesa.makeCurrent(nullptr,nullptr,0,0,0);current=nullptr;w->owner={};}
     if(backend==Backend::osmesa&&w->context)osmesa.destroy(w->context);
+    if(backend==Backend::fcl&&w->context)hxz_fcl_destroy(w->context);
     if(backend==Backend::egl){if(w->eglSurface!=EGL_NO_SURFACE)egl.destroySurface(display,w->eglSurface);if(w->eglContext!=EGL_NO_CONTEXT)egl.destroyContext(display,w->eglContext);}
     delete w;
 }
@@ -277,6 +280,10 @@ extern "C" void hxz_request_close(void){std::lock_guard<std::mutex> lock(mu);if(
 extern "C" int hxz_configure_renderer(const char* path,const char* kind){
     if(!kind){report(GLFW_INVALID_VALUE,"Renderer kind is required");return -1;}
     {std::lock_guard<std::mutex> lock(mu);if(window){rendererError="Close the GLFW window before changing renderer";return -1;}}
+    if(std::strcmp(kind,"fcl-egl")==0){
+        if(hxz_fcl_init(path)!=0){report(GLFW_API_UNAVAILABLE,"FCL EGL / NG-GL4ES initialization failed");return -1;}
+        backend=Backend::fcl;return 0;
+    }
     Backend next;
     if(std::strcmp(kind,"osmesa")==0)next=Backend::osmesa;
     else if(std::strcmp(kind,"egl")==0)next=Backend::egl;
@@ -359,7 +366,11 @@ extern "C" GLFWwindow* glfwCreateWindow(int width,int height,const char* title,G
     w->width=width;w->height=height;w->visible=hints.visible;w->attachedMonitor=targetMonitor;w->title=title?title:"";
     w->resizable=hints.resizable;w->decorated=hints.decorated;w->focused=hints.focused;w->maximized=hints.maximized;
     w->floating=hints.floating;w->autoIconify=hints.autoIconify;w->focusOnShow=hints.focusOnShow;w->mousePassthrough=hints.mousePassthrough;
-    if(backend==Backend::osmesa){
+    if(backend==Backend::fcl){
+        if(hints.api!=GLFW_OPENGL_API){delete w;report(GLFW_API_UNAVAILABLE,"FCL NG bridge provides desktop OpenGL only");return nullptr;}
+        w->context=hxz_fcl_create();
+        if(!w->context){delete w;report(GLFW_VERSION_UNAVAILABLE,"FCL EGL context creation failed");return nullptr;}
+    }else if(backend==Backend::osmesa){
         if(hints.api!=GLFW_OPENGL_API){delete w;report(GLFW_API_UNAVAILABLE,"OSMesa provides desktop OpenGL only");return nullptr;}
         if(hints.creation!=GLFW_NATIVE_CONTEXT_API&&hints.creation!=GLFW_OSMESA_CONTEXT_API){delete w;report(GLFW_API_UNAVAILABLE,"Requested context provider does not match OSMesa");return nullptr;}
         const int attrs[]={OSMESA_FORMAT,GL_RGBA_VALUE,OSMESA_DEPTH_BITS,24,OSMESA_STENCIL_BITS,8,
@@ -465,12 +476,14 @@ extern "C" void glfwSetWindowMonitor(GLFWwindow* w,GLFWmonitor* m,int x,int y,in
     w->attachedMonitor=m;glfwSetWindowPos(w,x,y);if(window==w)glfwSetWindowSize(w,width,height);}
 extern "C" GLFWmonitorfun glfwSetMonitorCallback(GLFWmonitorfun cb){auto old=monitorCallback;monitorCallback=cb;return old;}
 extern "C" void glfwMakeContextCurrent(GLFWwindow* w){
-    if(!w){if(current&&backend==Backend::egl)egl.makeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);
+    if(!w){if(current&&backend==Backend::fcl)hxz_fcl_current(nullptr);
+        else if(current&&backend==Backend::egl)egl.makeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);
         else if(current&&backend==Backend::osmesa&&!osmesa.makeCurrent(nullptr,nullptr,0,0,0)){report(GLFW_PLATFORM_ERROR,"OSMesa context release failed");return;}
         if(current)current->owner={};current=nullptr;return;}
     if(!hasWindow(w))return;
     if(w->owner!=std::thread::id{}&&w->owner!=std::this_thread::get_id()){report(GLFW_PLATFORM_ERROR,"OpenGL context belongs to another thread");return;}
     if(backend==Backend::osmesa){if(!resizeOSMesa(w,w->width,w->height))return;if(!osmesa.makeCurrent(w->context,w->pixels.data(),GL_UNSIGNED_BYTE_VALUE,w->width,w->height)){report(GLFW_PLATFORM_ERROR,"OSMesaMakeCurrent failed");return;}if(osmesa.pixelStore){osmesa.pixelStore(OSMESA_Y_UP,0);w->topDown=true;}}
+    else if(backend==Backend::fcl){if(hxz_fcl_current(w->context)!=0){report(GLFW_PLATFORM_ERROR,"FCL EGL context binding failed");return;}}
     else if(backend==Backend::egl){if(!updateEglSurface(w)){report(GLFW_PLATFORM_ERROR,"EGL surface binding failed");return;}}
     else{report(GLFW_NO_WINDOW_CONTEXT,"No renderer context");return;}
     current=w;w->owner=std::this_thread::get_id();
@@ -478,6 +491,7 @@ extern "C" void glfwMakeContextCurrent(GLFWwindow* w){
 extern "C" GLFWwindow* glfwGetCurrentContext(void){return current;}
 extern "C" void glfwSwapBuffers(GLFWwindow* w){
     if(!hasWindow(w))return;if(current!=w||w->owner!=std::this_thread::get_id()){report(GLFW_NO_CURRENT_CONTEXT,"No current context on this thread");return;}
+    if(backend==Backend::fcl){if(hxz_fcl_swap()!=0)report(GLFW_PLATFORM_ERROR,"FCL EGL presentation failed");return;}
     if(backend==Backend::egl){if(!updateEglSurface(w)||egl.swapBuffers(display,w->eglSurface)!=EGL_TRUE)report(GLFW_PLATFORM_ERROR,"EGL swap failed");return;}
     if(!resizeOSMesa(w,w->width,w->height))return;
     if(auto finish=reinterpret_cast<void(*)()>(osmesa.getProc("glFinish")))finish();
@@ -485,8 +499,9 @@ extern "C" void glfwSwapBuffers(GLFWwindow* w){
     if(sink){if(sink(w->pixels.data(),w->width,w->height,w->width,w->topDown?1:0)<0)report(GLFW_PLATFORM_ERROR,"Shared frame delivery failed");}
     else hxz_present_frame(w->pixels.data(),w->width,w->height,w->width,w->topDown?1:0);
 }
-extern "C" void glfwSwapInterval(int interval){if(backend==Backend::egl&&display!=EGL_NO_DISPLAY)egl.swapInterval(display,interval);}
+extern "C" void glfwSwapInterval(int interval){if(backend==Backend::fcl){hxz_fcl_interval(interval);return;}if(backend==Backend::egl&&display!=EGL_NO_DISPLAY)egl.swapInterval(display,interval);}
 extern "C" GLFWglproc glfwGetProcAddress(const char* name){if(!name||!current){report(GLFW_NO_CURRENT_CONTEXT,"No current context for GL symbol");return nullptr;}
+    if(backend==Backend::fcl)return reinterpret_cast<GLFWglproc>(hxz_fcl_proc(name));
     if(backend==Backend::osmesa)return reinterpret_cast<GLFWglproc>(osmesa.getProc(name));
     auto result=egl.getProcAddress(name);if(!result&&glesLib)result=reinterpret_cast<__eglMustCastToProperFunctionPointerType>(dlsym(glesLib,name));return reinterpret_cast<GLFWglproc>(result);}
 extern "C" int glfwExtensionSupported(const char* name){

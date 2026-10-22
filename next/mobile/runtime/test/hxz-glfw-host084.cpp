@@ -58,7 +58,31 @@ extern "C" int32_t ANativeWindow_setBuffersGeometry(ANativeWindow*,int32_t,int32
 extern "C" int32_t ANativeWindow_lock(ANativeWindow*,ANativeWindow_Buffer*,void*){return -1;}
 extern "C" int32_t ANativeWindow_unlockAndPost(ANativeWindow*){return 0;}
 
+namespace {int directSwaps=0,directBinds=0,frameCopies=0;void* directCurrent=nullptr;}
+extern "C" int hxz_fcl_init(const char*){return 0;}
+extern "C" void hxz_fcl_surface(ANativeWindow*,int,int){}
+extern "C" void* hxz_fcl_create(){return reinterpret_cast<void*>(0x55);}
+extern "C" int hxz_fcl_current(void* p){directCurrent=p;++directBinds;return 0;}
+extern "C" void hxz_fcl_destroy(void*){assert(directCurrent==nullptr);}
+extern "C" int hxz_fcl_swap(){assert(directCurrent);++directSwaps;return 0;}
+extern "C" void hxz_fcl_interval(int){}
+extern "C" void* hxz_fcl_proc(const char* name){return fakeProc(name);}
+int forbiddenFrame(const unsigned char*,int,int,int,int){++frameCopies;return -1;}
 int main(int argc,char** argv){
+    if(argc==2&&std::string(argv[1])=="--review-fcl"){
+        assert(hxz_configure_renderer("/apk/libng_gl4es.so","fcl-egl")==0);
+        glfwInit();glfwSetErrorCallback(bootError);hxz_set_frame_sink(forbiddenFrame);
+        for(int minor:{2,3}){
+            bootWindow(minor);auto* game=glfwCreateWindow(1280,720,"Minecraft",nullptr,nullptr);assert(game);
+            glfwMakeContextCurrent(game);assert(glfwGetCurrentContext()==game&&directCurrent);
+            assert(glfwGetProcAddress("glGetStringi")!=nullptr);
+            for(int frame=0;frame<120;++frame)glfwSwapBuffers(game);
+            assert(game->pixels.empty()); // No CPU pixel buffer for this rendering path.
+            glfwMakeContextCurrent(nullptr);assert(!directCurrent);glfwDestroyWindow(game);
+        }
+        assert(frameCopies==0&&directSwaps==240&&directBinds==4);
+        std::puts("FCL delegation: MC GL 3.2/3.3, 240 direct swaps, zero CPU frame copies, context release passed");return 0;
+    }
     assert(hxz_configure_renderer("/verified/osmesa.so","osmesa")==0);
     assert(glfwInit()==GLFW_TRUE);
     glfwSetErrorCallback(bootError);

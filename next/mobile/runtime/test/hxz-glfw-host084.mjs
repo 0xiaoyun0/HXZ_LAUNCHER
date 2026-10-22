@@ -26,6 +26,7 @@ await fs.writeFile(path.join(include,'dlfcn.h'),`#pragma once
 #define RTLD_LOCAL 0
 extern "C" {void* dlopen(const char*,int);void* dlsym(void*,const char*);int dlclose(void*);}
 `);
+await fs.copyFile(path.join(native,'hxz_fcl_render.h'),path.join(tmp,'hxz_fcl_render.h'));
 for(const dir of ['EGL','KHR','vulkan','vk_video'])await fs.cp(path.join(sysroot,dir),path.join(include,dir),{recursive:true});
 await fs.cp(path.join(native,'include'),path.join(tmp,'include'),{recursive:true});
 await fs.copyFile(path.join(native,'hxz_glfw.h'),path.join(tmp,'hxz_glfw.h'));
@@ -49,6 +50,6 @@ assert(start>=0&&end>start);
 await compile(source.slice(0,start)+'extern "C" void glfwSetWindowSizeLimits(GLFWwindow* w,int,int,int,int){if(hasWindow(w))report(GLFW_FEATURE_UNAVAILABLE,"Legacy size limits rejection");}\n'+source.slice(end));
 execFileSync(executable,['--expect-legacy-failure'],{timeout:10000});
 await compile(source);
-for (const mode of ['--review-input','--review-extensions']) console.log(execFileSync(executable,[mode],{encoding:'utf8',timeout:10000}).trim());
+for (const mode of ['--review-input','--review-extensions','--review-fcl']) console.log(execFileSync(executable,[mode],{encoding:'utf8',timeout:10000}).trim());
 const result=execFileSync(executable,[],{encoding:'utf8',timeout:10000}).trim();
 console.log(JSON.stringify({passed:true,legacyFailureReproduced:true,result,scope:'Actual host-native GLFW adapter with mocked Android/OSMesa calls; no real renderer, JVM, or device acceptance'}));
