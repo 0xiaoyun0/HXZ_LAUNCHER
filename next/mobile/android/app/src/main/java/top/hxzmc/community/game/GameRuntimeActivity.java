@@ -24,6 +24,9 @@ import top.hxzmc.runtime.*;
 /** Game screen; FCL EGL renders in a disposable :jvm service. Installers stay in native exec children. */
 public final class GameRuntimeActivity extends Activity implements SurfaceHolder.Callback {
     private final ExecutorService work=Executors.newSingleThreadExecutor();
+    private final ExecutorService diagnosticWork=Executors.newSingleThreadExecutor();
+    private final String sessionLease=UUID.randomUUID().toString();private boolean pinAccount;
+    private File liveDiagnosticDirectory;private Dialog liveDiagnosticDialog;
     private final EngineHost.Cancellation cancellation=new EngineHost.Cancellation();
     private final Handler ui=new Handler(Looper.getMainLooper());
     private final CountDownLatch surfaceReady=new CountDownLatch(1);
@@ -50,7 +53,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     private void buildScreen(){
         frame=new FrameLayout(this);frame.setBackgroundColor(0xfff3f5fa);setContentView(frame);
         surface=new SurfaceView(this);surface.getHolder().addCallback(this);frame.addView(surface,new FrameLayout.LayoutParams(-1,-1));
-        controls=new GameControlsView(this);controls.setExitAction(this::leave);controls.setKeyboardAction(this::openTextInput);controls.setVisibility(View.GONE);frame.addView(controls,new FrameLayout.LayoutParams(-1,-1));
+        controls=new GameControlsView(this);controls.setExitAction(this::leave);controls.setKeyboardAction(this::openTextInput);controls.setDiagnosticAction(this::showLiveDiagnostics);controls.setVisibility(View.GONE);frame.addView(controls,new FrameLayout.LayoutParams(-1,-1));
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(false);FrameLayout.LayoutParams sc=new FrameLayout.LayoutParams(Math.min(dp(680),getResources().getDisplayMetrics().widthPixels-dp(48)),-2,Gravity.CENTER);sc.setMargins(dp(24),dp(20),dp(24),dp(20));frame.addView(scroll,sc);
         panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setPadding(dp(24),dp(20),dp(24),dp(20));GradientDrawable background=new GradientDrawable();background.setColor(0xfffcfdff);background.setCornerRadius(dp(18));panel.setBackground(background);scroll.addView(panel);
         heading=text("准备进入世界",22,0xff263354);panel.addView(heading);detail=text("正在检查账号与游戏资源",14,0xff697592);LinearLayout.LayoutParams line=new LinearLayout.LayoutParams(-1,-2);line.topMargin=dp(14);panel.addView(detail,line);
@@ -60,7 +63,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     }
     private Bundle bridge(String method,Bundle input){return getContentResolver().call(Uri.parse("content://"+getPackageName()+".game-account"),method,null,input);}
     private JSONObject account()throws Exception{return account(false);}
-    private JSONObject account(boolean validate)throws Exception{JSONObject requested=request.optJSONObject("account");Bundle query=new Bundle();query.putString("uuid",!accountId.isEmpty()?accountId:requested==null?"":requested.optString("uuid"));Bundle reply=bridge(validate?"launchAccount":"selectedAccount",query);if(reply==null||!reply.containsKey("account"))throw new IOException(reply==null?"无法读取社区账号":reply.getString("message"));JSONObject account=new JSONObject(reply.getString("account"));String uuid=account.getString("uuid");if(!accountId.isEmpty()&&!accountId.equals(uuid)||requested!=null&&!requested.getString("uuid").equals(uuid))throw new IOException("社区角色已切换，请重新启动游戏");accountId=uuid;for(String key:Arrays.asList("accessToken","clientToken")){String secret=account.optString(key);if(!secret.isEmpty())secrets.add(secret);}return account;}
+    private JSONObject account(boolean validate)throws Exception{JSONObject requested=request.optJSONObject("account");Bundle query=new Bundle();query.putString("uuid",!accountId.isEmpty()?accountId:requested==null?"":requested.optString("uuid"));if(validate&&pinAccount)query.putString("lease",sessionLease);Bundle reply=bridge(validate?"launchAccount":"selectedAccount",query);if(reply==null||!reply.containsKey("account"))throw new IOException(reply==null?"无法读取社区账号":reply.getString("message"));JSONObject account=new JSONObject(reply.getString("account"));String uuid=account.getString("uuid");if(!accountId.isEmpty()&&!accountId.equals(uuid)||requested!=null&&!requested.getString("uuid").equals(uuid))throw new IOException("社区角色已切换，请重新启动游戏");accountId=uuid;for(String key:Arrays.asList("accessToken","clientToken")){String secret=account.optString(key);if(!secret.isEmpty())secrets.add(secret);}return account;}
     private int memory(){ActivityManager.MemoryInfo info=new ActivityManager.MemoryInfo();((ActivityManager)getSystemService(ACTIVITY_SERVICE)).getMemoryInfo(info);long available=info.availMem/1048576;int ceiling=(int)Math.max(512,Math.min(6144,available-768));int requested=options.optInt("memoryMB");return Math.min(ceiling,requested>0?Math.max(512,requested):(int)Math.max(512,Math.min(4096,available*.45)));}
     private void update(String phase,String item,long completed,long total){
         if(!phase.equals(lastDiagnosticPhase)){lastDiagnosticPhase=phase;recordDiagnosticPhase(phase);}
@@ -110,8 +113,10 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             else{String path=rendererInfo.getString("library");if(!path.startsWith("app_runtime/renderers/"))throw new IOException("图形运行模块路径无效");renderer=host.resource(path.substring("app_runtime/".length()));}
             List<String> extra=new ArrayList<>(Arrays.asList("-Dorg.lwjgl.librarypath="+nativeLibs,"-Dorg.lwjgl.system.allocator=system","-Dorg.lwjgl.glfw.libname="+new File(getApplicationInfo().nativeLibraryDir,"libhxz_runtime.so"),"-Dorg.lwjgl.openal.libname="+host.resource("audio/libopenal.so")));
             Bundle authMetadata=bridge("authMetadata",new Bundle());
+            extra.addAll(GameNetworkConfiguration.arguments(this,new File(host.storage,"game-network")));
+            File probe=prepareGameProbe();extra.add("-Dhxz.diagnosticDir="+liveDiagnosticDirectory);extra.add("-javaagent:"+probe);
             extra.addAll(AuthlibLaunchArguments.forClient(host.resource("tools/authlib-injector.jar"),"https://skin.hxzmc.top/api/yggdrasil",authMetadata==null?"":authMetadata.getString("metadata","")));
-            if(directRenderer){extra.add("-Dorg.lwjgl.opengl.libname="+renderer);extra.add("-Dorg.lwjgl.opengl.contextAPI=GLX");}
+            if(directRenderer){extra.add("-Dorg.lwjgl.opengl.libname="+new File(getApplicationInfo().nativeLibraryDir,"libhxz_runtime.so"));extra.add("-Dorg.lwjgl.opengl.contextAPI=GLX");}
             else{extra.add("-Dorg.lwjgl.opengl.contextAPI=OSMesa");extra.add("-Dorg.lwjgl.opengl.osmesa.libname="+renderer);}
             if(plan.mainClass.startsWith("org.quiltmc."))extra.add("-Dloader.disable_forked_guis=true");
             if(!directRenderer&&lwjgl.equals("3.3.3"))extra.add("-Dorg.lwjgl.opengl.libname="+renderer);
@@ -119,7 +124,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             String jna=jna(plan);if(jna!=null){File dispatch=host.resource("jna/"+jna+"/libjnidispatch.so");if(!dispatch.isFile())throw new IOException("运行模块缺少此游戏需要的 JNA "+jna+"，请更新运行模块");extra.add("-Djna.boot.library.path="+dispatch.getParent());extra.add("-Djna.nosys=true");extra.add("-Djna.nounpack=true");}
             List<String> game=new ArrayList<>();String address=options.optString("joinServer");if(!address.isEmpty())game.addAll(Arrays.asList("--quickPlayMultiplayer",address));
             if(hostPort>0){extra.add("-javaagent:"+host.resource("tools/direct-lobby.jar"));touchRoomControl();}
-            jobFile=host.job(freshJob(plan.javaJob(),account(true).getString("accessToken")),extra,game);log=new File(host.logs,"game-latest.log");rendererDiagnostic+="\n游戏渲染尺寸："+renderWidth+" × "+renderHeight;Files.write(log.toPath(),("[HXZ graphics] "+scrub(rendererDiagnostic)+"\n").getBytes(StandardCharsets.UTF_8));roomLogOffset=0;roomLogLine.reset();
+            pinAccount=true;jobFile=host.job(freshJob(plan.javaJob(),account(true).getString("accessToken")),extra,game);log=new File(host.logs,"game-latest.log");rendererDiagnostic+="\n游戏渲染尺寸："+renderWidth+" × "+renderHeight;Files.write(log.toPath(),("[HXZ graphics] "+scrub(rendererDiagnostic)+"\n[HXZ network] Android 网络 DNS + FCL JNDI/SRV 配置；保留 IPv4/IPv6，认证会话已固定\n").getBytes(StandardCharsets.UTF_8));roomLogOffset=0;roomLogLine.reset();
             cancellation.check();
             String socket=new File(getCacheDir(),"game-"+android.os.Process.myPid()+".sock").getAbsolutePath();
             String error=directRenderer?NativeRuntime.startDirect(socket,renderWidth,renderHeight):NativeRuntime.start(socket,renderWidth,renderHeight);if(error!=null)throw new IOException(error);
@@ -135,9 +140,44 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             }
             gameStarted=true;playing=true;
             ui.post(()->{((View)panel.getParent()).setVisibility(View.GONE);controls.configure(options.optInt("controlSize",100)/100f,(float)options.optDouble("sensitivity",1),renderWidth,renderHeight);controls.setVisibility(View.VISIBLE);});
-            long lastRoom=0;while(!(directRenderer?directGame.waitFor(250):process.waitFor(250,TimeUnit.MILLISECONDS))){cancellation.check();if(hostPort>0&&SystemClock.elapsedRealtime()-lastRoom>2500){lastRoom=SystemClock.elapsedRealtime();touchRoomControl();}}
+            long lastRoom=0,lastLease=0;while(!(directRenderer?directGame.waitFor(250):process.waitFor(250,TimeUnit.MILLISECONDS))){cancellation.check();long now=SystemClock.elapsedRealtime();if(now-lastLease>20000){lastLease=now;try{Bundle pulse=new Bundle();pulse.putString("lease",sessionLease);bridge("gameSessionPulse",pulse);}catch(RuntimeException ignored){/* Community restart must not terminate a running game. */}}if(hostPort>0&&now-lastRoom>2500){lastRoom=now;touchRoomControl();}}
             int exit=directRenderer?directGame.exitValue():process.exitValue();playing=false;if(exit!=0)throw new IOException("游戏退出（代码 "+exit+"）。安装进度和存档已保留，日志在游戏诊断中。"+(directRenderer?"\n"+directGame.error():""));ui.post(this::leave);
-        }catch(Exception e){if(!closing){if(gameStarted&&crashCapture!=null)gameDiagnostic=scrub(crashCapture.collect(log));failed(e);}}finally {playing=false;stopGame();if(jobFile!=null)try{Files.deleteIfExists(jobFile.toPath());}catch(IOException ignored){}roomExited();}
+        }catch(Exception e){if(!closing){if(gameStarted&&crashCapture!=null)gameDiagnostic=scrub(crashCapture.collect(log));failed(e);}}finally {playing=false;stopGame();try{Bundle end=new Bundle();end.putString("lease",sessionLease);bridge("gameSessionEnd",end);}catch(RuntimeException ignored){}if(jobFile!=null)try{Files.deleteIfExists(jobFile.toPath());}catch(IOException ignored){}roomExited();}
+    }
+    private File prepareGameProbe()throws IOException {
+        liveDiagnosticDirectory=new File(getCacheDir(),"game-live-diagnostics");
+        if(!liveDiagnosticDirectory.isDirectory()&&!liveDiagnosticDirectory.mkdirs())throw new IOException("无法创建游戏诊断目录");
+        Files.deleteIfExists(new File(liveDiagnosticDirectory,"thread-request").toPath());Files.deleteIfExists(new File(liveDiagnosticDirectory,"threads.txt").toPath());
+        File jar=new File(liveDiagnosticDirectory,"hxz-game-probe.jar");
+        try(InputStream input=getAssets().open("hxz-game-probe.jar")){Files.copy(input,jar.toPath(),StandardCopyOption.REPLACE_EXISTING);}
+        return jar;
+    }
+    private void showLiveDiagnostics(){
+        if(closing||!playing||liveDiagnosticDialog!=null)return;controls.release();
+        Dialog dialog=new Dialog(this);liveDiagnosticDialog=dialog;
+        LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(18),dp(14),dp(18),dp(14));
+        GradientDrawable background=new GradientDrawable();background.setColor(0xfffcfdff);background.setCornerRadius(dp(16));card.setBackground(background);
+        card.addView(text("游戏实时诊断",18,0xff263354));
+        card.addView(text("读取当前日志及两次 JVM 线程快照，不结束游戏。",12,0xff697592));
+        TextView output=text("正在读取…",11,0xff263354);output.setTypeface(android.graphics.Typeface.MONOSPACE);output.setTextIsSelectable(true);
+        ScrollView scroll=new ScrollView(this);scroll.addView(output);card.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.END);card.addView(actions,new LinearLayout.LayoutParams(-1,-2));
+        Button refresh=textButton("刷新",false),copy=textButton("复制诊断",true),close=textButton("返回游戏",false);
+        for(Button button:Arrays.asList(refresh,copy,close)){LinearLayout.LayoutParams size=new LinearLayout.LayoutParams(0,dp(44),1);size.leftMargin=dp(4);button.setMinWidth(0);button.setMinimumWidth(0);button.setTextSize(12);button.setPadding(dp(4),0,dp(4),0);actions.addView(button,size);}
+        Runnable reload=()->{refresh.setEnabled(false);diagnosticWork.execute(()->{
+            String report;
+            try {
+                String nonce=UUID.randomUUID().toString();
+                Files.write(new File(liveDiagnosticDirectory,"thread-request").toPath(),nonce.getBytes(StandardCharsets.US_ASCII));
+                long end=SystemClock.elapsedRealtime()+3500;String stacks="";
+                while(!closing&&playing&&SystemClock.elapsedRealtime()<end){String found=GameCrashDiagnostics.readTail(new File(liveDiagnosticDirectory,"threads.txt"),140000);if(found.startsWith(nonce+"\n")){stacks=found.substring(nonce.length()+1);break;}Thread.sleep(100);}
+                report=technical(null)+"\n当前游戏日志:\n"+scrub(GameCrashDiagnostics.readTail(log,18000))+"\n实例日志:\n"+scrub(GameCrashDiagnostics.readTail(run==null?null:new File(run,"logs/latest.log"),12000))+"\n"+(stacks.isEmpty()?"JVM 暂未回应快照请求；可能仍在初始化或原生调用中。保留当前日志，不强制结束游戏。":scrub(stacks));
+            }catch(Exception failure){report=technical(null)+"\n实时诊断暂不可读："+failure.getClass().getSimpleName();}
+            final String safe=scrub(report);ui.post(()->{if(closing||!dialog.isShowing())return;diagnosticText=safe;output.setText(safe);refresh.setEnabled(true);});
+        });};
+        refresh.setOnClickListener(v->reload.run());copy.setOnClickListener(v->{((android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE)).setPrimaryClip(ClipData.newPlainText("游戏实时诊断",output.getText()));Toast.makeText(this,"诊断已复制",Toast.LENGTH_SHORT).show();});close.setOnClickListener(v->dialog.dismiss());
+        dialog.setOnDismissListener(v->{liveDiagnosticDialog=null;if(playing&&!closing)controls.requestFocus();});dialog.setContentView(card);Window window=dialog.getWindow();if(window!=null)window.setBackgroundDrawableResource(android.R.color.transparent);
+        dialog.show();if(window!=null)window.setLayout(Math.max(1,Math.min(dp(900),frame.getWidth()-dp(24))),Math.max(1,frame.getHeight()-dp(24)));reload.run();
     }
     private static EngineHost.JavaJob freshJob(EngineHost.JavaJob original,String token)throws Exception {
         List<String> args=new ArrayList<>(original.arguments);boolean replaced=false;
@@ -304,7 +344,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     @Override public void onBackPressed(){if(playing){NativeRuntime.event(1,256,0,1,0);NativeRuntime.event(1,256,0,0,0);}else leave();}
     @Override protected void onPause(){super.onPause();if(controls!=null)controls.release();NativeRuntime.event(6,0,0,0,0);}
     @Override protected void onResume(){super.onResume();NativeRuntime.event(6,1,0,0,0);}
-    @Override protected void onDestroy(){closing=true;if(textDialog!=null)textDialog.dismiss();cancellation.cancel();NativeRuntime.stop();GameJvmClient client=directGame;if(client!=null)client.close();work.shutdown();super.onDestroy();}
+    @Override protected void onDestroy(){closing=true;if(textDialog!=null)textDialog.dismiss();if(liveDiagnosticDialog!=null)liveDiagnosticDialog.dismiss();cancellation.cancel();NativeRuntime.stop();GameJvmClient client=directGame;if(client!=null)client.close();diagnosticWork.shutdownNow();work.shutdown();super.onDestroy();}
     private void updateGameSurface(Surface value){
         NativeRuntime.surface(value,value==null?0:renderWidth,value==null?0:renderHeight);
         GameJvmClient client=directGame;if(client!=null)client.surface(value,renderWidth,renderHeight);

@@ -8,7 +8,7 @@ android {
         applicationId 'top.hxzmc.community'
         minSdk 29
         targetSdk 35
-        versionCode 80416
+        versionCode 80417
         versionName '0.8.4'
         externalNativeBuild { cmake { abiFilters 'arm64-v8a'; arguments '-DANDROID_STL=c++_shared' } }
     }
@@ -17,6 +17,7 @@ android {
     sourceSets.main {
         assets.srcDir '../../web/dist'
         assets.srcDir layout.buildDirectory.dir('fcl-notices')
+        assets.srcDir layout.buildDirectory.dir('game-probe-assets')
         java.srcDir '../../third_party/concentus'
         java.srcDir '../../runtime/src/main/java'
     }
@@ -39,6 +40,21 @@ tasks.register('copyFclNotices', Copy) {
     into layout.buildDirectory.dir('fcl-notices/licenses/fcl-renderer')
 }
 tasks.named('preBuild').configure { dependsOn 'copyFclNotices' }
+tasks.register('compileGameProbe', JavaCompile) {
+    source fileTree('../../game-probe/src') { include '**/*.java' }
+    classpath = files()
+    destinationDirectory = layout.buildDirectory.dir('game-probe-classes')
+    options.encoding = 'UTF-8'
+    options.release = 8
+}
+tasks.register('packageGameProbe', Jar) {
+    dependsOn 'compileGameProbe'
+    from layout.buildDirectory.dir('game-probe-classes')
+    archiveFileName = 'hxz-game-probe.jar'
+    destinationDirectory = layout.buildDirectory.dir('game-probe-assets')
+    manifest { attributes 'Premain-Class': 'top.hxzmc.diagnostics.GameProbe' }
+}
+tasks.named('preBuild').configure { dependsOn 'packageGameProbe' }
 dependencies {
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
     implementation 'io.github.webrtc-sdk:android:150.7871.01'

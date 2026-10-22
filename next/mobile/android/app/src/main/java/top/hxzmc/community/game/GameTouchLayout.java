@@ -5,7 +5,7 @@ import java.util.List;
 
 /** Screen-space controls stay inside the viewport, including short landscape windows. */
 final class GameTouchLayout {
-    static final int EXIT=-1, PREVIOUS=-2, NEXT=-3, KEYBOARD=-4;
+    static final int EXIT=-1, PREVIOUS=-2, NEXT=-3, KEYBOARD=-4, DIAGNOSTICS=-5;
     static final class Item {
         final float x,y,width,height;final String label;final int key,button;
         Item(float x,float y,float width,float height,String label,int key,int button){this.x=x;this.y=y;this.width=width;this.height=height;this.label=label;this.key=key;this.button=button;}
@@ -21,10 +21,10 @@ final class GameTouchLayout {
         float exitLeft=width-unit*1.95f;
         items.add(new Item(exitLeft,top,unit*1.6f,unit,"返回社区",EXIT,-1));
         float availableStart=left+(unit+gap)*3,availableEnd=exitLeft-gap;
-        float size=Math.min(unit,(availableEnd-availableStart-2*gap)/3);
-        float start=availableStart+(availableEnd-availableStart-3*size-2*gap)/2;
-        String[] labels={"上一格","下一格","键盘"};int[] keys={PREVIOUS,NEXT,KEYBOARD};
-        for(int i=0;i<3;i++)items.add(new Item(start+i*(size+gap),top,size,unit,labels[i],keys[i],-1));
+        float size=Math.min(unit,(availableEnd-availableStart-3*gap)/4);
+        float start=availableStart+(availableEnd-availableStart-4*size-3*gap)/2;
+        String[] labels={"上一格","下一格","键盘","日志"};int[] keys={PREVIOUS,NEXT,KEYBOARD,DIAGNOSTICS};
+        for(int i=0;i<4;i++)items.add(new Item(start+i*(size+gap),top,size,unit,labels[i],keys[i],-1));
     }
     private void add(float x,float y,String label,int key,int button){items.add(new Item(x,y,unit,unit,label,key,button));}
 }

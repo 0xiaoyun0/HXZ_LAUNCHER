@@ -39,3 +39,16 @@ This binary and the existing Java runtime require 4 KiB device pages. The
 existing runtime page-size guard is retained; this release does not claim
 support for a 16 KiB-only device JVM. The APK's own HXZ bridge is built with
 16 KiB segment alignment.
+
+### HXZ 80417 index compatibility adapter
+
+`libng_gl4es.so` remains unmodified. HXZ's `hxz_fcl_render.cpp` now also acts as
+LWJGL's GLX function provider and promotes EBO-backed triangle base-vertex
+indices to 32 bits before adding the base. This addresses the uint16 overflow
+pattern in NG's GLES 3.0 emulation (`src/gl/drawing.c`,
+`internal_glDrawElementsBaseVertex_gles30`). Non-triangle, invalid-range and
+unsupported calls retain NG's implementation. The adapter reuses a bounded
+scratch buffer, restores the original EBO binding, and does not read pixels
+back from the GPU. A logged first-use marker identifies whether this path is
+actually exercised on a device. The supplied regression harness simulates GL
+buffers; it is not device rendering validation.

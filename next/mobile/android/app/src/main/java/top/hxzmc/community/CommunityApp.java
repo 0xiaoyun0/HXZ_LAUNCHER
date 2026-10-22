@@ -36,6 +36,7 @@ public final class CommunityApp extends Application {
     private int retries;
     private boolean connecting;
     private final Object authLock=new Object();
+    private final top.hxzmc.runtime.GameSessionLease gameSessionLease=new top.hxzmc.runtime.GameSessionLease();
     private final Object gameMetadataLock=new Object();
     private String gameMetadata="";private long gameMetadataUntil;
     /** Optional FCL-style metadata prefetch using Android's HTTPS/DNS stack, never credentials. */
@@ -62,6 +63,8 @@ public final class CommunityApp extends Application {
     @Override public void onCreate() {
         super.onCreate();
         if(!getPackageName().equals(Application.getProcessName()))return;
+        android.content.SharedPreferences leasePrefs=getSharedPreferences("game-session-lease",0);
+        gameSessionLease.restore(leasePrefs.getString("id",""),leasePrefs.getLong("until",0),android.os.SystemClock.elapsedRealtime());
         vault = new Vault(this);updater=new AppUpdater(this);gameEngine=new GameEngine(this);gameLobby=new GameLobby(this);
         base = getSharedPreferences("settings",0).getString("server","https://qqbot.hxzmc.top");
         try { credentials = vault.read(); } catch(Exception e) { vault.clear(); }
@@ -140,7 +143,7 @@ public final class CommunityApp extends Application {
         } catch(Exception failure) {throw new IOException("皮肤站暂时无法验证账号，请检查网络后重试");}
         if(invalid) {
             Object response;
-            try {response=request(SKIN+"/authserver/refresh","POST",obj("accessToken",access,"clientToken",client,"selectedProfile",selected,"requestUser",true),"");}
+            try {response=request(SKIN+"/authserver/refresh","POST",obj("accessToken",access,"clientToken",client,"requestUser",true),"");}
             catch(HttpFailure failure) {throw new IOException(failure.status==403?"皮肤站登录凭据已失效，请返回社区重新登录":"皮肤站暂时无法刷新账号，请稍后重试");}
             catch(Exception failure) {throw new IOException("皮肤站暂时无法刷新账号，请检查网络后重试");}
             if(!(response instanceof JSONObject))throw new IOException("皮肤站返回的登录信息无效");
@@ -159,6 +162,18 @@ public final class CommunityApp extends Application {
         if(!next.has("clientToken") && credentials.has("clientToken"))next.put("clientToken",credentials.get("clientToken"));
         vault.write(next); credentials=next;
     }
+    JSONObject beginGameSession(String uuid,String lease) throws Exception {synchronized(authLock){
+        long now=android.os.SystemClock.elapsedRealtime();
+        if(gameSessionLease.active(now))throw new IOException("已有游戏正在运行，请先退出后再启动");
+        // /api/session refreshes the skin token. Complete that before handing a token to Minecraft.
+        // Community availability is optional for a normal server launch; skin validation is mandatory.
+        try{session();}catch(Exception ignored){}
+        JSONObject account=gameLaunchCredentials(uuid);
+        gameSessionLease.begin(lease,android.os.SystemClock.elapsedRealtime());persistGameSessionLease();return account;
+    }}
+    boolean pulseGameSession(String lease){synchronized(authLock){boolean active=gameSessionLease.pulse(lease,android.os.SystemClock.elapsedRealtime());if(active)persistGameSessionLease();return active;}}
+    void endGameSessionLease(String lease){synchronized(authLock){gameSessionLease.end(lease);persistGameSessionLease();}}
+    private void persistGameSessionLease(){getSharedPreferences("game-session-lease",0).edit().putString("id",gameSessionLease.id()).putLong("until",gameSessionLease.deadline()).apply();}
     Object login(JSONObject input) throws Exception { synchronized(authLock) {
         endGameSession();
         disconnect(true);
@@ -181,6 +196,7 @@ public final class CommunityApp extends Application {
     }}
     String session() throws Exception { synchronized(authLock) {
         if(!token.isEmpty() && expires>System.currentTimeMillis())return token;
+        if(gameSessionLease.active(android.os.SystemClock.elapsedRealtime()))throw new IOException("游戏运行期间暂缓重新验证社区，避免使游戏会话失效；退出游戏后将自动恢复");
         if(!credentials.has("accessToken"))return "";
         if(credentials.optJSONObject("selectedProfile")==null)throw new IOException("请先选择皮肤站角色");
         JSONObject result=(JSONObject)request(base+"/api/session","POST",obj("accessToken",credentials.getString("accessToken"),"clientToken",credentials.getString("clientToken")),"");
@@ -204,7 +220,7 @@ public final class CommunityApp extends Application {
         String next=validBase(value); clearWidget();disconnect(true); base=next; token=""; expires=0; user=new JSONObject(); messages=new JSONArray(); users=new JSONArray();
         getSharedPreferences("settings",0).edit().putString("server",next).apply(); main.post(this::connect); changed();
     }}
-    private void endGameSession(){if(gameEngine!=null)gameEngine.accountChanged();if(gameLobby!=null)gameLobby.close("账号或社区连接配置已更改");}
+    private void endGameSession(){gameSessionLease.clear();persistGameSessionLease();if(gameEngine!=null)gameEngine.accountChanged();if(gameLobby!=null)gameLobby.close("账号或社区连接配置已更改");}
     synchronized void connect() {
         if(connected||connecting||(!foreground&&room.isEmpty()&&recoveryRoom.isEmpty()))return;
         if(credentials.optJSONObject("selectedProfile")==null){connection=credentials.has("accessToken")?"请选择角色":"未登录";changed();return;}

@@ -15,7 +15,7 @@ public final class GameTouchInputTest {
                 actions.add(item.key);
                 for(GameTouchLayout.Item other:layout.items)if(item!=other)check(item.x+item.width<=other.x+.01f||other.x+other.width<=item.x+.01f||item.y+item.height<=other.y+.01f||other.y+other.height<=item.y+.01f,"Controls overlap: "+item.label+" / "+other.label);
             }
-            check(actions.containsAll(Arrays.asList(GameTouchLayout.KEYBOARD,GameTouchLayout.EXIT,GameTouchLayout.PREVIOUS,GameTouchLayout.NEXT,32,69,256)),"Required control missing");
+            check(actions.containsAll(Arrays.asList(GameTouchLayout.DIAGNOSTICS,GameTouchLayout.KEYBOARD,GameTouchLayout.EXIT,GameTouchLayout.PREVIOUS,GameTouchLayout.NEXT,32,69,256)),"Required control missing");
         }
         List<Integer> result=new ArrayList<>();GameTextInput.send("你好 😀 /spawn",result::add);check(result.equals(Arrays.asList(20320,22909,32,128512,32,47,115,112,97,119,110)),"Unicode must use complete code points");
         result.clear();GameTextInput.send("a\n\r\t\0\u007fb\ud800c",result::add);check(result.equals(Arrays.asList(97,98,99)),"Control characters or lone surrogate leaked");

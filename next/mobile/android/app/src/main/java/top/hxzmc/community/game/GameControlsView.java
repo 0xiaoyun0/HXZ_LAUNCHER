@@ -21,15 +21,16 @@ final class GameControlsView extends View {
     private int mouseModifiers;
     private final GameMouseState.Output mouseOutput=(button,down)->NativeRuntime.event(2,button,down?1:0,mouseModifiers,0);
     private final Runnable captureCheck=new Runnable(){@Override public void run(){updateMouseCapture();postDelayed(this,200);}};
-    private float unit,desiredUnit,sensitivity=1;private int renderWidth=1280,renderHeight=720;private Runnable exitAction,keyboardAction;private Control exitControl,keyboardControl;
+    private float unit,desiredUnit,sensitivity=1;private int renderWidth=1280,renderHeight=720;private Runnable exitAction,keyboardAction,diagnosticAction;private Control exitControl,keyboardControl,diagnosticControl;
     GameControlsView(Context context){super(context);touchSlop=ViewConfiguration.get(context).getScaledTouchSlop();setFocusableInTouchMode(true);setContentDescription("游戏触控：左侧移动，右侧视角，右下角跳跃与操作");}
     void setExitAction(Runnable action){exitAction=action;}
     void setKeyboardAction(Runnable action){keyboardAction=action;}
+    void setDiagnosticAction(Runnable action){diagnosticAction=action;}
     void configure(float size,float sensitivity,int w,int h){release();desiredUnit=getResources().getDisplayMetrics().density*48*Math.max(.7f,Math.min(1.5f,size));this.sensitivity=Math.max(.25f,Math.min(3,sensitivity));renderWidth=w;renderHeight=h;layoutControls();invalidate();}
     private void layoutControls(){
-        if(desiredUnit==0)desiredUnit=48*getResources().getDisplayMetrics().density;controls.clear();exitControl=null;keyboardControl=null;
+        if(desiredUnit==0)desiredUnit=48*getResources().getDisplayMetrics().density;controls.clear();exitControl=null;keyboardControl=null;diagnosticControl=null;
         if(getWidth()<1||getHeight()<1)return;GameTouchLayout layout=new GameTouchLayout(getWidth(),getHeight(),desiredUnit);unit=layout.unit;
-        for(GameTouchLayout.Item item:layout.items){Control c=new Control(new RectF(item.x,item.y,item.x+item.width,item.y+item.height),item.label,item.key,item.button);controls.add(c);if(item.key==GameTouchLayout.EXIT)exitControl=c;if(item.key==GameTouchLayout.KEYBOARD)keyboardControl=c;}
+        for(GameTouchLayout.Item item:layout.items){Control c=new Control(new RectF(item.x,item.y,item.x+item.width,item.y+item.height),item.label,item.key,item.button);controls.add(c);if(item.key==GameTouchLayout.EXIT)exitControl=c;if(item.key==GameTouchLayout.KEYBOARD)keyboardControl=c;if(item.key==GameTouchLayout.DIAGNOSTICS)diagnosticControl=c;}
     }
     @Override protected void onSizeChanged(int w,int h,int oldw,int oldh){release();layoutControls();}
     @Override public void onWindowFocusChanged(boolean hasFocus){super.onWindowFocusChanged(hasFocus);if(!hasFocus){release();if(hasPointerCapture())releasePointerCapture();}else updateMouseCapture();}
@@ -50,7 +51,7 @@ final class GameControlsView extends View {
             if(hit!=null){boolean was=pressed.containsValue(hit);pressed.put(id,hit);if(!was)control(hit,true);}else {boolean captured=NativeRuntime.captured();looking.put(id,new GamePointerGesture(x,y,touchSlop,captured));if(!captured)NativeRuntime.event(3,(int)(x/getWidth()*renderWidth*1000),(int)(y/getHeight()*renderHeight*1000),0,0);}invalidate();return true;
         }
         if(action==MotionEvent.ACTION_MOVE){for(int i=0;i<event.getPointerCount();i++){GamePointerGesture old=looking.get(event.getPointerId(i));if(old==null)continue;float x=event.getX(i),y=event.getY(i),dx=x-old.x,dy=y-old.y;boolean captured=NativeRuntime.captured();if(old.update(x,y,captured))continue;if(captured)NativeRuntime.event(3,(int)(dx*sensitivity*1000),(int)(dy*sensitivity*1000),1,0);else NativeRuntime.event(3,(int)(x/getWidth()*renderWidth*1000),(int)(y/getHeight()*renderHeight*1000),0,0);}return true;}
-        if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_POINTER_UP){Control c=pressed.remove(id);Runnable selected=c==exitControl?exitAction:c==keyboardControl?keyboardAction:null;if(c!=null&&selected!=null&&c.rect.contains(event.getX(index),event.getY(index))){release();selected.run();performClick();return true;}if(c!=null&&!pressed.containsValue(c))control(c,false);GamePointerGesture gesture=looking.remove(id);if(gesture!=null){gesture.update(event.getX(index),event.getY(index),NativeRuntime.captured());if(gesture.canClick()){NativeRuntime.event(2,0,1,0,0);NativeRuntime.event(2,0,0,0,0);}}invalidate();performClick();return true;}
+        if(action==MotionEvent.ACTION_UP||action==MotionEvent.ACTION_POINTER_UP){Control c=pressed.remove(id);Runnable selected=c==exitControl?exitAction:c==keyboardControl?keyboardAction:c==diagnosticControl?diagnosticAction:null;if(c!=null&&selected!=null&&c.rect.contains(event.getX(index),event.getY(index))){release();selected.run();performClick();return true;}if(c!=null&&!pressed.containsValue(c))control(c,false);GamePointerGesture gesture=looking.remove(id);if(gesture!=null){gesture.update(event.getX(index),event.getY(index),NativeRuntime.captured());if(gesture.canClick()){NativeRuntime.event(2,0,1,0,0);NativeRuntime.event(2,0,0,0,0);}}invalidate();performClick();return true;}
         return true;
     }
     @Override public boolean performClick(){super.performClick();return true;}

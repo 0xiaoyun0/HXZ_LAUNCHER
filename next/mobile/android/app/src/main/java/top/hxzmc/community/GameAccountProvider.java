@@ -16,6 +16,12 @@ public final class GameAccountProvider extends ContentProvider {
     @Override public Bundle call(String method, String arg, Bundle extras) {
         if(Binder.getCallingUid()!=android.os.Process.myUid())throw new SecurityException("Private game bridge");
         CommunityApp owner=(CommunityApp)getContext().getApplicationContext();
+        if("gameSessionPulse".equals(method)||"gameSessionEnd".equals(method)){
+            String lease=extras==null?"":extras.getString("lease","");Bundle result=new Bundle();
+            if("gameSessionEnd".equals(method))owner.endGameSessionLease(lease);
+            else result.putBoolean("active",owner.pulseGameSession(lease));
+            return result;
+        }
         if("authMetadata".equals(method)){
             Bundle result=new Bundle();result.putString("metadata",owner.gameAuthMetadata());return result;
         }
@@ -40,7 +46,8 @@ public final class GameAccountProvider extends ContentProvider {
         Bundle result = new Bundle();
         try {
             CommunityApp app = (CommunityApp) getContext().getApplicationContext();
-            JSONObject c = launch?app.gameLaunchCredentials(extras==null?"":extras.getString("uuid","")):app.gameCredentials(), p = c.optJSONObject("selectedProfile");
+            String uuid=extras==null?"":extras.getString("uuid",""),lease=extras==null?"":extras.getString("lease","");
+            JSONObject c = launch?(lease.isEmpty()?app.gameLaunchCredentials(uuid):app.beginGameSession(uuid,lease)):app.gameCredentials(), p = c.optJSONObject("selectedProfile");
             if (p == null || c.optString("accessToken").isEmpty() || c.optString("clientToken").isEmpty()) {
                 result.putString("message", "请先在幻想镇社区登录皮肤站并选择角色");
                 return result;
