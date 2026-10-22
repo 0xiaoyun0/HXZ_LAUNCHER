@@ -108,7 +108,9 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
             File renderer;
             if(directRenderer){renderer=new File(getApplicationInfo().nativeLibraryDir,"libng_gl4es.so");if(!renderer.isFile())throw new IOException("缺少 FCL NG 渲染组件，请重新安装本构建");}
             else{String path=rendererInfo.getString("library");if(!path.startsWith("app_runtime/renderers/"))throw new IOException("图形运行模块路径无效");renderer=host.resource(path.substring("app_runtime/".length()));}
-            List<String> extra=new ArrayList<>(Arrays.asList("-Dorg.lwjgl.librarypath="+nativeLibs,"-Dorg.lwjgl.system.allocator=system","-Dorg.lwjgl.glfw.libname="+new File(getApplicationInfo().nativeLibraryDir,"libhxz_runtime.so"),"-Dorg.lwjgl.openal.libname="+host.resource("audio/libopenal.so"),"-javaagent:"+host.resource("tools/authlib-injector.jar")+"=https://skin.hxzmc.top/api/yggdrasil"));
+            List<String> extra=new ArrayList<>(Arrays.asList("-Dorg.lwjgl.librarypath="+nativeLibs,"-Dorg.lwjgl.system.allocator=system","-Dorg.lwjgl.glfw.libname="+new File(getApplicationInfo().nativeLibraryDir,"libhxz_runtime.so"),"-Dorg.lwjgl.openal.libname="+host.resource("audio/libopenal.so")));
+            Bundle authMetadata=bridge("authMetadata",new Bundle());
+            extra.addAll(AuthlibLaunchArguments.forClient(host.resource("tools/authlib-injector.jar"),"https://skin.hxzmc.top/api/yggdrasil",authMetadata==null?"":authMetadata.getString("metadata","")));
             if(directRenderer){extra.add("-Dorg.lwjgl.opengl.libname="+renderer);extra.add("-Dorg.lwjgl.opengl.contextAPI=GLX");}
             else{extra.add("-Dorg.lwjgl.opengl.contextAPI=OSMesa");extra.add("-Dorg.lwjgl.opengl.osmesa.libname="+renderer);}
             if(plan.mainClass.startsWith("org.quiltmc."))extra.add("-Dloader.disable_forked_guis=true");

@@ -36,6 +36,22 @@ public final class CommunityApp extends Application {
     private int retries;
     private boolean connecting;
     private final Object authLock=new Object();
+    private final Object gameMetadataLock=new Object();
+    private String gameMetadata="";private long gameMetadataUntil;
+    /** Optional FCL-style metadata prefetch using Android's HTTPS/DNS stack, never credentials. */
+    String gameAuthMetadata() {synchronized(gameMetadataLock){
+        long now=android.os.SystemClock.elapsedRealtime();
+        if(!gameMetadata.isEmpty()&&now<gameMetadataUntil)return gameMetadata;
+        try {
+            OkHttpClient client=http.newBuilder().connectTimeout(5,TimeUnit.SECONDS).readTimeout(6,TimeUnit.SECONDS).callTimeout(8,TimeUnit.SECONDS).build();
+            try(Response response=client.newCall(new Request.Builder().url(SKIN).header("Accept","application/json").build()).execute()){
+                if(!response.isSuccessful()||response.body()==null)return "";
+                String text=new String(bounded(response.body().byteStream(),256*1024),StandardCharsets.UTF_8);
+                gameMetadata=top.hxzmc.runtime.AuthlibLaunchArguments.checkedMetadata(text);
+                gameMetadataUntil=android.os.SystemClock.elapsedRealtime()+300000;return gameMetadata;
+            }
+        }catch(Exception ignored){return "";} // Normal authlib online verification stays enabled.
+    }}
     private final Runnable retry = this::connect;
     private final Runnable heartbeat = new Runnable() { public void run() {
         if (connected) {

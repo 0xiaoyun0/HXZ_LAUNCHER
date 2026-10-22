@@ -16,6 +16,9 @@ public final class GameAccountProvider extends ContentProvider {
     @Override public Bundle call(String method, String arg, Bundle extras) {
         if(Binder.getCallingUid()!=android.os.Process.myUid())throw new SecurityException("Private game bridge");
         CommunityApp owner=(CommunityApp)getContext().getApplicationContext();
+        if("authMetadata".equals(method)){
+            Bundle result=new Bundle();result.putString("metadata",owner.gameAuthMetadata());return result;
+        }
         if("roomState".equals(method)){
             Bundle result=new Bundle();
             try{

@@ -8,6 +8,8 @@ public final class GameFailureAdvice {
     public static String explain(String evidence) {
         if(evidence==null)return "";
         String text=evidence.toLowerCase(Locale.ROOT);
+        if(text.contains("icyllis.modernui")&&text.contains("ui recording context has not been created"))
+            return "ModernUI 的界面绘制上下文创建失败。请更新社区应用后重新准备游戏，启动器会备份停用已核验的客户端界面组件，使用 Minecraft 原生界面；无需删除存档或重新下载整合包。若曾手动恢复此模组，请重新启用客户端兼容适配。";
         if((text.contains("could not find agent library instrument")||text.contains("cannot load runtime library"))
                 &&(text.contains("libinstrument.so")||text.contains("libjli.so")))
             return "Java 的登录验证组件未能加载，这不是整合包或存档损坏。请更新社区应用后重试；若仍提示组件文件缺失，请在游戏运行模块中继续下载修复，并附当前诊断反馈。";

@@ -40,7 +40,16 @@ public final class ClientModCompatibility {
                 renderRule("android-render-12","655b4a25d3d1ccc0f53d0589c676f0a86e46843ae537749048b4b0edc33a0f6f",Arrays.asList("sodium_extra"),"sodium_extra",Arrays.asList()),
                 renderRule("android-render-13","575d187b15328d7bddd8a9b1bee64333c22c14735f5780ec49eac0cd5503c08d",Arrays.asList("fabric_api_base","fabric_block_view_api_v2","fabric_renderer_api_v1","fabric_rendering_data_attachment_v1","sodium"),"sodium",Arrays.asList()),
                 renderRule("android-render-14","2f9d6ab7f3d968b985f30c083b136466b84d54f4cc9d5f05394c39615aae2f8f",Arrays.asList("sodiumextras"),"sodiumextras",Arrays.asList()),
-                renderRule("android-render-15","2ceac9a74e4f715e242ea710a7e5e226601efc0b00aae6ad0d55ccbd9fb6bc00",Arrays.asList("fabric_api_base","fabric_block_view_api_v2","fabric_renderer_api_v1","fabric_rendering_data_attachment_v1","flerovium"),"flerovium",Arrays.asList()));
+                renderRule("android-render-15","2ceac9a74e4f715e242ea710a7e5e226601efc0b00aae6ad0d55ccbd9fb6bc00",Arrays.asList("fabric_api_base","fabric_block_view_api_v2","fabric_renderer_api_v1","fabric_rendering_data_attachment_v1","flerovium"),"flerovium",Arrays.asList()),
+                modernUiRule());
+    }
+    private static Rule modernUiRule() {
+        Rule rule=new Rule("android-modernui-3.13.0.1","258623778012daad6fdd8793add3324b970df62a07c477697c43fe85deef1db6",Collections.singleton("modernui"),
+                "此版本 ModernUI 在当前手机图形环境中出现 UI recording context 创建失败；暂时使用 Minecraft 原生界面。已备份原件，可在运行设置恢复，不影响存档。",
+                "https://github.com/BloCamLimb/ModernUI-MC");
+        // Exact reviewed client UI bundle; its embedded compiler/markdown libraries
+        // declare no extra mod IDs or gameplay data. Required consumers still protect it.
+        rule.reviewedRender=true;return rule;
     }
     private static Rule renderRule(String id,String sha,Collection<String> ids,String owned,Collection<String> data) {
         Rule rule=new Rule(id,sha,ids,"当前 Android 图形通道不支持此版本 Sodium 及其已核验的客户端渲染附属组件；原件已备份，可在运行设置恢复。",
