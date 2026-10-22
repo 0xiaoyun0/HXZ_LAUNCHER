@@ -38,6 +38,16 @@ void* fakeDlopen(const char* value,int flags){
     if(path==lib+"libjli.so"&&scenario=="missing-jli"){
         loaderError="libjli.so is absent";return nullptr;
     }
+    if(path==lib+"libfreetype.so"&&scenario=="missing-freetype"){
+        loaderError="dlopen failed: library \"libfreetype.so\" not found";return nullptr;
+    }
+    if(path==lib+"libawt.so"&&!has("libjava.so")){loaderError="libawt.so needs libjava.so";return nullptr;}
+    if(path==lib+"libawt_headless.so"&&!has("libawt.so")){loaderError="libawt_headless.so needs libawt.so";return nullptr;}
+    if(path==lib+"libfontmanager.so"){
+        for(const auto* dependency:{"libfreetype.so","libawt.so","libawt_headless.so","libjava.so","libjvm.so"})if(!has(dependency)){
+            loaderError=std::string("dlopen failed: library \"")+dependency+"\" not found: needed by libfontmanager.so in namespace clns-9";return nullptr;
+        }
+    }
     if(path==lib+"libinstrument.so"){
         if(scenario=="missing-instrument"){loaderError="libinstrument.so is absent";return nullptr;}
         if(scenario=="broken-instrument"){loaderError="cannot locate symbol fixture in libinstrument.so";return nullptr;}
@@ -60,6 +70,8 @@ jint JNICALL create(JavaVM**,void**,void* raw){
         std::fprintf(stderr,"Could not find agent library instrument on the library path, with error: %s\n",fakeDlerror());
         return JNI_ERR;
     }
+    if(scenario!="headless-installer"&&!fakeDlopen((lib+"libfontmanager.so").c_str(),RTLD_NOW|RTLD_GLOBAL))
+        throw std::runtime_error(loaderError); // ModernUI's lazy Java AWT font load.
     throw VmReady{}; // Stop exactly before HotSpot would run the Java agent.
 }
 void* fakeDlsym(void*,const char* name){
@@ -89,13 +101,15 @@ int main(int argc,char** argv){
     if(scenario!="no-agent"&&scenario!="missing-jli")job.options.push_back("-javaagent:/private/auth injector.jar=https://skin.example/api");
     if(scenario=="two-agents")job.options.push_back("-javaagent:/private/direct-lobby.jar");
     bool ready=false;int result=-1;
-    try{result=hxz_java(job);}catch(const VmReady&){ready=true;}
-    if(scenario=="missing-instrument"||scenario=="broken-instrument"||scenario=="missing-jli"){
+    try{result=hxz_java(job,scenario=="headless-installer");}catch(const VmReady&){ready=true;}
+    if(scenario=="missing-instrument"||scenario=="broken-instrument"||scenario=="missing-jli"||scenario=="missing-freetype"){
         assert(!ready&&result==70&&creates==0); // Report the loader cause before a fatal VM bootstrap.
-        assert(loaderError.find(scenario=="missing-jli"?"libjli.so":"libinstrument.so")!=std::string::npos);
+        assert(loaderError.find(scenario=="missing-jli"?"libjli.so":scenario=="missing-freetype"?"libfreetype.so":"libinstrument.so")!=std::string::npos);
     }else{
         if(!ready){std::fprintf(stderr,"FAIL: production JVM bootstrap did not prepare Java agent libraries (result %d)\n",result);return 1;}
         assert(creates==1&&has("libjli.so"));
+        assert(has("libfreetype.so")== (scenario!="headless-installer"));
+        if(scenario!="headless-installer")assert(has("libawt.so")&&has("libawt_headless.so")&&has("libfontmanager.so"));
         assert(has("libinstrument.so")== (scenario!="no-agent"));
         assert(std::find(options.begin(),options.end(),"-Dsun.boot.library.path="+home+"/lib")!=options.end());
         for(const auto& option:job.options)if(option.rfind("-Dsun.boot.library.path=",0)!=0)assert(std::find(options.begin(),options.end(),option)!=options.end());

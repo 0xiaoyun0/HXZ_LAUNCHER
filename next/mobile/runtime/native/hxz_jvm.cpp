@@ -29,7 +29,7 @@ HxzJavaJob hxz_read_job(const char* path) {
     if(in.peek()!=EOF)throw std::runtime_error("Trailing Java job data");return j;
 }
 static void library(const std::string& path,bool required) {
-    if(!dlopen(path.c_str(),RTLD_NOW|RTLD_GLOBAL)&&required)throw std::runtime_error(std::string("Cannot load runtime library: ")+dlerror());
+    if(!dlopen(path.c_str(),RTLD_NOW|RTLD_GLOBAL)&&required)throw std::runtime_error("Cannot load runtime library: "+path+": "+dlerror());
 }
 static bool exception(JNIEnv* env) {
     if(!env->ExceptionCheck())return false;
@@ -59,6 +59,17 @@ int hxz_java(const HxzJavaJob& j,bool installerProcess) {
         if(!vmLibrary)throw std::runtime_error(std::string("Cannot load Java VM: ")+dlerror());
         library(lib+"libverify.so",false);library(lib+"libjava.so",true);library(lib+"libjimage.so",false);
         library(lib+"libnet.so",false);library(lib+"libnio.so",false);library(lib+"libzip.so",false);
+        if(!installerProcess) {
+            // ART's linker namespace does not resolve the JRE's sibling libraries
+            // from a changed LD_LIBRARY_PATH. Load the font/AWT dependency chain
+            // by absolute path, as FCL does, before mods initialize Java fonts.
+            // Headless installation processors do not need these libraries.
+            library(lib+"libfreetype.so",true);
+            library(lib+"libawt.so",true);
+            library(lib+"libawt_headless.so",true);
+            library(lib+"libfontmanager.so",true);
+            std::fprintf(stderr,"[HXZ-JVM] Java font/AWT native bootstrap ready\n");
+        }
         const auto agents=std::count_if(j.options.begin(),j.options.end(),[](const std::string& option){return option.rfind("-javaagent:",0)==0;});
         if(agents>0) {
             library(lib+"libinstrument.so",true);

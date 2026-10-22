@@ -14,11 +14,14 @@ public final class GameFailureAdviceTest {
         check("Shared frame buffer is too small: required=128, actual=64","画面通道");
         check("Could not find agent library instrument on the library path, with error: dlopen failed: library \"libinstrument.so\" not found","登录验证组件");
         check("HXZ: Cannot load runtime library: libjli.so not found","登录验证组件");
+        check("java.lang.UnsatisfiedLinkError: /app_runtime/java/21/lib/libfontmanager.so: dlopen failed: library \"libfreetype.so\" not found: needed by libfontmanager.so in namespace clns-9","字体组件");
+        check("HXZ: Cannot load runtime library: /app_runtime/java/25/lib/libawt_headless.so: missing dependency","字体组件");
+        if(!GameFailureAdvice.explain("ModernUI font loaded with libfreetype.so").isEmpty())throw new AssertionError("Successful font initialization misclassified");
         if(!GameFailureAdvice.explain("Missing optional language file; update available").isEmpty())throw new AssertionError("Benign output misclassified");
         if(!GameFailureAdvice.explain("Process exit 137").isEmpty())throw new AssertionError("Exit code alone is not memory evidence");
         if(!GameFailureAdvice.explain("Process exit 66").isEmpty())throw new AssertionError("Exit code alone is not shared memory evidence");
         if(!GameFailureAdvice.explain(null).isEmpty())throw new AssertionError("null evidence");
-        System.out.println("Game failure advice: 16 checks passed");
+        System.out.println("Game failure advice: 19 checks passed");
     }
     private static void check(String input,String expected) {if(!GameFailureAdvice.explain(input).contains(expected))throw new AssertionError(input);}
 }
