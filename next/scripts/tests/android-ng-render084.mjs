@@ -6,5 +6,5 @@ await fs.writeFile(path.join(include,'android/native_window.h'),'#pragma once\ns
 await fs.writeFile(path.join(include,'dlfcn.h'),'#pragma once\n#define RTLD_NOW 2\n#define RTLD_GLOBAL 256\nextern "C" {void* dlopen(const char*,int);void* dlsym(void*,const char*);int hxz_test_setenv(const char*,const char*,int);int hxz_test_unsetenv(const char*);}\n#define setenv hxz_test_setenv\n#define unsetenv hxz_test_unsetenv\n');
 const zig=path.resolve('.runtime/review084/native-host-tools/ziglang/zig.exe');
 for(const [name,sources] of [['indices',['mobile/runtime/test/ng-indices084.cpp']],['dispatch',['mobile/runtime/native/hxz_fcl_render.cpp','mobile/runtime/test/ng-render084.cpp']]]){
- const output=path.join(tmp,name+'.exe');execFileSync(zig,['c++','-std=c++17','-DEGL_NO_PLATFORM_SPECIFIC_TYPES','-I',include,...sources,'-o',output],{stdio:'pipe',timeout:90000});console.log(execFileSync(output,[],{encoding:'utf8',timeout:5000}).trim());
+ const output=path.join(tmp,name+'.exe');execFileSync(zig,['c++',...(process.argv.includes('--optimized')?['-O2']:[]),'-std=c++17','-DEGL_NO_PLATFORM_SPECIFIC_TYPES','-I',include,...sources,'-o',output],{stdio:'pipe',timeout:90000});console.log(execFileSync(output,[],{encoding:'utf8',timeout:5000}).trim());
 }

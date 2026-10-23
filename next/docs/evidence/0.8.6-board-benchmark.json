@@ -1,0 +1,218 @@
+{
+  "date": "2026-10-23T04:46:28.247Z",
+  "node": "v24.14.1",
+  "platform": "win32",
+  "method": "One cold subprocess per deterministic fixture / level; wall clock includes startup; single sample per row, not a cross-machine guarantee.",
+  "rows": [
+    {
+      "game": "chess",
+      "fixture": "opening",
+      "level": 1,
+      "beforeMs": 321,
+      "afterMs": 303
+    },
+    {
+      "game": "chess",
+      "fixture": "opening",
+      "level": 2,
+      "beforeMs": 255,
+      "afterMs": 230
+    },
+    {
+      "game": "chess",
+      "fixture": "opening",
+      "level": 3,
+      "beforeMs": 343,
+      "afterMs": 325
+    },
+    {
+      "game": "chess",
+      "fixture": "opening",
+      "level": 4,
+      "beforeMs": 772,
+      "afterMs": 804
+    },
+    {
+      "game": "chess",
+      "fixture": "opening",
+      "level": 5,
+      "beforeMs": 3188,
+      "afterMs": 943
+    },
+    {
+      "game": "chess",
+      "fixture": "midgame",
+      "level": 1,
+      "beforeMs": 239,
+      "afterMs": 225
+    },
+    {
+      "game": "chess",
+      "fixture": "midgame",
+      "level": 2,
+      "beforeMs": 270,
+      "afterMs": 245
+    },
+    {
+      "game": "chess",
+      "fixture": "midgame",
+      "level": 3,
+      "beforeMs": 489,
+      "afterMs": 414
+    },
+    {
+      "game": "chess",
+      "fixture": "midgame",
+      "level": 4,
+      "beforeMs": 1256,
+      "afterMs": 811
+    },
+    {
+      "game": "chess",
+      "fixture": "midgame",
+      "level": 5,
+      "beforeMs": 2456,
+      "afterMs": 874
+    },
+    {
+      "game": "xiangqi",
+      "fixture": "opening",
+      "level": 1,
+      "beforeMs": 174,
+      "afterMs": 170
+    },
+    {
+      "game": "xiangqi",
+      "fixture": "opening",
+      "level": 2,
+      "beforeMs": 218,
+      "afterMs": 183
+    },
+    {
+      "game": "xiangqi",
+      "fixture": "opening",
+      "level": 3,
+      "beforeMs": 300,
+      "afterMs": 304
+    },
+    {
+      "game": "xiangqi",
+      "fixture": "opening",
+      "level": 4,
+      "beforeMs": 718,
+      "afterMs": 1002
+    },
+    {
+      "game": "xiangqi",
+      "fixture": "opening",
+      "level": 5,
+      "beforeMs": 1935,
+      "afterMs": 877
+    },
+    {
+      "game": "xiangqi",
+      "fixture": "midgame",
+      "level": 1,
+      "beforeMs": 177,
+      "afterMs": 200
+    },
+    {
+      "game": "xiangqi",
+      "fixture": "midgame",
+      "level": 2,
+      "beforeMs": 209,
+      "afterMs": 204
+    },
+    {
+      "game": "xiangqi",
+      "fixture": "midgame",
+      "level": 3,
+      "beforeMs": 329,
+      "afterMs": 296
+    },
+    {
+      "game": "xiangqi",
+      "fixture": "midgame",
+      "level": 4,
+      "beforeMs": 776,
+      "afterMs": 684
+    },
+    {
+      "game": "xiangqi",
+      "fixture": "midgame",
+      "level": 5,
+      "beforeMs": 2656,
+      "afterMs": 1041
+    },
+    {
+      "game": "gomoku",
+      "fixture": "opening",
+      "level": 1,
+      "beforeMs": 225,
+      "afterMs": 238
+    },
+    {
+      "game": "gomoku",
+      "fixture": "opening",
+      "level": 2,
+      "beforeMs": 442,
+      "afterMs": 535
+    },
+    {
+      "game": "gomoku",
+      "fixture": "opening",
+      "level": 3,
+      "beforeMs": 1347,
+      "afterMs": 895
+    },
+    {
+      "game": "gomoku",
+      "fixture": "opening",
+      "level": 4,
+      "beforeMs": 2448,
+      "afterMs": 803
+    },
+    {
+      "game": "gomoku",
+      "fixture": "opening",
+      "level": 5,
+      "beforeMs": 3143,
+      "afterMs": 1038
+    },
+    {
+      "game": "gomoku",
+      "fixture": "midgame",
+      "level": 1,
+      "beforeMs": 282,
+      "afterMs": 248
+    },
+    {
+      "game": "gomoku",
+      "fixture": "midgame",
+      "level": 2,
+      "beforeMs": 341,
+      "afterMs": 379
+    },
+    {
+      "game": "gomoku",
+      "fixture": "midgame",
+      "level": 3,
+      "beforeMs": 880,
+      "afterMs": 618
+    },
+    {
+      "game": "gomoku",
+      "fixture": "midgame",
+      "level": 4,
+      "beforeMs": 2382,
+      "afterMs": 834
+    },
+    {
+      "game": "gomoku",
+      "fixture": "midgame",
+      "level": 5,
+      "beforeMs": 3164,
+      "afterMs": 1054
+    }
+  ]
+}

@@ -23,6 +23,8 @@ package com.github.tartaricacid.touhoulittlemaid.api.game.chess;
 
 @SuppressWarnings("all")
 public class Search {
+    // HXZ integration: publish only fully completed upstream search depths.
+    public java.util.function.IntConsumer onIteration;
     private static final int HASH_ALPHA = 1;
     private static final int HASH_BETA = 2;
     private static final int HASH_PV = 3;
@@ -376,6 +378,7 @@ public class Search {
         long t = System.currentTimeMillis();
         for (int i = 1; i <= depth; i++) {
             vl = searchRoot(i);
+            if (onIteration != null) onIteration.accept(mvResult);
             if (vl > WIN_VALUE || vl < -WIN_VALUE) {
                 break;
             }

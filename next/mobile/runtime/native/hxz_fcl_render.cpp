@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <atomic>
 #include "hxz_ng_indices.h"
 extern "C" {
 #include "fcl/environ.h"
@@ -20,20 +21,24 @@ std::recursive_mutex renderMutex;
 void* renderer;
 using Proc=void*(*)(const char*);
 Proc getGlProc;
+std::atomic<uint64_t> contextRevision{0};
 void* originalProc(const char* name){auto* address=dlsym(renderer,name);return address?address:(getGlProc?getGlProc(name):nullptr);}
+// The renderer library is loaded once for the disposable JVM process and is
+// never replaced/unloaded. Cache its entry points, not context-specific GL state.
 int textureUnitLimit(){
     // NG's config.h/state.h have exactly MAX_TEX=16 slots, even when GLES advertises more.
     using Query=void(*)(unsigned,int*);int units=16;
-    if(auto query=reinterpret_cast<Query>(originalProc("glGetIntegerv")))query(0x84E2,&units);
+    static const auto query=reinterpret_cast<Query>(originalProc("glGetIntegerv"));
+    if(query)query(0x84E2,&units);
     return units>0&&units<16?units:16;
 }
 void safeGetInteger(unsigned token,int* value){
-    using Query=void(*)(unsigned,int*);auto query=reinterpret_cast<Query>(originalProc("glGetIntegerv"));
+    using Query=void(*)(unsigned,int*);static const auto query=reinterpret_cast<Query>(originalProc("glGetIntegerv"));
     if(!query)return;query(token,value);
     if(value&&(token==0x8B4D||token==0x8872)&&*value>textureUnitLimit())*value=textureUnitLimit();
 }
 void safeBindSampler(unsigned unit,unsigned sampler){
-    using Bind=void(*)(unsigned,unsigned);auto bind=reinterpret_cast<Bind>(originalProc("glBindSampler"));
+    using Bind=void(*)(unsigned,unsigned);static const auto bind=reinterpret_cast<Bind>(originalProc("glBindSampler"));
     if(!bind)return;
     // Upstream tests unit > maxtex; equality incorrectly dirties a nonexistent slot.
     // A definitely invalid unit lets NG report GL_INVALID_VALUE without mutating any state.
@@ -46,10 +51,10 @@ template<class Draw> bool drawPromoted(unsigned mode,int count,unsigned type,con
     using Bind=void(*)(unsigned,unsigned);using Generate=void(*)(int,unsigned*);
     using Data=void(*)(unsigned,intptr_t,const void*,unsigned);using Read=void(*)(unsigned,intptr_t,intptr_t,void*);
     using Enabled=unsigned char(*)(unsigned);
-    auto query=reinterpret_cast<Query>(originalProc("glGetIntegerv"));auto bufferQuery=reinterpret_cast<BufferQuery>(originalProc("glGetBufferParameteriv"));
-    auto bind=reinterpret_cast<Bind>(originalProc("glBindBuffer"));auto generate=reinterpret_cast<Generate>(originalProc("glGenBuffers"));
-    auto data=reinterpret_cast<Data>(originalProc("glBufferData"));auto read=reinterpret_cast<Read>(originalProc("glGetBufferSubData"));
-    auto enabled=reinterpret_cast<Enabled>(originalProc("glIsEnabled"));
+    static const auto query=reinterpret_cast<Query>(originalProc("glGetIntegerv"));static const auto bufferQuery=reinterpret_cast<BufferQuery>(originalProc("glGetBufferParameteriv"));
+    static const auto bind=reinterpret_cast<Bind>(originalProc("glBindBuffer"));static const auto generate=reinterpret_cast<Generate>(originalProc("glGenBuffers"));
+    static const auto data=reinterpret_cast<Data>(originalProc("glBufferData"));static const auto read=reinterpret_cast<Read>(originalProc("glGetBufferSubData"));
+    static const auto enabled=reinterpret_cast<Enabled>(originalProc("glIsEnabled"));
     if(!query||!bufferQuery||!bind||!generate||!data||!read||!enabled||enabled(0x8F9D))return false;
     int bound=0,size=0,mapped=0;query(0x8895,&bound);
     if(!bound)return false;
@@ -57,29 +62,36 @@ template<class Draw> bool drawPromoted(unsigned mode,int count,unsigned type,con
     uintptr_t offset=reinterpret_cast<uintptr_t>(indices);size_t bytes=static_cast<size_t>(count)*(type==0x1401?1:2);
     if(mapped||size<0||offset>static_cast<uintptr_t>(size)||bytes>static_cast<size_t>(size)-offset)return false;
     thread_local std::vector<unsigned char> source;thread_local std::vector<uint32_t> promoted;
-    thread_local void* owner=nullptr;thread_local unsigned scratch=0;
+    thread_local void* owner=nullptr;thread_local unsigned scratch=0;thread_local bool scratchValid=false;
+    thread_local uint64_t revision=0;
     try{source.resize(bytes);}catch(...){return false;}
     // glGetBufferSubData reads NG's existing CPU shadow, never a framebuffer/GPU pixel readback.
     read(0x8893,static_cast<intptr_t>(offset),static_cast<intptr_t>(bytes),source.data());
-    if(!hxz_ng_promote_indices(source.data(),count,type,base,promoted))return false;
-    if(owner!=gl_get_current()){owner=gl_get_current();scratch=0;}
+    bool changed=false;
+    if(!hxz_ng_promote_indices(source.data(),count,type,base,promoted,&changed)){scratchValid=false;return false;}
+    const auto liveRevision=contextRevision.load(std::memory_order_relaxed);
+    if(owner!=gl_get_current()||revision!=liveRevision){owner=gl_get_current();revision=liveRevision;scratch=0;scratchValid=false;}
     if(!scratch)generate(1,&scratch);if(!scratch)return false;
-    bind(0x8893,scratch);data(0x8893,static_cast<intptr_t>(promoted.size()*sizeof(uint32_t)),promoted.data(),0x88E0);
+    bind(0x8893,scratch);
+    // Revalidate the live source bytes every draw, including mapped/sub-data
+    // updates. Only reuse identical *contents*, never just an EBO ID/offset.
+    // This avoids repeated GL allocation/upload for unchanged chunk indices.
+    if(changed||!scratchValid){data(0x8893,static_cast<intptr_t>(promoted.size()*sizeof(uint32_t)),promoted.data(),0x88E0);scratchValid=true;}
     draw();bind(0x8893,static_cast<unsigned>(bound));
     static thread_local bool reported=false;if(!reported){reported=true;fprintf(stderr,"[HXZ graphics] base-vertex 32-bit index repair active\n");}
     return true;
 }
 void safeDrawBaseVertex(unsigned mode,int count,unsigned type,const void* indices,int base){
     using DrawBase=void(*)(unsigned,int,unsigned,const void*,int);using Draw=void(*)(unsigned,int,unsigned,const void*);
-    auto original=reinterpret_cast<DrawBase>(originalProc("glDrawElementsBaseVertex"));if(!original)return;
-    auto draw=reinterpret_cast<Draw>(originalProc("glDrawElements"));
+    static const auto original=reinterpret_cast<DrawBase>(originalProc("glDrawElementsBaseVertex"));if(!original)return;
+    static const auto draw=reinterpret_cast<Draw>(originalProc("glDrawElements"));
     if(draw&&drawPromoted(mode,count,type,indices,base,[&]{draw(mode,count,0x1405,nullptr);}))return;
     original(mode,count,type,indices,base);
 }
 void safeDrawInstancedBaseVertex(unsigned mode,int count,unsigned type,const void* indices,int instances,int base){
     using DrawBase=void(*)(unsigned,int,unsigned,const void*,int,int);using Draw=void(*)(unsigned,int,unsigned,const void*,int);
-    auto original=reinterpret_cast<DrawBase>(originalProc("glDrawElementsInstancedBaseVertex"));if(!original)return;
-    auto draw=reinterpret_cast<Draw>(originalProc("glDrawElementsInstanced"));
+    static const auto original=reinterpret_cast<DrawBase>(originalProc("glDrawElementsInstancedBaseVertex"));if(!original)return;
+    static const auto draw=reinterpret_cast<Draw>(originalProc("glDrawElementsInstanced"));
     // Keep the driver instancing path and its attribute divisors; one ordinary draw is not equivalent.
     if(instances>0&&draw&&drawPromoted(mode,count,type,indices,base,[&]{draw(mode,count,0x1405,nullptr,instances);}))return;
     original(mode,count,type,indices,instances,base);
@@ -126,7 +138,7 @@ extern "C" int hxz_fcl_current(void* context){
     }
     return gl_get_current()==bundle?0:-1;
 }
-extern "C" void hxz_fcl_destroy(void* context){std::lock_guard<std::recursive_mutex> lock(renderMutex);gl_destroy_context(static_cast<gl_render_window_t*>(context));}
+extern "C" void hxz_fcl_destroy(void* context){std::lock_guard<std::recursive_mutex> lock(renderMutex);gl_destroy_context(static_cast<gl_render_window_t*>(context));if(context)contextRevision.fetch_add(1,std::memory_order_relaxed);}
 extern "C" int hxz_fcl_swap(){
     std::lock_guard<std::recursive_mutex> lock(renderMutex);
     return gl_swap_buffers()?0:-1;

@@ -1315,6 +1315,9 @@ public class ZhiZhangAIService implements AIService {
      * @param maxDepth 最大搜索深度
      * @return
      */
+    // HXZ integration: reporting does not alter upstream search/evaluation.
+    public java.util.function.Consumer<Point> onIteration;
+
     private Point deepeningMinimax(int depth, int maxDepth) {
         this.situationCacheMap = new HashMap<>(2048);
 
@@ -1322,6 +1325,7 @@ public class ZhiZhangAIService implements AIService {
         for (; depth <= maxDepth; depth += 2) {
             int score = minimax(0, depth, -INFINITY, INFINITY);
             best = this.bestPoint;
+            if (onIteration != null && best != null) onIteration.accept(best);
             this.statistics.setPoint(best);
             this.statistics.setDepth(depth);
             this.statistics.setScore(score);

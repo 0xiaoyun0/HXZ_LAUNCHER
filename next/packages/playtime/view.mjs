@@ -5,6 +5,13 @@ export const dateKey=(time=Date.now())=>new Date(time+SHIFT).toISOString().slice
 export function dayStart(date){const time=Date.parse(date+'T00:00:00+08:00');return Number.isFinite(time)&&dateKey(time)===date?time:NaN;}
 export function duration(value){const seconds=Math.max(0,Math.floor(Number.isFinite(Number(value))?Number(value):0));if(!seconds)return '0 分钟';if(seconds<60)return seconds+' 秒';const minutes=Math.floor(seconds/60);return minutes<60?minutes+' 分钟':Math.floor(minutes/60)+' 小时'+(minutes%60?' '+minutes%60+' 分钟':'');}
 export function clock(time){return new Date(time).toLocaleTimeString('zh-CN',{timeZone:'Asia/Shanghai',hour12:false,hour:'2-digit',minute:'2-digit'});}
+export function rewardView(summary){
+ if(!summary||summary.scheme!=='cumulative-24h')return null;
+ const interval=86400,progress=Math.max(0,Math.min(interval,Number(summary.progressSeconds)||0)),pending=Math.max(0,Math.floor(Number(summary.pendingIntervals)||0));
+ return {progress,remaining:Math.max(0,interval-progress),earned:String(summary.earnedPoints??'0'),enabled:!!summary.enabled,pending,
+  label:!summary.enabled?'奖励发放已暂停，已核验时长继续累计':pending?`${pending} 份奖励等待发放`:`再游玩 ${duration(interval-progress)} 获得 5 积分`};
+}
+export function legacyBoard(board){return board?.rewardScheme==='legacy-weekly'||(!board?.rewardScheme&&board?.rules?.scheme!=='cumulative-24h');}
 export function weekStart(time=Date.now()){const day=dayStart(dateKey(time)),weekday=new Date(day+SHIFT).getUTCDay();return day-((weekday+6)%7)*DAY;}
 export function calendarView(rows=[],end=dateKey(),count=182){
  const today=dayStart(end),start=today-(count-1)*DAY,offset=(new Date(start+SHIFT).getUTCDay()+6)%7,gridStart=start-offset*DAY;

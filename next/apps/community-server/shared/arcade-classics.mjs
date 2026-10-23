@@ -1,9 +1,10 @@
+import {generateMines} from './arcade-mines.mjs';
 // Fixed-step, seeded rules. Rendering and device input never affect scoring.
 export const CLASSIC_GAMES = [
  {id:'tanks',number:10,name:'星堡双卫',tag:'坦克防守 · 单人 / 双人联网',description:'守住星灯基地，与伙伴穿越二十轮防线',keys:'WASD / 方向键移动，J / 空格开火；双人模式各自使用自己的设备加入同一个社区房间',color:'#96cfc5'},
  {id:'merge',number:13,name:'云朵 2048',tag:'数字益智 · 无限合成',description:'轻推云朵，让相同数字相遇',keys:'方向键 / WASD 或滑动画面；相同数字每次只合并一次',color:'#c9b9ee'},
  {id:'snake',number:14,name:'青柠贪吃蛇',tag:'经典街机 · 逐级加速',description:'收集果实，规划路线，让小蛇慢慢长大',keys:'方向键 / WASD 或滑动画面转向；不能直接掉头',color:'#afcf91'},
- {id:'mines',number:15,name:'星野扫雷',tag:'逻辑推理 · 安全首步',description:'用数字找到二十颗星雷，点亮整片星野',keys:'点击翻开；右键 / 长按插旗；点击已揭数字可快速展开周围；首步保证安全',color:'#e9c59c'}
+ {id:'mines',number:15,name:'星野扫雷',tag:'逻辑推理 · 无需猜雷',description:'用数字找到二十颗星雷，点亮整片星野',keys:'点击翻开；右键 / 长按插旗；点击已揭数字可快速展开周围；首步安全，数字推理可解',color:'#e9c59c'}
 ];
 const rand=s=>{s.seed=(Math.imul(s.seed,1664525)+1013904223)>>>0;return s.seed/4294967296;};
 const dirs={up:[0,-1],right:[1,0],down:[0,1],left:[-1,0]};
@@ -31,7 +32,7 @@ function moveTiles(s,dir){
 }
 function spawnFruit(s){const free=[];for(let y=0;y<18;y++)for(let x=0;x<18;x++)if(!s.snake.some(p=>p.x===x&&p.y===y))free.push({x,y});if(!free.length){s.won=s.over=true;return;}s.fruit=free[Math.floor(rand(s)*free.length)];}
 const neighbours=(s,i)=>{const a=[];for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const x=i%s.cols+dx,y=Math.floor(i/s.cols)+dy;if((dx||dy)&&x>=0&&x<s.cols&&y>=0&&y<s.rows)a.push(y*s.cols+x);}return a;};
-function plantMines(s,first){const safe=new Set([first,...neighbours(s,first)]),free=s.cells.map((_,i)=>i).filter(i=>!safe.has(i));for(let i=free.length-1;i>0;i--){const j=Math.floor(rand(s)*(i+1));[free[i],free[j]]=[free[j],free[i]];}for(const i of free.slice(0,s.mineCount))s.cells[i]=-1;for(let i=0;i<s.cells.length;i++)if(s.cells[i]!==-1)s.cells[i]=neighbours(s,i).filter(j=>s.cells[j]===-1).length;s.ready=true;}
+function plantMines(s,first){s.cells=generateMines(s,first,rand);s.ready=true;}
 function reveal(s,i){
  if(s.flags[i]||s.open[i])return;if(!s.ready)plantMines(s,i);
  if(s.cells[i]===-1){s.exploded=i;s.over=true;s.event={tick:s.tick};return;}

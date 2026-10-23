@@ -1,8 +1,8 @@
-# 幻想镇 · 0.8.5
+# 幻想镇 · 0.8.6
 
-Windows x64/ia32 安装版与便携版、Android 社区客户端、社区服务端及自动更新。Android 客户端版本 80500；游戏运行模块沿用已发布的 0.8.4 / 80400 组件。
+Windows x64/ia32 安装版与便携版、Android 社区客户端、社区服务端及自动更新。Android 客户端版本 80600；游戏运行模块沿用已发布的 0.8.4 / 80400 组件。
 
-[正式发布](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.5) · [源码与构建](next/README.md) · [更新说明](next/docs/0.8.5发布说明.md)
+[正式发布](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.6) · [源码与构建](next/README.md) · [更新说明](next/docs/0.8.6发布说明.md)
 
 游戏服务端桥保留 0.8.0 原附件及散列；Android 不再安装单独的游戏引擎 APK。
 

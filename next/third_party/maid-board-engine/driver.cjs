@@ -12,16 +12,17 @@ process.stdin.on('end',()=>{try{
  const {state:s,level:raw=1}=JSON.parse(input),level=Math.max(1,Math.min(5,Math.trunc(raw)||1));
  if(!['chess','xiangqi','gomoku'].includes(s.game))throw Error('Unknown engine');
  const emit=(type,move)=>process.stdout.write(JSON.stringify({type,move})+'\n');
+ globalThis.hxzBoardCandidate=n=>emit('candidate',convert(s.game,n));
  emit('ready');
  if(s.game==='gomoku'){
   const board=s.board.map(p=>p==='a'?'1':p==='b'?'2':'0').join(''),last=s.last?.to??-1;
-  // Each completed upstream search supplies a valid fallback before deeper analysis.
-  let move;for(const depth of [1,2,4,6,8].slice(0,level)){
-   move=convert(s.game,engine.gomoku(board,last,depth,[4,6,8,10,12][level-1],0));emit('candidate',move);
-  }emit('done',move);
+  // The cheap upstream tactical pass is also the fallback if a later depth overruns.
+  let move=convert(s.game,engine.gomoku(board,last,1,[4,6,8,10,12][level-1],0));emit('candidate',move);
+  if(level>1)move=convert(s.game,engine.gomoku(board,last,[1,2,4,6,8][level-1],[4,6,8,10,12][level-1],0));
+  emit('done',move);
  }else{
-  const fen=s.game==='chess'?s.fen:fenOf(s),depth=[1,2,4,6,9][level-1],budget=[60,160,400,750,1200][level-1];
-  let move=convert(s.game,engine[s.game](fen,1,40));emit('candidate',move);
-  if(level>1)move=convert(s.game,engine[s.game](fen,depth,budget));emit('done',move);
+  const fen=s.game==='chess'?s.fen:fenOf(s),depth=[1,2,4,6,9][level-1],budget=[40,90,180,320,550][level-1];
+  // One upstream iterative search retains its hash/history tables across depths.
+  const move=convert(s.game,engine[s.game](fen,depth,budget));emit('done',move);
  }
  }catch(e){process.stdout.write(JSON.stringify({type:'error',message:String(e.message||e)})+'\n');process.exitCode=1;}});

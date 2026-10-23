@@ -12,7 +12,12 @@ public final class GameMemoryBudget {
         // fraction of free swap, never the advertised storage expansion size.
         long allowance=expanded?Math.min(1024,Math.min(total/4,Math.max(0,swapFreeMiB)/2)):0;
         long ceiling=Math.max(512,Math.min(6144,Math.max(0,available-reserve)+allowance));
-        long automatic=modded?Math.max(2048,Math.min(6144,total*45/100)):total>=6144?2048:total>=4096?1536:1024;
+        // Preserve the pre-expansion automatic policy: available RAM, not total
+        // RAM, determines the baseline. Counting total RAM changed the OFF path
+        // too and could grow the game into Android/native graphics headroom.
+        long vanillaLimit=total>=6144?2048:total>=4096?1536:1024;
+        long baseline=Math.max(512,Math.min(modded?4096:vanillaLimit,available*45/100));
+        long automatic=modded?Math.min(6144,baseline+allowance):baseline;
         return (int)Math.min(ceiling,requestedMiB>0?Math.max(512,requestedMiB):automatic);
     }
     public static EngineHost.JavaJob apply(EngineHost.JavaJob job,int heapMiB) {
