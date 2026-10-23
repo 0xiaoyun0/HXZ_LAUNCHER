@@ -72,7 +72,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
         try(BufferedReader reader=new BufferedReader(new FileReader("/proc/meminfo"))){String line;while((line=reader.readLine())!=null)if(line.startsWith("SwapFree:")){swapFree=Long.parseLong(line.substring(9).trim().split("\\s+")[0])/1024;break;}}catch(IOException|NumberFormatException ignored){/* An unreadable swap counter contributes no memory. */}
         boolean expanded=options.optBoolean("extendedMemory",false);JSONObject server=request.optJSONObject("server");
         int heap=GameMemoryBudget.select(total,available,swapFree,options.optInt("memoryMB"),expanded,server!=null&&server.optString("id").startsWith("HXZ-mod-"));
-        memoryDiagnostic="Java 上限 "+heap+" MiB；物理总量 "+total+" MiB，可用 "+available+" MiB；系统空闲交换 "+swapFree+" MiB，扩展预算"+(expanded?"开启":"关闭")+"（由 Android 管理，速度慢于内存）";
+        memoryDiagnostic="Java 上限 "+heap+" MiB；"+(options.optInt("memoryMB")>0?"手动设置 "+options.optInt("memoryMB")+" MiB":"自动分配")+"；物理总量 "+total+" MiB，可用 "+available+" MiB；系统空闲交换 "+swapFree+" MiB，扩展预算"+(expanded?"开启":"关闭")+"（由 Android 管理，速度慢于内存）";
         return heap;
     }
     private void update(String phase,String item,long completed,long total){
@@ -339,6 +339,7 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
         if(lower.contains("integrity")||lower.contains("checksum")||lower.contains("完整性")||lower.contains("散列"))return "资源校验失败，请重新下载或修复运行模块。";
     }String detail=scrub(error.getMessage());int newline=detail.indexOf('\n');if(newline>=0)detail=detail.substring(0,newline);return detail.length()>180?detail.substring(0,180)+"…":detail.isEmpty()?"游戏准备失败，请复制技术诊断查看原因。":detail;}
     private String technical(Throwable error){StringBuilder out=new StringBuilder("HXZ Android 游戏诊断\n");out.append(top.hxzmc.community.BuildConfig.VERSION_NAME).append(" / ").append(top.hxzmc.community.BuildConfig.VERSION_CODE).append('\n');out.append(Build.MANUFACTURER).append(' ').append(Build.MODEL).append(" · Android ").append(Build.VERSION.RELEASE).append('\n');StringBuilder failure=new StringBuilder();int depth=0;for(Throwable current=error;current!=null&&depth++<8;current=current.getCause())failure.append(current.getClass().getSimpleName()).append(": ").append(diagnosticPart(current.getMessage(),8192)).append('\n');out.append(diagnosticPart(failure.toString(),gameStarted?2048:8192));
+        if(!memoryDiagnostic.isEmpty())out.append("内存配置: ").append(memoryDiagnostic).append('\n');
         if(!gameDiagnostic.isEmpty())out.append(gameDiagnostic).append('\n');
         if(!rendererDiagnostic.isEmpty())out.append("图形驱动检测:\n").append(diagnosticPart(rendererDiagnostic,2048)).append('\n');
         if(!clientModDiagnostic.isEmpty())out.append("客户端适配:\n").append(diagnosticPart(clientModDiagnostic,2048)).append('\n');

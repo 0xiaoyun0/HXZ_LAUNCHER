@@ -32,6 +32,18 @@ public final class GameLiveDiagnosticsTest {
         check(waiting.contains("未采集到渲染或加载线程"),"idle worker tail presented as the blocking cause");
         String many=GameLiveDiagnostics.summarize(metadata,repeat("[ERROR] "+repeat("x",400)+"\n",100),"",snapshots.toString());
         check(many.length()<=4800&&count(many,"Render thread")==2,"large errors displaced second snapshot");
+        String texture="JVM 线程快照 1\n堆内存 MiB: used=3169 max=5204\n\"Render thread\" #1 RUNNABLE\n  位于原生调用\n  累计 CPU ms: 80808\n"
+            +"  at MC-BOOTSTRAP/org.lwjgl.opengl@3.3.3+5/org.lwjgl.opengl.GL11C.nglTexSubImage2D(Native Method)\n"
+            +"  at MC-BOOTSTRAP/org.lwjgl.opengl@3.3.3+5/org.lwjgl.opengl.GL11C.glTexSubImage2D(GL11C.java:2105)\n"
+            +"  at MC-BOOTSTRAP/org.lwjgl.opengl@3.3.3+5/org.lwjgl.opengl.GL11.glTexSubImage2D(GL11.java:7365)\n"
+            +"  at TRANSFORMER/minecraft@1.21.1/com.mojang.blaze3d.platform.GlStateManager._texSubImage2D(GlStateManager.java:568)\n"
+            +"  at TRANSFORMER/minecraft@1.21.1/com.mojang.blaze3d.platform.NativeImage.upload(NativeImage.java:211)\n"
+            +"  at TRANSFORMER/minecraft@1.21.1/net.minecraft.client.renderer.texture.SpriteContents$Ticker.uploadFrame(SpriteContents.java:301)\n"
+            +"  at TRANSFORMER/minecraft@1.21.1/net.minecraft.client.renderer.texture.TextureAtlas.tick(TextureAtlas.java:99)\n";
+        String textured=GameLiveDiagnostics.summarize(metadata+"内存配置: Java 上限 5204 MiB；手动设置 6144 MiB；扩展预算关闭\n","","",texture+texture.replace("快照 1","快照 2"));
+        check(textured.contains("SpriteContents$Ticker.uploadFrame")&&textured.contains("TextureAtlas.tick"),"texture upload owner hidden behind LWJGL/NativeImage plumbing");
+        check(textured.contains("手动设置 6144 MiB")&&textured.contains("扩展预算关闭"),"actual memory mode missing from compact report");
+        check(count(textured,"nglTexSubImage2D")==2&&textured.length()<=4800,"texture detail displaced native call or sharing budget");
         String original="[09:10:00] [modloading-worker-0/ERROR] [ne.ne.fm.ModLoader/]: Failed to create mod instance. ModID: fixture_client\njava.lang.IllegalStateException: Fixture initialization failed\nCaused by: java.lang.UnsatisfiedLinkError: fixture-native-library.so\n  at fixture.Client.initialize(Client.java:7)\n";
         String cascade=repeat("[09:12:43] [Worker-ResourceReload-4/ERROR] [ne.ne.fm.ModLoader/]: Cowardly refusing to send event net.neoforged.neoforge.client.event.ModelEvent$ModifyBakingResult to a broken mod state\n",100);
         String broken=GameLiveDiagnostics.summarize(metadata,original+cascade,"",snapshots.toString());

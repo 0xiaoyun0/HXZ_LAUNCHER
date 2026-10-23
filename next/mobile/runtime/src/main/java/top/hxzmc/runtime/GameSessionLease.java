@@ -7,7 +7,19 @@ public final class GameSessionLease {
     public String id(){return id;}
     public long deadline(){return deadline;}
     public void restore(String saved,long until,long now){
-        clear();if(saved!=null&&saved.matches("[a-zA-Z0-9-]{16,64}")&&until>now&&until-now<=90000){id=saved;deadline=until;}
+        restore(saved,until,now,null);
+    }
+    public void restore(String saved,long until,long now,Boolean ownerAlive){
+        clear();if(saved==null||!saved.matches("[a-zA-Z0-9-]{16,64}")||Boolean.FALSE.equals(ownerAlive))return;
+        if(Boolean.TRUE.equals(ownerAlive)){id=saved;deadline=now+90000;}
+        else if(until>now&&until-now<=90000){id=saved;deadline=until;}
+    }
+    /** Known process state wins over a heartbeat missed during process recreation. Unknown stays bounded. */
+    public boolean reconcile(Boolean ownerAlive,long now){
+        if(id.isEmpty())return false;
+        if(Boolean.TRUE.equals(ownerAlive)){deadline=now+90000;return false;}
+        if(Boolean.FALSE.equals(ownerAlive)||now>=deadline){clear();return true;}
+        return false;
     }
     public void begin(String next,long now) {
         if(next==null||!next.matches("[a-zA-Z0-9-]{16,64}"))throw new IllegalArgumentException("Invalid game session");

@@ -6,17 +6,22 @@ import {execFileSync,spawn} from 'node:child_process';
 const root=process.cwd(),tmp=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-network-'));
 const java='C:/Program Files/Java/jdk-21/bin/',json=path.join(root,'.runtime/review084/lobby/json.jar');
 const app=await fs.readFile('mobile/android/app/src/main/java/top/hxzmc/community/CommunityApp.java','utf8');
-const begin=app.slice(app.indexOf('    JSONObject beginGameSession('),app.indexOf('    private void persistGameSessionLease('));
+const begin=app.slice(app.indexOf('    JSONObject beginGameSession('),app.indexOf('    /** Only our game Activity'));
 const session=app.slice(app.indexOf('    String session()'),app.indexOf('    Object api('));
 await fs.mkdir(path.join(tmp,'android/os'),{recursive:true});
 await fs.writeFile(path.join(tmp,'android/os/SystemClock.java'),'package android.os;public class SystemClock {public static long now=1000;public static long elapsedRealtime(){return now;}}');
+await fs.writeFile(path.join(tmp,'android/os/Binder.java'),'package android.os;public class Binder {public static int getCallingPid(){return 200;}}');
 await fs.writeFile(path.join(tmp,'NetworkProbe.java'),`import java.util.*;import java.io.*;import org.json.*;import top.hxzmc.runtime.*;
 public class NetworkProbe {
- final Object authLock=new Object();final GameSessionLease gameSessionLease=new GameSessionLease();JSONObject credentials=new JSONObject(),user;String token="",base="https://community.example";long expires;int refreshes,validations;
+ final Object authLock=new Object();final GameSessionLease gameSessionLease=new GameSessionLease();JSONObject credentials=new JSONObject(),user;String token="",base="https://community.example";long expires;int refreshes,validations,gameSessionOwnerPid;
  static JSONObject obj(Object... a)throws Exception{JSONObject out=new JSONObject();for(int i=0;i<a.length;i+=2)out.put((String)a[i],a[i+1]);return out;}
  Object request(String url,String method,JSONObject body,String auth)throws Exception{refreshes++;return obj("credentials",obj("accessToken","rotated-"+refreshes,"clientToken","fixture-client","selectedProfile",obj("id","player")),"token","bearer","user",obj("id","player"));}
  void saveCredentials(JSONObject next){credentials=next;}
+ final Handler main=new Handler();final Runnable gameRecovery=()->{};static class Handler{void removeCallbacks(Runnable r){}void postDelayed(Runnable r,long n){}}
  void persistGameSessionLease(){}
+ void reconcileGameSession(){}
+ void resumeCommunityAfterGame(){}
+ void persistCommunitySession(){}
  JSONObject gameLaunchCredentials(String uuid)throws Exception{validations++;return new JSONObject(credentials.toString());}
  ${begin}
  ${session}
@@ -35,7 +40,7 @@ public class NetworkProbe {
   System.out.println("PASS DNS configuration, active game token race, lease expiry and ownership (production methods, simulated network)");
  }
 }`);
-execFileSync(java+'javac.exe',['--release','8','-encoding','UTF-8','-cp',json,'-d',tmp,path.join(tmp,'NetworkProbe.java'),path.join(tmp,'android/os/SystemClock.java'), 'mobile/runtime/src/main/java/top/hxzmc/runtime/GameDnsConfiguration.java','mobile/runtime/src/main/java/top/hxzmc/runtime/GameSessionLease.java'],{stdio:'pipe'});
+execFileSync(java+'javac.exe',['--release','8','-encoding','UTF-8','-cp',json,'-d',tmp,path.join(tmp,'NetworkProbe.java'),path.join(tmp,'android/os/SystemClock.java'),path.join(tmp,'android/os/Binder.java'), 'mobile/runtime/src/main/java/top/hxzmc/runtime/GameDnsConfiguration.java','mobile/runtime/src/main/java/top/hxzmc/runtime/GameSessionLease.java'],{stdio:'pipe'});
 console.log(execFileSync(java+'java.exe',['-cp',tmp+path.delimiter+json,'NetworkProbe'],{encoding:'utf8',stdio:'pipe'}).trim());
 await fs.writeFile(path.join(tmp,'ProbeTarget.java'),`import java.util.concurrent.CountDownLatch;
 public class ProbeTarget {

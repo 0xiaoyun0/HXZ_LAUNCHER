@@ -12,6 +12,7 @@ public final class GameLiveDiagnostics {
     public static String summarize(String metadata,String gameLog,String instanceLog,String snapshots) {
         StringBuilder out=new StringBuilder("HXZ 游戏实时诊断（精简）\n");
         String[] header=lines(metadata);for(int i=1;i<Math.min(3,header.length);i++)append(out,header[i],180);
+        for(String line:header)if(line.startsWith("内存配置:")){append(out,line,260);break;}
         out.append("等待线程本身不是报错；以下是两次采样的关键位置。\n\n");
         String snapshotText=snapshots==null?"":snapshots;int firstSample=snapshotText.indexOf("JVM 线程快照 ");
         String loading=firstSample<0?snapshotText:snapshotText.substring(0,firstSample);
@@ -43,14 +44,14 @@ public final class GameLiveDiagnostics {
         for(Block block:blocks){
             if(block.rank()>3&&!owners.contains(block.id()))continue;
             StringBuilder item=new StringBuilder();append(item,block.header,190);
-            int frames=0;String modFrame=null;
+            int frames=0;List<String> callers=new ArrayList<>();
             for(String line:block.rows){
                 if(!line.startsWith("  at ")){append(item,line,130);continue;}
-                if(frames++<3)append(item,line,145);
-                else if(modFrame==null&&!platformFrame(line))modFrame=line;
+                if(frames++<(block.rank()==0?2:3))append(item,line,145);
+                else if(callers.size()<(block.rank()==0?2:1)&&!platformFrame(line)&&!renderBridgeFrame(line))callers.add(line);
             }
-            if(modFrame!=null){item.append("  …调用方:\n");append(item,modFrame,145);}
-            int budget=Math.min(520,limit-out.length()-1);if(budget<190)break;
+            if(!callers.isEmpty()){item.append("  …调用方:\n");for(String caller:callers)append(item,caller,165);}
+            int budget=Math.min(block.rank()==0?800:420,limit-out.length()-1);if(budget<190)break;
             out.append(head(item.toString(),budget));if(++count==3)break;
         }
         if(count==0)out.append("未采集到渲染或加载线程，请刷新诊断。\n");
@@ -58,6 +59,7 @@ public final class GameLiveDiagnostics {
     }
 
     private static boolean platformFrame(String line){return line.contains("java.base/")||line.contains("java.base@")||line.contains("java.util.")||line.contains("java.lang.")||line.contains("jdk.internal.")||line.contains("sun.misc.");}
+    private static boolean renderBridgeFrame(String line){return line.contains("org.lwjgl")||line.contains(".GlStateManager.")||line.contains(".NativeImage.");}
     public static boolean brokenState(String text){return text!=null&&text.contains("to a broken mod state");}
     private static boolean loadingFailure(String line){String lower=line.toLowerCase(Locale.ROOT);return lower.contains("failed to create mod instance")||lower.contains("modloadingexception")||lower.contains("loadingfailedexception")||lower.contains("failed to complete lifecycle event")||lower.contains("exception caught during firing event")||lower.contains("failure during early loading")||lower.contains("mod loading error")||lower.contains("caused by:");}
 
