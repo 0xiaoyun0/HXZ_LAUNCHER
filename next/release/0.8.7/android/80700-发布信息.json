@@ -1,5 +1,5 @@
 {
-  "verifiedAt": "2026-10-25T01:53:02.181Z",
+  "verifiedAt": "2026-10-25T04:23:30.751Z",
   "release": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.7",
   "manifest": {
     "versionCode": 80700,
@@ -19,8 +19,8 @@
     },
     {
       "name": "android-latest.json",
-      "size": 1986,
-      "sha256": "43691a2ed13d6be4d5c8bb9255c6b0d8d98ecc7ccc328079667be4e9d9a253b6",
+      "size": 2410,
+      "sha256": "75fd659f5d1545f8a1b9231864c77ff6b51b27661d6986a6e332e0e94e6fb99d",
       "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/android-latest.json"
     }
   ]
