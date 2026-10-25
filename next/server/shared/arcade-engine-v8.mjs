@@ -105,3 +105,4 @@ export function replaySegment(previous,ticks,inputs){
   if(s.tick!==ticks||i!==inputs.length)throw Error('游戏结束后的记录无效');
   return s;
 }
+

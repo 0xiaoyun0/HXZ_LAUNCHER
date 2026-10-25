@@ -1,0 +1,273 @@
+{
+  "version": "0.8.7",
+  "tag": "v0.8.7",
+  "latest": true,
+  "draft": false,
+  "prerelease": false,
+  "deviceTested": false,
+  "publishedAt": "2026-10-25T00:00:00Z",
+  "gameBridges": {
+    "version": "0.8.0",
+    "reusedFrom": "0.8.0",
+    "files": [
+      {
+        "name": "hxz-community-bridge-0.8.0-mcdr.mcdr",
+        "size": 5286,
+        "sha256": "6524ae95962c53f0b539c7d5f3bfdd8d477445348a71d017f8ce668e6bee7678"
+      },
+      {
+        "name": "hxz-community-bridge-0.8.0-neoforge-1.21.1.jar",
+        "size": 18914,
+        "sha256": "f7f804859f8ed281689726a39ec91fdcd11e1f0e4211a98c537198cc7b6274ee"
+      }
+    ]
+  },
+  "androidVersionCode": 80700,
+  "runtimeVersionCode": 80400,
+  "runtimeMinimumAppVersionCode": 80400,
+  "files": [
+    {
+      "path": "windows-x64/HXZ-Launcher-0.8.7-x64.exe",
+      "size": 154159783,
+      "sha256": "10b963e84e14fd30c2655ace724cca83f19870ce2cb7a3ad75f679f5587b2e0b"
+    },
+    {
+      "path": "windows-x64/HXZ-Launcher-0.8.7-x64.exe.blockmap",
+      "size": 162953,
+      "sha256": "68d28be1815e7a5d7d075e50e3681b7dd249374d71819ef10f9fe662cdfe1ae7"
+    },
+    {
+      "path": "windows-x64/HXZ-NEXT-0.8.7-windows-x64-portable.zip",
+      "size": 192255561,
+      "sha256": "01aff5b215ea55fa40b6bb678ded8e994123a090ca1465dfda854cd137fd9a0b"
+    },
+    {
+      "path": "windows-ia32/HXZ-Launcher-0.8.7-ia32.exe",
+      "size": 104485856,
+      "sha256": "cda06e19b6663d84604aada904a96cc764f7c946515665fff35e85b078ce5381"
+    },
+    {
+      "path": "windows-ia32/HXZ-Launcher-0.8.7-ia32.exe.blockmap",
+      "size": 111534,
+      "sha256": "063431bf4ce387b45a1e04a6633d2490048cf269401518bd464bba1d4a34b614"
+    },
+    {
+      "path": "windows-ia32/HXZ-NEXT-0.8.7-windows-ia32-portable.zip",
+      "size": 125519149,
+      "sha256": "2f293adea18942aa88713fc7462425a4b51ebf90b0c592517d05544944e0332a"
+    },
+    {
+      "path": "server/HXZ-Community-0.8.7-windows-x64.zip",
+      "size": 65511330,
+      "sha256": "38498a2030069bb5a60dd2e43cc41c93db421970cba15561316ba9e61a4be91c"
+    },
+    {
+      "path": "server/HXZ-Community-0.8.7-update.zip",
+      "size": 30307559,
+      "sha256": "7b8c7ed148d8efb2dc3973772679912bdb382cc23173792a9d6e5296b323c4b2"
+    },
+    {
+      "path": "android/HXZ-Community-Android-0.8.7-80700.apk",
+      "size": 61641497,
+      "sha256": "4df63a859d6d1bfd1c6a5a8f505a5d335f3f0f6c99b57074f85ac1f2f9c52197"
+    },
+    {
+      "path": "source/HXZ-Launcher-0.8.7-source.zip",
+      "size": 295972706,
+      "sha256": "c0cc9e755065e9ff56b4db81128f915e40a97f057b3e56a1bfc2c2693b27ad98"
+    },
+    {
+      "path": "game-server/hxz-community-bridge-0.8.0-mcdr.mcdr",
+      "size": 5286,
+      "sha256": "6524ae95962c53f0b539c7d5f3bfdd8d477445348a71d017f8ce668e6bee7678"
+    },
+    {
+      "path": "game-server/hxz-community-bridge-0.8.0-neoforge-1.21.1.jar",
+      "size": 18914,
+      "sha256": "f7f804859f8ed281689726a39ec91fdcd11e1f0e4211a98c537198cc7b6274ee"
+    },
+    {
+      "path": "updates/latest.json",
+      "size": 1946,
+      "sha256": "a1503c735cc9fc3d874262cd894eeba7bc483c7f4b5fe3646069967588d2a980"
+    },
+    {
+      "path": "updates/latest-ia32.json",
+      "size": 1950,
+      "sha256": "62ecd187e523e7ee790ea48337c57da68ebca227720051bc9f6c52e3efd612d8"
+    },
+    {
+      "path": "updates/latest.yml",
+      "size": 349,
+      "sha256": "6853a52706f9be6c19b2f3cbe52721aa169277f421cfb11ac2ae601d205a1d36"
+    },
+    {
+      "path": "updates/android-latest.json",
+      "size": 1986,
+      "sha256": "43691a2ed13d6be4d5c8bb9255c6b0d8d98ecc7ccc328079667be4e9d9a253b6"
+    },
+    {
+      "path": "updates/game-runtime-latest.json",
+      "size": 2362,
+      "sha256": "4e553b82f23d40e7a5287d1b7cf76e6f88b0116ebaff6ce4d5cfc5e10de34c57"
+    },
+    {
+      "path": "updates/game-runtime-latest.payload.json",
+      "size": 1365,
+      "sha256": "a32938b317f19a56544e60fe3aeeeb9f77f3c26732bbaa74d65bc446512ff50d"
+    },
+    {
+      "path": "updates/community-update.json",
+      "size": 1986,
+      "sha256": "28a845e54cac5e61a19bf6ffb1a8670ee319f47420ef877732290d08a16a025c"
+    }
+  ],
+  "verification": {
+    "engineTests": 56,
+    "serverTests": 125,
+    "desktopBuild": true,
+    "mobileWebBuild": true,
+    "androidBuildArtifact": true,
+    "androidDeviceTested": false,
+    "ui": [
+      "desktop game shelf compact/full screenshot",
+      "stable toolbar grid alignment",
+      "three-column card baseline alignment"
+    ]
+  },
+  "assets": [
+    {
+      "name": "HXZ-Launcher-0.8.7-x64.exe",
+      "size": 154159783,
+      "digest": "sha256:10b963e84e14fd30c2655ace724cca83f19870ce2cb7a3ad75f679f5587b2e0b",
+      "path": "windows-x64/HXZ-Launcher-0.8.7-x64.exe",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-Launcher-0.8.7-x64.exe"
+    },
+    {
+      "name": "HXZ-Launcher-0.8.7-x64.exe.blockmap",
+      "size": 162953,
+      "digest": "sha256:68d28be1815e7a5d7d075e50e3681b7dd249374d71819ef10f9fe662cdfe1ae7",
+      "path": "windows-x64/HXZ-Launcher-0.8.7-x64.exe.blockmap",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-Launcher-0.8.7-x64.exe.blockmap"
+    },
+    {
+      "name": "HXZ-NEXT-0.8.7-windows-x64-portable.zip",
+      "size": 192255561,
+      "digest": "sha256:01aff5b215ea55fa40b6bb678ded8e994123a090ca1465dfda854cd137fd9a0b",
+      "path": "windows-x64/HXZ-NEXT-0.8.7-windows-x64-portable.zip",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-NEXT-0.8.7-windows-x64-portable.zip"
+    },
+    {
+      "name": "HXZ-Launcher-0.8.7-ia32.exe",
+      "size": 104485856,
+      "digest": "sha256:cda06e19b6663d84604aada904a96cc764f7c946515665fff35e85b078ce5381",
+      "path": "windows-ia32/HXZ-Launcher-0.8.7-ia32.exe",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-Launcher-0.8.7-ia32.exe"
+    },
+    {
+      "name": "HXZ-Launcher-0.8.7-ia32.exe.blockmap",
+      "size": 111534,
+      "digest": "sha256:063431bf4ce387b45a1e04a6633d2490048cf269401518bd464bba1d4a34b614",
+      "path": "windows-ia32/HXZ-Launcher-0.8.7-ia32.exe.blockmap",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-Launcher-0.8.7-ia32.exe.blockmap"
+    },
+    {
+      "name": "HXZ-NEXT-0.8.7-windows-ia32-portable.zip",
+      "size": 125519149,
+      "digest": "sha256:2f293adea18942aa88713fc7462425a4b51ebf90b0c592517d05544944e0332a",
+      "path": "windows-ia32/HXZ-NEXT-0.8.7-windows-ia32-portable.zip",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-NEXT-0.8.7-windows-ia32-portable.zip"
+    },
+    {
+      "name": "HXZ-Community-0.8.7-windows-x64.zip",
+      "size": 65511330,
+      "digest": "sha256:38498a2030069bb5a60dd2e43cc41c93db421970cba15561316ba9e61a4be91c",
+      "path": "server/HXZ-Community-0.8.7-windows-x64.zip",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-Community-0.8.7-windows-x64.zip"
+    },
+    {
+      "name": "HXZ-Community-0.8.7-update.zip",
+      "size": 30307559,
+      "digest": "sha256:7b8c7ed148d8efb2dc3973772679912bdb382cc23173792a9d6e5296b323c4b2",
+      "path": "server/HXZ-Community-0.8.7-update.zip",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-Community-0.8.7-update.zip"
+    },
+    {
+      "name": "HXZ-Community-Android-0.8.7-80700.apk",
+      "size": 61641497,
+      "digest": "sha256:4df63a859d6d1bfd1c6a5a8f505a5d335f3f0f6c99b57074f85ac1f2f9c52197",
+      "path": "android/HXZ-Community-Android-0.8.7-80700.apk",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-Community-Android-0.8.7-80700.apk"
+    },
+    {
+      "name": "HXZ-Launcher-0.8.7-source.zip",
+      "size": 295972706,
+      "digest": "sha256:c0cc9e755065e9ff56b4db81128f915e40a97f057b3e56a1bfc2c2693b27ad98",
+      "path": "source/HXZ-Launcher-0.8.7-source.zip",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-Launcher-0.8.7-source.zip"
+    },
+    {
+      "name": "hxz-community-bridge-0.8.0-mcdr.mcdr",
+      "size": 5286,
+      "digest": "sha256:6524ae95962c53f0b539c7d5f3bfdd8d477445348a71d017f8ce668e6bee7678",
+      "path": "game-server/hxz-community-bridge-0.8.0-mcdr.mcdr",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/hxz-community-bridge-0.8.0-mcdr.mcdr"
+    },
+    {
+      "name": "hxz-community-bridge-0.8.0-neoforge-1.21.1.jar",
+      "size": 18914,
+      "digest": "sha256:f7f804859f8ed281689726a39ec91fdcd11e1f0e4211a98c537198cc7b6274ee",
+      "path": "game-server/hxz-community-bridge-0.8.0-neoforge-1.21.1.jar",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/hxz-community-bridge-0.8.0-neoforge-1.21.1.jar"
+    },
+    {
+      "name": "latest.json",
+      "size": 1946,
+      "digest": "sha256:a1503c735cc9fc3d874262cd894eeba7bc483c7f4b5fe3646069967588d2a980",
+      "path": "updates/latest.json",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/latest.json"
+    },
+    {
+      "name": "latest-ia32.json",
+      "size": 1950,
+      "digest": "sha256:62ecd187e523e7ee790ea48337c57da68ebca227720051bc9f6c52e3efd612d8",
+      "path": "updates/latest-ia32.json",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/latest-ia32.json"
+    },
+    {
+      "name": "latest.yml",
+      "size": 349,
+      "digest": "sha256:6853a52706f9be6c19b2f3cbe52721aa169277f421cfb11ac2ae601d205a1d36",
+      "path": "updates/latest.yml",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/latest.yml"
+    },
+    {
+      "name": "android-latest.json",
+      "size": 1986,
+      "digest": "sha256:43691a2ed13d6be4d5c8bb9255c6b0d8d98ecc7ccc328079667be4e9d9a253b6",
+      "path": "updates/android-latest.json",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/android-latest.json"
+    },
+    {
+      "name": "game-runtime-latest.json",
+      "size": 2362,
+      "digest": "sha256:4e553b82f23d40e7a5287d1b7cf76e6f88b0116ebaff6ce4d5cfc5e10de34c57",
+      "path": "updates/game-runtime-latest.json",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/game-runtime-latest.json"
+    },
+    {
+      "name": "game-runtime-latest.payload.json",
+      "size": 1365,
+      "digest": "sha256:a32938b317f19a56544e60fe3aeeeb9f77f3c26732bbaa74d65bc446512ff50d",
+      "path": "updates/game-runtime-latest.payload.json",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/game-runtime-latest.payload.json"
+    },
+    {
+      "name": "community-update.json",
+      "size": 1986,
+      "digest": "sha256:28a845e54cac5e61a19bf6ffb1a8670ee319f47420ef877732290d08a16a025c",
+      "path": "updates/community-update.json",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/community-update.json"
+    }
+  ]
+}

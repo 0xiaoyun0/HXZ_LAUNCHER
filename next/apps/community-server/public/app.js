@@ -109,7 +109,8 @@ $('shop-new').onclick=()=>{$('shop-item').reset();$('shop-item').elements.id.val
 $('shop-prev').onclick=()=>{shopOffset=Math.max(0,shopOffset-30);void run(loadShop);};$('shop-next').onclick=()=>{shopOffset+=30;void run(loadShop);};
 
 async function loadLobby(){
- const [grants,rooms]=await Promise.all([api('/api/admin/lobby/grants'),api('/api/lobby/rooms')]);
+ const [grants,rooms,config]=await Promise.all([api('/api/admin/lobby/grants'),api('/api/lobby/rooms'),api('/api/admin/lobby/settings')]);
+ const settingsForm=$('lobby-settings-form');if(settingsForm){const cfg=config.settings||{};settingsForm.elements.openForAll.checked=!!cfg.openForAll;for(const key of ['maxRooms','maxConnections','probeTimeoutMs','signalTimeoutMs'])settingsForm.elements[key].value=cfg[key]??'';}
  const select=$('lobby-member');select.replaceChildren(new Option('选择已登录过社区的玩家',''));for(const member of grants.members)select.add(new Option(member.name+' · '+member.uid,member.uid));
  for(const id of ['lobby-grants','lobby-rooms'])$(id).replaceChildren();
  for(const user of grants.items)row($('lobby-grants'),user.name,user.uid,'撤销授权',async()=>{await api('/api/admin/lobby/grants','POST',{uid:user.uid,enabled:false});await loadLobby();});
@@ -118,6 +119,7 @@ async function loadLobby(){
  if(!rooms.items.length)$('lobby-rooms').textContent='当前没有公开房间';
 }
 $('lobby-form').onsubmit=event=>{event.preventDefault();void run(async()=>{await api('/api/admin/lobby/grants','POST',{uid:$('lobby-member').value,enabled:true});await loadLobby();message('已授予开房权限');});};
+$('lobby-settings-form').onsubmit=event=>{event.preventDefault();void run(async()=>{const f=event.target,value=Object.fromEntries(new FormData(f));value.openForAll=f.elements.openForAll.checked;for(const key of ['maxRooms','maxConnections','probeTimeoutMs','signalTimeoutMs'])value[key]=Number(value[key]);await api('/api/admin/lobby/settings','PUT',value);await loadLobby();message(value.openForAll?'已开放全员联机':'已关闭全员联机');});};
 
 async function loadInboxAudit(){const v=await api('/api/admin/inbox');$('inbox-audit').replaceChildren();for(const item of v.items)row($('inbox-audit'),item.title,new Date(item.created).toLocaleString()+' · '+item.recipients+' 位收件人');}
 $('inbox-form').onsubmit=e=>{e.preventDefault();void run(async()=>{const f=e.target,v=Object.fromEntries(new FormData(f));await api('/api/admin/inbox/send','POST',{...v,id:crypto.randomUUID(),all:f.elements.all.checked,recipients:v.recipients.trim().split(/\s+/).filter(Boolean)});f.reset();await loadInboxAudit();message('站内信已发送');});};

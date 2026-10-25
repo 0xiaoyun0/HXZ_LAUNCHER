@@ -1,0 +1,55 @@
+// Creates the downloadable data module. It is a ZIP of runtime assets, never an APK.
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import crypto from 'node:crypto';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const args=Object.fromEntries(process.argv.slice(2).map(v=>{const at=v.indexOf('=');return [v.slice(2,at),v.slice(at+1)];}));
+if(!args.out||!args.version||!/^\d+$/.test(args.build||''))throw Error('Required: --out=DIR --version=NAME --build=NUMBER [--fork=DIR] [--url=HTTPS_URL]');
+const fork=path.resolve(args.fork||path.join(root,'.runtime/fcl-source/FoldCraftLauncher-efe4dcc5dbc78c55be177c330239e12845ae7ccf'));
+const out=path.resolve(args.out);await fs.mkdir(out,{recursive:true});
+if(!/^[A-Za-z0-9.+_-]+$/.test(args.version))throw Error('Invalid version name');
+const zip=path.join(out,`HXZ-Runtime-${args.version}-${args.build}-arm64.zip`);
+execFileSync(process.env.HXZ_PYTHON||'python',['-c',String.raw`
+import pathlib,sys,zipfile,json,hashlib
+fork=pathlib.Path(sys.argv[1]);dest=pathlib.Path(sys.argv[2]);version=sys.argv[3];build=int(sys.argv[4]);files={}
+def put(name,data):
+ if '\\' in name or name.startswith('/') or '..' in name.split('/') or not name.startswith('app_runtime/'):
+  raise ValueError('Invalid module path: '+name)
+ if '/natives/' in name and '/natives/arm64-v8a/' not in name:return
+ if name.rsplit('/',1)[-1].startswith('bin-') and not name.endswith('/bin-arm64.tar.xz'):return
+ if name in files and files[name]!=data:raise ValueError('Conflicting module input: '+name)
+ files[name]=data
+for base in [fork/'FCL/src/main/assets',fork/'FCL/src/main/jreAssets']:
+ for item in sorted((base/'app_runtime').rglob('*')):
+  if item.is_file():put(item.relative_to(base).as_posix(),item.read_bytes())
+for aar in sorted((fork/'FCL/libs').glob('*.aar')):
+ with zipfile.ZipFile(aar) as z:
+  for name in z.namelist():
+   if name.startswith('assets/app_runtime/') and not name.endswith('/'):put(name[7:],z.read(name))
+required=['java/jre8','java/jre17','java/jre21','java/jre25','lwjgl/3.3.3','lwjgl/3.4.1','jna','caciocavallo','caciocavallo17']
+for item in required:
+ if 'app_runtime/'+item+'/version' not in files:raise ValueError('Missing runtime version: '+item)
+entries=[{'path':name,'size':len(data),'sha256':hashlib.sha256(data).hexdigest()} for name,data in sorted(files.items())]
+manifest={'schema':1,'kind':'hxz-runtime-assets','interfaceVersion':1,'abi':'arm64-v8a','minSdk':29,'versionName':version,'versionCode':build,'upstreamCommit':'efe4dcc5dbc78c55be177c330239e12845ae7ccf','files':entries}
+with zipfile.ZipFile(dest,'w',zipfile.ZIP_DEFLATED,compresslevel=6) as z:
+ for name,data in sorted(files.items()):
+  info=zipfile.ZipInfo(name,(2026,1,1,0,0,0));info.compress_type=zipfile.ZIP_DEFLATED;info.external_attr=0o100444<<16;z.writestr(info,data)
+ z.writestr('module.json',json.dumps(manifest,ensure_ascii=False,separators=(',',':'))+'\n')
+dest.with_suffix('.module.json').write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+'\n',encoding='utf8')
+print(json.dumps({'files':len(entries),'uncompressedSize':sum(e['size'] for e in entries),'compressedSize':dest.stat().st_size,'path':str(dest)}))
+`,fork,zip,args.version,args.build],{windowsHide:true,stdio:'inherit'});
+const digest=crypto.createHash('sha256');for await(const data of (await import('node:fs')).createReadStream(zip))digest.update(data);
+const record={kind:'hxz-runtime-assets',interfaceVersion:1,versionName:args.version,versionCode:Number(args.build),abi:'arm64-v8a',minSdk:29,size:(await fs.stat(zip)).size,sha256:digest.digest('hex'),file:path.basename(zip),published:false};
+await fs.writeFile(path.join(out,'runtime-module.json'),JSON.stringify(record,null,2)+'\n');
+if(args.url){
+ if(!/^https:\/\//.test(args.url))throw Error('Signed module URL must use HTTPS');
+ const signing=JSON.parse(await fs.readFile('C:/Users/admin/.hxz-launcher-publish/android-community-signing.json','utf8'));
+ const payloadFile=path.join(out,'runtime-payload.json');
+ const payload={kind:'android-runtime-module',package:'top.hxzmc.community',interfaceVersion:1,abi:'arm64-v8a',minSdk:29,versionName:args.version,versionCode:Number(args.build),url:args.url,size:record.size,sha256:record.sha256,notes:'应用内游戏运行资源模块；校验后解压，无需安装第二个应用。'};
+ await fs.writeFile(payloadFile,JSON.stringify(payload));
+ const updates=path.join(out,'updates');await fs.mkdir(updates,{recursive:true});
+ execFileSync('C:/Program Files/Java/jdk-21/bin/java.exe',[path.join(root,'mobile/game-engine/tools/SignRuntimeModule.java'),payloadFile,path.join(updates,'game-runtime-latest.json')],{windowsHide:true,stdio:'pipe',env:{...process.env,HXZ_ANDROID_KEYSTORE:signing.keystore,HXZ_ANDROID_STORE_PASSWORD:signing.password}});
+}
+console.log(JSON.stringify(record,null,2));

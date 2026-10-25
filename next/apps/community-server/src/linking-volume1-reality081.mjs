@@ -221,5 +221,19 @@ export const realityVolume1 = {
   }
 };
 
-// Author-only provenance is excluded from public releases.
-export const sourceMap = [];
+const first = 'E:/hxzrpg/HXZ-RPG2/design/首卷逐屏来源.json';
+const second = 'E:/hxzrpg/HXZ-RPG2/design/scenario';
+export const sourceMap = [
+  { id: 'lv1-door-receipt', sources: [`${first}#v01_s012_l0019_00_00`, `${first}#v01_s012_l0051_00_00`], relation: '原作两短一长可被误认但需查明声源；本篇第七门、现实接收柜715、灯标和重复音频为现实调查新增，非原作地点编号或实时求救。' },
+  { id: 'lv1-night-shift', sources: [`${first}#v01_s001_l0019_00_00`, `${first}#v01_s001_l0107_00_00`, `${first}#v01_s004_l0003_00_00`, `${first}#v01_s004_l0500_00_00`], relation: '十步、放灯解刀和跨步先后；薇拉黑线小铃与莉莉安银链八星铃分开，首次发热响铃属于后者。现实只持记录载体。' },
+  { id: 'lv1-muted-cabinet', sources: [`${first}#v01_s011_l1453_00_00`, `${first}#v01_s011_l1455_00_00`, `${first}#v01_s011_l1455_00_01`, `${first}#v01_s012_l0167_00_00`], relation: '北偏东、不到一息、握腕到星辉替身消散的整齐缺帧为原作硬线索；馆内方向盘复测为新增调查，不证定缺帧原因或铃声归属。' },
+  { id: 'lv1-rain-loan', sources: [`${first}#v01_s005_l0355_00_00`, `${first}#v01_s006_l0003_00_00`, `${first}#v01_s006_l0279_00_00`, `${first}#v01_s006_l0279_00_01`, `${first}#v01_s006_l0280_00_00`], relation: '3/17为捡到日推定生日，3/24来访；同一时辰的两地马车记录相距半日，姓名笔锋相同，后续庄园三百里；不确定瞬移或全记录改写。' },
+  { id: 'lv1-umbrella-witness', sources: [`${first}#v01_s004_l0003_00_00`, `${first}#v01_s011_l1455_00_00`], relation: '现实新增仪器拖影可复现与修正，作为拆分馆内误差和原有影像缺口的行动；不将仪器问题当作原作异常的统一解释。' },
+  { id: 'lv1-wall-voice', sources: [`${first}#v01_s011_l1455_00_01`, `${first}#v01_s011_l1467_00_00`], relation: '原作缺口未显示完整手部移动；现实索引曾擅自续接为新增错误，必须停用。不得把补图冒称真实动作，不修改原作事件。' },
+  { id: 'lv1-return-air', sources: [`${first}#v01_s009_l1053_00_00`, `${first}#v01_s009_l1067_00_00`, `${first}#v01_s009_l1071_00_00`, `${first}#v01_s009_l1073_00_00`], relation: '重装订误序、封皮内原始第八页、七架构与第八记录校准职能；现实校准接收设备是对应调查动作，不赋予回档能力。' },
+  { id: 'lv1-dry-page', sources: [`${first}#v01_s011_l0335_00_00`, `${first}#v01_s011_l0355_00_00`, `${first}#v01_s012_l0151_00_00`], relation: '第三星先碎且水晶尚在，灾后可拼七星而第四核心缺；现实纸星仅比对工具，错误空壳分类为新增。' },
+  { id: 'lv1-last-cart', sources: [`${first}#v01_s012_l0123_00_00`, `${first}#v01_s012_l0127_00_00`, `${first}#v01_s012_l0151_00_00`], relation: '第四核心与水晶缺失、北偏东星光滑后熄灭；观测附页误入空壳抽屉和折返载体为现实新事件，取出的是载体而非跨界原物。' },
+  { id: 'lv1-second-signature', sources: [`${first}#v01_s011_l0335_00_00`, `${first}#v01_s011_l0355_00_00`, `${first}#v01_s012_l0123_00_00`, `${first}#v01_s012_l0167_00_00`], relation: '完整→第三先碎/水晶仍在→第四核心和水晶缺失的实证序列用于更正现实分类；不据此宣布莉莉安生还。' },
+  { id: 'lv1-before-rain-stops', sources: [`${second}/vol02_c021.md#v02_c021_0002`, `${second}/vol02_c021.md#v02_c021_0003`, `${second}/vol02_c021.md#v02_c021_0004`], relation: '原作迟到信在白笼安置后西岸船棚收到、经旧观测线、带赞恩旧记号且写于白枝灾前；现实展开既存载体边缘取得路由索引为新增，不生成信文。' },
+  { id: 'lv1-after-rain', sources: [`${first}#v01_s012_l0071_00_00`, `${second}/vol02_c021.md#v02_c021_0002`, `${second}/vol02_c021.md#v02_c021_0003`, `${second}/vol02_c021.md#v02_c021_0004`, `${second}/vol02_c022.md#v02_c022_0063`, `${second}/vol02_c022.md#v02_c022_0064`], relation: '赞恩已亡与灾前旧信迟到不冲突；信指向可读旧银门记录的北方温室、没有莉莉安确讯。卷一仅找到路由，卷二继续查既有材料；新匣及馆内调阅为新增。' }
+];

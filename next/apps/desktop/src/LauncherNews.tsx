@@ -21,3 +21,4 @@ export function LauncherNews(){
   <Modal open={open} onClose={()=>setOpen(false)} title="启动器更新" wide>{(result.data||[]).slice(0,5).map((release:any)=><article className="home-release-detail" key={release.version}><h3>{release.title||release.version}</h3><div className="prose">{release.body||'暂无详细说明'}</div></article>)}</Modal>
  </div>;
 }
+

@@ -11,6 +11,7 @@ profile/
 launcher-cache/
 .test/
 .gradle/
+.cxx/
 build/
 local.properties
 *.jks

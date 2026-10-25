@@ -1,0 +1,17 @@
+import fs from 'node:fs/promises';
+import {createHash,sign} from 'node:crypto';
+const root=process.cwd();
+const version='0.8.7';
+const build=80700;
+const apk=`release/${version}/android/HXZ-Community-Android-${version}-${build}.apk`;
+const bytes=await fs.readFile(apk);
+const sha256=createHash('sha256').update(bytes).digest('hex');
+const payload={versionCode:build,versionName:version,minSdk:29,size:bytes.length,sha256,url:`https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v${version}/HXZ-Community-Android-${version}-${build}.apk`,notes:await fs.readFile(`docs/${version}发布说明.md`,'utf8')};
+const raw=Buffer.from(JSON.stringify(payload));
+const key=await fs.readFile(`${process.env.USERPROFILE}/.hxz-launcher-publish/update-ed25519.pem`);
+const envelope={payload:raw.toString('base64'),signature:sign(null,raw,key).toString('base64')};
+await fs.writeFile(`release/${version}/updates/android-latest.json`,JSON.stringify(envelope)+'\n');
+await fs.writeFile(`release/${version}/updates/android-80700.json`,JSON.stringify(envelope)+'\n');
+const info={verifiedAt:new Date().toISOString(),release:`https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v${version}`,manifest:payload,assets:[{name:`HXZ-Community-Android-${version}-${build}.apk`,size:bytes.length,sha256,url:payload.url},{name:'android-latest.json',size:Buffer.byteLength(JSON.stringify(envelope)+'\n'),sha256:createHash('sha256').update(JSON.stringify(envelope)+'\n').digest('hex'),url:`https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v${version}/android-latest.json`}]};
+await fs.writeFile(`release/${version}/android/80700-发布信息.json`,JSON.stringify(info,null,2)+'\n');
+console.log(JSON.stringify({size:bytes.length,sha256}));

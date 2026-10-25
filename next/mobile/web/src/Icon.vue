@@ -19,3 +19,4 @@ const resolved=computed(()=>{
     <component :is="tag" v-for="([tag,attributes],index) in iconNodes[resolved]" :key="index" v-bind="attributes"/>
   </svg>
 </template>
+

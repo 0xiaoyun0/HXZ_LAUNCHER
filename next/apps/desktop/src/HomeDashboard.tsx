@@ -47,7 +47,7 @@ export function Home(){
   </div>},
   {id:'launch',title:'实例详情',x:0,y:28,w:4,minW:4,minH:9,plain:true,className:'launch-card home-play-card',content:<div className="home-play">
    <div className="home-play-body">
-
+   
    <div className="home-play-identity"><div><h2>{game?.name||'准备好进入幻想镇'}</h2>{game&&<p>{versionLabel(game)}</p>}</div>{game&&<span className={'home-ready '+(game?.error?'error':'')} aria-live="polite">{s.running?'游戏运行中':game?.error?'需要修复':game?.placeholder?'尚未开放':game?.installed?'已准备好':'首次启动自动安装'}</span>}</div>
    {game&&<><dl className="home-instance-facts"><div><dt>Java</dt><dd>{current.javaPath?'独立配置':'自动匹配'}</dd></div><div><dt>内存</dt><dd>{(current.memoryMode==='inherit'?s.settings.memoryMode:current.memoryMode)==='auto'?'自动分配':Math.round((current.memoryMode==='inherit'?s.settings.defaultMemoryMB:current.memoryMB)/1024*10)/10+' GB'}</dd></div><div><dt>整合包更新</dt><dd>{current.autoUpdate?'启动前检查':'手动检查'}</dd></div></dl><CardActions><Button icon={Settings2} disabled={locked} onClick={()=>setManage(true)}>管理实例</Button><Button icon={FolderOpen} disabled={!game.installed} onClick={()=>invoke('instance.folder',{id:game.id,kind:'versions'})}>打开目录</Button>{s.running&&<Button icon={Square} onClick={()=>invoke('game.stop')}>停止游戏</Button>}</CardActions></>}
    {game?.error&&<p className="inline-error">{game.error}</p>}
@@ -64,7 +64,7 @@ export function Home(){
    <CardActions>{role?<><Button icon={Globe} disabled={switching} onClick={()=>navigate('/account?skin=1')}>管理皮肤站</Button><Button icon={UserPlus} disabled={locked||switching} onClick={()=>ui.dialog='account'}>添加账号</Button></>:<Button tone="solid" icon={UserPlus} disabled={switching} onClick={()=>ui.dialog='account'}>登录账号</Button>}</CardActions>
   </div>},
   {id:'playtime',title:'游玩日历',x:4,y:22,w:8,minW:4,minH:13,content:<PlayCalendar/>},
-  {id:'monitor',title:'服务状态',x:0,y:14,w:4,minW:4,minH:5,className:'home-monitor-card',content:<ServerMonitor limit={3}/>}
+  {id:'monitor',title:'服务状态',x:0,y:14,w:4,minW:4,minH:5,className:'home-monitor-card',content:<ServerMonitor limit={3}/>} 
  ];
  return <div className="air-home home-dashboard"><CardBoard id="home" pageTitle label="启动游戏" cards={cards}/><Modal open={manage} onClose={()=>setManage(false)} title="实例管理" wide><InstanceManager/></Modal></div>;
 }

@@ -1,0 +1,27 @@
+{
+  "verifiedAt": "2026-10-25T01:53:02.181Z",
+  "release": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.7",
+  "manifest": {
+    "versionCode": 80700,
+    "versionName": "0.8.7",
+    "minSdk": 29,
+    "size": 61641497,
+    "sha256": "4df63a859d6d1bfd1c6a5a8f505a5d335f3f0f6c99b57074f85ac1f2f9c52197",
+    "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-Community-Android-0.8.7-80700.apk",
+    "notes": "# 幻想镇启动器 0.8.7\n\n本次发布补齐桌面端、安卓端、社区服务端、游戏服桥接、源码和自动更新清单。\n\n## 主要内容\n\n- 联机：管理员可配置全员开房权限、连接上限；P2P 与公网候选并行探测，协商失败进行有限重试。\n- 小游戏：简化显示只保留标题、编号、类型提示、开始和收藏，隐藏重复封面与说明；完整显示可随时恢复。\n- 游玩记录：保留游玩日历与在线时长榜接口，积分按真实游玩时长结算。\n- 桌面端：x64、ia32 安装包与便携包同步更新。\n- 安卓端：arm64-v8a、Android API 29+，版本号 80700；沿用已验证的签名构建。\n\n## 验证\n\n- 引擎测试：56/56\n- 社区服务端测试：125/125\n- 桌面端构建、x64/ia32 安装器：通过\n- 安卓构建产物：`HXZ-Community-Android-0.8.7-80700.apk`\n- 简化/完整小游戏界面：本地预览截图验证，未出现重复操作区或标题叠加。\n\n安卓设备实机验证仍由用户手动完成；本发布不宣称已通过特定设备的游戏帧率或模组兼容验收。\r\n"
+  },
+  "assets": [
+    {
+      "name": "HXZ-Community-Android-0.8.7-80700.apk",
+      "size": 61641497,
+      "sha256": "4df63a859d6d1bfd1c6a5a8f505a5d335f3f0f6c99b57074f85ac1f2f9c52197",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/HXZ-Community-Android-0.8.7-80700.apk"
+    },
+    {
+      "name": "android-latest.json",
+      "size": 1986,
+      "sha256": "43691a2ed13d6be4d5c8bb9255c6b0d8d98ecc7ccc328079667be4e9d9a253b6",
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.7/android-latest.json"
+    }
+  ]
+}

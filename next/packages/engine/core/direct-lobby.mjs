@@ -17,9 +17,9 @@ const timed=async(promise,ms,label)=>{let timer;try{return await Promise.race([p
 const outboundIPv4=()=>new Promise(resolve=>{const socket=dgram.createSocket('udp4');let done=false;const finish=value=>{if(done)return;done=true;clearTimeout(timer);socket.close();resolve(value);};const timer=setTimeout(()=>finish(''),1000);socket.on('error',()=>finish(''));socket.connect(53,'1.1.1.1',()=>finish(socket.address().address));}); // Route lookup only; no datagrams are sent.
 
 export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfaces,makeMapper=upnpNat,p2pSession,p2pRuntime}){
- let server=null,nat=null,room=null,guest=null,generation=0,renewTimer=null,directoryTimer=null,renewing=false,probing=false,publishing=false,publishAgain=false;
+ let server=null,nat=null,room=null,guest=null,generation=0,renewTimer=null,directoryTimer=null,renewing=false,probing=false,publishing=false,publishAgain=false,maxConnections=32;
  const sockets=new Set(),peers=new Map();
- let state={mode:'idle',phase:'尚未连接',error:'',checks:[],ready:false,connections:0,bytesIn:0,bytesOut:0};
+ let state={mode:'idle',phase:'尚未连接',error:'',checks:[],ready:false,connections:0,maxConnections,bytesIn:0,bytesOut:0};
  const p2p=p2pSession&&p2pRuntime?createP2PClient({session:p2pSession,runtime:p2pRuntime,emit:patch=>update(patch)}):null;
  const snapshot=()=>({...state,room:room?{id:room.id,name:room.name,instance:room.instance,port:room.port,gamePort:room.gamePort,hosts:room.hosts,invite:room.hosts.length||room.p2p?invitation(room):'',expires:room.expires,leaseExpires:room.leaseExpires}:null,guest:guest?{name:guest.name,instance:guest.instance,address:guest.address,host:guest.host,latency:guest.latency}:null,peers:[...peers.values()]});
  const update=patch=>{Object.assign(state,patch);emit({type:'lobby',value:snapshot()});};
@@ -29,7 +29,7 @@ export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfa
  async function close(reason='房间已关闭'){
   generation++;p2p?.close();clearInterval(renewTimer);clearInterval(directoryTimer);renewTimer=null;directoryTimer=null;const oldNat=nat,oldPort=room?.port,oldRoom=room;nat=null;room=null;guest=null;
   if(server){server.close();server=null;}for(const socket of sockets)socket.destroy();sockets.clear();peers.clear();
-  update({mode:'idle',phase:reason,ready:false,connections:0,listed:false,directoryError:'',p2pAvailable:false,transport:''});
+  maxConnections=32;update({mode:'idle',phase:reason,ready:false,connections:0,maxConnections,listed:false,directoryError:'',p2pAvailable:false,transport:''});
   if(oldRoom?.public)void request('/api/lobby/rooms',{method:'DELETE',body:{id:oldRoom.id}}).catch(()=>{});
   if(oldNat){try{if(oldPort)await timed(oldNat.unmap({localPort:oldPort,publicPort:oldPort,protocol:'TCP'}),3000,'映射释放超时');}catch{}finally{void oldNat.close().catch(()=>{});}}
  }
@@ -40,6 +40,10 @@ export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfa
   const current=()=>{if(token!==generation)throw Error('操作已取消');};
   try{
    const lease=await request('/api/lobby/lease',{method:'POST',body:{}});current();if(!lease.allowed||lease.expiresAt<=Date.now())throw Error('尚未获得开房权限');
+   // The community policy is advisory for older servers, but when present it
+   // becomes the single source of truth for the host's connection cap.
+   try{const access=await request('/api/lobby/access');current();const value=Number(access?.settings?.maxConnections);if(Number.isFinite(value))maxConnections=Math.max(1,Math.min(64,Math.floor(value)));}catch{maxConnections=32;}
+   update({maxConnections});
    note('管理员授权',true,'开房权限验证通过');
    const name=String(input.name||'一起玩 Minecraft').trim().slice(0,80);if(!name)throw Error('请填写房间名称');
    const gamePort=await freePort(),certificate=await createRoomCertificate();current();
@@ -51,7 +55,7 @@ export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfa
      try{
       const input=await readLine(socket);if(room!==hosting)throw Error('房间已关闭');if(hosting.expires<=Date.now()||hosting.leaseExpires<=Date.now()){void close('开房授权或邀请已到期');throw Error('房间邀请已失效');}if(!authorizedHello(input,hosting))throw Error('房间邀请已失效');
       if(input.operation==='probe'){socket.end(JSON.stringify({ok:true,name:hosting.name,ready:state.ready,connections:peers.size})+'\n',()=>socket.destroy());return;}
-      if(input.operation!=='join')throw Error('未知房间操作');if(!state.ready)throw Error('房主尚未进入世界，请稍后重试');if(peers.size>=32)throw Error('房间连接数已满');
+      if(input.operation!=='join')throw Error('未知房间操作');if(!state.ready)throw Error('房主尚未进入世界，请稍后重试');if(peers.size>=maxConnections)throw Error('房间连接数已满');
       const upstream=track(net.connect({host:'127.0.0.1',port:hosting.gamePort}));upstream.setNoDelay(true);
       socket.once('close',()=>upstream.destroy());upstream.once('close',()=>socket.destroy());
       await timed(new Promise((resolve,reject)=>{upstream.once('connect',resolve);upstream.once('error',reject);}),6000,'房主世界没有响应');
@@ -64,7 +68,7 @@ export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfa
      }catch(error){if(!socket.destroyed)socket.end(JSON.stringify({ok:false,error:error.message})+'\n',()=>socket.destroy());}
     })();
    });
-   server.maxConnections=64;server.on('tlsClientError',()=>{});server.on('error',e=>update({error:'房间监听异常：'+e.message}));
+   server.maxConnections=Math.max(8,Math.min(72,maxConnections+8));server.on('tlsClientError',()=>{});server.on('error',e=>update({error:'房间监听异常：'+e.message}));
    // Track TCP sockets before TLS completes so cancelling also closes partial handshakes.
    server.on('connection',track);
    const requestedPort=input.method==='manual'?Number(input.port):0;if(!Number.isInteger(requestedPort)||requestedPort<0||requestedPort>65535||input.method==='manual'&&!requestedPort)throw Error('请填写已映射的 TCP 端口（1–65535）');let address;try{address=await listen(server,{host:'::',port:requestedPort,ipv6Only:false});}catch(e){if(!['EAFNOSUPPORT','EADDRNOTAVAIL'].includes(e.code))throw e;address=await listen(server,{host:'0.0.0.0',port:requestedPort});}
@@ -106,16 +110,19 @@ export function createDirectLobby({request,emit=()=>{},networkInterfaces=interfa
   }catch(error){if(token===generation){await close('创建未完成');update({error:error.message});}throw error;}
  }
  async function connectPeer(target,token=generation){
-  let last;for(let attempt=1;attempt<=2;attempt++){if(token!==generation)throw Error('操作已取消');try{return await p2p.dial(target);}catch(e){last=e;if(token!==generation)throw Error('操作已取消');note('P2P 协商 · '+attempt+'/2',false,e.message);}}
+  let last;for(let attempt=1;attempt<=3;attempt++){if(token!==generation)throw Error('操作已取消');try{return await p2p.dial(target);}catch(e){last=e;if(token!==generation)throw Error('操作已取消');note('P2P 协商 · '+attempt+'/3',false,e.message);if(attempt<3)await new Promise(resolve=>setTimeout(resolve,Math.min(1400,220*2**(attempt-1)+Math.floor(Math.random()*120))));}}
   throw last;
  }
  async function inspect(raw,method='auto'){
   if(!['auto','p2p','ipv4','ipv6'].includes(method))throw Error('请选择有效的加入方式');
   if(probing)throw Error('正在检测房主连接，请稍候');probing=true;const token=generation;
   try{const target=parseInvitation(raw),start=Date.now(),hosts=target.hosts.filter(h=>method!=='p2p'&&(!['ipv4','ipv6'].includes(method)||net.isIP(h)===Number(method.slice(-1))));let winner=null;
-   try{winner=await Promise.any(hosts.map(async host=>{const {socket,info}=await dialRoom(target,host);socket.destroy();return {host,info,latency:Date.now()-start};}));}catch{}
+   // Probe P2P and public addresses together. Waiting for every public probe
+   // first made a healthy P2P path look broken on networks that drop probes.
+   const attempts=hosts.map(host=>dialRoom(target,host).then(({socket,info})=>{socket.destroy();return {host,info,latency:Date.now()-start};}));
+   if(['auto','p2p'].includes(method)&&target.p2p&&p2p)attempts.push((async()=>{const {stream}=await connectPeer(target,token);try{const {socket,info}=await dialRoom(target,'','probe',10000,stream);socket.destroy();stream.destroy();return {host:'p2p',info,latency:Date.now()-start};}catch(e){stream.destroy();throw e;}})());
+   try{winner=await Promise.any(attempts);}catch{}
    if(token!==generation)throw Error('操作已取消');
-   if(!winner&&['auto','p2p'].includes(method)&&target.p2p&&p2p){const {stream}=await connectPeer(target,token);try{const {socket,info}=await dialRoom(target,'','probe',10000,stream);socket.destroy();winner={host:'p2p',info,latency:Date.now()-start};}catch(e){stream.destroy();throw e;}}
    if(!winner)throw Error('所选直连方式不可达。请换用自动连接、公网 IPv4/IPv6 或双方已有的虚拟局域网；如果双方 NAT 均限制穿透，无中继模式无法强制连通。');return {target,...winner};
   }finally{probing=false;}
  }

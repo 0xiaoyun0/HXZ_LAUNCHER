@@ -1,0 +1,47 @@
+{
+  "kind": "android-runtime-module",
+  "package": "top.hxzmc.community",
+  "interfaceVersion": 1,
+  "abi": "arm64-v8a",
+  "minSdk": 29,
+  "minimumAppVersionCode": 80400,
+  "versionCode": 80400,
+  "version": "0.8.4",
+  "versionName": "0.8.4",
+  "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.8.4/HXZ-Runtime-0.8.4.zip",
+  "size": 158775517,
+  "sha256": "71f9d2d6ece3a9c6dc36547e030109d40aaf43cf3b05b1530bc06515bbbebb5a",
+  "moduleSha256": "ecdb6987b9ca1695e71bd1f482242b1b631fa4c5d24ade8cee44078f245e8463",
+  "provenanceSha256": "1faa51b3a7b4df0344553db54eacffb39ab3315c094c506f764e684fbb9183bc",
+  "candidate": false,
+  "releaseReady": true,
+  "constraints": {
+    "androidAbi": "arm64-v8a",
+    "pageSize": 4096,
+    "minimumAndroidApi": 29,
+    "deviceTested": false
+  },
+  "renderers": [
+    {
+      "id": "softpipe",
+      "label": "软件兼容渲染",
+      "kind": "osmesa",
+      "library": "app_runtime/renderers/osmesa/libOSMesa.so",
+      "driver": "softpipe",
+      "requiresVulkan": false
+    },
+    {
+      "id": "zink",
+      "label": "Vulkan 转译渲染",
+      "kind": "osmesa",
+      "library": "app_runtime/renderers/osmesa/libOSMesa.so",
+      "driver": "zink",
+      "requiresVulkan": true
+    }
+  ],
+  "capabilities": {
+    "vulkanGameBackend": false,
+    "preferredGraphicsBackend": "opengl"
+  },
+  "blockers": []
+}
