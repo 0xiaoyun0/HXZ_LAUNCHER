@@ -113,3 +113,4 @@ function maze(s,actions){
   if(!s.over&&!s.remaining){s.score+=s.level*100;recover(s,s.level);if(s.level===100){s.won=true;s.over=true;}else{s.level++;makeMaze(s);s.invincible=s.tick+60;}}
 }
 export function stepExpanded(s,actions){if(s.game==='danmaku')danmaku(s,actions);else if(s.game==='fighter')fighter(s,actions);else maze(s,actions);}
+

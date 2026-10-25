@@ -1,0 +1,15 @@
+{
+  "format": "hxz-card-extension",
+  "version": 1,
+  "id": "fantasytown.departure",
+  "title": "出发前的小清单",
+  "author": "幻想镇",
+  "description": "查看当前实例，准备建材，再去社区找伙伴。",
+  "blocks": [
+    {"type": "metric", "metric": "instance", "label": "准备进入"},
+    {"type": "check", "id": "tools", "label": "工具与建材已经准备好"},
+    {"type": "check", "id": "friends", "label": "约好的伙伴已经到齐"},
+    {"type": "link", "label": "打开文字大厅", "page": "chat"},
+    {"type": "link", "label": "查看冒险家协会", "page": "guild"}
+  ]
+}

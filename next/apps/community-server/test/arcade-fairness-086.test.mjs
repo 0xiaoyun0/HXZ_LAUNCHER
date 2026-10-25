@@ -96,8 +96,8 @@ test('100 breakout layouts contain breakable targets and solid bricks cannot pre
  }
 });
 
-test('all 16 arcade simulations keep deterministic input replay and finite scores',()=>{
- assert.equal(GAMES.length,16);
+test('all arcade simulations keep deterministic input replay and finite scores',()=>{
+ assert.equal(GAMES.length,20);
  for(const game of GAMES)for(let seed=1;seed<=10;seed++){
   const s=createGame(game.id,seed),inputs=[];
   while(s.tick<180&&!s.over){const actions=game.id==='mines'?[]:game.id==='runner'?['jump']:game.id==='tanks'?['fire','right']:game.id==='garden'?s.tick===0?['build:seed:16','wave']:[]:['left','up','right','down'].slice(Math.floor(s.tick/15)%4,Math.floor(s.tick/15)%4+1);

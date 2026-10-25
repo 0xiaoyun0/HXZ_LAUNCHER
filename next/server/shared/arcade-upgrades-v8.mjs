@@ -31,3 +31,4 @@ export const FLIGHT_UPGRADE_MAP=Object.fromEntries(FLIGHT_UPGRADES.map(item=>[it
 export const flightUpgrade=id=>FLIGHT_UPGRADE_MAP[id]||rogueUpgrade(id)||TACTICS_UPGRADES[id]||{title:'航线补给',description:'选择一项本局增益'};
 export const flightShieldCap=s=>3+(s.bulwark||0);
 export function availableFlightUpgrades(s){return FLIGHT_UPGRADES.filter(({id,max})=>id==='repair'?s.lives<3:id==='shield'?s.shield<flightShieldCap(s):id==='power'?s.power<16:(s[id]||0)<max).map(item=>item.id);}
+

@@ -124,12 +124,13 @@ export function createPlaytime({db,auth,admin,body,send,limit=()=>{},points,inbo
   const rules=ruleFor(weekOf(day)),sessions=db.prepare('SELECT start,end FROM playtime_intervals WHERE uid=? AND day=? ORDER BY start').all(canonical(user.uid),day).map(v=>({...v,seconds:Math.floor((v.end-v.start)/1000)})),milliseconds=sessions.reduce((sum,v)=>sum+v.end-v.start,0);
   return {date,timezone:'Asia/Shanghai',seconds:Math.floor(milliseconds/1000),eligibleSeconds:Math.floor(milliseconds/1000),sessions,rules,dailyCapMinutes:1440,rewardSummary:rewardSummary(user),verification:PLAYTIME_VERIFICATION};
  }
- function leaderboard(user,week){
+ function leaderboard(user,week,offset=0,limit=500){
   const old=settled(week),rules=old?JSON.parse(old.rules):ruleFor(),items=old?JSON.parse(old.board):board(week);
+  offset=Math.max(0,Math.floor(Number(offset)||0));limit=Math.max(1,Math.min(1000,Math.floor(Number(limit)||500)));
   const weeks=db.prepare('SELECT DISTINCT week FROM playtime_days UNION SELECT week FROM playtime_settlements ORDER BY week DESC LIMIT 104').all().map(v=>({...v,label:weekLabel(v.week),settled:!!settled(v.week)}));
   if(!weeks.some(v=>v.week===weekOf(now())))weeks.unshift({week:weekOf(now()),label:weekLabel(weekOf(now())),settled:false});
   const clean=item=>{if(!item)return null;const {milliseconds,...value}=item;return value;};
-  return {week,label:weekLabel(week),timezone:'Asia/Shanghai',items:items.slice(0,100).map(clean),self:clean(items.find(v=>canonical(v.uid)===canonical(user.uid))),total:items.length,settled:!!old,settledAt:old?.created||null,rules,weeks,rewardScheme:old?'legacy-weekly':DEFAULTS.scheme,rewardSummary:rewardSummary(user),verification:PLAYTIME_VERIFICATION};
+  return {week,label:weekLabel(week),timezone:'Asia/Shanghai',items:items.slice(offset,offset+limit).map(clean),self:clean(items.find(v=>canonical(v.uid)===canonical(user.uid))),total:items.length,offset,limit,hasMore:offset+limit<items.length,settled:!!old,settledAt:old?.created||null,rules,weeks,rewardScheme:old?'legacy-weekly':DEFAULTS.scheme,rewardSummary:rewardSummary(user),verification:PLAYTIME_VERIFICATION};
  }
  async function route(req,res,url){
   const p=url.pathname,management=p.startsWith('/api/admin/playtime');
@@ -140,7 +141,8 @@ export function createPlaytime({db,auth,admin,body,send,limit=()=>{},points,inbo
   if(p==='/api/playtime/leaderboard'&&req.method==='GET'){
    const week=Number(url.searchParams.get('week')||weekOf(now()));
    if(!Number.isSafeInteger(week)||weekOf(week)!==week||week>weekOf(now())||week<0)fail('请选择有效的历史周');
-   send(res,200,leaderboard(user,week));return true;
+   const offset=Math.max(0,Number(url.searchParams.get('offset')||0));const limit=Math.max(1,Math.min(1000,Number(url.searchParams.get('limit')||500)));
+   send(res,200,leaderboard(user,week,offset,limit));return true;
   }
   if(p==='/api/admin/playtime/rules'){
    const effectiveWeek=weekOf(now());

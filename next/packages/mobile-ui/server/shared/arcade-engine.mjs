@@ -5,11 +5,12 @@ import {BREAKOUT_BUFFS,applyBreakoutBuff,awardBrick} from './arcade-breakout.mjs
 import {CLASSIC_GAMES,createClassic,stepClassic,validClassicAction} from './arcade-classics.mjs';
 import {NEW_GAMES,createNew,stepNew,validNewAction} from './arcade-new063.mjs';
 import {EXTRA_GAMES,createExpanded,stepExpanded} from './arcade-expanded.mjs';
+import {V087_GAMES,createV087,stepV087} from './arcade-v087.mjs';
 // Pure fixed-step simulation shared by both clients and score verification.
 export const GAMES=[
   {id:'runner',name:'林间疾跑',tag:'反应 · 无尽挑战',description:'穿过晨雾与松林，挑战更远的路途',keys:'空格 / W / ↑ 跳跃',color:'#9dd9a8'},
   {id:'blocks',name:'俄罗斯方块',tag:'益智 · 逐级加速',description:'七种方块，无数种解法',keys:'A D / ← → 移动 · W / ↑ 旋转 · S / ↓ 加速 · 空格落下 · C 暂存',color:'#baa6eb'},
-  {id:'breakout',name:'打砖块',tag:'街机 · 百关挑战',description:'穿过百道防线，借助增益突破坚壁',keys:'A D / ← → 移动，也可拖动挡板',color:'#f1c18d'}, ...EXTRA_GAMES,...NEW_GAMES.filter(g=>g.id!=='contra'),...CLASSIC_GAMES,...ROGUE_GAMES,...TACTICS_GAMES
+  {id:'breakout',name:'打砖块',tag:'街机 · 百关挑战',description:'穿过百道防线，借助增益突破坚壁',keys:'A D / ← → 移动，也可拖动挡板',color:'#f1c18d'}, ...EXTRA_GAMES,...NEW_GAMES.filter(g=>g.id!=='contra'),...CLASSIC_GAMES,...ROGUE_GAMES,...TACTICS_GAMES,...V087_GAMES
 ];
 export const MAX_TICKS=18000;
 export const runnerSpeed=tick=>Math.min(15.6,7.2+tick*.0024);
@@ -26,6 +27,7 @@ export function createGame(game,seed){
   if(CLASSIC_GAMES.some(g=>g.id===game))createClassic(s);
   if(ROGUE_GAMES.some(g=>g.id===game))createRogue(s);
   if(TACTICS_GAMES.some(g=>g.id===game))createTactics(s);
+  if(V087_GAMES.some(g=>g.id===game))createV087(s);
   return s;
 }
 function nextColor(s){if(!s.bag.length){s.bag=[1,2,3,4,5,6,7];for(let i=6;i>0;i--){const j=Math.floor(random(s)*(i+1));[s.bag[i],s.bag[j]]=[s.bag[j],s.bag[i]];}}return s.bag.pop();}
@@ -90,6 +92,7 @@ export function step(s,actions=[]){
   if(CLASSIC_GAMES.some(g=>g.id===s.game))stepClassic(s,actions);
   if(ROGUE_GAMES.some(g=>g.id===s.game))stepRogue(s,actions);
   if(TACTICS_GAMES.some(g=>g.id===s.game))stepTactics(s,actions);
+  if(V087_GAMES.some(g=>g.id===s.game))stepV087(s,actions);
   if(s.game==='blocks'&&s.tick>=MAX_TICKS)s.over=true;
   return s;
 }

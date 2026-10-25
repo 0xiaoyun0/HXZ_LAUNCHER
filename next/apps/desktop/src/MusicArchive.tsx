@@ -5,3 +5,4 @@ function trackHue(id:string){let hash=0;for(const c of id)hash=(hash*31+c.charCo
 export function ArchiveDisc({id='',large=false}:{id?:string;large?:boolean}){
   return <span aria-hidden className={'archive-disc-art'+(large?' large':'')} style={{'--disc-hue':trackHue(id)} as CSSProperties}><i/><b/><span/></span>;
 }
+

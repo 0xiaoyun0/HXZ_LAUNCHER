@@ -107,3 +107,4 @@ if (process.argv.includes('--check')) {
   await fs.copyFile(path.join(lucideRoot, 'LICENSE'), license);
 }
 console.log(JSON.stringify({lucide:version, aliases:Object.keys(aliases).length, icons:Object.keys(nodes).length, used:[...used].sort(), dynamic}, null, 2));
+

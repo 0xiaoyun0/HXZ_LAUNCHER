@@ -1,0 +1,52 @@
+{
+  "date": "2026-09-29",
+  "tool": "内置 image_gen",
+  "output": "public/media/games/",
+  "assets": [
+    {
+      "id": "runner",
+      "prompt": "Use case: stylized-concept. Asset type: landscape cover art for a cozy Chinese community launcher's mini-game card, aspect ratio 16:9. Polished original Japanese anime illustration, fresh airy pastel colors, elegant painted scenery, soft daylight, restrained detail, readable small thumbnail. Clear central subject within middle 65% so gentle cropping is possible. No lettering, no logos, no watermark, no UI, no existing franchise characters, no dark horror, no sexualization. Characters if present are wholesome clothed adult adventurers. One cohesive scenic composition. A small anime adventurer with short teal hair and a light travel cape jumping over a mossy log on a sunlit forest trail, dappled light, distant mint mountains, dynamic but calm adventurous feeling.",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a09915-0436-7b00-b526-9a72e7970f91\\exec-e37fa4b0-03db-4ecd-b835-83ec344cde17.png"
+    },
+    {
+      "id": "blocks",
+      "prompt": "Use case: stylized-concept. Asset type: landscape cover art for a cozy Chinese community launcher's mini-game card, aspect ratio 16:9. Polished original Japanese anime illustration, fresh airy pastel colors, elegant painted scenery, soft daylight, restrained detail, readable small thumbnail. Clear central subject within middle 65% so gentle cropping is possible. No lettering, no logos, no watermark, no UI, no existing franchise characters, no dark horror, no sexualization. Characters if present are wholesome clothed adult adventurers. One cohesive scenic composition. An imaginative floating garden of translucent pastel tetromino blocks, geometric cubic architecture suspended in a pale sky, a tiny anime architect girl watching them interlock, cool lavender and buttery yellow.",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a09915-0436-7b00-b526-9a72e7970f91\\exec-a939426a-987c-45e7-8ee5-c4866591e086.png"
+    },
+    {
+      "id": "breakout",
+      "prompt": "Use case: stylized-concept. Asset type: landscape cover art for a cozy Chinese community launcher's mini-game card, aspect ratio 16:9. Polished original Japanese anime illustration, fresh airy pastel colors, elegant painted scenery, soft daylight, restrained detail, readable small thumbnail. Clear central subject within middle 65% so gentle cropping is possible. No lettering, no logos, no watermark, no UI, no existing franchise characters, no dark horror, no sexualization. Characters if present are wholesome clothed adult adventurers. One cohesive scenic composition. An enchanted garden arcade: a glowing small pearl ball bouncing toward a graceful arch of pastel crystal bricks, a hovering elegant blue paddle, mint water and peach clouds, visually suggests brick breaker gameplay.",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a09915-0436-7b00-b526-9a72e7970f91\\exec-1b479def-2591-4eb2-8778-8f8bc94c02bf.png"
+    },
+    {
+      "id": "gomoku",
+      "prompt": "Use case: stylized-concept. Asset type: landscape cover art for a cozy Chinese community launcher's mini-game card, aspect ratio 16:9. Polished original Japanese anime illustration, fresh airy pastel colors, elegant painted scenery, soft daylight, restrained detail, readable small thumbnail. Clear central subject within middle 65% so gentle cropping is possible. No lettering, no logos, no watermark, no UI, no existing franchise characters, no dark horror, no sexualization. Characters if present are wholesome clothed adult adventurers. One cohesive scenic composition. A serene anime illustration of a polished wooden fifteen-by-fifteen gomoku board on a veranda, black and white go stones making an engaging unfinished five-in-a-row pattern, a young adult in a white cardigan placing a stone, green leaves and warm sunlight. No written symbols.",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a09915-0436-7b00-b526-9a72e7970f91\\exec-ea408e92-5c43-4e23-8ab9-311b3a4dd434.png"
+    },
+    {
+      "id": "xiangqi",
+      "prompt": "Use case: stylized-concept. Asset type: landscape cover art for a cozy Chinese community launcher's mini-game card, aspect ratio 16:9. Polished original Japanese anime illustration, fresh airy pastel colors, elegant painted scenery, soft daylight, restrained detail, readable small thumbnail. Clear central subject within middle 65% so gentle cropping is possible. No lettering, no logos, no watermark, no UI, no existing franchise characters, no dark horror, no sexualization. Characters if present are wholesome clothed adult adventurers. One cohesive scenic composition. A charming anime illustration of two young adult friends playing traditional Chinese chess beside a sunny lotus pond, warm wooden round chess pieces and subtle red markings, a wooden board with river, willow leaves, jade and ivory palette. No captions or readable written text.",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a09915-0436-7b00-b526-9a72e7970f91\\exec-a1bb8ed1-f37a-4632-9c3b-91b05c299b82.png"
+    },
+    {
+      "id": "chess",
+      "prompt": "Use case: stylized-concept. Asset type: landscape cover art for a cozy Chinese community launcher's mini-game card, aspect ratio 16:9. Polished original Japanese anime illustration, fresh airy pastel colors, elegant painted scenery, soft daylight, restrained detail, readable small thumbnail. Clear central subject within middle 65% so gentle cropping is possible. No lettering, no logos, no watermark, no UI, no existing franchise characters, no dark horror, no sexualization. Characters if present are wholesome clothed adult adventurers. One cohesive scenic composition. Elegant anime fantasy chess garden, beautifully shaped ivory knight and dark queen on a neat checkerboard, soft blue hydrangeas and a white arch in the background, an adult silver-haired strategist in a simple blue outfit partly visible, fresh morning atmosphere.",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a09915-0436-7b00-b526-9a72e7970f91\\exec-ec9faaad-55a1-4409-b636-ea144ed02424.png"
+    },
+    {
+      "id": "danmaku",
+      "prompt": "Use case: stylized-concept. Asset type: landscape cover art for a cozy Chinese community launcher's mini-game card, aspect ratio 16:9. Polished original Japanese anime illustration, fresh airy pastel colors, elegant painted scenery, soft daylight, restrained detail, readable small thumbnail. Clear central subject within middle 65% so gentle cropping is possible. No lettering, no logos, no watermark, no UI, no existing franchise characters, no dark horror, no sexualization. Characters if present are wholesome clothed adult adventurers. One cohesive scenic composition. An original adult anime sky mage in a flowing pale blue travel costume dancing between graceful arcs of pastel magical light orbs, airy clouds and floating islands, luminous but gentle lilac and peach colors. Bullet-dodging magical arcade atmosphere, no weapons, no existing character.",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a09915-0436-7b00-b526-9a72e7970f91\\exec-507d3766-40b3-4660-9e07-ef8c9dd30319.png"
+    },
+    {
+      "id": "maze",
+      "prompt": "Use case: stylized-concept. Asset type: landscape cover art for a cozy Chinese community launcher's mini-game card, aspect ratio 16:9. Polished original Japanese anime illustration, fresh airy pastel colors, elegant painted scenery, soft daylight, restrained detail, readable small thumbnail. Clear central subject within middle 65% so gentle cropping is possible. No lettering, no logos, no watermark, no UI, no existing franchise characters, no dark horror, no sexualization. Characters if present are wholesome clothed adult adventurers. One cohesive scenic composition. A friendly original golden spherical sprite with simple face exploring a pastel garden maze seen in charming isometric perspective, tiny glowing collectible stars along the paths, cute wispy spirits behind a hedge, mint green and peach architecture. Original design, no recognizable branded character.",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a09915-0436-7b00-b526-9a72e7970f91\\exec-6f0ca126-5189-4b08-a09f-ee810f5b051b.png"
+    },
+    {
+      "id": "fighter",
+      "prompt": "Use case: stylized-concept. Asset type: landscape cover art for a cozy Chinese community launcher's mini-game card, aspect ratio 16:9. Polished original Japanese anime illustration, fresh airy pastel colors, elegant painted scenery, soft daylight, restrained detail, readable small thumbnail. Clear central subject within middle 65% so gentle cropping is possible. No lettering, no logos, no watermark, no UI, no existing franchise characters, no dark horror, no sexualization. Characters if present are wholesome clothed adult adventurers. One cohesive scenic composition. An original elegant white-and-teal futuristic small fighter plane soaring above a sunlit sea of clouds and floating garden islands, luminous soft energy trails, a few tiny distant drones, uplifting anime adventure illustration, sky blue and coral palette, no military insignia.",
+      "source": "C:\\Users\\admin\\.codex\\generated_images\\01a09915-0436-7b00-b526-9a72e7970f91\\exec-d7c36814-f2d4-4fe8-b074-832265bec2d2.png"
+    }
+  ]
+}

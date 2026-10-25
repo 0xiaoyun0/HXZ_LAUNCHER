@@ -1,0 +1,116 @@
+<!doctype html>
+<!-- Independent visual prototype. No launcher bridge, network, account access or persistent state. -->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>幻想镇 · PCL 风格设计预览</title>
+<style>
+:root{--blue:#128bdd;--ink:#334554;--muted:#83919e;--line:#e9eef3;--ease:cubic-bezier(.2,.7,.25,1)}
+*{box-sizing:border-box}body{margin:0;background:#e6edf4;color:var(--ink);font:14px/1.5 'Microsoft YaHei UI','Microsoft YaHei',sans-serif;padding:28px 24px 0}
+button,input{font:inherit}button{cursor:pointer}button:focus-visible{outline:2px solid #047ecd;outline-offset:3px}button{transition:background .16s,color .16s,border-color .16s,transform .16s;appearance:none}button:active{transform:translateY(1px)}
+svg.i{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.65;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}svg.defs{position:absolute;width:0;height:0;overflow:hidden}
+.app{height:718px;max-width:1280px;margin:auto;border-radius:7px;overflow:hidden;background:#f5f8fc;box-shadow:0 18px 50px #34546c25,0 2px 8px #34546c14;border:1px solid #60849a24;display:flex;flex-direction:column}
+.titlebar{height:51px;flex-shrink:0;background:linear-gradient(110deg,#15a3ee,#148dde 62%,#147ac8);display:flex;align-items:center;position:relative;color:#fff;padding:0 18px;user-select:none}
+.brand{display:flex;gap:10px;align-items:center;font-size:18px;letter-spacing:1px;font-weight:600}.logo{border:1.7px solid #ffffffd9;border-radius:6px;width:30px;height:31px;text-align:center;font-size:23px;line-height:29px;font-weight:500}.brand small{font-size:11px;letter-spacing:0;font-weight:400;opacity:.67;margin-left:1px}
+.nav{position:absolute;left:50%;transform:translateX(-50%);display:flex;gap:4px}.nav button{border:1px solid transparent;color:#ffffffdb;background:transparent;border-radius:5px;display:flex;align-items:center;gap:7px;padding:6px 14px;font-size:14px}.nav button:hover{background:#ffffff19}.nav button.active{background:#ffffffeb;color:#128bd5;box-shadow:0 2px 5px #0064a419}.nav .i{width:17px;height:17px}
+.window-controls{display:flex;align-items:center;gap:19px;margin-left:auto;opacity:.9}.window-controls svg{width:13px;height:13px}
+.workspace{display:flex;flex:1;min-height:0}.sidebar{width:268px;flex-shrink:0;background:linear-gradient(#fff,#fff 75%,#fbfdff);box-shadow:2px 0 7px #28466308;z-index:1;display:flex;flex-direction:column;padding:27px 22px 20px}.login-mode{border:1px solid #d7e9f6;background:#f0f8fe;color:#318ccb;border-radius:20px;display:flex;align-items:center;justify-content:center;gap:8px;padding:5px 14px;font-size:13px;align-self:center}.login-mode .i{width:15px;height:15px}
+.profile{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;padding-bottom:26px}.skin-stage{height:174px;width:150px;display:flex;align-items:center;justify-content:center;position:relative}.skin-stage:after{content:'';position:absolute;width:64px;height:9px;background:#788dac24;border-radius:50%;bottom:8px;filter:blur(3px)}.skin{height:146px;width:88px;image-rendering:pixelated;filter:drop-shadow(2px 3px 0 #7d9bb016);z-index:1}.player{font-size:19px;font-weight:500;margin-top:6px;color:#344f64}.role-sub{font-size:12px;color:#9aa8b3;margin-top:3px}.profile-tools{display:flex;gap:0;margin-top:17px}.link{border:0;background:transparent;color:#238fcd;padding:2px 5px;font-size:13px;display:inline-flex;gap:5px;align-items:center}.link:hover{color:#0066a5;background:#f1f8fe;border-radius:4px}.profile-tools .link+ .link{margin-left:12px}.profile-tools .i{width:14px;height:14px}
+.launch-options{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;font-size:12px;color:#7b91a1}.launch-options span{display:flex;align-items:center;gap:5px}.launch-options svg{width:14px;height:14px;color:#61a776}.launch{width:100%;height:76px;border-radius:5px;border:1.3px solid #1597e8;background:#fff;color:#1284d2;box-shadow:0 2px 4px #1687d006;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px}.launch:hover{background:#edf8ff;box-shadow:0 3px 12px #128bdd13}.launch strong{font-size:24px;font-weight:400;letter-spacing:1px}.launch small{font-size:12px;color:#6d98b4}.launch-tools{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}.secondary{background:white;color:#5e6f7d;border:1px solid #d7e0e8;border-radius:4px;padding:8px 11px;font-size:13px;display:flex;gap:5px;align-items:center;justify-content:center}.secondary:hover{border-color:#65b4e4;color:#1387d1;background:#f5fbff}.secondary .i{width:15px;height:15px}
+.content{flex:1;min-width:0;padding:24px 25px 16px;overflow:auto;scrollbar-width:thin;scrollbar-color:#d2dfeb transparent;background:linear-gradient(135deg,#f4f8fc,#edf5fb)}
+.panel{background:white;border-radius:6px;box-shadow:0 2px 8px #3d699515,0 0 1px #86a1ba30;margin-bottom:17px;overflow:hidden}.panel-heading{display:flex;align-items:center;justify-content:space-between;padding:15px 19px 10px}.panel-heading h2{font-size:15px;font-weight:500;color:#258dcd;margin:0;display:flex;gap:8px;align-items:center}.panel-heading h2 .i{width:16px;height:16px}.panel-heading .link{font-size:12px;color:#8396a4}.panel-heading .chev{width:14px;height:14px;color:#a5b4bf}.welcome{height:111px;padding:20px 23px;position:relative;display:flex;justify-content:space-between;align-items:center;isolation:isolate;background:#fefefe}.welcome:before{content:'';position:absolute;inset:0 0 0 36%;z-index:-2;background:url('../../public/media/hero.webp') center 45% / cover}.welcome:after{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,#fff 30%,#ffffffed 47%,#ffffff90 71%,#ffffff05)}.welcome h1{font-size:21px;letter-spacing:.5px;font-weight:400;color:#247fae;margin:0 0 7px}.welcome p{font-size:12px;color:#8998a6;margin:0}.guide{align-self:flex-end;font-size:12px;padding:6px 10px;border:1px solid #ffffffa8;color:white;background:#14385c55;border-radius:4px;display:flex;align-items:center;gap:5px}.guide .i{width:14px;height:14px}
+.servers{padding-bottom:9px}.server-list{padding:0 9px}.server{position:relative;display:flex;align-items:center;gap:13px;padding:12px 11px;min-height:77px;margin:2px 0;border-radius:4px;border:1px solid transparent;cursor:pointer;transition:background .15s,border-color .15s}.server:hover{background:#f4f9fd}.server.selected{background:#f0f8fe;border-color:#cee9fa}.server.selected:before{content:'';position:absolute;left:-1px;top:21px;bottom:21px;width:3px;border-radius:2px;background:#1b9be9}.tile{width:45px;height:45px;border-radius:6px;background:#eff6f9;display:grid;place-items:center;flex-shrink:0}.tile svg{width:36px;height:36px}.tile.grass{background:#edf5e9}.tile.gear{background:#fff4e6}.tile.crystal{background:#f0effd}.server-copy{flex:1;min-width:0}.server-name{font-size:15px;color:#354e60;display:flex;align-items:center;gap:8px}.server-meta{font-size:12px;color:#8a9ba8;margin-top:4px;display:flex;gap:12px}.tag{font-size:10px;font-weight:400;background:#eaf3f9;color:#75a0bc;border-radius:3px;padding:0 5px}.server.selected .tag{background:#e0f0fb}.selection{color:#a1b3c0;font-size:12px;margin-left:10px;display:flex;gap:5px;align-items:center;min-width:76px;justify-content:flex-end}.server.selected .selection{color:#168cd5}.selection .i{width:16px;height:16px}.server-footer{border-top:1px solid #edf2f6;margin:6px 18px 0;padding-top:11px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#93a2ae}.server-footer .link{font-size:12px}
+.bottom-grid{display:grid;grid-template-columns:1.25fr 1fr;gap:17px}.bottom-grid .panel{margin-bottom:0;min-height:158px}.news-list{padding:0 18px 13px}.news-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;font-size:12px;color:#617585}.news-item+.news-item{border-top:1px solid #f0f3f6}.news-item span:first-child{display:flex;align-items:center;gap:7px}.news-item b{font-size:10px;font-weight:400;color:#3d9dcf;background:#eef8fd;border-radius:3px;padding:1px 5px;white-space:nowrap}.news-item time{font-size:11px;color:#a6b1ba;white-space:nowrap}
+.shortcuts{display:grid;grid-template-columns:repeat(3,1fr);padding:2px 10px 15px;gap:3px}.shortcut{display:flex;flex-direction:column;align-items:center;gap:8px;background:transparent;border:0;border-radius:5px;padding:9px 3px;color:#718596;font-size:12px}.shortcut svg{color:#3c9ccd;width:23px;height:23px;stroke-width:1.4}.shortcut:hover{background:#f1f9ff;color:#1f8ac5}.content-footer{display:flex;align-items:center;justify-content:space-between;margin-top:16px;font-size:11px;color:#a0aeb9}.content-footer span{display:flex;align-items:center;gap:5px}.content-footer .i{width:12px;height:12px}
+.preview-note{text-align:center;font-size:11px;letter-spacing:.5px;color:#8b9dab;margin:13px auto 0}.preview-note b{font-weight:400;color:#607e96}.toast{position:fixed;left:50%;bottom:80px;transform:translate(-50%,10px);opacity:0;pointer-events:none;color:#fff;background:#21445fe8;border-radius:6px;padding:10px 18px;font-size:13px;box-shadow:0 4px 20px #14304725;transition:opacity .2s,transform .2s;z-index:10}.toast.show{opacity:1;transform:translate(-50%,0)}
+.dialog-backdrop{position:fixed;inset:0;background:#23415c38;display:grid;place-items:center;z-index:5;backdrop-filter:blur(2px)}.dialog-backdrop[hidden]{display:none}.dialog{width:450px;background:#fff;border-radius:7px;box-shadow:0 15px 55px #203e4f33;padding:23px}.dialog h2{font-size:19px;color:#168bd2;font-weight:400;margin:0 0 22px}.dialog-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid #edf2f6}.dialog-row span{color:#8396a5;font-size:13px}.dialog-footer{display:flex;justify-content:flex-end;margin-top:23px}.dialog .secondary{padding:8px 24px}
+.welcome{height:96px}.panel-heading{padding-top:13px}.server{min-height:68px;padding-top:8px;padding-bottom:8px}.news-item{padding-top:6px;padding-bottom:6px}.bottom-grid .panel{min-height:146px}
+@media(max-width:1020px){.brand small{display:none}.nav{left:55%}.nav button{padding:6px 9px}.sidebar{width:244px}.content{padding:20px 18px}.bottom-grid{grid-template-columns:1fr}.bottom-grid .panel{min-height:0}.quick-panel{display:none}.app{height:calc(100vh - 75px);min-height:620px}.server-meta{gap:7px}.server-meta .address{display:none}}
+@media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<svg class="defs" xmlns="http://www.w3.org/2000/svg"><defs>
+<symbol id="play" viewBox="0 0 24 24"><path d="m8 4 12 8-12 8Z"/></symbol>
+<symbol id="download" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24"><path d="M21 11a8 8 0 0 1-8 8H8l-5 3 1-7a8 8 0 0 1-1-4 8 8 0 0 1 8-8h2a8 8 0 0 1 8 8Z"/><path d="M8 10h8M8 14h5"/></symbol>
+<symbol id="settings" viewBox="0 0 24 24"><path d="m9 3-1 3-3 1-2 4 2 2v4l4 3 3-1 3 1 4-3v-4l2-2-2-4-3-1-1-3Z"/><circle cx="12" cy="12" r="3"/></symbol>
+<symbol id="grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></symbol>
+<symbol id="chevron" viewBox="0 0 24 24"><path d="m9 5 7 7-7 7"/></symbol>
+<symbol id="down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></symbol>
+<symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M4 21v-3a8 8 0 0 1 16 0v3"/></symbol>
+<symbol id="switch" viewBox="0 0 24 24"><path d="M4 7h15l-4-4M20 17H5l4 4"/></symbol>
+<symbol id="folder" viewBox="0 0 24 24"><path d="M3 6a1 1 0 0 1 1-1h6l2 3h8a1 1 0 0 1 1 1v11H3Z"/></symbol>
+<symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="news" viewBox="0 0 24 24"><path d="M4 3h16v18H4Z M8 7h8M8 11h8M8 15h4"/></symbol>
+<symbol id="headset" viewBox="0 0 24 24"><path d="M3 14v-3a9 9 0 0 1 18 0v7a3 3 0 0 1-3 3h-4"/><rect x="3" y="11" width="4" height="8" rx="2"/><rect x="17" y="11" width="4" height="8" rx="2"/></symbol>
+<symbol id="game" viewBox="0 0 24 24"><path d="M7 7h10c3 0 4 2 5 10 .3 3-2 4-4 1l-2-2H8l-2 2c-2 3-4 2-4-1 1-8 2-10 5-10Z M7 10v5M4.5 12.5h5M16 11h.01M19 14h.01"/></symbol>
+<symbol id="box" viewBox="0 0 24 24"><path d="m12 2 10 5-10 5L2 7Zm10 5v11l-10 5-10-5V7m10 5v11M7 4l10 5"/></symbol>
+<symbol id="min" viewBox="0 0 24 24"><path d="M4 12h16"/></symbol><symbol id="max" viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1"/></symbol><symbol id="close" viewBox="0 0 24 24"><path d="m5 5 14 14M19 5 5 19"/></symbol>
+<symbol id="grass" viewBox="0 0 48 48"><path fill="#956d42" d="m6 14 18 9 18-9v21l-18 9L6 35Z"/><path fill="#b58b55" d="M6 14v21l18 9V23Z"/><path fill="#79ad47" d="M6 14 24 5l18 9-18 10Z"/><path fill="#91c65b" d="m6 14 18 9v9l-5-2v-5l-6-3v4l-7-4Z"/><path fill="#568f33" d="m24 23 18-9v9l-6 3v-4l-5 2v7l-7 3Z"/><path fill="#805c39" d="m10 30 5 2v4l-5-2zm18 5 5-2v4l-5 2Z"/></symbol>
+<symbol id="gear-tile" viewBox="0 0 48 48"><path fill="#d7a45c" d="m19 3 10 0 2 7 6-1 6 8-4 6 4 7-6 8-7-1-2 7H18l-2-7-7 1-6-8 4-7-4-6 6-8 7 1Z"/><circle cx="24" cy="24" r="12" fill="#fff4df"/><circle cx="24" cy="24" r="6" fill="#a47843"/><path d="M24 13v4m11 7h-4m-7 11v-4m-11-7h4" stroke="#d4a569" stroke-width="3"/></symbol>
+<symbol id="crystal" viewBox="0 0 48 48"><path fill="#8f82cd" d="M24 3 40 17 33 37 24 45 8 30l1-14Z"/><path fill="#c4b8f1" d="M24 3 30 19 9 16Z"/><path fill="#a697e1" d="m9 16 21 3-6 26L8 30Z"/><path fill="#7668b6" d="m30 19 10-2-7 20-9 8Z"/><path fill="#ded5ff" d="m24 3 16 14-10 2Z"/><path d="m10 33 2 7m-5-3h8" stroke="#b4a7dc" stroke-width="2"/></symbol>
+</defs></svg>
+<main class="app">
+ <header class="titlebar">
+  <div class="brand"><span class="logo">幻</span>幻想镇 <small>0.5.2-air</small></div>
+  <nav class="nav" aria-label="主导航">
+   <button class="active"><svg class="i"><use href="#play"/></svg>启动</button>
+   <button data-preview="下载与安装"><svg class="i"><use href="#download"/></svg>下载</button>
+   <button data-preview="社区"><svg class="i"><use href="#chat"/></svg>社区</button>
+   <button data-preview="设置"><svg class="i"><use href="#settings"/></svg>设置</button>
+   <button data-preview="更多功能"><svg class="i"><use href="#grid"/></svg>更多</button>
+  </nav>
+  <div class="window-controls" aria-hidden="true"><svg class="i"><use href="#min"/></svg><svg class="i"><use href="#max"/></svg><svg class="i"><use href="#close"/></svg></div>
+ </header>
+ <div class="workspace">
+  <aside class="sidebar">
+   <button class="login-mode" data-preview="登录方式"><svg class="i"><use href="#user"/></svg>幻想镇皮肤站<svg class="i"><use href="#down"/></svg></button>
+   <div class="profile">
+    <div class="skin-stage"><svg class="skin" viewBox="0 0 32 54" shape-rendering="crispEdges" aria-label="示例角色皮肤">
+     <path fill="#57506d" d="M8 1h16v16H8z"/><path fill="#eec8ae" d="M9 8h14v8H9z"/><path fill="#786880" d="M8 1h16v6H8zM8 7h3v4H8zM21 7h3v7h-3z"/><path fill="#4d4362" d="M11 9h3v2h-3zM19 9h3v2h-3z"/><path fill="#aa7680" d="M15 13h3v1h-3z"/><path fill="#7facc4" d="M8 17h16v21H8zM2 18h6v17H2zM24 18h6v17h-6z"/><path fill="#d9e8ee" d="M12 17h8v4h-8zM15 21h2v16h-2zM8 33h16v4H8z"/><path fill="#618ba6" d="M2 18h2v16H2zM24 18h2v16h-2zM8 20h2v13H8z"/><path fill="#ebc4a9" d="M2 33h6v6H2zM24 33h6v6h-6z"/><path fill="#4a5976" d="M8 38h7v13H8zM17 38h7v13h-7z"/><path fill="#3b475f" d="M8 48h7v4H8zM17 48h7v4h-7z"/><path fill="#c5d7e3" d="M8 51h7v2H8zM17 51h7v2h-7z"/>
+    </svg></div>
+    <div class="player">示例角色</div><div class="role-sub">幻想镇通行证</div>
+    <div class="profile-tools"><button class="link" data-preview="切换角色"><svg class="i"><use href="#switch"/></svg>切换角色</button><button class="link" data-preview="账号管理"><svg class="i"><use href="#user"/></svg>账号管理</button></div>
+   </div>
+   <div class="launch-options"><span><svg class="i"><use href="#check"/></svg>启动前自动更新</span><span>自动进入服务器</span></div>
+   <button class="launch" id="launch"><strong>启动游戏</strong><small id="launch-version">模组二服 · NeoForge 1.21.1</small></button>
+   <div class="launch-tools"><button class="secondary" id="select-version"><svg class="i"><use href="#grid"/></svg>版本选择</button><button class="secondary" id="version-settings"><svg class="i"><use href="#settings"/></svg>版本设置</button></div>
+  </aside>
+  <section class="content">
+   <section class="panel welcome"><div><h1>欢迎来到幻想镇</h1><p>原版生存、机械动力与科技探索。</p></div><button class="guide" data-preview="入服指南">入服指南<svg class="i"><use href="#chevron"/></svg></button></section>
+   <section class="panel servers" id="versions">
+    <div class="panel-heading"><h2><svg class="i"><use href="#box"/></svg>常用服务器</h2><button class="link" data-preview="全部游戏实例">全部实例<svg class="i"><use href="#chevron"/></svg></button></div>
+    <div class="server-list" role="listbox" aria-label="选择游戏实例">
+     <div class="server" role="option" tabindex="0" aria-selected="false" data-version="原版生存群组 · Fabric 26.2"><span class="tile grass"><svg><use href="#grass"/></svg></span><div class="server-copy"><div class="server-name">原版生存群组<span class="tag">默认服务器</span></div><div class="server-meta"><span>26.2 · Fabric</span><span>原版生电 / 空岛</span><span class="address">s1.hxzmc.top</span></div></div><span class="selection">选择<svg class="i"><use href="#chevron"/></svg></span></div>
+     <div class="server" role="option" tabindex="0" aria-selected="false" data-version="模组一服 · NeoForge 1.21.1"><span class="tile gear"><svg><use href="#gear-tile"/></svg></span><div class="server-copy"><div class="server-name">模组一服<span class="tag">默认服务器</span></div><div class="server-meta"><span>1.21.1 · NeoForge</span><span>机械动力 / 航空学</span><span class="address">s2.hxzmc.top</span></div></div><span class="selection">选择<svg class="i"><use href="#chevron"/></svg></span></div>
+     <div class="server selected" role="option" tabindex="0" aria-selected="true" data-version="模组二服 · NeoForge 1.21.1"><span class="tile crystal"><svg><use href="#crystal"/></svg></span><div class="server-copy"><div class="server-name">模组二服<span class="tag">默认服务器</span></div><div class="server-meta"><span>1.21.1 · NeoForge</span><span>新时代科技</span><span class="address">s3.hxzmc.top</span></div></div><span class="selection"><svg class="i"><use href="#check"/></svg>当前选择</span></div>
+    </div>
+    <div class="server-footer"><span>其他版本和整合包，可在版本选择中管理</span><button class="link" data-preview="导入整合包"><svg class="i"><use href="#plus"/></svg>导入整合包</button></div>
+   </section>
+   <div class="bottom-grid">
+    <section class="panel"><div class="panel-heading"><h2><svg class="i"><use href="#news"/></svg>通知与更新</h2><button class="link" data-preview="通知公告">查看全部<svg class="i"><use href="#chevron"/></svg></button></div><div class="news-list">
+     <div class="news-item"><span><b>启动器</b>0.5.2-air 界面设计预览</span><time>09 / 29</time></div>
+     <div class="news-item"><span><b>模组二服</b>整合包更新日志</span><svg class="i" style="width:12px;height:12px;color:#acbac5"><use href="#chevron"/></svg></div>
+     <div class="news-item"><span><b>指南</b>账号注册与首次加入服务器</span><svg class="i" style="width:12px;height:12px;color:#acbac5"><use href="#chevron"/></svg></div>
+    </div></section>
+    <section class="panel quick-panel"><div class="panel-heading"><h2><svg class="i"><use href="#chat"/></svg>社区与更多</h2><svg class="i chev"><use href="#down"/></svg></div><div class="shortcuts"><button class="shortcut" data-preview="聊天大厅"><svg class="i"><use href="#headset"/></svg>聊天大厅</button><button class="shortcut" data-preview="小游戏"><svg class="i"><use href="#game"/></svg>小游戏</button><button class="shortcut" data-preview="积分商城"><svg class="i"><use href="#box"/></svg>积分商城</button></div></section>
+   </div>
+   <footer class="content-footer"><span><svg class="i"><use href="#folder"/></svg>D:\HXZ-minecraft\.minecraft</span><span>任务详情<svg class="i"><use href="#chevron"/></svg></span></footer>
+  </section>
+ </div>
+</main>
+<div class="preview-note"><b>PCL 风格 · 幻想镇启动器设计预览</b>　/　角色、安装状态与通知均为示例，未连接实际服务</div>
+<div class="toast" role="status" id="toast"></div>
+<div class="dialog-backdrop" id="settings-dialog" hidden><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title"><h2 id="dialog-title">版本设置 · 模组二服</h2><div class="dialog-row">Java<span>自动选择 · Java 21</span></div><div class="dialog-row">内存分配<span>自动分配</span></div><div class="dialog-row">HXZ UP 自动更新<span>已开启</span></div><div class="dialog-row">自动进入服务器<span>s3.hxzmc.top</span></div><div class="dialog-footer"><button class="secondary" id="close-dialog">返回</button></div></section></div>
+<script>
+let timeout;const toast=document.querySelector('#toast');function show(message){toast.textContent=message;toast.classList.add('show');clearTimeout(timeout);timeout=setTimeout(()=>toast.classList.remove('show'),2500)}
+document.querySelectorAll('[data-preview]').forEach(button=>button.addEventListener('click',()=>show(button.dataset.preview+'：当前为样式预览，尚未接入操作')));
+function select(row){document.querySelectorAll('.server').forEach(item=>{const selected=item===row;item.classList.toggle('selected',selected);item.setAttribute('aria-selected',selected);item.querySelector('.selection').innerHTML=selected?'<svg class="i"><use href="#check"/></svg>当前选择':'选择<svg class="i"><use href="#chevron"/></svg>'});document.querySelector('#launch-version').textContent=row.dataset.version;document.querySelector('#dialog-title').textContent='版本设置 · '+row.querySelector('.server-name').firstChild.textContent;const version=row.dataset.version;document.querySelectorAll('.dialog-row span')[0].textContent=version.includes('26.2')?'自动选择 · 跟随版本要求':'自动选择 · Java 21';document.querySelectorAll('.dialog-row span')[3].textContent=row.querySelector('.address').textContent;console.info('Prototype selection:',version)}
+document.querySelectorAll('.server').forEach(row=>{row.addEventListener('click',()=>select(row));row.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();select(row)}})});
+document.querySelector('#launch').addEventListener('click',()=>show('设计预览：不会启动游戏或下载文件'));
+document.querySelector('#select-version').addEventListener('click',()=>{document.querySelector('.server').focus();show('点击右侧服务器切换实例；完整实例库将在确认设计后制作')});
+const dialog=document.querySelector('#settings-dialog');document.querySelector('#version-settings').addEventListener('click',()=>{dialog.hidden=false;document.querySelector('#close-dialog').focus()});function closeDialog(){dialog.hidden=true;document.querySelector('#version-settings').focus()}document.querySelector('#close-dialog').addEventListener('click',closeDialog);dialog.addEventListener('click',event=>{if(event.target===dialog)closeDialog()});document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!dialog.hidden)closeDialog()});
+</script>
+</body></html>

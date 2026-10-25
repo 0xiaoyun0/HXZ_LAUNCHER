@@ -119,10 +119,10 @@ export function createCommunity(options={}) {
   const tanks=createTankRooms({auth,body,send,limit,broadcast,points});
   const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast,points});
   const feedbackRoute=createFeedback({db,auth,admin,body,send,limit,inbox,adminIDs});
-  const directLobby=createDirectLobby({db,auth,admin,body,send,limit,inventory});
+  const directLobby=createDirectLobby({db,auth,admin,adminIDs,body,send,limit,inventory});
   const voiceTools=createVoiceTools({clients,auth,body,send,limit});
   const hub=createCommunityHub({data,db,auth,admin,adminIDs,body,send,limit,broadcast,inbox,points,inventory,media,gameTelemetry,gameBridge,clients});
-  const p2pSignal=createLobbySignal({db,auth,admin,verify,body,send,limit,canHost:user=>!!(user.consoleAdmin||adminIDs.has(user.uid)||db.prepare('SELECT 1 FROM direct_lobby_hosts WHERE uid=?').get(user.uid)||inventory.has(user.uid,'lobby.host'))});
+  const p2pSignal=createLobbySignal({db,auth,admin,verify,body,send,limit,settings:()=>directLobby.settings(),canHost:user=>directLobby.canHost(user)});
   const server=http.createServer(async(req,res)=>{
     const origin=req.headers.origin;if(origin&&!origins.has(origin)&&!['http://','https://'].some(protocol=>origin===protocol+req.headers.host)){send(res,403,{error:'来源不允许'});return;}
     if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');}

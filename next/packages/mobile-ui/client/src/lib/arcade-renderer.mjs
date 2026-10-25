@@ -4,6 +4,7 @@ import {drawClassic} from './arcade-classics-renderer.mjs';
 import {BREAKOUT_BUFFS} from '../../../server/shared/arcade-breakout.mjs';
 import {drawNew} from './arcade-new-renderer.mjs';
 import {drawExpanded} from './arcade-expanded-renderer.mjs';
+import {drawV087} from './arcade-v087-renderer.mjs';
 import {shapes,ghostRow,runnerSpeed} from '../../../server/shared/arcade-engine.mjs';
 const COLORS=['','#75cbd4','#e5c573','#b3a0e2','#8bb2e2','#e9aa7d','#94cbaa','#dc969c'];
 function box(c,x,y,w,h,r,fill){c.fillStyle=fill;c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.fill();}
@@ -69,6 +70,7 @@ export function createRenderer(canvas,id,{preview=false}={}){
    if(['dice','caravan'].includes(id))drawTactics(c,s,reduce||document.documentElement.dataset.motion==='off');
    if(['swarm','deck','dungeon'].includes(id))drawRogue(c,s,alpha,reduce||document.documentElement.dataset.motion==='off');
    if(['contra','garden'].includes(id))drawNew(c,s);
+   if(['orbit','supply','rhythm','alchemy'].includes(id))drawV087(c,s,id,reduce||document.documentElement.dataset.motion==='off');
    if(!preview){c.fillStyle='#ffffff08';c.fillRect(0,0,360,1);}
   },
   dispose(){particles=[];trail=[];background.width=background.height=1;}

@@ -43,7 +43,7 @@ test('version 9 HTTP settlement ignores forged score, stays idempotent, and vers
   const settlement=await call('/api/arcade/caravan/finish',{id:voyage.value.id,from:midpoint,ticks:state.tick,inputs:inputs.filter(e=>e[0]>midpoint),score:999999});assert.equal(settlement.status,200);assert.equal(settlement.value.score,state.score);
   const again=await call('/api/arcade/caravan/finish',{id:voyage.value.id,ticks:state.tick,inputs:[]});assert.equal(again.value.score,state.score);
   assert.equal(db.prepare('SELECT COUNT(*) AS n FROM game_weekly WHERE game=? AND uid=?').get('caravan',user.uid).n,1);
-  for(const version of [8,9])for(const game of current.GAMES){
+  for(const version of [8,9])for(const game of (version===8?v8.GAMES:current.GAMES)){
    const started=await call('/api/arcade/'+game.id+'/start',{rulesVersion:version});assert.equal(started.status,200,game.id+' v'+version+' starts');
    const finished=await call('/api/arcade/'+game.id+'/finish',{id:started.value.id,ticks:1,inputs:[],score:999999});assert.equal(finished.status,200,game.id+' v'+version+' settles');
    assert.equal(finished.value.score,(version===8?v8:current).replay(game.id,started.value.seed,1,[]).score,game.id+' v'+version+' verified score');

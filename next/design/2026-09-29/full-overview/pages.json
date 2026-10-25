@@ -1,0 +1,332 @@
+[
+  {
+    "id": "01-home",
+    "title": "开始游戏",
+    "group": "游戏与实例",
+    "note": "已确认方向的卡片式启动页"
+  },
+  {
+    "id": "02-library",
+    "title": "我的实例",
+    "group": "游戏与实例",
+    "note": "默认三服不可删除；本地实例支持收藏、分组"
+  },
+  {
+    "id": "03-instance",
+    "title": "模组二服",
+    "group": "游戏与实例",
+    "note": ""
+  },
+  {
+    "id": "04-instance-config",
+    "title": "实例配置",
+    "group": "游戏与实例",
+    "note": ""
+  },
+  {
+    "id": "05-mods",
+    "title": "模组管理",
+    "group": "游戏与实例",
+    "note": ""
+  },
+  {
+    "id": "06-tasks",
+    "title": "下载与启动任务",
+    "group": "游戏与实例",
+    "note": ""
+  },
+  {
+    "id": "07-diagnostics",
+    "title": "游戏诊断",
+    "group": "游戏与实例",
+    "note": ""
+  },
+  {
+    "id": "08-removed",
+    "title": "已移除实例",
+    "group": "游戏与实例",
+    "note": ""
+  },
+  {
+    "id": "09-minecraft",
+    "title": "安装 Minecraft",
+    "group": "下载与资源",
+    "note": ""
+  },
+  {
+    "id": "10-packs",
+    "title": "发现整合包",
+    "group": "下载与资源",
+    "note": "目录内容为示例，不代表当前线上搜索结果"
+  },
+  {
+    "id": "11-resource-detail",
+    "title": "整合包详情",
+    "group": "下载与资源",
+    "note": ""
+  },
+  {
+    "id": "12-mod-download",
+    "title": "下载模组",
+    "group": "下载与资源",
+    "note": ""
+  },
+  {
+    "id": "13-resourcepacks",
+    "title": "资源包",
+    "group": "下载与资源",
+    "note": ""
+  },
+  {
+    "id": "14-shaders",
+    "title": "光影包",
+    "group": "下载与资源",
+    "note": ""
+  },
+  {
+    "id": "15-datapacks",
+    "title": "数据包",
+    "group": "下载与资源",
+    "note": ""
+  },
+  {
+    "id": "16-import",
+    "title": "导入整合包",
+    "group": "下载与资源",
+    "note": ""
+  },
+  {
+    "id": "17-export",
+    "title": "导出整合包",
+    "group": "下载与资源",
+    "note": ""
+  },
+  {
+    "id": "18-chat",
+    "title": "文字大厅",
+    "group": "社区与监控",
+    "note": ""
+  },
+  {
+    "id": "19-voice",
+    "title": "语音频道",
+    "group": "社区与监控",
+    "note": ""
+  },
+  {
+    "id": "20-forum",
+    "title": "幻想镇论坛",
+    "group": "社区与监控",
+    "note": "搜索、排序与发帖共用一行工具栏"
+  },
+  {
+    "id": "21-post",
+    "title": "话题与回复",
+    "group": "社区与监控",
+    "note": ""
+  },
+  {
+    "id": "22-post-editor",
+    "title": "发布话题",
+    "group": "社区与监控",
+    "note": ""
+  },
+  {
+    "id": "23-blueprints",
+    "title": "机械动力蓝图库",
+    "group": "社区与监控",
+    "note": ""
+  },
+  {
+    "id": "24-blueprint-detail",
+    "title": "蓝图详情与导入",
+    "group": "社区与监控",
+    "note": ""
+  },
+  {
+    "id": "25-blueprint-upload",
+    "title": "上传蓝图",
+    "group": "社区与监控",
+    "note": ""
+  },
+  {
+    "id": "26-notices",
+    "title": "通知公告",
+    "group": "社区与监控",
+    "note": ""
+  },
+  {
+    "id": "27-monitor",
+    "title": "服务监控",
+    "group": "社区与监控",
+    "note": "名称与分组从监控后台获取，不与默认三服强行绑定"
+  },
+  {
+    "id": "28-login",
+    "title": "幻想镇通行证",
+    "group": "账号与商城",
+    "note": ""
+  },
+  {
+    "id": "29-account",
+    "title": "账号管理",
+    "group": "账号与商城",
+    "note": ""
+  },
+  {
+    "id": "30-skin",
+    "title": "皮肤与角色",
+    "group": "账号与商城",
+    "note": "内嵌容器示意，不冒充皮肤站实际网页设计"
+  },
+  {
+    "id": "31-wallet",
+    "title": "积分与收支",
+    "group": "账号与商城",
+    "note": ""
+  },
+  {
+    "id": "32-shop",
+    "title": "积分商城",
+    "group": "账号与商城",
+    "note": ""
+  },
+  {
+    "id": "33-product",
+    "title": "商品与兑换确认",
+    "group": "账号与商城",
+    "note": ""
+  },
+  {
+    "id": "34-arcade",
+    "title": "小游戏大厅",
+    "group": "小游戏与排行",
+    "note": "九款游戏按 1–9 顺序排列；固定比例预览"
+  },
+  {
+    "id": "35-rankings",
+    "title": "积分排行榜",
+    "group": "小游戏与排行",
+    "note": "总榜由周榜累计，消费不扣累计排名分"
+  },
+  {
+    "id": "36-runner",
+    "title": "林间疾跑",
+    "group": "小游戏与排行",
+    "note": "棋盘 / 画布保持比例，不被侧栏拉伸"
+  },
+  {
+    "id": "37-blocks",
+    "title": "俄罗斯方块",
+    "group": "小游戏与排行",
+    "note": "棋盘 / 画布保持比例，不被侧栏拉伸"
+  },
+  {
+    "id": "38-breakout",
+    "title": "打砖块",
+    "group": "小游戏与排行",
+    "note": "棋盘 / 画布保持比例，不被侧栏拉伸"
+  },
+  {
+    "id": "39-gomoku",
+    "title": "五子棋",
+    "group": "小游戏与排行",
+    "note": "棋盘 / 画布保持比例，不被侧栏拉伸"
+  },
+  {
+    "id": "40-xiangqi",
+    "title": "象棋对战",
+    "group": "小游戏与排行",
+    "note": "棋盘 / 画布保持比例，不被侧栏拉伸"
+  },
+  {
+    "id": "41-chess",
+    "title": "国际象棋",
+    "group": "小游戏与排行",
+    "note": "棋盘 / 画布保持比例，不被侧栏拉伸"
+  },
+  {
+    "id": "42-danmaku",
+    "title": "星庭流萤",
+    "group": "小游戏与排行",
+    "note": "棋盘 / 画布保持比例，不被侧栏拉伸"
+  },
+  {
+    "id": "43-maze",
+    "title": "月光迷宫",
+    "group": "小游戏与排行",
+    "note": "棋盘 / 画布保持比例，不被侧栏拉伸"
+  },
+  {
+    "id": "44-fighter",
+    "title": "苍穹航线",
+    "group": "小游戏与排行",
+    "note": "棋盘 / 画布保持比例，不被侧栏拉伸"
+  },
+  {
+    "id": "45-spectate",
+    "title": "棋局观战",
+    "group": "小游戏与排行",
+    "note": ""
+  },
+  {
+    "id": "46-appearance",
+    "title": "外观与卡片",
+    "group": "设置与活动",
+    "note": ""
+  },
+  {
+    "id": "47-background",
+    "title": "背景与声音",
+    "group": "设置与活动",
+    "note": ""
+  },
+  {
+    "id": "48-java",
+    "title": "游戏与 Java",
+    "group": "设置与活动",
+    "note": ""
+  },
+  {
+    "id": "49-download-settings",
+    "title": "下载与更新",
+    "group": "设置与活动",
+    "note": ""
+  },
+  {
+    "id": "50-voice-settings",
+    "title": "社区与语音",
+    "group": "设置与活动",
+    "note": ""
+  },
+  {
+    "id": "51-feedback",
+    "title": "帮助与反馈",
+    "group": "设置与活动",
+    "note": ""
+  },
+  {
+    "id": "52-admin",
+    "title": "管理工作台",
+    "group": "设置与活动",
+    "note": "权限页面的设计方向；现有后端管理入口与实现范围另行确认"
+  },
+  {
+    "id": "53-about",
+    "title": "关于幻想镇",
+    "group": "设置与活动",
+    "note": ""
+  },
+  {
+    "id": "54-linking",
+    "title": "Linking",
+    "group": "设置与活动",
+    "note": "原活动页面直接放入内容区，不重写内容或解锁规则"
+  },
+  {
+    "id": "55-dialogs",
+    "title": "确认与异常提示",
+    "group": "设置与活动",
+    "note": "弹窗统一为实色卡片，避免透明叠字；本图集中展示状态样式"
+  }
+]

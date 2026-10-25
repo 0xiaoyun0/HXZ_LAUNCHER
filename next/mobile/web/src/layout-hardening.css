@@ -1,0 +1,20 @@
+/* 0.8.8 mobile layout contract: one bounded viewport, one owner per scroll axis,
+   and safe-area padding that cannot change card widths. */
+html,body,#app{min-width:0;min-height:0;overflow:hidden}
+.app-shell{min-width:0;min-height:0;height:100dvh;height:100svh;overflow:hidden;padding-bottom:env(safe-area-inset-bottom)}
+.app-header{padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right));padding-top:max(4px,env(safe-area-inset-top))}
+.workspace,.content-page,.games-scroll,.sheet-body{min-width:0;min-height:0;overscroll-behavior:contain}
+.workspace{overflow:hidden}
+.content-page,.games-scroll{overflow-x:clip}
+.content-page>*{min-width:0;max-width:100%}
+.card,.settings-group,.profile-card,.post-card,.detail-card,.reply-card,.blueprint-card,.shop-product,.notice-card{max-width:100%;overflow-wrap:anywhere}
+.actions,.page-toolbar,.mobile-card-heading,.voice-session-heading,.shop-heading{min-width:0;max-width:100%}
+.actions>*{min-width:0;max-width:100%}
+.bottom-nav{padding-bottom:max(5px,env(safe-area-inset-bottom))}
+.sheet-backdrop,.confirm-backdrop{padding-left:max(12px,env(safe-area-inset-left));padding-right:max(12px,env(safe-area-inset-right));padding-bottom:max(12px,env(safe-area-inset-bottom))}
+@media(orientation:landscape) and (max-height:520px){
+  .app-header{min-height:48px}
+  .bottom-nav{min-height:52px}
+  .bottom-nav button{min-height:44px}
+  .content-page{padding-block:12px 18px}
+}
