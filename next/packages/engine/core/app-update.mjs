@@ -61,7 +61,7 @@ export function createAppUpdate({
     if(attemptFile){mkdirSync(path.dirname(attemptFile),{recursive:true});writeFileSync(attemptFile+'.tmp',JSON.stringify(attempt),'utf8');renameSync(attemptFile+'.tmp',attemptFile);}
     previousAttempt=attempt;
   };
-  let release, cancellationToken, downloadTimer;
+  let release, cancellationToken, downloadTimer, checkedSource;
   updater.disableDifferentialDownload = true;
   function armDownloadTimeout() {
     clearTimeout(downloadTimer);
@@ -77,6 +77,8 @@ export function createAppUpdate({
     });
     const result = await updater.checkForUpdates();
     cancellationToken = result?.cancellationToken;
+    checkedSource = source;
+    return result;
   }
   let working = false,
     enabled = false,
@@ -108,14 +110,27 @@ export function createAppUpdate({
     },
     "download-progress": p => {
       armDownloadTimeout();
+      const transferred = Number.isFinite(p?.transferred) ? Math.max(0, p.transferred) : 0;
+      const total = Number.isFinite(p?.total) ? Math.max(0, p.total) : 0;
+      const rawPercent = Number.isFinite(p?.percent)
+        ? p.percent
+        : total > 0
+          ? transferred / total * 100
+          : state.percent;
       update({
         phase: "正在下载启动器更新 · " + state.source,
-        percent: Math.round(p.percent), received:p.transferred, total:p.total
+        percent: Math.max(state.percent, Math.min(100, Math.round(rawPercent))),
+        received: transferred,
+        total
       });
     },
     "update-downloaded": info => {
       const version=info?.version||state.version;
-      if(!available||compareVersions(version,app.getVersion())<=0||version!==state.version)return;
+      // A retry can replace the provider while the previous provider is
+      // finishing. Accept the completed artifact when it is the discovered
+      // target instead of leaving the UI in a permanent downloading state.
+      if(!available||compareVersions(version,app.getVersion())<=0||release&&compareVersions(version,release.info.version)!==0)return;
+      state.version = version;
       ready = true;
       installAt = 0;
       update({ phase: blocked(version)?"上次更新未完成，已停止自动重启。可在设置中手动重试安装。":"更新已就绪", ready: true, percent: 100,autoBlocked:blocked(version) });
@@ -128,9 +143,9 @@ export function createAppUpdate({
     if (working) throw Error("更新任务正在进行");
     working = true;
     try {
-      for (let attempt=0;attempt<release.sources.length*2;attempt++) {
-        const source=release.sources[attempt%release.sources.length];
-        if(attempt===release.sources.length)await new Promise(resolve=>setTimeout(resolve,1500));
+      const sources = [...new Map(release.sources.map(source => [source.name + source.prefix, source])).values()];
+      for (let attempt=0;attempt<sources.length;attempt++) {
+        const source=sources[attempt];
         if (disposed) throw Error("更新检查已关闭");
         try {
           update({
@@ -138,15 +153,27 @@ export function createAppUpdate({
             source: source.name,
             percent: 0
           });
-          await selectSource(source);
+          if (checkedSource !== source) await selectSource(source);
           armDownloadTimeout();
           await updater.downloadUpdate(cancellationToken);
           return state;
-        } catch {
+        } catch (error) {
           if (disposed) throw Error("更新检查已关闭");
+          cancellationToken?.cancel();
+          // electron-updater keeps its in-flight promise until the request
+          // observes cancellation. Wait for that cleanup before switching
+          // providers; otherwise every retry attaches to the same dead
+          // request and appears to download forever.
+          await updater.downloadPromise?.catch(() => {});
+          checkedSource = null;
           update({
-            phase: source.name + " 暂不可用，正在切换更新源",
-            percent: 0
+            phase: attempt + 1 < sources.length
+              ? source.name + " 暂不可用，正在切换更新源"
+              : "所有更新源下载失败，请稍后重试",
+            error: String(error?.message || error).slice(0,400),
+            percent: 0,
+            received: 0,
+            total: 0
           });
         } finally {
           clearTimeout(downloadTimer);

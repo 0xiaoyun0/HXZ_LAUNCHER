@@ -103,9 +103,12 @@ export async function discoverRelease({
   };
 }
 export function updateFileURL(source, info) {
+  // Proxies commonly cache release assets by path. The signed manifest fixes
+  // the file name, size and digest; a cache-busting query only selects a fresh
+  // transport response and cannot change the verified artifact.
   return new URL(
     source.prefix +
       RELEASE_ROOT +
-      `/download/v${info.version}/${info.files[0].url}`
+      `/download/v${info.version}/${info.files[0].url}?t=${Date.now()}`
   );
 }
