@@ -26,6 +26,9 @@ html{background:var(--bg)}h1,h2,h3{letter-spacing:0}button:active{filter:none}.a
 /* Nested game roots must not double the community page inset. */
 .games-scroll .arcade-page.arcade-play-portal{padding:0}.games-scroll .arcade-status{padding:0;gap:10px}.arcade-status small{white-space:nowrap}.arcade-status>div{min-width:48px}@media(max-width:600px){.arcade-status>div:last-of-type{display:none}}
 
+  /* 0.9.0 catalogue frame: the same grid and 8:5 cover crop at every width. */
+  .games-scroll .arcade-cards{grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));align-items:stretch;gap:14px}.games-scroll .arcade-card{height:100%;display:flex;flex-direction:column}.games-scroll .arcade-card-body{flex:1;min-height:142px}.games-scroll .arcade-card-body footer{margin-top:auto}.games-scroll .arcade-art{aspect-ratio:8/5;height:auto}.games-scroll .arcade-art img{width:100%;height:100%;object-fit:cover;object-position:50% 50%}@media(max-width:600px){.games-scroll .arcade-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.games-scroll .arcade-card-body{min-height:146px;padding:12px}}@media(max-width:400px){.games-scroll .arcade-cards{grid-template-columns:1fr}.games-scroll .arcade-card-body{min-height:0}}
+
 .hub-context-header{display:flex;align-items:center;gap:12px;padding:0;min-width:0}.hub-context-header h1{font-size:1.12rem;line-height:1.5;margin:0;min-width:0;overflow-wrap:anywhere}.hub-context-header button{flex-shrink:0;min-height:44px}.context-dock{padding:16px 18px 0;min-width:0}.account-page>.personal-community{display:grid;gap:14px}
 
 .workspace>.context-page{display:flex;flex-direction:column;gap:16px}.context-page>*{flex:none;width:100%;min-width:0}.context-page>.content-page{height:auto;min-height:0;overflow:visible;padding:0;margin:0}.context-page>.hub-mobile{margin:0}

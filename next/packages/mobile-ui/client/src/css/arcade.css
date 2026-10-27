@@ -30,6 +30,14 @@
 @media(orientation:landscape) and (max-height:560px){.arcade-stage{width:240px;min-width:0}.tanks .arcade-stage,.garden .arcade-stage{width:270px}.arcade-heading{margin-bottom:10px}.arcade-play{flex:none}.arcade-page .game-touchpad{justify-content:center}}
 /* All game cover art uses the same safe crop on phones and tablets. */
 .arcade-cards .arcade-art{height:auto;min-height:0;aspect-ratio:8/5}.arcade-cards .arcade-art img{width:100%;height:100%;object-fit:cover;object-position:50% 50%}.arcade-cards .arcade-card-number{top:12px;left:12px;letter-spacing:0;display:grid;place-items:center;min-width:30px;height:26px;padding:0 7px;background:#f8fbfff0;color:#405777;border:1px solid #d9e5f4;border-radius:7px;font-size:12px;font-weight:650}.arcade-cards .arcade-art:after{background:linear-gradient(0deg,#23456f12,transparent 30%)}
+
+/* 0.9.0: keep every catalogue tile equal height and in source order. */
+.arcade-cards{grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));align-items:stretch}
+.arcade-page .arcade-card{display:flex;flex-direction:column;height:100%;min-height:0}
+.arcade-cards .arcade-card-body{flex:1;min-height:142px}
+.arcade-cards .arcade-card-body footer{margin-top:auto}
+@media(max-width:760px){.arcade-cards{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.arcade-cards .arcade-card-body{min-height:146px;padding:12px}.arcade-cards .arcade-card-body>strong{font-size:1rem;line-height:1.5}.arcade-cards .arcade-card-body>span{font-size:.76rem;line-height:1.6}}
+@media(max-width:440px){.arcade-cards{grid-template-columns:1fr}.arcade-cards .arcade-card-body{min-height:0}}
 /* 0.7.1: a single arena, a flow layout for controls, and an independent dialog layer. */
 .arcade-play-portal{padding:0;container-type:normal}.arcade-play{position:relative;isolation:isolate}
 .arcade-arena{min-width:0;display:flex;align-items:center;justify-content:center;width:100%}

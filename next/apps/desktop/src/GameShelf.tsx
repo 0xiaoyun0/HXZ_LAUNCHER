@@ -6,7 +6,6 @@ import {Search,Star,Play,Clock3,Trophy,PanelTop} from 'lucide-react';
 import {BOARD_GAMES} from '../../../server/shared/board-catalog.mjs';
 import {GAMES} from '../../../server/shared/arcade-engine.mjs';
 import {createArcadeCatalog,coverFor} from '../../../server/shared/arcade-catalog.mjs';
-import {CardBoard} from './CardBoard';
 import {Button,Segments,Empty} from './ui';
 const all=createArcadeCatalog(GAMES,BOARD_GAMES,WEREWOLF);
 function read(key:string,fallback:any){try{return JSON.parse(localStorage.getItem(key)||'null')??fallback;}catch{return fallback;}}
@@ -24,9 +23,9 @@ export function GameShelf(){
   return <div className="game-lobby" ref={contentMotion}>
     <div className="game-lobby-tools"><Segments value={filter} onChange={setFilter} items={[{id:'all',label:'全部游戏'},{id:'arcade',label:'街机挑战'},{id:'rogue',label:'肉鸽探险'},{id:'board',label:'棋类对弈'},{id:'social',label:'多人桌游'},{id:'favorites',label:'我的收藏'}]}/><div className="search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="找个游戏" aria-label="搜索小游戏"/></div><Button icon={PanelTop} onClick={()=>setCompact(!simplified)} aria-pressed={simplified}>{simplified?'完整显示':'简化显示'}</Button></div>
     <div className="game-lobby-shortcuts"><span><Clock3 size={16}/>{recent?'上次玩了 '+recent.name:'挑一个游戏，休息片刻'}</span>{recent&&<Button icon={Play} onClick={()=>play(recent)}>再玩一局</Button>}<Button icon={Trophy} onClick={()=>navigate('/arcade/ranking')}>本周积分榜</Button></div>
-    {visible.length?<CardBoard id="games" transient={filter!=='all'||!!query.trim()} className="game-card-boards" label={visible.length+' 款游戏'} cards={visible.map((g:any,i:number)=>({
-      id:'game-'+g.id,title:g.name,w:4,h:simplified?7:14,minW:3,minH:simplified?6:11,x:i%3*4,y:Math.floor(i/3)*(simplified?7:14),plain:true,
-      content:<div className={'game-tile game-'+g.id+(simplified?' game-tile-compact':'')}>{simplified&&<div className="game-compact-summary"><span className="game-compact-number">{String(g.number).padStart(2,'0')}</span><div><small>{g.tag}</small><span>{g.social?'进入多人圆桌':g.symbol?'开始一局对弈':'快速开始挑战'}</span></div></div>}{!simplified&&<button className="game-preview-button" aria-label={'游玩'+g.name} onClick={()=>play(g)}><div className="arcade-art"><img src={coverFor(g.id)+'?v=090'} alt="" loading="lazy" decoding="async"/><i>{String(g.number).padStart(2,'0')}</i></div><span className="game-preview-play"><Play size={21}/></span></button>}<div className="game-tile-info">{!simplified&&<><small>{g.tag}</small><p>{g.description}</p></>}<footer><Button tone="solid" icon={Play} onClick={()=>play(g)}>{g.social?'进入圆桌':g.symbol?'开始对局':'开始挑战'}</Button><button className={'game-favorite '+(favorites.includes(g.id)?'selected':'')} aria-label={(favorites.includes(g.id)?'取消收藏':'收藏')+g.name} aria-pressed={favorites.includes(g.id)} onClick={()=>toggle(g.id)}><Star size={18}/></button></footer></div></div>
-    }))}/>:<Empty icon={Star} title={filter==='favorites'?'还没有收藏游戏':'没有匹配的游戏'}>点击游戏卡片上的星标，收进你的常玩列表。</Empty>}
+    {visible.length?<div className={'game-catalog-grid'+(simplified?' compact':'')} aria-label={visible.length+' 款游戏'}>{visible.map((g:any)=><article className={'game-catalog-card game-'+g.id} key={g.id}>
+      {simplified?<div className="game-catalog-compact"><span className="game-catalog-number">{String(g.number).padStart(2,'0')}</span><div><small>{g.tag}</small><strong>{g.name}</strong><span>{g.social?'进入多人圆桌':g.symbol?'开始一局对弈':'快速开始挑战'}</span></div></div>:<button className="game-catalog-cover" aria-label={'游玩'+g.name} onClick={()=>play(g)}><img src={coverFor(g.id)+'?v=091'} alt="" loading="lazy" decoding="async"/><i>{String(g.number).padStart(2,'0')}</i><span><Play size={21}/></span></button>}
+      <div className="game-catalog-info">{!simplified&&<><small>{g.tag}</small><h2>{g.name}</h2><p>{g.description}</p></>}<footer><Button tone="solid" icon={Play} onClick={()=>play(g)}>{g.social?'进入圆桌':g.symbol?'开始对局':'开始挑战'}</Button><button className={'game-favorite '+(favorites.includes(g.id)?'selected':'')} aria-label={(favorites.includes(g.id)?'取消收藏':'收藏')+g.name} aria-pressed={favorites.includes(g.id)} onClick={()=>toggle(g.id)}><Star size={18}/></button></footer></div>
+    </article>)}</div>:<Empty icon={Star} title={filter==='favorites'?'还没有收藏游戏':'没有匹配的游戏'}>点击游戏卡片上的星标，收进你的常玩列表。</Empty>}
   </div>;
 }

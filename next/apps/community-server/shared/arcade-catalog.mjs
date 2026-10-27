@@ -2,11 +2,12 @@
 // ordering and art selection here prevents newly added games from reusing a
 // number or silently requesting the wrong image format.
 const ORDER=['runner','blocks','breakout','danmaku','maze','fighter','garden','tanks','merge','snake','mines','swarm','deck','dungeon','dice','caravan','orbit','supply','rhythm','alchemy','gomoku','xiangqi','chess','werewolf'];
-const SVG_COVERS=new Set(['orbit','supply','rhythm','alchemy']);
 const orderOf=(id,index)=>{const fixed=ORDER.indexOf(id);return fixed<0?1000+index:fixed+1;};
 export function coverFor(id,prefix='./media/games/'){
  const root=String(prefix||'./media/games/').replace(/\/?$/,'/');
- return root+encodeURIComponent(String(id))+ (SVG_COVERS.has(id)?'.svg':'.webp');
+ // Every shelf uses one 8:5 WebP frame.  Keeping the extension deterministic
+ // avoids SVG/raster crops diverging between the desktop and mobile bundles.
+ return root+encodeURIComponent(String(id))+'.webp';
 }
 export function createArcadeCatalog(games=[],boards=[],social=null){
  const values=[...games.map((item,index)=>({...item,board:false,social:false,sortOrder:orderOf(item.id,index)})),...boards.map((item,index)=>({...item,board:true,social:false,sortOrder:orderOf(item.id,games.length+index)}))];
