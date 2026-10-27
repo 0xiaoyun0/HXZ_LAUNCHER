@@ -1,4 +1,4 @@
-import {WebSocket} from 'ws';import net from 'node:net';import {createHash} from 'node:crypto';
+import {WebSocket} from 'ws';import net from 'node:net';import {createHash,randomBytes,randomUUID} from 'node:crypto';
 const proof=key=>createHash('sha256').update(key).digest('hex');
 const ICE=[{urls:'stun:stun.cloudflare.com:3478'},{urls:'stun:global.stun.twilio.com:3478'},{urls:'stun:stun.l.google.com:19302'}];
 export function createP2PClient({session,runtime,emit=()=>{},iceServers=ICE}){
@@ -39,4 +39,27 @@ export function createP2PClient({session,runtime,emit=()=>{},iceServers=ICE}){
  }
  function close(){epoch++;stopped=true;clearTimeout(retry);for(const p of peers)p.close();peers.clear();for(const ws of signals)ws.terminate();signals.clear();control=null;}
  return {host,dial,close};
+}
+
+/**
+ * Run a short loopback echo through the real community signalling and ICE
+ * path. This is intentionally independent from a game room, so players can
+ * decide whether to prefer P2P before opening a world.
+ */
+export async function testP2P({session,runtime,iceServers=ICE,timeoutMs=15000}={}){
+ if(typeof session!=='function'||!runtime?.peer)throw Error('当前平台没有 P2P 测试模块');
+ const client=createP2PClient({session,runtime,iceServers});
+ const server=net.createServer(socket=>{socket.setNoDelay(true);socket.pipe(socket);});
+ await new Promise((resolve,reject)=>{server.once('error',reject);server.listen({host:'127.0.0.1',port:0},resolve);});
+ const address=server.address(),room={v:1,id:'p2p-test-'+randomUUID().replaceAll('-','').slice(0,24),key:randomBytes(32).toString('base64url'),port:address.port};
+ const started=Date.now();let stream,timer;
+ const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('P2P 测试超时')),timeoutMs);});
+ try{
+  await client.host(room);
+  const result=await Promise.race([client.dial(room),timeout]);stream=result.stream;
+  const probe=Buffer.from('hxz-p2p-test-'+randomUUID());
+  const echoed=await Promise.race([new Promise((resolve,reject)=>{let data=Buffer.alloc(0);const onData=chunk=>{data=Buffer.concat([data,chunk]);if(data.length>=probe.length){stream.off('data',onData);resolve(data.subarray(0,probe.length));}};stream.on('data',onData);stream.once('error',reject);}),timeout]);
+  stream.write(probe);const value=Buffer.from(echoed);if(!value.equals(probe))throw Error('P2P 回环数据校验失败');
+  return {ok:true,latency:Date.now()-started,detail:'信令、ICE 与加密数据通道均可用'};
+ }finally{clearTimeout(timer);stream?.destroy();client.close();await new Promise(resolve=>server.close(()=>resolve()));}
 }

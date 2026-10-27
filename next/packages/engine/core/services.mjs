@@ -7,6 +7,9 @@ import {describeRoomInstance,roomInstancePlan,compatibleRoomGame,loaderVersion} 
 import {normalizeShortcuts,migrateShortcuts} from './shortcuts.mjs';
 import {createMusicService} from './music.mjs';
 import {createDirectLobby} from './direct-lobby.mjs';
+import {createRelayClient} from './room-relay.mjs';
+import {testP2P} from './room-p2p.mjs';
+import {startFecEdge} from './fec-sidecar.mjs';
 import {prepareDirectHelper} from './direct-helper.mjs';
 import {normalizeCardPlacements,normalizeWidgets} from './card-extras.mjs';
 import {normalizeCardLayouts,normalizeCardStyle} from './card-layout.mjs';
@@ -81,7 +84,7 @@ const LIVE_SETTINGS = new Set([
   'backgroundPositionY','backgroundFit','backgroundVideo','backgroundMusic',
   'defaultCover','musicVolume','videoQuality','linkingDiscovered','showLinking',
   'cardPlacements','widgets','layout','cardLayouts','cardStyle','columns','hiddenLinks','pinnedLinks','animationSpeed',
-  'shortcuts','shortcutEnabled','voiceOverlay','gameWindowAction','onboardingDone','gameSleep','memoryOptimization','showCover','voiceMode','voiceKey','voiceSounds','chatHistoryDays','downloadSpeedMBps'
+  'shortcuts','shortcutEnabled','voiceOverlay','gameWindowAction','onboardingDone','gameSleep','memoryOptimization','showCover','voiceMode','voiceKey','voiceSounds','chatHistoryDays','downloadSpeedMBps','fecEnabled','communityRelayEnabled'
 ]);
 export async function createServices({
   data,
@@ -127,6 +130,8 @@ export async function createServices({
     backgroundFit: "cover",
     layout: "standard",
     downloadMode: "official",
+    fecEnabled: true,
+    communityRelayEnabled: true,
     downloadConcurrency: 32,
     downloadSpeedMBps: 0,
     updateFeed: "",
@@ -648,7 +653,7 @@ export async function createServices({
         try { local = instanceTarget(await readVersion(settings.gameRoot,id)); }
         catch (error) { log('[安装恢复] 实例信息损坏，将保留原文件并重新准备：' + error.message); }
       }
-      const presetSignature=JSON.stringify([preset.profileSource,preset.version,preset.loader,preset.loaderVersion,preset.fabricAPI,preset.packageSha256]);
+      const presetSignature=JSON.stringify([preset.profileSource,preset.version,preset.loader,preset.loaderVersion,preset.fabricAPI,preset.packageSha256,preset.fec]);
       const installedRecord=path.join(path.dirname(metadata),'.hxzl/server-preset.json');
       const previous=await exists(installedRecord)?await json(installedRecord):{};
       const needsInstall = !local || (preset.profileSource==='manual' && (local.minecraft!==preset.version || local.loader!==preset.loader || previous.signature!==presetSignature)) || (preset.profileSource==='package'&&previous.signature!==presetSignature);
@@ -691,6 +696,7 @@ export async function createServices({
       throw Error("此实例尚未安装完成，请在下载页面使用同一名称重试");
     const controller = new AbortController();
     task = controller;
+    let fecEdge=null;
     try {
       const cfg = {
         memoryMB: settings.defaultMemoryMB,
@@ -739,6 +745,14 @@ export async function createServices({
       const metadata = await readVersion(settings.gameRoot, id);
       const java = await selectJava(metadata, controller.signal, cfg);
       if (!java) throw Error("没有找到 Java，请在设置中选择");
+      if(!direct&&settings.fecEnabled!==false&&preset?.fec?.enabled&&cfg.autoJoin){
+        try{
+          fecEdge=await startFecEdge({resources,preset,signal:controller.signal,log});
+          if(fecEdge)cfg.serverAddress=fecEdge.address;
+        }catch(error){
+          log('[FEC] edge 未启用，回退原始服务器地址：'+error.message);
+        }
+      }
       const command = await prepareLaunch({
         root: settings.gameRoot,
         id,
@@ -778,6 +792,7 @@ export async function createServices({
         offlineSession?.close();offlineSession=null;
         log("游戏启动失败: " + error.message);
         running = null;
+        void fecEdge?.stop();
         phase({
           phase: "启动失败",
           busy: false,
@@ -790,6 +805,7 @@ export async function createServices({
         if(direct)void lobby.close('游戏已退出，联机已关闭');
         offlineSession?.close();offlineSession=null;
         running = null;
+        void fecEdge?.stop();
         phase({
           phase: code === 0 ? "游戏已结束" : "游戏进程已退出",
           busy: false,
@@ -827,6 +843,9 @@ export async function createServices({
         failure: error.message
       });
       if(direct){await stopDirectHelper?.();stopDirectHelper=null;await lobby.close('游戏启动未完成，联机已关闭');}
+      // The edge is intentionally best-effort. It is stopped when launch
+      // preparation fails before a child process exists.
+      if(typeof fecEdge?.stop==='function')await fecEdge.stop();
       offlineSession?.close();offlineSession=null;throw error;
     } finally {
       controller.abort();
@@ -1000,7 +1019,9 @@ export async function createServices({
     if(record.kind!=='world'||record.status!=='published'||!/^https?:\/\//.test(record.data?.source)||!/^[a-f0-9]{64}$/i.test(record.data.sha256))throw Error('世界尚未发布或缺少可校验的下载地址');
     return record;
   }
-  const lobby=createDirectLobby({p2pRuntime,p2pSession:()=>actions['community.connect']({}),emit:event=>{if(event.value.mode==='idle'){void stopDirectHelper?.();stopDirectHelper=null;}emit(event);},request:async(route,options={})=>{
+  let lobby;
+  const relayClient=createRelayClient({session:()=>actions['community.connect']({}),emit:patch=>{if(lobby)emit({type:'lobby',value:{...lobby.status(),...patch}});}});
+  lobby=createDirectLobby({relayClient,p2pRuntime,p2pSession:()=>actions['community.connect']({}),emit:event=>{if(event.value.mode==='idle'){void stopDirectHelper?.();stopDirectHelper=null;}emit(event);},request:async(route,options={})=>{
     const session=await actions['community.connect']({});
     try{return await remoteJSON(session.base+route,{method:options.method||'GET',headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json'},...(options.body?{body:JSON.stringify(options.body)}:{}),signal:AbortSignal.timeout(12000)});}
     catch(error){if(error.status===404)throw Error('社区服务端尚未安装联机权限扩展，请联系管理员；加入已有房间不受影响');throw error;}
@@ -1014,19 +1035,20 @@ export async function createServices({
       return {base:s.base,uid:s.user.uid,allowed:permission.allowed};
     }}),
     'lobby.status':()=>lobby.status(),
+    'lobby.p2pTest':()=>testP2P({session:()=>actions['community.connect']({}),runtime:p2pRuntime}),
     'lobby.adapters':()=>lobby.adapters(),
     'lobby.access':()=>lobby.access(),
     'lobby.rooms':()=>lobby.rooms(),
     'lobby.grants':()=>lobby.grants(),
     'lobby.grant':input=>lobby.grant(input),
-    'lobby.inspect':input=>lobby.inspect(input.invite,input.method),
+    'lobby.inspect':input=>lobby.inspect(input.invite,input.method,input.allowRelay!==false&&settings.communityRelayEnabled!==false),
     'lobby.plan':async input=>roomInstancePlan(settings.gameRoot,parseInvitation(input.invite),settings.instanceSettings,await presetCatalog.refresh(),input.instance),
-    async 'lobby.host'(input){busy();const game=instanceTarget(await readVersion(settings.gameRoot,input.instance));if(!/^(?:1\.(?:2\d|[3-9]\d)|(?:2[6-9]|[3-9]\d)\.)/.test(game.minecraft))throw Error('自动开放世界目前支持 Java 版 1.20 及以后版本');if(!await exists(path.join(resources,'direct-lobby/direct-lobby.jar')))throw Error('联机助手未完整安装，请重新解压启动器');return lobby.host({...input,game:await describeRoomInstance(settings.gameRoot,input.instance,settings.instanceSettings,presetCatalog.list()),version:game.minecraft,loader:game.loader});},
+    async 'lobby.host'(input){busy();const game=instanceTarget(await readVersion(settings.gameRoot,input.instance));if(!/^(?:1\.(?:2\d|[3-9]\d)|(?:2[6-9]|[3-9]\d)\.)/.test(game.minecraft))throw Error('自动开放世界目前支持 Java 版 1.20 及以后版本');if(!await exists(path.join(resources,'direct-lobby/direct-lobby.jar')))throw Error('联机助手未完整安装，请重新解压启动器');return lobby.host({...input,allowRelay:input.allowRelay!==false&&settings.communityRelayEnabled!==false,game:await describeRoomInstance(settings.gameRoot,input.instance,settings.instanceSettings,presetCatalog.list()),version:game.minecraft,loader:game.loader});},
     async 'lobby.join'(input){busy();const target=parseInvitation(input.invite),plan=await roomInstancePlan(settings.gameRoot,target,settings.instanceSettings,await presetCatalog.refresh(),input.instance);
       if(plan.download){if(!input.install)throw Error('需要先确认安装房间所需的游戏');if(plan.preset)await launch(plan.instance,true);else await installGame({name:plan.instance,minecraft:plan.game.minecraft,loader:plan.game.loader,loaderVersion:plan.game.loaderVersion});}
       await readVersion(settings.gameRoot,plan.instance);
       if(target.game&&!compatibleRoomGame(await describeRoomInstance(settings.gameRoot,plan.instance,settings.instanceSettings,presetCatalog.list()),target.game))throw Error('下载的整合包与房主清单仍不一致，请让房主与伙伴更新到同一版本；已下载文件会保留。');
-      return lobby.join({...input,instance:plan.instance,game:target.game});},
+      return lobby.join({...input,allowRelay:input.allowRelay!==false&&settings.communityRelayEnabled!==false,instance:plan.instance,game:target.game});},
     'lobby.close':()=>lobby.close(),
     async 'lobby.launch'(input){const host=lobby.hostConfig(),guest=lobby.guestConfig();const direct=host&&input.instance===host.instance?{mode:'host'}:guest&&input.instance===guest.instance?{mode:'guest',address:guest.address}:null;if(!direct)throw Error('请先创建房间或检测邀请并加入');try{return await launch(input.instance,false,false,direct);}catch(error){await lobby.close('游戏启动未完成，联机已关闭');throw error;}},
     async "decision.reply"({id,accepted}){const reply=decisions.get(id);if(reply)reply(accepted===true);return {ok:true};},

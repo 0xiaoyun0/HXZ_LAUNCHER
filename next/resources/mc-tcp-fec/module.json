@@ -1,0 +1,12 @@
+{
+  "id": "mc-tcp-fec",
+  "interfaceVersion": 1,
+  "version": "0.1.0",
+  "kind": "native-runtime-module",
+  "description": "Minecraft Java TCP FEC sidecar",
+  "entrypoints": {
+    "windows-x64": "bin/mc-tcp-fec.exe"
+  },
+  "modes": ["edge", "origin"],
+  "sha256": "fe9be17ecf20497e7a6509b56a6f827c90fd4a995edd707632fb7732fffc26e5"
+}

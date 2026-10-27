@@ -31,13 +31,13 @@ export function roomGame(value){
 export function parseInvitation(raw){
  const code=invitationCode(raw);let value;
  try{value=JSON.parse(Buffer.from(code,'base64url').toString('utf8'));}catch{throw Error('房间邀请无法解析');}
- if(!value||value.v!==1||!/^[-\w]{16,80}$/.test(value.id)||!/^[-\w]{43}$/.test(value.key)||!validFingerprint(value.fingerprint)||!Array.isArray(value.hosts)||(!value.hosts.length&&value.p2p!==true)||value.hosts.length>8||value.hosts.some(h=>typeof h!=='string'||!net.isIP(h)))throw Error('房间邀请格式无效');
+ if(!value||value.v!==1||!/^[-\w]{16,80}$/.test(value.id)||!/^[-\w]{43}$/.test(value.key)||!validFingerprint(value.fingerprint)||!Array.isArray(value.hosts)||(!value.hosts.length&&value.p2p!==true&&value.relay!==true)||value.hosts.length>8||value.hosts.some(h=>typeof h!=='string'||!net.isIP(h)))throw Error('房间邀请格式无效');
  portNumber(value.port);if(typeof value.name!=='string'||value.name.length>80)throw Error('房间名称无效');
  if(!Number.isFinite(value.expires)||value.expires<Date.now())throw Error('房间邀请已过期，请向房主获取新邀请');
  return {...value,game:roomGame(value.game)};
 }
 // Put the case-sensitive payload in the path. URL handlers lowercase hosts.
-export const invitation=value=>'hxz-room://join/'+Buffer.from(JSON.stringify({v:1,id:value.id,key:value.key,fingerprint:value.fingerprint,name:value.name,hosts:value.hosts,p2p:value.p2p===true,port:value.port,expires:value.expires,game:roomGame(value.game)})).toString('base64url');
+export const invitation=value=>'hxz-room://join/'+Buffer.from(JSON.stringify({v:1,id:value.id,key:value.key,fingerprint:value.fingerprint,name:value.name,hosts:value.hosts,p2p:value.p2p===true,relay:value.relay===true,port:value.port,expires:value.expires,game:roomGame(value.game)})).toString('base64url');
 export function readLine(socket,timeout=7000){
  return new Promise((resolve,reject)=>{
   let bytes=Buffer.alloc(0);const timer=setTimeout(()=>finish(Error('房主没有及时响应')),timeout);
