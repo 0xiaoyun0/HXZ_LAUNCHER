@@ -47,5 +47,5 @@ window.launcher?.subscribe(e=>{
  if(e.type==='decision-close')ui.decision=null;
  if(e.type==='shortcut-conflict')notify(e.errors.join('；'),true);
  if(e.type==='game-crash'){ui.crash=e.report;ui.dialog='crash';}
- if(e.type==='task'){updateTaskProgress(task,e);if(e.running!=null)state.running=e.running;if(e.error||e.failure)notify(playerError(e.error||e.failure).title,true);if(e.busy===false)void reload().catch(()=>{});}
+ if(e.type==='task'){updateTaskProgress(task,e);if(e.hxzre?.state==='enabled')notify('HXZRE 已启用，上传前向纠错补偿已接管连接');else if(e.hxzre?.state==='fallback')notify('HXZRE 未启用，已回退原始连接');else if(e.hxzre?.state==='disabled')notify('HXZRE 已关闭，本次使用原始连接');if(e.running!=null)state.running=e.running;if(e.error||e.failure)notify(playerError(e.error||e.failure).title,true);if(e.busy===false)void reload().catch(()=>{});}
 });

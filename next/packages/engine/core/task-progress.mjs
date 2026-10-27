@@ -1,6 +1,6 @@
 // Preserve measured phase data; there is no trustworthy whole-install byte total.
 export function newTaskProgress() {
-  return {busy:false,phase:'暂无任务',completed:0,total:0,unit:'项',detail:'',failure:'',failed:false,cancelled:false,activeFiles:[],steps:[],received:0,traffic:0,speed:0,updated:0,changed:0,started:0,ended:0,sampled:0,sampleBytes:0};
+  return {busy:false,phase:'暂无任务',completed:0,total:0,unit:'项',detail:'',failure:'',failed:false,cancelled:false,activeFiles:[],steps:[],received:0,traffic:0,speed:0,updated:0,changed:0,started:0,ended:0,sampled:0,sampleBytes:0,hxzre:null};
 }
 export function updateTaskProgress(task,event,now=Date.now()) {
   const terminal=event.busy===false;
@@ -22,7 +22,7 @@ export function updateTaskProgress(task,event,now=Date.now()) {
     task.received=bytes;
   }
   if(event.completed!=null&&event.completed!==task.completed)task.changed=now;
-  for(const key of ['busy','phase','completed','total','unit','detail','failure','failed','cancelled','activeFiles'])if(event[key]!==undefined)task[key]=event[key];
+  for(const key of ['busy','phase','completed','total','unit','detail','failure','failed','cancelled','activeFiles','hxzre'])if(event[key]!==undefined)task[key]=event[key];
   task.updated=now;
   const step=task.steps.at(-1);
   if(step){

@@ -745,13 +745,22 @@ export async function createServices({
       const metadata = await readVersion(settings.gameRoot, id);
       const java = await selectJava(metadata, controller.signal, cfg);
       if (!java) throw Error("没有找到 Java，请在设置中选择");
-      if(!direct&&settings.fecEnabled!==false&&preset?.fec?.enabled&&cfg.autoJoin){
+      const hxzreRequested=!direct&&settings.fecEnabled!==false&&preset?.fec?.enabled&&cfg.autoJoin;
+      if(hxzreRequested){
+        phase({phase:'正在检查 HXZRE 前向纠错',busy:true,detail:'正在确认服务器补偿节点和本机运行时',hxzre:{state:'checking',enabled:true}});
         try{
           fecEdge=await startFecEdge({resources,preset,signal:controller.signal,log});
-          if(fecEdge)cfg.serverAddress=fecEdge.address;
+          if(fecEdge){
+            cfg.serverAddress=fecEdge.address;
+            phase({phase:'HXZRE 已启用 · 正在准备游戏',busy:true,detail:'上传前向纠错补偿已接管服务器连接',hxzre:{state:'enabled',enabled:true,server:preset.id}});
+          }else phase({phase:'HXZRE 未启用 · 使用原始连接',busy:true,detail:'服务器未提供可用补偿节点',hxzre:{state:'fallback',enabled:false,reason:'server-unconfigured'}});
         }catch(error){
           log('[FEC] edge 未启用，回退原始服务器地址：'+error.message);
+          phase({phase:'HXZRE 未启用 · 已回退原始连接',busy:true,detail:'补偿节点不可用，游戏仍会继续启动',hxzre:{state:'fallback',enabled:false,reason:error.message}});
         }
+      }else{
+        const reason=settings.fecEnabled===false?'user-disabled':direct?'direct-session':'server-disabled';
+        phase({phase:reason==='user-disabled'?'HXZRE 已关闭 · 使用原始连接':'使用原始连接 · HXZRE 未接管',busy:true,detail:reason==='user-disabled'?'你已关闭前向纠错补偿':'当前连接不需要 HXZRE',hxzre:{state:'disabled',enabled:false,reason}});
       }
       const command = await prepareLaunch({
         root: settings.gameRoot,
