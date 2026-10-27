@@ -26,7 +26,7 @@ export async function startFecEdge({resources, preset, signal, log = () => {}}) 
   const config = preset?.fec;
   if (!config?.enabled || !validOrigin(config.origin) || typeof config.token !== 'string' || !config.token.trim()) return null;
   if (process.platform !== 'win32' || process.arch !== 'x64') throw Error('当前平台没有可用的 FEC 原生模块');
-  const binary = path.join(resources, 'mc-tcp-fec', 'bin', 'mc-tcp-fec.exe');
+  const binary = path.join(resources, 'hxzre', 'bin', 'mc-tcp-fec.exe');
   await fs.access(binary);
   const args = [
     'edge', '--listen', '127.0.0.1:0', '--peer', config.origin.trim(), '--token', config.token.trim(),

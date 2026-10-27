@@ -7,7 +7,7 @@ await fs.rename(path.join(target,'electron.exe'),path.join(target,'幻想镇 NEX
 const staging=path.join(root,'.runtime/package');await freshStaging(root,staging);
 for(const name of ['dist','electron-build','package.json'])await fs.cp(path.join(root,'apps/desktop',name),path.join(staging,name),{recursive:true,force:true});
 await createPackage(staging,path.join(target,'resources/app.asar'));
-for(const name of ['hxzup','installer','direct-lobby','mc-tcp-fec'])await fs.cp(path.join(root,'resources',name),path.join(target,'resources',name),{recursive:true,force:true});
+for(const name of ['hxzup','installer','direct-lobby','hxzre'])await fs.cp(path.join(root,'resources',name),path.join(target,'resources',name),{recursive:true,force:true});
 await fs.copyFile(path.join(root,'resources/icon.ico'),path.join(target,'resources/icon.ico'));await fs.writeFile(path.join(target,'使用说明.txt'),'幻想镇 NEXT '+version+' · 便携版\r\n双击「幻想镇 NEXT.exe」。\r\n本版本使用本目录 profile 保存账号与偏好，launcher-cache 保存依赖。\r\n不会自动读取旧启动器的账号。游戏目录请按自己的需求选择。\r\n安装中可关闭任务面板；程序关闭会在任务进行时最小化，需取消任务后退出。\r\n便携版使用完整包手动升级并保留 profile；需要自动更新请使用对应架构安装版。游戏及 HXZ UP 更新正常接入。\r\n','utf8');
 console.info(target);
 await copyCardLicenses(root,target);

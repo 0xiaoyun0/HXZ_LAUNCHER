@@ -1028,6 +1028,17 @@ export async function createServices({
   }});
   const assetExporter=createAssetExporter({choose:async(name,ext)=>{const value=await dialog.showSaveDialog(window(),{defaultPath:name,filters:[{name:'创作素材',extensions:[ext]}]});return value.canceled?null:value.filePath;}});
   const actions = {
+    async 'hxzre.status'(){
+      const manifestFile=path.join(resources,'hxzre','module.json');
+      const binaryFile=path.join(resources,'hxzre','bin','mc-tcp-fec.exe');
+      try{
+        const manifest=JSON.parse(await fs.readFile(manifestFile,'utf8'));
+        const bytes=await fs.readFile(binaryFile);
+        const digest=createHash('sha256').update(bytes).digest('hex');
+        const platform=process.platform+'-'+process.arch;
+        return {embedded:true,id:manifest.id,version:manifest.version,platform,entrypoint:manifest.entrypoints?.['windows-x64']||'',verified:digest===String(manifest.sha256||'').toLowerCase(),available:platform==='win32-x64'&&digest===String(manifest.sha256||'').toLowerCase(),sha256:digest};
+      }catch(error){return {embedded:false,available:false,verified:false,error:error?.message||'HXZRE 模块不可用'};}
+    },
     'asset.export':input=>assetExporter.invoke(input),
     ...createMusicService({data,dialog,window,netease,identity:async()=>{
       const s=await actions['community.connect']({});

@@ -23,4 +23,4 @@ Linux 或已有 Node 环境：使用 Node.js 24+，在本目录安装依赖（np
 
 ## 上传丢包补偿（可选）
 
-发布包附带 `resources/mc-tcp-fec`。在每台 Minecraft 服务端旁运行 `node fec-origin.mjs`，通过 `HXZ_FEC_LISTEN`、`HXZ_FEC_TARGET` 和 `HXZ_FEC_TOKEN` 配置 origin；随后在后台的三个默认服务器配置中填写对应的 FEC origin 地址、相同 token 和分片参数。启动器设置中的“启用上传前向纠错补偿”关闭后会直接使用原服务器地址。
+发布包附带 `resources/hxzre`。在每台 Minecraft 服务端旁运行 `node fec-origin.mjs`，通过 `HXZ_FEC_LISTEN`、`HXZ_FEC_TARGET` 和 `HXZ_FEC_TOKEN` 配置 origin；随后在后台的三个默认服务器配置中填写对应的 FEC origin 地址、相同 token 和分片参数。启动器“设置 → 下载与更新 → HXZRE 运行时”中的开关关闭后会直接使用原服务器地址。

@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';import path from 'node:path';import {createWri
 const root=process.cwd(),source=path.join(root,'apps/community-server'),version=JSON.parse(await fs.readFile(path.join(source,'package.json'),'utf8')).version,output=path.join(root,'release',version,'server'),target=path.join(output,'幻想镇社区服务端');
 for(const name of ['data','.env'])if(await fs.stat(path.join(target,name)).then(()=>true,()=>false))throw Error('发布目录已包含运行数据，请先使用全新目录');
 await fs.mkdir(target,{recursive:true});for(const name of ['supervisor.mjs','integrations','src','public','shared','docs','package.json','pnpm-lock.yaml','.env.example','Dockerfile','compose.yaml','nginx-community.conf.example','README.md','LICENSE','Node-LICENSE.txt','fec-origin.mjs'])await fs.cp(path.join(source,name),path.join(target,name),{recursive:true,filter:entry=>!entry.split(path.sep).includes('__pycache__')&&!entry.endsWith('.pyc')});
-await fs.cp(path.join(root,'resources','mc-tcp-fec'),path.join(target,'resources','mc-tcp-fec'),{recursive:true,force:true});await sanitizeLinkingReleaseTree(path.join(target,'src'));
+await fs.cp(path.join(root,'resources','hxzre'),path.join(target,'resources','hxzre'),{recursive:true,force:true});await sanitizeLinkingReleaseTree(path.join(target,'src'));
 for(const name of ['ws','chess.js'])await fs.cp(await fs.realpath(path.join(source,'node_modules',name)),path.join(target,'node_modules',name),{recursive:true});
 if(process.platform!=='win32'||process.arch!=='x64'||Number(process.versions.node.split('.')[0])<24)throw Error('Windows 服务端包需要 Node.js 24+ x64 构建');
 await fs.copyFile(process.execPath,path.join(target,'node.exe'));

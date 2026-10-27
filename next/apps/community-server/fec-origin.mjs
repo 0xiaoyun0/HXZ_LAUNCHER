@@ -3,7 +3,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 const root=path.dirname(new URL(import.meta.url).pathname).replace(/^\/(?:[A-Z]:)/,'');
-const binary=process.env.HXZ_FEC_BINARY||path.join(root,'resources','mc-tcp-fec','bin',process.platform==='win32'?'mc-tcp-fec.exe':'mc-tcp-fec');
+const binary=process.env.HXZ_FEC_BINARY||path.join(root,'resources','hxzre','bin',process.platform==='win32'?'mc-tcp-fec.exe':'mc-tcp-fec');
 const listen=process.env.HXZ_FEC_LISTEN||'0.0.0.0:40000';
 const target=process.env.HXZ_FEC_TARGET||'127.0.0.1:25565';
 const token=process.env.HXZ_FEC_TOKEN;
