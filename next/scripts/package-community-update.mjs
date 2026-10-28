@@ -4,7 +4,7 @@ import {publicLinkingSource} from './linking-release-sources.mjs';
 const version=JSON.parse(await fs.readFile('package.json','utf8')).version,base=path.resolve('release',version),server=path.join(base,'server/幻想镇社区服务端'),output=path.join(base,'server',`HXZ-Community-${version}-update.zip`);
 const zip=new yazl.ZipFile(),writing=pipeline(zip.outputStream,createWriteStream(output));
 async function add(relative){const current=path.join(server,relative),stat=await fs.lstat(current);if(stat.isSymbolicLink())throw Error('Symlink in release');if(stat.isDirectory()){for(const name of await fs.readdir(current))await add(relative+'/'+name);}else{if(!validEntryName(relative))throw Error('Unsafe update entry '+relative);if(/^src\/linking-volume[12]-reality081\.mjs$/.test(relative))zip.addBuffer(await publicLinkingSource(relative,await fs.readFile(current)),relative);else zip.addFile(current,relative);}}
-for(const name of ['src','public','shared','integrations','node_modules','package.json','LICENSE'])await add(name);zip.end();await writing;
+for(const name of ['src','public','shared','integrations','node_modules','resources','package.json','LICENSE'])await add(name);zip.end();await writing;
 const key=await fs.readFile(process.env.HXZ_UPDATE_SIGNING_KEY||path.join(os.homedir(),'.hxz-launcher-publish/update-ed25519.pem'));if(createPublicKey(key).export({type:'spki',format:'pem'})!==KEY)throw Error('Signing key mismatch');
 const hash=createHash('sha512');for await(const bytes of createReadStream(output))hash.update(bytes);
 const manifest={kind:'community',version,minimumNode:24,file:{url:path.basename(output),size:(await fs.stat(output)).size,sha512:hash.digest('hex')},notes:await fs.readFile(`docs/${version}发布说明.md`,'utf8')};

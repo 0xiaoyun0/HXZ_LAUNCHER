@@ -31,9 +31,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
   mod
 ));
 
-// node_modules/pend/index.js
+// ../../../node_modules/pend/index.js
 var require_pend = __commonJS({
-  "node_modules/pend/index.js"(exports, module) {
+  "../../../node_modules/pend/index.js"(exports, module) {
     module.exports = Pend;
     function Pend() {
       this.pending = 0;
@@ -86,9 +86,9 @@ var require_pend = __commonJS({
   }
 });
 
-// node_modules/yauzl/fd-slicer.js
+// ../../../node_modules/yauzl/fd-slicer.js
 var require_fd_slicer = __commonJS({
-  "node_modules/yauzl/fd-slicer.js"(exports) {
+  "../../../node_modules/yauzl/fd-slicer.js"(exports) {
     var fs2 = __require("fs");
     var util = __require("util");
     var stream = __require("stream");
@@ -243,9 +243,9 @@ var require_fd_slicer = __commonJS({
   }
 });
 
-// node_modules/yauzl/crc32.js
+// ../../../node_modules/yauzl/crc32.js
 var require_crc32 = __commonJS({
-  "node_modules/yauzl/crc32.js"(exports, module) {
+  "../../../node_modules/yauzl/crc32.js"(exports, module) {
     var CRC_TABLE = new Int32Array([
       0,
       1996959894,
@@ -515,9 +515,9 @@ var require_crc32 = __commonJS({
   }
 });
 
-// node_modules/yauzl/index.js
+// ../../../node_modules/yauzl/index.js
 var require_yauzl = __commonJS({
-  "node_modules/yauzl/index.js"(exports) {
+  "../../../node_modules/yauzl/index.js"(exports) {
     var fs2 = __require("fs");
     var zlib = __require("zlib");
     var fd_slicer = require_fd_slicer();
@@ -1380,7 +1380,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { createWriteStream } from "node:fs";
 import { pipeline } from "node:stream/promises";
-var allowed = /* @__PURE__ */ new Set(["src", "public", "shared", "integrations", "node_modules"]);
+var allowed = /* @__PURE__ */ new Set(["src", "public", "shared", "integrations", "node_modules", "resources"]);
 function validEntryName(name) {
   const parts = name.split("/");
   return !name.includes("\\") && !name.includes(":") && !name.startsWith("/") && !parts.some((p, i) => p === ".." || p === "." || !p && i !== parts.length - 1) && !parts.some((p) => /[\x00-\x1f]/.test(p) || p.endsWith(".") || p.endsWith(" ")) && (allowed.has(parts[0]) || ["package.json", "LICENSE", "NOTICE.md"].includes(name));
