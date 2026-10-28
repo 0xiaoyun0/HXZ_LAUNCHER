@@ -1,0 +1,73 @@
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import yauzl from 'yauzl';
+
+const root = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
+const apk = process.env.HXZ_ANDROID_APK || path.join(root, 'release/0.9.0/android/HXZ-Community-Android-0.9.0-90000.apk');
+const pageSize = 0x4000;
+
+function openArchive(file) {
+  return new Promise((resolve, reject) => yauzl.open(file, {lazyEntries: true}, (error, zip) => error ? reject(error) : resolve(zip)));
+}
+
+function entryBytes(file, name) {
+  return new Promise((resolve, reject) => openArchive(file).then(zip => {
+    zip.on('error', reject);
+    zip.on('entry', entry => {
+      if (entry.fileName !== name) return zip.readEntry();
+      zip.openReadStream(entry, (streamError, stream) => {
+        if (streamError) return reject(streamError);
+        const chunks = [];
+        stream.on('data', chunk => chunks.push(chunk));
+        stream.once('error', reject);
+        stream.once('end', () => { zip.close(); resolve(Buffer.concat(chunks)); });
+      });
+    });
+    zip.once('end', () => reject(new Error(`APK entry missing: ${name}`)));
+    zip.readEntry();
+  }, reject));
+}
+
+function loadSegments(bytes) {
+  assert.equal(bytes.subarray(0, 4).toString('hex'), '7f454c46', 'native library must be ELF');
+  const klass = bytes[4], endian = bytes[5] === 1 ? 'LE' : 'BE';
+  assert.ok(klass === 1 || klass === 2, 'unsupported ELF class');
+  assert.equal(endian, 'LE', 'Android native libraries must be little-endian ELF');
+  const read = (offset, size) => size === 4 ? bytes.readUInt32LE(offset) : Number(bytes.readBigUInt64LE(offset));
+  const phoff = read(klass === 2 ? 32 : 28, klass === 2 ? 8 : 4);
+  const phentsize = bytes.readUInt16LE(klass === 2 ? 54 : 42);
+  const phnum = bytes.readUInt16LE(klass === 2 ? 56 : 44);
+  const segments = [];
+  for (let i = 0; i < phnum; i++) {
+    const offset = phoff + i * phentsize;
+    const type = read(offset, 4);
+    if (type !== 1) continue;
+    const pOffset = read(offset + (klass === 2 ? 8 : 4), klass === 2 ? 8 : 4);
+    const pVaddr = read(offset + (klass === 2 ? 16 : 8), klass === 2 ? 8 : 4);
+    const pAlign = read(offset + (klass === 2 ? 48 : 28), klass === 2 ? 8 : 4);
+    segments.push({pOffset, pVaddr, pAlign});
+  }
+  return segments;
+}
+
+const names = [];
+const archive = await openArchive(apk);
+await new Promise((resolve, reject) => {
+  archive.on('error', reject);
+  archive.on('entry', entry => {
+    if (/^lib\/arm64-v8a\/[^/]+\.so$/.test(entry.fileName)) names.push(entry.fileName);
+    archive.readEntry();
+  });
+  archive.once('end', resolve);
+  archive.readEntry();
+});
+archive.close();
+assert.ok(names.length > 0, 'APK must contain an arm64 native library');
+for (const name of names) {
+  for (const segment of loadSegments(await entryBytes(apk, name))) {
+    assert.ok(segment.pAlign >= pageSize, `${name} has a ${segment.pAlign}-byte PT_LOAD alignment`);
+    assert.equal(segment.pOffset % pageSize, segment.pVaddr % pageSize, `${name} has an unaligned PT_LOAD offset`);
+  }
+}
+console.log(`PASS Android 16 KiB native compatibility (${names.length} arm64 libraries)`);

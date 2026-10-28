@@ -1,4 +1,4 @@
-"""Read-only APK check for the Android 0.8.4 native process boundary.
+"""Read-only APK check for the Android native process boundary.
 
 Usage: python apk-native-check084.py path/to/app.apk [path/to/llvm-readelf]
 This cannot prove the mode assigned by a particular device installer. The app
@@ -69,12 +69,12 @@ with zipfile.ZipFile(apk) as archive, tempfile.TemporaryDirectory(prefix="hxz-ap
             if struct.unpack_from("<I", data, offset)[0] == 1:
                 file_offset, virtual, align = struct.unpack_from("<QQ", data, offset + 8)[0], struct.unpack_from("<Q", data, offset + 16)[0], struct.unpack_from("<Q", data, offset + 48)[0]
                 loads.append(align)
-                minimum_alignment = 4096 if name == "libng_gl4es.so" else 16384
+                minimum_alignment = 16384
                 if align < minimum_alignment or file_offset % minimum_alignment != virtual % minimum_alignment:
                     fail(name + " PT_LOAD alignment does not meet the documented component requirement")
         if not loads:
             fail(name + " has no PT_LOAD")
         results[name] = {"needed": sorted(needed), "minLoadAlignment": min(loads), "zipMode": oct(info.external_attr >> 16)}
 
-print({"upstreamNgRequires4KiBDevicePages": "libng_gl4es.so" in results, "passed": True, "apk": str(apk), "libraries": results,
+print({"requires16KiBPageAlignment": True, "passed": True, "apk": str(apk), "libraries": results,
        "installedExecutePermission": "Android extraction normally sets 0755; device File.canExecute gate remains required"})

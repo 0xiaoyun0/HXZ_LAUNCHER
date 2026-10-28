@@ -3,7 +3,17 @@
   "fclRepository": "https://github.com/FCL-Team/FoldCraftLauncher",
   "artifact": "FCL/libs/NG-GL4ES-release.aar",
   "artifactGitBlob": "c5f55f1f4e1ce42b894b6e8fba543ef483a3eb4a",
-  "arm64Sha256": "cfee8bf238fc508478454c2daf19b518182827b426d5d4556f1e93a0ad348ea7",
+  "arm64Sha256": "4c8a45db9ef58e2684ebc6b3d7a1dd4d51b354009406f7121a026217ff9b4836",
   "ngSource": "https://github.com/FCL-Team/NG-GL4ES",
-  "note": "Binary copied verbatim from the pinned official FCL AAR; no claim that it was built from the current NG main commit."
+  "ngSourceCommit": "472f55e549e2bc76c87454905db52661c3cf57a9",
+  "rebuild": {
+    "reason": "Android 15/16 16 KiB page-size compatibility",
+    "androidNdk": "30.0.16248370",
+    "androidPlatform": "android-29",
+    "abi": "arm64-v8a",
+    "linkerFlags": ["-Wl,-z,max-page-size=16384", "-Wl,-z,common-page-size=16384"],
+    "sha256": "4c8a45db9ef58e2684ebc6b3d7a1dd4d51b354009406f7121a026217ff9b4836",
+    "apkPackagedSha256": "0b7f7370fa63ab78cd48f0415094e4b712f4ef3b019bc26e84d4758079383773"
+  },
+  "note": "The original FCL AAR library was rebuilt from the pinned NG source commit with 16 KiB ELF PT_LOAD alignment. The HXZ EGL bridge remains source-built in this repository."
 }

@@ -26,23 +26,26 @@ HXZ modifications, 2026-10-22:
   backing GLES context remains the renderer's ES3 profile. This is translation,
   not an assertion that the phone has native desktop OpenGL.
 
-`libng_gl4es.so` is copied **without modification** from ARM64 inside
-`FCL/libs/NG-GL4ES-release.aar` at that same FCL commit. Artifact Git blob and
-binary SHA256 are recorded in `provenance.json`. **Krypton Wrapper / NG-GL4ES**
-is MIT licensed; see `NG-GL4ES-LICENSE`, upstream source
+`libng_gl4es.so` is rebuilt for ARM64 from the pinned NG-GL4ES source commit
+`472f55e549e2bc76c87454905db52661c3cf57a9`, using the same renderer sources
+used by `FCL/libs/NG-GL4ES-release.aar`. The rebuild sets 16 KiB ELF
+`PT_LOAD` alignment so Android 15/16 devices configured with 16 KiB pages can
+install the application. The build flags and resulting SHA256 are recorded in
+`provenance.json`. **Krypton Wrapper / NG-GL4ES** is MIT licensed; see
+`NG-GL4ES-LICENSE`, upstream source
 https://github.com/FCL-Team/NG-GL4ES and https://github.com/BZLZHH/NG-GL4ES.
 Its upstream components include gl4es (Sebastien Chevalier, Ryan Hileman),
 gl4es-114-extra, glslang, SPIRV-Cross, cJSON and code from MobileGlues. Their
 licenses are retained here and in `NG-THIRD-PARTY-LICENSES.md`.
 
-This binary and the existing Java runtime require 4 KiB device pages. The
-existing runtime page-size guard is retained; this release does not claim
-support for a 16 KiB-only device JVM. The APK's own HXZ bridge is built with
-16 KiB segment alignment.
+The APK's HXZ bridge and NG renderer use 16 KiB ELF segment alignment. The
+application still requires Android 10 (API 29) or newer, and downloaded game
+runtime modules may have their own device-page requirements; this change fixes
+the application install block caused by the old 4 KiB-only NG renderer.
 
 ### HXZ 80417 index compatibility adapter
 
-`libng_gl4es.so` remains unmodified. HXZ's `hxz_fcl_render.cpp` now also acts as
+`libng_gl4es.so` is kept ABI-compatible with the FCL renderer entry points. HXZ's `hxz_fcl_render.cpp` now also acts as
 LWJGL's GLX function provider and promotes EBO-backed triangle base-vertex
 indices to 32 bits before adding the base. This addresses the uint16 overflow
 pattern in NG's GLES 3.0 emulation (`src/gl/drawing.c`,
@@ -55,7 +58,7 @@ buffers; it is not device rendering validation.
 
 ### HXZ 80420 texture-unit boundary adapter
 
-The original NG binary is still unmodified. Its `config.h` and `state.h`
+Its `config.h` and `state.h`
 allocate 16 texture slots. `samplers.c:gl4es_glBindSampler` incorrectly accepts
 `unit == hardext.maxtex`, which makes `realize_textures` access slot 16 and
 dereference a null pointer. HXZ's GLX provider caps advertised combined/image
