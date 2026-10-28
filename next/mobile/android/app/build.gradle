@@ -10,6 +10,10 @@ android {
         targetSdk 35
         versionCode 90000
         versionName '0.9.0'
+        // The app's native runtime is arm64-only. Keep transitive WebRTC ABIs
+        // out of the APK so 4 KiB-only 32-bit libraries cannot trip Android
+        // 15/16 16 KiB page-size compatibility checks or inflate the package.
+        ndk { abiFilters 'arm64-v8a' }
         externalNativeBuild { cmake { abiFilters 'arm64-v8a'; arguments '-DANDROID_STL=c++_shared' } }
     }
     buildFeatures { buildConfig true }

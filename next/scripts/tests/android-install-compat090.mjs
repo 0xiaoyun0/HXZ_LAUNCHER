@@ -56,18 +56,18 @@ const archive = await openArchive(apk);
 await new Promise((resolve, reject) => {
   archive.on('error', reject);
   archive.on('entry', entry => {
-    if (/^lib\/arm64-v8a\/[^/]+\.so$/.test(entry.fileName)) names.push(entry.fileName);
+    if (/^lib\/[^/]+\/[^/]+\.so$/.test(entry.fileName)) names.push(entry.fileName);
     archive.readEntry();
   });
   archive.once('end', resolve);
   archive.readEntry();
 });
 archive.close();
-assert.ok(names.length > 0, 'APK must contain an arm64 native library');
+assert.ok(names.length > 0, 'APK must contain native libraries');
 for (const name of names) {
   for (const segment of loadSegments(await entryBytes(apk, name))) {
     assert.ok(segment.pAlign >= pageSize, `${name} has a ${segment.pAlign}-byte PT_LOAD alignment`);
     assert.equal(segment.pOffset % pageSize, segment.pVaddr % pageSize, `${name} has an unaligned PT_LOAD offset`);
   }
 }
-console.log(`PASS Android 16 KiB native compatibility (${names.length} arm64 libraries)`);
+console.log(`PASS Android 16 KiB native compatibility (${names.length} native libraries)`);
