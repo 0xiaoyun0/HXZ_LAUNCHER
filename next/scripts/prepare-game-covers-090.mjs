@@ -8,7 +8,7 @@ import {WEREWOLF} from '../packages/games/werewolf-ui.mjs';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const catalog=[...GAMES,...BOARD_GAMES,WEREWOLF];
-const sourceDir=path.join(root,'scripts/assets/game-covers-source');
+const sourceDir=path.join(root,'scripts/assets/game-covers-ai');
 const destinations=[path.join(root,'public/media/games'),path.join(root,'mobile/web/public/media/games')];
 
 const safe=value=>String(value||'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[char]));
@@ -28,4 +28,4 @@ for(const item of catalog){
   const cover=await sharp(base).composite([{input:overlay}]).webp({quality:88,effort:6}).toBuffer();
   for(const destination of destinations)await fs.writeFile(path.join(destination,`${id}.webp`),cover);
 }
-console.log(`Generated ${catalog.length} unified 768x480 WebP covers in ${destinations.length} bundles.`);
+console.log(`Generated ${catalog.length} AI-redrawn 768x480 WebP covers in ${destinations.length} bundles.`);

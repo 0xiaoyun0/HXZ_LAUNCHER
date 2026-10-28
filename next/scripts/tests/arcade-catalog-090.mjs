@@ -31,3 +31,15 @@ test('0.9.0 catalogue ships one cover for every card',async()=>{
   assert.equal(metadata.height,480,`${item.id} cover height differs`);
  }
 });
+
+test('0.9.0 cover sources are one AI-rendered WebP set',async()=>{
+ const catalog=createArcadeCatalog(GAMES,BOARD_GAMES,WEREWOLF);
+ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../..');
+ const sourceDir=path.join(root,'scripts','assets','game-covers-ai');
+ const files=await fs.readdir(sourceDir);
+ assert.equal(files.filter(file=>file.endsWith('.webp')).length,catalog.length);
+ for(const item of catalog){
+  const info=await sharp(path.join(sourceDir,`${item.id}.webp`)).metadata();
+  assert.equal(info.format,'webp',`${item.id} AI source is not WebP`);
+ }
+});

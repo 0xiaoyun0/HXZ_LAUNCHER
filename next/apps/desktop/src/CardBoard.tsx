@@ -225,7 +225,7 @@ function flatten(children:React.ReactNode):React.ReactNode[] {return Children.to
 function heading(children:React.ReactNode):string {for(const c of flatten(children))if(isValidElement(c)){if(['h2','h3'].includes(String(c.type))){return Children.toArray((c.props as any).children).filter(v=>typeof v==='string').join('');}const nested=heading((c.props as any).children);if(nested)return nested;}return '';}
 export function FormCards({id,children}:{id:string;children:React.ReactNode}) {
   const nodes=flatten(children).filter(isValidElement) as React.ReactElement<any>[];
-  return <CardBoard id={id} label="" cards={nodes.map((node,i)=>({id:node.props['data-card']||'section-'+i,title:node.props['data-card-title']||heading(node.props.children)||'外观预览',content:node,w:node.props['data-width']||6,h:node.props['data-height']||14,minW:5,minH:7,fit:true,className:'form-card'}))}/>;
+  return <CardBoard id={id} label="" cards={nodes.map((node,i)=>({id:node.props['data-card']||'section-'+i,title:node.props['data-card-title']||node.props.cardTitle||heading(node.props.children)||'设置项',content:node,w:node.props['data-width']||6,h:node.props['data-height']||14,minW:5,minH:7,fit:true,className:'form-card'}))}/>;
 }
 export function PanelGroup({id,children,names=[],widths=[],heights=[],maxHeights=[],positions=[],className=''}:{id:string;children:React.ReactNode;names?:string[];widths?:number[];heights?:number[];maxHeights?:number[];positions?:number[][];className?:string}) {
   const nodes=flatten(children).filter(isValidElement) as React.ReactElement<any>[];
