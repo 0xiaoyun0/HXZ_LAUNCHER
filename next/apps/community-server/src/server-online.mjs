@@ -1,9 +1,26 @@
 import net from 'node:net';import dns from 'node:dns/promises';import fs from 'node:fs/promises';import path from 'node:path';
-const defaults=[{id:'survival',name:'原版生存群组',address:'s1.hxzmc.top',enabled:true},{id:'mod-1',name:'模组一服',address:'s2.hxzmc.top',enabled:true},{id:'mod-2',name:'模组二服',address:'s3.hxzmc.top',enabled:true}];
+const defaults=[
+ {id:'survival',name:'原版生存群组',address:'s1.hxzmc.top',enabled:true},
+ {id:'mod-1',name:'模组一服',address:'s2.hxzmc.top',enabled:true},
+ {id:'mod-2',name:'模组二服',address:'s3.hxzmc.top',enabled:true}
+];
+// The public game aliases are SRV-only. Use the current direct status endpoints
+// first so a DNS resolver that cannot read SRV records does not report ENOTFOUND.
+const statusFallbacks=Object.freeze({
+ 's1.hxzmc.top':'ipv4.hxzmc.top:19999',
+ 's2.hxzmc.top':'ipv4.hxzmc.top:19998',
+ 's3.hxzmc.top':'ipv4.hxzmc.top:25599'
+});
+export function statusAddressCandidates(value){
+ const input=typeof value==='string'?value.trim():'';
+ if(!input)return [];
+ const fallback=statusFallbacks[input.toLowerCase()];
+ return fallback&&fallback!==input?[fallback,input]:[input];
+}
 export function varint(n){const b=[];do{let v=n&127;n>>>=7;if(n)v|=128;b.push(v);}while(n);return Buffer.from(b);}
 function readVar(b,offset=0){let n=0;for(let i=0;i<5;i++){if(offset+i>=b.length)return null;const v=b[offset+i];n|=(v&127)<<(7*i);if(!(v&128))return {n:n>>>0,next:offset+i+1};}throw Error('服务器协议长度无效');}
 function address(value){if(typeof value!=='string'||value.length>260||! /^(?:[a-z0-9][a-z0-9.-]*|\[[a-f0-9:]+\])(?::\d{1,5})?$/i.test(value))throw Error('服务器地址无效');const u=new URL('http://'+value),match=value.match(/:(\d+)$/),port=match?Number(match[1]):25565;if(port<1||port>65535)throw Error('服务器端口应在 1–65535 范围');return {host:u.hostname.replace(/^\[|\]$/g,''),port,explicit:!!match};}
-export async function minecraftStatus(value){
+async function minecraftStatusOnce(value){
  const target=address(value),resolver=new dns.Resolver({timeout:2000,tries:1});let {host,port}=target;
  if(!target.explicit&&!net.isIP(host))try{const rows=await resolver.resolveSrv('_minecraft._tcp.'+host);const srv=rows.sort((a,b)=>a.priority-b.priority)[0];if(srv){host=srv.name;port=srv.port;}}catch{}
  return new Promise((resolve,reject)=>{
@@ -17,6 +34,11 @@ export async function minecraftStatus(value){
     finish(null,{online:Math.max(0,Number(data.players?.online)||0),max:Math.max(0,Number(data.players?.max)||0),players:sample.slice(0,200).map(p=>({name:String(p.name||'').slice(0,80),id:String(p.id||'').slice(0,64)})),sample:true,latency:Date.now()-start,version:String(data.version?.name||'').slice(0,100)});
    }catch(e){finish(e);}});
  });
+}
+export async function minecraftStatus(value){
+ let last;
+ for(const candidate of statusAddressCandidates(value))try{return await minecraftStatusOnce(candidate);}catch(error){last=error;}
+ throw last||Error('服务器地址无效');
 }
 export function createServerOnline({data,admin,body,send}){
  const file=path.join(data,'server-online.json');let config,pending,cached;
