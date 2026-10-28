@@ -21,6 +21,8 @@ Linux 或已有 Node 环境：使用 Node.js 24+，在本目录安装依赖（np
 
 详细说明见 [0.8.0 使用与升级](docs/0.8.0使用与升级.md)、[工作台接口](docs/0.8.0工作台接口.md)、[LINKING 管理](docs/LINKING档案馆开发与管理.md)；[背包与社区接口](docs/0.7.2背包与社区接口.md)；既有 [合作游戏接口](docs/0.6.4合作游戏接口.md) 继续适用。
 
-## 上传丢包补偿（可选）
+## 上传丢包补偿
 
-发布包附带 `resources/hxzre`。在每台 Minecraft 服务端旁运行 `node fec-origin.mjs`，通过 `HXZ_FEC_LISTEN`、`HXZ_FEC_TARGET` 和 `HXZ_FEC_TOKEN` 配置 origin；随后在后台的三个默认服务器配置中填写对应的 FEC origin 地址、相同 token 和分片参数。启动器“设置 → 下载与更新 → HXZRE 运行时”中的开关关闭后会直接使用原服务器地址。
+Windows 社区服务端升级后会自动为三个默认服务器启动 HXZRE origin：生成并保存在 `data/hxzre` 的独立 token、使用 `40000`、`40001`、`40002` UDP 端口，并把 origin 地址和 token 随 `/api/server-presets` 下发。默认目标端口取启动器内置的 `19999`、`19998`、`25599`，因此升级后不需要再编辑后台配置，也不需要修改客户端。请在主机防火墙和云安全组放行这三个 UDP 端口；如果部署位置不同，可在 `.env` 设置 `HXZ_FEC_PUBLIC_HOST`、`HXZ_FEC_PORTS` 和 `HXZ_FEC_TARGETS`，设置 `HXZ_FEC_AUTO=0` 可关闭自动 origin。
+
+启动器“设置 → 下载与更新 → HXZRE 运行时”中的开关仍由玩家决定；关闭后使用原服务器地址。自定义服务器继续使用 `node fec-origin.mjs`，并在后台填写对应 origin、token 和分片参数。

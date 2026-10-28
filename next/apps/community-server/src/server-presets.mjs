@@ -1,9 +1,10 @@
 import {readFileSync,existsSync,writeFileSync,renameSync} from 'node:fs';
 import {join} from 'node:path';
 import {DEFAULT_SERVERS,normalizePresets} from '../shared/server-presets.mjs';
-export function createServerPresets({data,admin,body,send,broadcast}) {
+export function createServerPresets({data,admin,body,send,broadcast,initialize}) {
   const file=join(data,'server-presets.json');
   let servers=normalizePresets(existsSync(file)?JSON.parse(readFileSync(file,'utf8')):DEFAULT_SERVERS);
+  if (typeof initialize === 'function') servers=normalizePresets(initialize(servers));
   return async(req,res,url)=>{
     if(!['/api/server-presets','/api/admin/server-presets'].includes(url.pathname))return false;
     if(url.pathname.includes('/admin/'))admin(req);

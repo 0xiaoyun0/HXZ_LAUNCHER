@@ -4,6 +4,7 @@ import {createTankRooms} from './tank-rooms.mjs';
 import {createWerewolf} from './werewolf.mjs';
 import {createLobbySignal} from './lobby-signal.mjs';
 import {createServerOnline} from './server-online.mjs';
+import {createFecAutoconfig} from './fec-autoconfig.mjs';
 import {createMusicAccess} from './music-access.mjs';
 import {createInventory} from './inventory.mjs';
 import {createChatMedia} from './chat-media.mjs';
@@ -36,10 +37,10 @@ import {createPlaytime} from './playtime.mjs';
 import { isIP } from 'node:net';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { dirname, resolve, join } from 'node:path';
 import { randomBytes, createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const GROUPS = [{id:'survival',name:'原版生存群组'},{id:'mod-1',name:'模组一服'},{id:'mod-2',name:'模组二服'}];
 
@@ -47,6 +48,11 @@ export function createCommunity(options={}) {
   const data=resolve(options.data || process.env.HXZ_DATA || './data');mkdirSync(data,{recursive:true});
   const keyPath=join(data,'session.key');if(!existsSync(keyPath))writeFileSync(keyPath,randomBytes(48),{mode:0o600,flag:'wx'});
   const key=readFileSync(keyPath), db=new DatabaseSync(join(data,'community.sqlite'));
+  const appRoot=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+  const repoRoot=resolve(appRoot,'..','..');
+  const resources=options.resources || (existsSync(join(appRoot,'resources','hxzre'))?join(appRoot,'resources'):join(repoRoot,'resources'));
+  const runningServer=process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url;
+  const fecAuto=createFecAutoconfig({data,resources,enabled:options.fecAuto ?? (runningServer || process.env.HXZ_SUPERVISED==='1'),log:message=>console.error(message)});
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
     CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT,channel TEXT NOT NULL,uid TEXT NOT NULL,name TEXT NOT NULL,body TEXT NOT NULL,created INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS messages_channel ON messages(channel,id);
@@ -101,7 +107,7 @@ export function createCommunity(options={}) {
   const content=createContent({data,db,auth,admin,adminIDs,body,send,limit,inbox});
   const adminRoute=createAdmin({redact:target=>inbox.redact(target),updateSources,data,db,issue,admin,send,body,limit,clients,broadcast,adminIDs});
   const serverOnline=createServerOnline({data,admin,body,send});
-  const presetsRoute=createServerPresets({data,admin,body,send,broadcast});
+  const presetsRoute=createServerPresets({data,admin,body,send,broadcast,initialize:servers=>fecAuto.apply(servers)});
   const points=createPoints({db,auth,admin,body,send,limit});
   const media=createMedia({data,db,auth,admin,body,send,limit});
   const inventory=createInventory({db,auth,admin,body,send,limit,points,media,inbox,broadcast});
@@ -239,6 +245,6 @@ export function createCommunity(options={}) {
     ws.on('error',()=>{});ws.on('close',()=>{clearTimeout(timer);voiceEvent(clients.get(ws),'leave');clients.delete(ws);presence();});
   });
   const sweep=setInterval(()=>{for(const [id,v] of attempts)if(Date.now()>v.expires)attempts.delete(id);for(const ws of wss.clients){const c=clients.get(ws);if(c&&c.user.exp<Date.now()){ws.close(1008,'登录已过期');continue;}if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();}},15000);sweep.unref();
-  return {server,db,async close(){voiceTools.close();hub.close();gameBridge.close();playtime.close();roomRelay.close();await chatMedia.close();inventory.close();updates.close();tanks.close();werewolf.close();p2pSignal.close();await boards.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
+  return {server,db,async close(){voiceTools.close();hub.close();gameBridge.close();playtime.close();roomRelay.close();await chatMedia.close();inventory.close();updates.close();tanks.close();werewolf.close();p2pSignal.close();await boards.close();await fecAuto.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const service=createCommunity();const port=Number(process.env.PORT||8787),host=process.env.HOST||'127.0.0.1';service.server.listen(port,host,()=>{process.send?.({type:'hxz-ready',version:VERSION});console.log(`幻想镇社区服务 http://${host}:${port}\n网页管理：http://127.0.0.1:${port}/admin/\n初始密码见数据目录的 初始管理员密码.txt`);});let closing=false;const shutdown=()=>{if(closing)return;closing=true;void service.close().then(()=>process.exit());};process.on('message',message=>{if(message?.type==='hxz-shutdown')shutdown();});for(const sig of ['SIGINT','SIGTERM'])process.on(sig,shutdown);}

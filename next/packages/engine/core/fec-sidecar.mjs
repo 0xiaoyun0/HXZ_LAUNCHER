@@ -1,5 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import dns from 'node:dns/promises';
+import net from 'node:net';
 import {spawn} from 'node:child_process';
 
 const READY = /^MC_FEC_READY\s+mode=edge\s+tcp=(\S+)\s+udp=(\S+)$/;
@@ -17,6 +19,17 @@ function numberArg(value, fallback, min, max) {
   return Number.isInteger(number) && number >= min && number <= max ? number : fallback;
 }
 
+async function resolvePeer(value) {
+  const input = value.trim();
+  const bracketed = input.match(/^\[([^\]]+)\]:(\d{1,5})$/);
+  const plain = input.match(/^(.+):(\d{1,5})$/);
+  const host = bracketed?.[1] || plain?.[1];
+  const port = bracketed?.[2] || plain?.[2];
+  if (!host || !port) throw Error('FEC origin 地址无效');
+  const address = net.isIP(host) ? host : (await dns.lookup(host, {all: false})).address;
+  return net.isIPv6(address) ? `[${address}]:${port}` : `${address}:${port}`;
+}
+
 /**
  * Start the optional native FEC edge for a configured server preset.
  * A missing origin, token, binary, or a startup failure is reported to the
@@ -28,8 +41,9 @@ export async function startFecEdge({resources, preset, signal, log = () => {}}) 
   if (process.platform !== 'win32' || process.arch !== 'x64') throw Error('当前平台没有可用的 FEC 原生模块');
   const binary = path.join(resources, 'hxzre', 'bin', 'mc-tcp-fec.exe');
   await fs.access(binary);
+  const peer=await resolvePeer(config.origin);
   const args = [
-    'edge', '--listen', '127.0.0.1:0', '--peer', config.origin.trim(), '--token', config.token.trim(),
+    'edge', '--listen', '127.0.0.1:0', '--peer', peer, '--token', config.token.trim(),
     '--data-shards', String(numberArg(config.dataShards, 8, 1, 200)),
     '--parity-shards', String(numberArg(config.parityShards, 24, 1, 200)),
     '--shard-size', String(numberArg(config.shardSize, 1000, 256, 1200)),
