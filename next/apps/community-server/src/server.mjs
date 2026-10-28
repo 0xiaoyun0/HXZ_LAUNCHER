@@ -52,7 +52,7 @@ export function createCommunity(options={}) {
   const repoRoot=resolve(appRoot,'..','..');
   const resources=options.resources || (existsSync(join(appRoot,'resources','hxzre'))?join(appRoot,'resources'):join(repoRoot,'resources'));
   const runningServer=process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url;
-  const fecAuto=createFecAutoconfig({data,resources,enabled:options.fecAuto ?? (runningServer || process.env.HXZ_SUPERVISED==='1'),log:message=>console.error(message)});
+  const fecAuto=createFecAutoconfig({data,resources,enabled:options.fecAuto ?? ((runningServer || process.env.HXZ_SUPERVISED==='1') && process.env.HXZ_FEC_AUTO !== '0'),log:message=>console.error(message)});
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
     CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT,channel TEXT NOT NULL,uid TEXT NOT NULL,name TEXT NOT NULL,body TEXT NOT NULL,created INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS messages_channel ON messages(channel,id);
