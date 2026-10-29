@@ -15,7 +15,7 @@ export function createP2PClient({session,runtime,emit=()=>{},iceServers=ICE}){
   });
  }
  async function host(room){stopped=false;const generation=epoch,current=()=>!stopped&&epoch===generation;
-  const connect=async()=>{if(!current())return;try{const {ws,attach}=await open({type:'host',room:room.id,proof:proof(room.key)});if(!current()){ws.terminate();return;}control=ws;emit({p2pAvailable:true,p2pError:''});const negotiating=new Map();
+  const connect=async()=>{if(!current())return;try{const {ws,attach}=await open({type:'host',room:room.id,proof:proof(room.key),test:room.test===true});if(!current()){ws.terminate();return;}control=ws;emit({p2pAvailable:true,p2pError:''});const negotiating=new Map();
    attach((raw,binary)=>{if(binary)return;let v;try{v=JSON.parse(raw);}catch{return;}
     if(v.type==='incoming'){
      const pending=runtime.peer({initiator:false,iceServers,signal:signal=>send(ws,{type:'signal',pair:v.pair,signal})});negotiating.set(v.pair,pending);
@@ -31,7 +31,7 @@ export function createP2PClient({session,runtime,emit=()=>{},iceServers=ICE}){
   }catch(e){if(current()){emit({p2pAvailable:false,p2pError:e.message});retry=setTimeout(()=>void connect().catch(()=>{}),5000);}throw e;}};
   await connect();return true;
  }
- async function dial(room){const generation=epoch;const {ws,info,attach}=await open({type:'join',room:room.id,proof:proof(room.key)});let done=false,peer;
+ async function dial(room){const generation=epoch;const {ws,info,attach}=await open({type:'join',room:room.id,proof:proof(room.key),test:room.test===true});let done=false,peer;
   const pending=runtime.peer({initiator:true,iceServers,signal:signal=>send(ws,{type:'signal',pair:info.pair,signal})});
   attach((raw,binary)=>{if(binary)return;let v;try{v=JSON.parse(raw);}catch{return;}if(v.type==='signal')void pending.then(p=>p.signal(v.signal)).catch(()=>{});if(v.type==='error'||v.type==='closed')void pending.then(p=>p.stream.destroy(Error(v.error||v.reason||'协商已结束'))).catch(()=>{});});
   ws.once('close',()=>{if(!done)void pending.then(p=>p.stream.destroy(Error('P2P 协商中断，请重试'))).catch(()=>{});});
@@ -51,15 +51,15 @@ export async function testP2P({session,runtime,iceServers=ICE,timeoutMs=15000}={
  const client=createP2PClient({session,runtime,iceServers});
  const server=net.createServer(socket=>{socket.setNoDelay(true);socket.pipe(socket);});
  await new Promise((resolve,reject)=>{server.once('error',reject);server.listen({host:'127.0.0.1',port:0},resolve);});
- const address=server.address(),room={v:1,id:'p2p-test-'+randomUUID().replaceAll('-','').slice(0,24),key:randomBytes(32).toString('base64url'),port:address.port};
+ const address=server.address(),room={v:1,id:'p2p-test-'+randomUUID().replaceAll('-','').slice(0,24),key:randomBytes(32).toString('base64url'),port:address.port,test:true};
  const started=Date.now();let stream,timer;
  const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('P2P 测试超时')),timeoutMs);});
  try{
   await client.host(room);
   const result=await Promise.race([client.dial(room),timeout]);stream=result.stream;
   const probe=Buffer.from('hxz-p2p-test-'+randomUUID());
-  const echoed=await Promise.race([new Promise((resolve,reject)=>{let data=Buffer.alloc(0);const onData=chunk=>{data=Buffer.concat([data,chunk]);if(data.length>=probe.length){stream.off('data',onData);resolve(data.subarray(0,probe.length));}};stream.on('data',onData);stream.once('error',reject);}),timeout]);
-  stream.write(probe);const value=Buffer.from(echoed);if(!value.equals(probe))throw Error('P2P 回环数据校验失败');
+   const echoPromise=new Promise((resolve,reject)=>{let data=Buffer.alloc(0);const onData=chunk=>{data=Buffer.concat([data,chunk]);if(data.length>=probe.length){stream.off('data',onData);resolve(data.subarray(0,probe.length));}};stream.on('data',onData);stream.once('error',reject);});
+   stream.write(probe);const echoed=await Promise.race([echoPromise,timeout]);const value=Buffer.from(echoed);if(!value.equals(probe))throw Error('P2P 回环数据校验失败');
   return {ok:true,latency:Date.now()-started,detail:'信令、ICE 与加密数据通道均可用'};
  }finally{clearTimeout(timer);stream?.destroy();client.close();await new Promise(resolve=>server.close(()=>resolve()));}
 }

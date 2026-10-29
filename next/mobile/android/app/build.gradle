@@ -8,8 +8,8 @@ android {
         applicationId 'top.hxzmc.community'
         minSdk 29
         targetSdk 35
-        versionCode 90001
-        versionName '0.9.0'
+        versionCode 90100
+        versionName '0.9.1'
         // Keep the 0.8.8 packaging baseline: WebRTC's 32-bit/x86 entries are
         // needed by installers on those devices even though HXZ's game bridge
         // itself remains arm64.

@@ -33,7 +33,7 @@ final class GameEngine {
     }
     private String unsupportedReason(){
         if(!Arrays.asList(Build.SUPPORTED_ABIS).contains("arm64-v8a"))return "游戏运行模块需要 ARM64 设备；社区功能仍可使用";
-        try{if(android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE)!=4096)return "当前游戏运行模块尚不支持此设备的内存页大小；社区功能仍可使用，暂不下载游戏资源";}
+        try{long page=android.system.Os.sysconf(android.system.OsConstants._SC_PAGESIZE);if(page!=4096&&page!=16384)return "当前游戏运行模块不支持 "+page+" 字节内存页；社区功能仍可使用，暂不下载游戏资源";}
         catch(Exception e){return "无法确认设备的运行兼容性，请更新社区应用后重试";}
         return "";
     }
@@ -55,7 +55,7 @@ final class GameEngine {
         activeKey="";activeChecked=0;activeValue=null;
         if(active()==null){String failure=activeFailure;prefs.edit().putString("activation",previous).commit();activeKey="";activeChecked=0;throw new IOException("运行模块启用失败："+failure);}
     }
-    synchronized JSONObject state(){JSONObject m=active();boolean backend=backendReady();String unsupported=unsupportedReason();return CommunityApp.obj("phase",phase,"message",!unsupported.isEmpty()?unsupported:backend?message:"专用游戏引擎正在开发，本构建尚不能启动手机游戏","received",received,"total",total,"busy",busy,"supported",unsupported.isEmpty(),"backendReady",backend,"module",true,"installed",m!=null&&backend,"trusted",m!=null,"version",m==null?"":m.optString("versionName"),"riskAccepted",prefs.getBoolean("riskAccepted",false),"ready",m!=null&&backend&&unsupported.isEmpty(),"renderers",m==null?new JSONArray():m.optJSONArray("renderers"));}
+    synchronized JSONObject state(){JSONObject m=active();boolean backend=backendReady();String unsupported=unsupportedReason();return CommunityApp.obj("phase",phase,"message",!unsupported.isEmpty()?unsupported:backend?message:"运行模块未准备，首次启动会自动下载","received",received,"total",total,"busy",busy,"supported",unsupported.isEmpty(),"backendReady",backend,"module",true,"installed",m!=null&&backend,"trusted",m!=null,"version",m==null?"":m.optString("versionName"),"riskAccepted",prefs.getBoolean("riskAccepted",false),"ready",m!=null&&backend&&unsupported.isEmpty(),"renderers",m==null?new JSONArray():m.optJSONArray("renderers"));}
     private synchronized void publish(String stage,String text){phase=stage;message=text;app.event("gameEngine",state());}
     void accountChanged(){identityGeneration++;pending=null;cancelled=true;Call call=transfer;if(call!=null)call.cancel();}
     Object call(JSONObject input)throws Exception{

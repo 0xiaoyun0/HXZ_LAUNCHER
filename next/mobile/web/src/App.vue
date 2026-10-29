@@ -67,7 +67,7 @@ function openSettings(area=''){settingsArea.value=area;navigate('settings');}
 function backSettings(){settingsArea.value='';navigateBack();}
 function navigateMain(id){navigationTrail.value=[];navigate(({community:'forum',play:'minecraft'})[id]||id,{remember:false});}
 const settings=reactive(readSettings());
-const appUpdate=ref({currentVersion:appVersion,currentBuild:80300,autoCheck:true,autoDownload:true,phase:'idle'});
+const appUpdate=ref({currentVersion:appVersion,currentBuild:90100,autoCheck:true,autoDownload:true,phase:'idle'});
 async function updateAction(action,values={}){try{appUpdate.value=await native('appUpdate',{action,...values});}catch(e){error.value=e.message;}}
 
 async function changeVoiceOverlay(event){try{const result=await native('voiceOverlay',{enabled:event.target.checked});settings.voiceOverlay=result.enabled;if(!result.permission)error.value='请在系统中允许悬浮窗，然后返回开启语音屏幕覆盖。';}catch(e){error.value=e.message;settings.voiceOverlay=false;}}

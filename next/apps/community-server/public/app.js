@@ -57,6 +57,22 @@ function formField(container,label,value,set,{large=false,lines=false,check=fals
 }
 
 let serverPresets;
+function renderHxzreStatus(presets){
+ const root=$('hxzre-status'),summary=$('hxzre-summary');if(!root||!summary)return;
+ let enabled=0;root.replaceChildren();
+ for(const preset of presets){
+  const fec=preset.fec&&typeof preset.fec==='object'?preset.fec:{};if(fec.enabled===true)enabled++;
+  const card=document.createElement('article');card.className='hxzre-status-card';
+  const heading=document.createElement('div');heading.className='hxzre-status-heading';
+  const title=document.createElement('strong');title.textContent=preset.name;
+  const badge=document.createElement('span');badge.className='hxzre-badge '+(fec.enabled===true?'is-enabled':'is-disabled');badge.textContent=fec.enabled===true?'已启用':'已关闭';heading.append(title,badge);
+  const origin=document.createElement('p');origin.textContent=fec.origin?'Origin '+fec.origin:'Origin 尚未生成（服务端运行时未就绪）';
+  const details=document.createElement('small');details.textContent=`${fec.dataShards||8} 数据 + ${fec.parityShards||24} 校验 · ${fec.shardSize||1000} B 分片 · ${fec.recoveryTimeoutMs||200} ms 恢复`;
+  const label=document.createElement('label');label.className='hxzre-toggle';const input=document.createElement('input');input.type='checkbox';input.checked=fec.enabled===true;input.onchange=()=>{preset.fec={...fec,enabled:input.checked};renderHxzreStatus(presets);};label.append(input,document.createTextNode('服务端允许此入口使用 HXZRE'));
+  card.append(heading,origin,details,label);root.append(card);
+ }
+ summary.textContent=`${enabled}/${presets.length} 个默认入口已启用`;
+}
 function updateLinksField(root,preset){
  const group=document.createElement('section'),heading=document.createElement('h3'),hint=document.createElement('p'),list=document.createElement('div'),add=document.createElement('button');
  group.className='update-links';heading.textContent='HXZ UP 连接地址';hint.textContent='同一整合包的主备地址，按从上到下的顺序尝试。支持 http://主机:端口/整合包 和 HTTPS，最多 16 个。';add.type='button';add.className='secondary';add.textContent='＋ 添加链接';
@@ -71,6 +87,7 @@ function updateLinksField(root,preset){
 function selectField(root,label,value,options,set){const wrapper=document.createElement('label');wrapper.textContent=label;const input=document.createElement('select');for(const [key,text] of options)input.append(new Option(text,key));input.value=value;input.onchange=()=>set(input.value);wrapper.append(input);root.append(wrapper);}
 async function loadServers(){
  serverPresets=(await api('/api/admin/server-presets')).servers;const root=$('servers-fields');root.replaceChildren();
+ renderHxzreStatus(serverPresets);
  for(const preset of serverPresets){const box=document.createElement('fieldset'),title=document.createElement('legend');title.textContent=preset.name;box.append(title);root.append(box);
   formField(box,'显示名称',preset.name,v=>preset.name=v);
   selectField(box,'首次安装来源',preset.profileSource,[['manual','指定游戏版本与加载器'],['hxzup','读取 HXZ UP 的游戏配置'],['package','下载整合包文件']],v=>preset.profileSource=v);
@@ -128,8 +145,15 @@ $('music-grant-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await a
 async function loadActivityCodes(){const v=await api('/api/admin/rewards');$('activity-codes').replaceChildren(paragraph('活动码记录','h2'));for(const item of v.items)row($('activity-codes'),item.label+' · '+item.amount+' 积分',new Date(item.starts).toLocaleString()+' — '+new Date(item.expires).toLocaleString()+' · 已领取 '+item.claimed+' 次 · '+(item.perUserLimit?'每人 '+item.perUserLimit+' 次':'不限个人次数'),item.enabled?'停用':'启用',async()=>{await api('/api/admin/rewards','PUT',{id:item.id,enabled:!item.enabled});await loadActivityCodes();});}
 $('activity-code').onsubmit=e=>{e.preventDefault();void run(async()=>{const f=e.target,v=Object.fromEntries(new FormData(f));await api('/api/admin/rewards','POST',{...v,starts:v.starts?new Date(v.starts).getTime():0,expires:new Date(v.expires).getTime(),perUserLimit:f.elements.once.checked?1:0,maxUses:Number(v.maxUses)});f.reset();await loadActivityCodes();message('活动兑换码已创建');});};
 
-let onlineServers=[];async function loadServerOnline(){onlineServers=(await api('/api/admin/server-online')).items;const root=$('server-online-fields');root.replaceChildren();for(const s of onlineServers){const box=document.createElement('fieldset');box.append(paragraph(s.name,'legend'));for(const [key,label] of [['name','显示名称'],['address','游戏服务器地址（可含端口）']]){const el=document.createElement('label'),input=document.createElement('input');el.textContent=label;input.value=s[key];input.required=true;input.oninput=()=>s[key]=input.value;el.append(input);box.append(el);}const el=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=s.enabled;input.onchange=()=>s.enabled=input.checked;el.append(input,document.createTextNode('启用查询'));box.append(el);root.append(box);}}
-$('server-online-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await api('/api/admin/server-online','PUT',{items:onlineServers});message('在线查询配置已保存');});};
+let onlineServers=[];
+async function refreshServerOnlineStatus(){
+ const root=$('server-online-status');if(!root)return;root.replaceChildren(paragraph('正在查询三个默认入口…'));
+ const value=await api('/api/server-online?refresh=1');root.replaceChildren();
+ for(const item of value.items||[]){const rowEl=document.createElement('article');rowEl.className='server-online-admin-card';const count=item.available?`${item.online} / ${item.max||'—'} 人在线`:(item.enabled===false?'已关闭查询':item.error||'查询失败');const names=item.players?.length?' · '+item.players.slice(0,8).map(player=>player.name).join('、'):'';rowEl.append(paragraph(item.name,'strong'),paragraph(count+names));root.append(rowEl);}
+}
+async function loadServerOnline(){onlineServers=(await api('/api/admin/server-online')).items;const root=$('server-online-fields');root.replaceChildren();for(const s of onlineServers){const box=document.createElement('fieldset');box.append(paragraph(s.name,'legend'));for(const [key,label] of [['name','显示名称'],['address','游戏服务器地址（可含端口）']]){const el=document.createElement('label'),input=document.createElement('input');el.textContent=label;input.value=s[key];input.required=true;input.oninput=()=>s[key]=input.value;el.append(input);box.append(el);}const el=document.createElement('label'),input=document.createElement('input');input.type='checkbox';input.checked=s.enabled;input.onchange=()=>s.enabled=input.checked;el.append(input,document.createTextNode('启用查询'));box.append(el);root.append(box);}await refreshServerOnlineStatus();}
+$('server-online-form').onsubmit=e=>{e.preventDefault();void run(async()=>{await api('/api/admin/server-online','PUT',{items:onlineServers});await refreshServerOnlineStatus();message('在线查询配置已保存');});};
+$('server-online-check').onclick=()=>run(refreshServerOnlineStatus);
 
 
 function loadLinking(){const frame=$('linking-admin-frame');if(!frame.src)frame.src=frame.dataset.src;}

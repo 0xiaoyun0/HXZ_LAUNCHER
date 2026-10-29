@@ -10,6 +10,7 @@
 .default-server-state>span:first-child{display:flex;align-items:center;gap:7px}
 .default-server-state i{width:6px;height:6px;background:currentColor;border-radius:50%}
 .default-server-state .online{color:var(--accent-text)}
+.server-status-error{margin:0 0 10px;color:var(--muted);font-size:.72rem;line-height:1.5;overflow-wrap:anywhere}
 .server-players-link{display:inline-flex;align-items:center;gap:7px;color:var(--accent-text);font-size:.78rem;min-height:30px}
 .server-players-link:disabled{color:var(--muted);opacity:.65;cursor:default}
 .default-server-card .card-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}

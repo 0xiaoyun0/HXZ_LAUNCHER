@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {createFecAutoconfig} from '../src/fec-autoconfig.mjs';
 
 test('community upgrade bootstraps three default HXZRE origins and persists tokens', async () => {
@@ -17,7 +18,7 @@ test('community upgrade bootstraps three default HXZRE origins and persists toke
     {id: 'HXZ-mod-1', address: 's2.hxzmc.top', fec: emptyFec()},
     {id: 'HXZ-mod-2', address: 's3.hxzmc.top', fec: emptyFec()}
   ];
-  const manager = createFecAutoconfig({data, resources: path.resolve('resources'), enabled: true});
+  const manager = createFecAutoconfig({data, resources: path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../../../resources'), enabled: true});
   try {
     const output = manager.apply(input);
     assert.deepEqual(output.map(item => item.fec.origin), ports.map(port => `127.0.0.1:${port}`));

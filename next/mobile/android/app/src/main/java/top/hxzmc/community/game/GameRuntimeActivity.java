@@ -227,9 +227,9 @@ public final class GameRuntimeActivity extends Activity implements SurfaceHolder
     private String jna(LaunchPlan plan)throws IOException {String version=null;for(File file:plan.classpath){java.util.regex.Matcher match=java.util.regex.Pattern.compile("jna-([0-9]+\\.[0-9]+\\.[0-9]+)\\.jar").matcher(file.getName());if(match.matches()){String found=match.group(1);if(version!=null&&!version.equals(found))throw new IOException("游戏存在互不兼容的 JNA 版本");version=found;}}if(version!=null&&!Arrays.asList("5.14.0","5.17.0").contains(version))throw new IOException("当前运行模块尚未适配系统接口 JNA "+version);return version;}
     private JSONObject selectRenderer()throws Exception {
         String preference=options.optString("renderer","auto");
-        if(preference.equals("auto")||preference.equals("ng-gl4es")){
+        if(options.optBoolean("nativeFcl",false)||preference.equals("auto")||preference.equals("ng-gl4es")){
             directRenderer=true;softwareRenderer=false;
-            rendererDiagnostic="FCL NG-GL4ES（Krypton Wrapper） · EGL 直连 Android 画面，不使用 CPU 像素复制\n设备："+Build.MANUFACTURER+" "+Build.MODEL;
+            rendererDiagnostic="完全原生 FCL NG-GL4ES（Krypton Wrapper） · EGL 直连 Android 画面，不使用 CPU 像素复制\n设备："+Build.MANUFACTURER+" "+Build.MODEL;
             update("graphics",rendererDiagnostic,1,1);
             return new JSONObject().put("id","ng-gl4es").put("kind","fcl-egl").put("driver","ng-gl4es");
         }
