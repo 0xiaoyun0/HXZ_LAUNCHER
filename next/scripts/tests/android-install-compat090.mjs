@@ -1,10 +1,15 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import yauzl from 'yauzl';
 
 const root = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
-const apk = process.env.HXZ_ANDROID_APK || path.join(root, 'release/0.9.0/android/HXZ-Community-Android-0.9.0-90001.apk');
+const candidates = [
+  path.join(root, 'release/0.9.1/android/HXZ-Community-Android-0.9.1-90100.apk'),
+  path.join(root, 'release/0.9.0/android/HXZ-Community-Android-0.9.0-90001.apk'),
+];
+const apk = process.env.HXZ_ANDROID_APK || candidates.find(file => fs.existsSync(file)) || candidates[0];
 const pageSize = 0x4000;
 
 function openArchive(file) {
@@ -52,17 +57,27 @@ function loadSegments(bytes) {
 }
 
 const names = [];
+let resourceTable;
 const archive = await openArchive(apk);
 await new Promise((resolve, reject) => {
   archive.on('error', reject);
   archive.on('entry', entry => {
     if (/^lib\/[^/]+\/[^/]+\.so$/.test(entry.fileName)) names.push(entry.fileName);
+    if (entry.fileName === 'resources.arsc') resourceTable = entry;
     archive.readEntry();
   });
   archive.once('end', resolve);
   archive.readEntry();
 });
 archive.close();
+assert.ok(resourceTable, 'APK must contain resources.arsc');
+assert.equal(resourceTable.compressionMethod, 0, 'resources.arsc must be stored, not deflated');
+const apkHandle = fs.openSync(apk, 'r');
+const localHeader = Buffer.alloc(4);
+fs.readSync(apkHandle, localHeader, 0, localHeader.length, resourceTable.relativeOffsetOfLocalHeader + 26);
+fs.closeSync(apkHandle);
+const resourceDataOffset = resourceTable.relativeOffsetOfLocalHeader + 30 + localHeader.readUInt16LE(0) + localHeader.readUInt16LE(2);
+assert.equal(resourceDataOffset % 4, 0, 'resources.arsc data must be aligned to 4 bytes');
 const arm64Names = names.filter(name => name.startsWith('lib/arm64-v8a/'));
 assert.ok(arm64Names.length > 0, 'APK must contain arm64 native libraries');
 for (const name of names) {
