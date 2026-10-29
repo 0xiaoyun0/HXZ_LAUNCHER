@@ -11,6 +11,9 @@
     "androidNdk": "30.0.16248370",
     "androidPlatform": "android-29",
     "abi": "arm64-v8a",
+    "apkVersionCode": 90001,
+    "apkAbiBaseline": ["arm64-v8a", "armeabi-v7a", "x86", "x86_64"],
+    "apkSignatureScheme": "v2",
     "linkerFlags": ["-Wl,-z,max-page-size=16384", "-Wl,-z,common-page-size=16384"],
     "sha256": "4c8a45db9ef58e2684ebc6b3d7a1dd4d51b354009406f7121a026217ff9b4836",
     "apkPackagedSha256": "0b7f7370fa63ab78cd48f0415094e4b712f4ef3b019bc26e84d4758079383773"

@@ -8,12 +8,11 @@ android {
         applicationId 'top.hxzmc.community'
         minSdk 29
         targetSdk 35
-        versionCode 90000
+        versionCode 90001
         versionName '0.9.0'
-        // The app's native runtime is arm64-only. Keep transitive WebRTC ABIs
-        // out of the APK so 4 KiB-only 32-bit libraries cannot trip Android
-        // 15/16 16 KiB page-size compatibility checks or inflate the package.
-        ndk { abiFilters 'arm64-v8a' }
+        // Keep the 0.8.8 packaging baseline: WebRTC's 32-bit/x86 entries are
+        // needed by installers on those devices even though HXZ's game bridge
+        // itself remains arm64.
         externalNativeBuild { cmake { abiFilters 'arm64-v8a'; arguments '-DANDROID_STL=c++_shared' } }
     }
     buildFeatures { buildConfig true }

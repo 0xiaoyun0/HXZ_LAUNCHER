@@ -38,10 +38,12 @@ Its upstream components include gl4es (Sebastien Chevalier, Ryan Hileman),
 gl4es-114-extra, glslang, SPIRV-Cross, cJSON and code from MobileGlues. Their
 licenses are retained here and in `NG-THIRD-PARTY-LICENSES.md`.
 
-The APK's HXZ bridge and NG renderer use 16 KiB ELF segment alignment. The
-application still requires Android 10 (API 29) or newer, and downloaded game
-runtime modules may have their own device-page requirements; this change fixes
-the application install block caused by the old 4 KiB-only NG renderer.
+The ARM64 HXZ bridge and NG renderer use 16 KiB ELF segment alignment. The APK
+retains the 0.8.8 multi-ABI packaging baseline and v2 signature so installers
+on older or 32-bit devices see the same ABI surface; the HXZ game bridge itself
+continues to execute on ARM64. The application still requires Android 10
+(API 29) or newer, and downloaded game runtime modules may have their own
+device-page requirements.
 
 ### HXZ 80417 index compatibility adapter
 

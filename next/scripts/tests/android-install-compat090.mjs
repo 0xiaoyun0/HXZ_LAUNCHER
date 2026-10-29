@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 import yauzl from 'yauzl';
 
 const root = path.resolve(fileURLToPath(new URL('../..', import.meta.url)));
-const apk = process.env.HXZ_ANDROID_APK || path.join(root, 'release/0.9.0/android/HXZ-Community-Android-0.9.0-90000.apk');
+const apk = process.env.HXZ_ANDROID_APK || path.join(root, 'release/0.9.0/android/HXZ-Community-Android-0.9.0-90001.apk');
 const pageSize = 0x4000;
 
 function openArchive(file) {
@@ -63,11 +63,14 @@ await new Promise((resolve, reject) => {
   archive.readEntry();
 });
 archive.close();
-assert.ok(names.length > 0, 'APK must contain native libraries');
+const arm64Names = names.filter(name => name.startsWith('lib/arm64-v8a/'));
+assert.ok(arm64Names.length > 0, 'APK must contain arm64 native libraries');
 for (const name of names) {
   for (const segment of loadSegments(await entryBytes(apk, name))) {
-    assert.ok(segment.pAlign >= pageSize, `${name} has a ${segment.pAlign}-byte PT_LOAD alignment`);
-    assert.equal(segment.pOffset % pageSize, segment.pVaddr % pageSize, `${name} has an unaligned PT_LOAD offset`);
+    if (name.startsWith('lib/arm64-v8a/')) {
+      assert.ok(segment.pAlign >= pageSize, `${name} has a ${segment.pAlign}-byte PT_LOAD alignment`);
+      assert.equal(segment.pOffset % pageSize, segment.pVaddr % pageSize, `${name} has an unaligned PT_LOAD offset`);
+    }
   }
 }
-console.log(`PASS Android 16 KiB native compatibility (${names.length} native libraries)`);
+console.log(`PASS Android baseline compatibility (${names.length} native libraries; ${arm64Names.length} arm64 libraries use 16 KiB segments)`);

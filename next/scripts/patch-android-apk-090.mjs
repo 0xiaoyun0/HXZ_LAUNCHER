@@ -5,10 +5,12 @@ import {pipeline} from 'node:stream/promises';
 import yauzl from 'yauzl';
 import yazl from 'yazl';
 
+const version=process.env.HXZ_ANDROID_VERSION||'0.9.0';
+const build=process.env.HXZ_ANDROID_VERSION_CODE||'90001';
 const root=path.resolve('.runtime/android-patch-090');
 const input=path.resolve('mobile/android/app/build/outputs/apk/release/app-release.apk');
 const web=path.resolve('mobile/web/dist');
-const output=path.resolve('release/0.9.0/android/HXZ-Community-Android-0.9.0-90000.apk.unaligned');
+const output=path.resolve(`release/${version}/android/HXZ-Community-Android-${version}-${build}.apk.unaligned`);
 
 await fs.rm(root,{recursive:true,force:true});
 await fs.mkdir(root,{recursive:true});
