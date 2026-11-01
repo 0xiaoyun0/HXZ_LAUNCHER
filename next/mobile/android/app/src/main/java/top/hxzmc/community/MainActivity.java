@@ -270,6 +270,7 @@ public final class MainActivity extends Activity {
                         case "profile":output=app.selectProfile(value.getString("id"));break;
                         case "logout":app.logout();output=app.state();break;
                         case "server":app.setServer(value.getString("url"));output=app.state();break;
+                        case "serverOnline":output=MinecraftStatus.all();break;
                         case "api":output=app.api(value);break;
                         case "coopControl":if(!app.connected)throw new IOException("社区尚未连接");value.put("type","coop-control");app.send(value);output=true;break;
                         case "chat":app.chat(value.getString("body"));output=true;break;

@@ -1,10 +1,10 @@
-# 幻想镇 · 0.8.6
+# 幻想镇 · 0.9.2
 
-Windows x64/ia32 安装版与便携版、Android 社区客户端、社区服务端及自动更新。Android 客户端版本 80600；游戏运行模块沿用已发布的 0.8.4 / 80400 组件。
+Windows x64/ia32 安装版与便携版、Android 90200、社区完整包和签名更新包、Windows 三个 MC 服安装套件、插件 SDK。
 
-[正式发布](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.8.6) · [源码与构建](next/README.md) · [更新说明](next/docs/0.8.6发布说明.md)
+[正式发布](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.9.2) · [源码与构建](next/README.md) · [更新说明](next/docs/0.9.2发布说明.md) · [服务器安装](next/docs/0.9.2Windows服务器安装.md) · [插件 API 1](next/docs/0.9.2插件规范.md)
 
-游戏服务端桥保留 0.8.0 原附件及散列；Android 不再安装单独的游戏引擎 APK。
+在线人数本机回退、MC 连接与 HXZRE 双向验证、Windows 多实例操作开关、完整权限插件和市场、自动错误诊断与后台处理记录。MC 游戏桥升级为 0.9.2，原版使用 MCDR，两个模组服使用 NeoForge 1.21.1。
 
 ---
 

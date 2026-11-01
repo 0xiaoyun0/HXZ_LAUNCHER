@@ -20,7 +20,7 @@ function GameIcon({game, size=24}:any) {
 
 export function InstanceManager() {
   const s=useSnapshot(state), t=useSnapshot(task), u=useSnapshot(ui);
-  const active=selected(s), current=cfg(active?.id||'',s), role=account(s), locked=t.busy||s.running;
+  const active=selected(s), current=cfg(active?.id||'',s), role=account(s), locked=t.busy||(s.running&&s.settings.keepLauncherAvailable===false);
   const [query,setQuery]=useState(''), [tab,setTab]=useState('overview'), [officialOpen,setOfficialOpen]=useState(true), [cover,setCover]=useState('');
   const collapsed=!!s.settings.instancesCollapsed;
   useEffect(()=>{let live=true;setCover('');

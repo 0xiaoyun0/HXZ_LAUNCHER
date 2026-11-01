@@ -53,6 +53,11 @@ class Runtime:
         self.receipts_file = self.data / 'receipts.json'
         self.receipts = read_json(self.receipts_file, 1024 * 1024) if self.receipts_file.exists() else []
         self.receipts = self.receipts[-4096:]
+        self.session = uuid.uuid4().hex
+        self.sequence = 0
+        self.outbox_file = self.data / 'outbox.json'
+        self.outbox = read_json(self.outbox_file, 2 * 1024 * 1024) if self.outbox_file.exists() else []
+        self.outbox = self.outbox[-128:]
         self.queue = queue.Queue(maxsize=128)
         self.stop = threading.Event()
         self.lock = threading.Lock()
@@ -213,22 +218,32 @@ class Runtime:
             return True
         return False
 
+    def persist_outbox(self):
+        while len(self.outbox) < 128:
+            try:
+                self.outbox.append(self.queue.get_nowait())
+            except queue.Empty:
+                break
+        atomic_json(self.outbox_file, self.outbox)
+
     def loop(self):
-        last_stats, last_warning, pending = 0, 0, None
+        last_stats, last_warning = 0, 0
         while not self.stop.is_set():
             try:
-                if not self.running:
-                    self.stop.wait(5)
-                    continue
+                self.persist_outbox()
                 self.refresh_identities()
                 # /list also restores the player list after hot-loading the plugin.
-                self.server.execute('list')
+                if self.running:
+                    self.server.execute('list')
                 with self.lock:
                     players = [dict(name=p, uid=self.identities[p]) for p in self.players if p in self.identities]
                     online = len(self.players)
                 caps = ['status', 'statistics'] + (['chat'] if self.config['chat'] else []) + (['whitelist'] if self.config['whitelist'] else [])
-                response = self.send('/api/game-bridge/poll', dict(status=dict(version=self.version, loader='mcdr',
-                    online=online, max=self.max_players, players=players[:1000], capabilities=caps)))
+                self.sequence += 1
+                response = self.send('/api/game-bridge/poll', dict(protocol=2, bridgeVersion='0.9.2', session=self.session, sequence=self.sequence, status=dict(version=self.version, loader='mcdr', running=self.running,
+                    online=online if self.running else 0, max=self.max_players, players=players[:1000] if self.running else [], capabilities=caps)))
+                if response.get('protocol') == 2 and (response.get('session') != self.session or response.get('sequence') != self.sequence):
+                    raise ValueError('Bridge response receipt mismatch')
                 self.chat_allowed = bool(response.get('access', {}).get('chat'))
                 self.whitelist_allowed = bool(response.get('access', {}).get('whitelist'))
                 for action in response.get('actions', [])[:4]:
@@ -238,15 +253,17 @@ class Runtime:
                     except (OSError, ValueError, KeyError, TypeError) as error:
                         result, note = 'failed', '游戏服处理失败：' + type(error).__name__
                     self.send('/api/game-bridge/ack', dict(id=action['id'], status=result, note=note))
-                for _ in range(4):
-                    if pending is None:
-                        try:
-                            pending = self.queue.get_nowait()
-                        except queue.Empty:
-                            break
-                    self.send('/api/game-bridge/chat', pending)
-                    pending = None
-                if self.stat_iterator is not None or time.time() - last_stats > 60:
+                self.persist_outbox()
+                for _ in range(min(4, len(self.outbox))):
+                    try:
+                        self.send('/api/game-bridge/chat', self.outbox[0])
+                    except urllib.error.HTTPError as error:
+                        if error.code not in (400, 404):
+                            raise
+                        self.server.logger.warning('社区拒绝一条聊天消息：HTTP ' + str(error.code))
+                    self.outbox.pop(0)
+                    atomic_json(self.outbox_file, self.outbox)
+                if self.running and (self.stat_iterator is not None or time.time() - last_stats > 60):
                     if self.statistics():
                         last_stats = time.time()
             except (OSError, ValueError, KeyError, TypeError) as error:
@@ -275,6 +292,8 @@ def on_unload(server):
     if runtime:
         runtime.stop.set()
         runtime.thread.join(timeout=10)
+        if not runtime.thread.is_alive():
+            runtime.persist_outbox()
         runtime = None
 
 

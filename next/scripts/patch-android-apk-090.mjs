@@ -7,7 +7,8 @@ import yazl from 'yazl';
 
 const version=process.env.HXZ_ANDROID_VERSION||'0.9.0';
 const build=process.env.HXZ_ANDROID_VERSION_CODE||'90001';
-const root=path.resolve('.runtime/android-patch-090');
+const runtime=await fs.realpath('.runtime'),root=path.join(runtime,'android-patch-090');
+if(!root.startsWith(runtime+path.sep)||(await fs.realpath(root).catch(e=>{if(e.code==='ENOENT')return root;throw e;}))!==root)throw Error('Unexpected Android staging directory');
 const input=path.resolve(process.env.HXZ_ANDROID_INPUT||'mobile/android/app/build/outputs/apk/release/app-release.apk');
 const web=path.resolve('mobile/web/dist');
 const replaceWeb=process.env.HXZ_ANDROID_REPLACE_WEB!=='false';
@@ -26,7 +27,7 @@ function extractArchive(file,destination){
       if(name.startsWith('META-INF/')||name.endsWith('/')){archive.readEntry();return;}
       // Keep native/classes/resources from the existing verified APK, then replace
       // the complete web asset tree with the current mobile build.
-      if(replaceWeb&&name.startsWith('assets/')&&name!=='assets/hxz-game-probe.jar'){
+      if(replaceWeb&&name.startsWith('assets/')&&name!=='assets/hxz-game-probe.jar'&&!name.startsWith('assets/licenses/')){
         archive.readEntry();
         return;
       }

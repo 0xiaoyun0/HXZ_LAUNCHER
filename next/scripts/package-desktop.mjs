@@ -11,3 +11,5 @@ for(const name of ['hxzup','installer','direct-lobby','hxzre'])await fs.cp(path.
 await fs.copyFile(path.join(root,'resources/icon.ico'),path.join(target,'resources/icon.ico'));await fs.writeFile(path.join(target,'使用说明.txt'),'幻想镇 NEXT '+version+' · 便携版\r\n双击「幻想镇 NEXT.exe」。\r\n本版本使用本目录 profile 保存账号与偏好，launcher-cache 保存依赖。\r\n不会自动读取旧启动器的账号。游戏目录请按自己的需求选择。\r\n安装中可关闭任务面板；程序关闭会在任务进行时最小化，需取消任务后退出。\r\n便携版使用完整包手动升级并保留 profile；需要自动更新请使用对应架构安装版。游戏及 HXZ UP 更新正常接入。\r\n','utf8');
 console.info(target);
 await copyCardLicenses(root,target);
+
+await fs.writeFile(path.join(target,"禁用插件启动.bat"),'@echo off\r\nchcp 65001 >nul\r\ncd /d "%~dp0"\r\nstart "" "%~dp0幻想镇 NEXT.exe" --disable-plugins\r\n');

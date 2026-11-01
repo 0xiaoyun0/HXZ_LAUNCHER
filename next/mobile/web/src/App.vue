@@ -67,7 +67,7 @@ function openSettings(area=''){settingsArea.value=area;navigate('settings');}
 function backSettings(){settingsArea.value='';navigateBack();}
 function navigateMain(id){navigationTrail.value=[];navigate(({community:'forum',play:'minecraft'})[id]||id,{remember:false});}
 const settings=reactive(readSettings());
-const appUpdate=ref({currentVersion:appVersion,currentBuild:90100,autoCheck:true,autoDownload:true,phase:'idle'});
+const appUpdate=ref({currentVersion:appVersion,currentBuild:90200,autoCheck:true,autoDownload:true,phase:'idle'});
 async function updateAction(action,values={}){try{appUpdate.value=await native('appUpdate',{action,...values});}catch(e){error.value=e.message;}}
 
 async function changeVoiceOverlay(event){try{const result=await native('voiceOverlay',{enabled:event.target.checked});settings.voiceOverlay=result.enabled;if(!result.permission)error.value='请在系统中允许悬浮窗，然后返回开启语音屏幕覆盖。';}catch(e){error.value=e.message;settings.voiceOverlay=false;}}
@@ -88,7 +88,7 @@ watch(()=>[settings.accent,dark.value],()=>{
   root.style.setProperty('--accent-border',`rgba(${rgb.join(',')},${dark.value?.5:.28})`);
   root.style.setProperty('--accent-text',dark.value?`rgb(${rgb.map(v=>Math.round(v+(255-v)*.55)).join(',')})`:hex);
 },{immediate:true});
-watch([()=>settings.theme,()=>settings.font,()=>settings.accent,()=>settings.ptt,()=>settings.chatHistoryDays,()=>settings.fecEnabled,()=>settings.communityRelayEnabled,systemDark],()=>{localStorage.setItem('hxz-mobile-settings',JSON.stringify(settings));document.documentElement.dataset.theme=dark.value?'dark':'light';document.documentElement.style.fontSize=Math.max(14,Math.min(22,Number(settings.font)||16))+'px';document.documentElement.style.setProperty('--accent',settings.accent);if(window.HXZNative)native('appearance',{dark:dark.value}).catch(()=>{});},{immediate:true});
+watch([()=>settings.theme,()=>settings.font,()=>settings.accent,()=>settings.ptt,()=>settings.chatHistoryDays,()=>settings.autoReportErrors,()=>settings.fecEnabled,()=>settings.communityRelayEnabled,systemDark],()=>{localStorage.setItem('hxz-mobile-settings',JSON.stringify(settings));document.documentElement.dataset.theme=dark.value?'dark':'light';document.documentElement.style.fontSize=Math.max(14,Math.min(22,Number(settings.font)||16))+'px';document.documentElement.style.setProperty('--accent',settings.accent);if(window.HXZNative)native('appearance',{dark:dark.value}).catch(()=>{});},{immediate:true});
 watch(()=>[settings.animationSpeed,settings.surfaceOpacity,settings.background,settings.music,settings.musicVolume,settings.videoQuality],()=>{settings.animations=settings.animationSpeed!==0;settings.surfaceOpacity=Math.max(.2,Math.min(1,Number(settings.surfaceOpacity??1)||.2));const root=document.documentElement;root.style.setProperty('--motion-duration',(160/(settings.animationSpeed||1))+'ms');root.style.setProperty('--mobile-surface-opacity',String(settings.surfaceOpacity??1));root.dataset.customBackground=settings.background?'true':'false';localStorage.setItem('hxz-mobile-settings',JSON.stringify(settings));},{immediate:true});
 const notify=message=>{toast.value=message;clearTimeout(toastTimer);toastTimer=setTimeout(()=>toast.value='',4000);};
 async function run(fn){if(busy.value)return;busy.value=true;error.value='';try{return await fn();}catch(e){if(e.message!=='已取消')error.value=e.message;}finally{busy.value=false;}}

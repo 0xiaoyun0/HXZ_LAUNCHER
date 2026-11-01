@@ -1,5 +1,6 @@
 import {randomUUID} from 'node:crypto';
 import {fail,string,integer,choice} from './hub/common.mjs';
+import {bridgeSessions} from './bridge-session.mjs';
 
 const SERVERS=['survival','mod-1','mod-2'];
 const CAPABILITIES=['status','statistics','chat','whitelist','recipes','machines'];
@@ -9,6 +10,7 @@ const resource=value=>{if(typeof value!=='string'||!/^[a-z0-9_.-]+:[a-z0-9_/.-]{
 
 // Only typed actions cross this boundary. It deliberately has no console-command API.
 export function createGameBridge({db,auth,admin,body,send,limit,gameTelemetry,inbox,broadcast,playtime}){
+ const sessionCheck=bridgeSessions(db);
  db.exec(`
   CREATE TABLE IF NOT EXISTS game_bridge_state(server TEXT PRIMARY KEY,value TEXT NOT NULL,observed INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS game_bridge_access(server TEXT PRIMARY KEY,chat INTEGER NOT NULL DEFAULT 0,whitelist INTEGER NOT NULL DEFAULT 0,updated INTEGER NOT NULL);
@@ -21,7 +23,7 @@ export function createGameBridge({db,auth,admin,body,send,limit,gameTelemetry,in
   CREATE TABLE IF NOT EXISTS game_bridge_machines(server TEXT NOT NULL,uid TEXT NOT NULL,id TEXT NOT NULL,value TEXT NOT NULL,observed INTEGER NOT NULL,PRIMARY KEY(server,uid,id));
  `);
  const access=server=>db.prepare('SELECT * FROM game_bridge_access WHERE server=?').get(server)||{server,chat:0,whitelist:0};
- const state=server=>{const row=db.prepare('SELECT * FROM game_bridge_state WHERE server=?').get(server);return {server,...row?JSON.parse(row.value):{},observed:row?.observed||0,connected:!!row&&Date.now()-row.observed<90000};};
+ const state=server=>{const row=db.prepare('SELECT * FROM game_bridge_state WHERE server=?').get(server),value=row?JSON.parse(row.value):{};return {server,...value,observed:row?.observed||0,connected:!!row&&value.running!==false&&Date.now()-row.observed<30000};};
  function enqueue(server,kind,value,id=randomUUID()){
   const expires=Date.now()+(kind==='chat'?120000:86400000*7);
   if(db.prepare("SELECT COUNT(*) n FROM game_bridge_actions WHERE server=? AND status='pending' AND expires>?").get(server,Date.now()).n>=500)fail('服务器待处理操作过多，请稍后再试',429);
@@ -43,15 +45,19 @@ export function createGameBridge({db,auth,admin,body,send,limit,gameTelemetry,in
     const s=input.status||{},players=s.players||[],caps=s.capabilities||[];
     if(!Array.isArray(players)||players.length>1000||!Array.isArray(caps)||caps.length>CAPABILITIES.length)fail('在线状态格式无效');
     const value={version:string(s.version,80,'游戏版本'),loader:string(s.loader,80,'加载器'),online:integer(s.online,0,100000,'在线人数'),max:integer(s.max,1,100000,'人数上限'),capabilities:[...new Set(caps.map(c=>choice(c,CAPABILITIES,'能力')))],players:players.map(v=>({uid:uid(v.uid),name:name(v.name)}))};
-    playtime?.observe(server,value.players);
-    db.prepare('INSERT INTO game_bridge_state VALUES(?,?,?) ON CONFLICT(server) DO UPDATE SET value=excluded.value,observed=excluded.observed').run(server,JSON.stringify(value),stamp);
-    if(value.online<value.max){
+    value.running=s.running!==false;if(!value.running){value.online=0;value.players=[];}
+    const receipt=sessionCheck(server,input,value);
+    if(receipt.accept){
+     db.exec('BEGIN IMMEDIATE');try{receipt.commit?.();db.prepare('INSERT INTO game_bridge_state VALUES(?,?,?) ON CONFLICT(server) DO UPDATE SET value=excluded.value,observed=excluded.observed').run(server,JSON.stringify({...value,protocol:receipt.protocol,bridgeVersion:string(input.bridgeVersion||'',40,'桥版本',true)}),stamp);db.exec('COMMIT');}catch(error){db.exec('ROLLBACK');throw error;}
+     playtime?.observe(server,value.players);
+    }
+    if(receipt.accept&&value.running&&value.online<value.max){
      const watchers=db.prepare('SELECT uid FROM game_bridge_watch WHERE server=? LIMIT 500').all(server);
      if(watchers.length){inbox.notify({actor:{uid:'game-bridge',name:'服务器'},recipients:watchers.map(v=>v.uid),kind:'community',title:'服务器已有空位',body:server+' 当前 '+value.online+'/'+value.max+' 人，空位不代表预留名额。',target:'/community/hub?section=servers',dedupe:'vacancy:'+server+':'+stamp,includeSelf:true});db.prepare('DELETE FROM game_bridge_watch WHERE server=?').run(server);}
     }
     db.prepare("UPDATE game_bridge_actions SET status='expired',updated=? WHERE server=? AND status='pending' AND expires<=?").run(stamp,server,stamp);
     const config=access(server),actions=db.prepare("SELECT * FROM game_bridge_actions WHERE server=? AND status='pending' AND expires>? ORDER BY created,id LIMIT 20").all(server,stamp).filter(v=>config[v.kind]&&value.capabilities.includes(v.kind)).map(v=>({id:v.id,kind:v.kind,value:JSON.parse(v.value),expires:v.expires}));
-    send(res,200,{actions,access:{chat:!!config.chat,whitelist:!!config.whitelist},time:stamp});return true;
+    send(res,200,{actions:value.running?actions:[],access:{chat:!!config.chat,whitelist:!!config.whitelist},time:stamp,protocol:receipt.protocol,session:receipt.session,sequence:receipt.sequence,duplicate:!receipt.accept});return true;
    }
    if(p==='/api/game-bridge/ack'&&method==='POST'){
     const action=db.prepare('SELECT * FROM game_bridge_actions WHERE server=? AND id=?').get(server,string(input.id,100,'操作标识'));if(!action)fail('操作不存在',404);

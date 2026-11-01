@@ -31,9 +31,13 @@ public final class BridgeTransport implements AutoCloseable {
     private volatile boolean whitelistAllowed;
     private long lastWarning;
     private Envelope pending;
+    private final String session=UUID.randomUUID().toString();
+    private long sequence;
+    private final Path outbox;
     private final boolean allowChat, allowWhitelist;
 
     public BridgeTransport(Properties config, Consumer<String> log) {
+        this.outbox=Path.of(config.getProperty("outbox", "config/hxz-community-bridge-outbox.json"));
         this.log=log;this.base=config.getProperty("community","").replaceAll("/+$","");
         URI address=URI.create(base);
         if(address.getUserInfo()!=null||address.getQuery()!=null||address.getFragment()!=null||!("https".equals(address.getScheme())||"http".equals(address.getScheme())&&Set.of("127.0.0.1","localhost","[::1]").contains(address.getHost())))
@@ -41,6 +45,7 @@ public final class BridgeTransport implements AutoCloseable {
         token=config.getProperty("token","");server=config.getProperty("server","");
         if(!token.matches("[a-fA-F0-9]{64}")||!Set.of("survival","mod-1","mod-2").contains(server))throw new IllegalArgumentException("Set a valid server and bridge token before enabling the bridge");
         allowChat=Boolean.parseBoolean(config.getProperty("chat","false"));allowWhitelist=Boolean.parseBoolean(config.getProperty("whitelist","false"));
+        restoreOutbox();
     }
     public void start(){worker.scheduleWithFixedDelay(this::cycle,0,5,TimeUnit.SECONDS);}
     public void snapshot(JsonObject value){status.set(value);}
@@ -54,9 +59,11 @@ public final class BridgeTransport implements AutoCloseable {
     }
     private void cycle(){
         try{
+            persistOutbox();
             JsonObject snapshot=status.get();if(snapshot==null)return;
-            JsonObject poll=new JsonObject();poll.add("status",snapshot);
+            JsonObject poll=new JsonObject();poll.add("status",snapshot);poll.addProperty("protocol",2);poll.addProperty("bridgeVersion","0.9.2");poll.addProperty("session",session);poll.addProperty("sequence",++sequence);
             JsonObject result=send("/api/game-bridge/poll",poll);
+            if(result.has("protocol")&&result.get("protocol").getAsInt()==2&&(!session.equals(result.get("session").getAsString())||result.get("sequence").getAsLong()!=sequence))throw new IOException("Bridge response receipt mismatch");
             chatAllowed=result.getAsJsonObject("access").get("chat").getAsBoolean();
             whitelistAllowed=result.getAsJsonObject("access").get("whitelist").getAsBoolean();
             for(JsonElement element:result.getAsJsonArray("actions")){
@@ -69,12 +76,25 @@ public final class BridgeTransport implements AutoCloseable {
             }
             // Keep a failed envelope for retry. A single cycle has a bounded request budget.
             for(int i=0;i<4;i++){
-                if(pending==null)pending=outgoing.poll();if(pending==null)break;
-                try{send(pending.endpoint(),pending.body());if(pending.endpoint().endsWith("/ack"))queued.remove(pending.body().get("id").getAsString());pending=null;}
-                catch(PermanentFailure error){if(pending.endpoint().endsWith("/ack"))queued.remove(pending.body().get("id").getAsString());log.accept("已拒绝一项同步操作：HTTP "+error.status);pending=null;}
+                if(pending==null)pending=outgoing.poll();if(pending==null)break;persistOutbox();
+                try{send(pending.endpoint(),pending.body());if(pending.endpoint().endsWith("/ack"))queued.remove(pending.body().get("id").getAsString());pending=null;persistOutbox();}
+                catch(PermanentFailure error){if(pending.endpoint().endsWith("/ack"))queued.remove(pending.body().get("id").getAsString());log.accept("已拒绝一项同步操作：HTTP "+error.status);pending=null;persistOutbox();}
             }
         }catch(InterruptedException error){Thread.currentThread().interrupt();}
         catch(Exception error){if(System.currentTimeMillis()-lastWarning>60000){lastWarning=System.currentTimeMillis();log.accept("社区同步暂不可用，将后台重试（"+error.getClass().getSimpleName()+"）；游戏继续运行。");}}
+    }
+    private void restoreOutbox(){
+        try{if(!Files.exists(outbox))return;if(Files.size(outbox)>4*1024*1024)throw new IOException("Outbox too large");
+            JsonArray saved=JsonParser.parseString(Files.readString(outbox)).getAsJsonArray();
+            for(JsonElement element:saved){JsonObject e=element.getAsJsonObject();String endpoint=e.get("endpoint").getAsString();
+                if(Set.of("/api/game-bridge/chat","/api/game-bridge/ack","/api/game-bridge/recipes","/api/game-bridge/machines","/api/game-stats/report").contains(endpoint))outgoing.offer(new Envelope(endpoint,e.getAsJsonObject("body")));}
+        }catch(Exception error){log.accept("无法恢复待发送数据："+error.getClass().getSimpleName());}
+    }
+    private void persistOutbox() throws IOException {
+        JsonArray rows=new JsonArray();List<Envelope> snapshot=new ArrayList<>();if(pending!=null)snapshot.add(pending);snapshot.addAll(outgoing);
+        for(Envelope e:snapshot){JsonObject row=new JsonObject();row.addProperty("endpoint",e.endpoint());row.add("body",e.body());rows.add(row);}
+        Files.createDirectories(outbox.toAbsolutePath().getParent());Path temp=outbox.resolveSibling(outbox.getFileName()+".tmp");Files.writeString(temp,JSON.toJson(rows),StandardCharsets.UTF_8);
+        Files.move(temp,outbox,StandardCopyOption.REPLACE_EXISTING,StandardCopyOption.ATOMIC_MOVE);
     }
     private JsonObject send(String endpoint,JsonObject body) throws IOException,InterruptedException{
         HttpRequest request=HttpRequest.newBuilder(URI.create(base+endpoint)).timeout(Duration.ofSeconds(8))
@@ -104,13 +124,13 @@ public final class BridgeTransport implements AutoCloseable {
         public void onComplete(){if(!ended){ended=true;delegate.onComplete();}}
     }
     private static final class PermanentFailure extends IOException {final int status;PermanentFailure(int status){this.status=status;}}
-    @Override public void close(){worker.shutdownNow();http.shutdownNow();actions.clear();outgoing.clear();queued.clear();}
+    @Override public void close(){worker.shutdownNow();http.shutdownNow();try{if(worker.awaitTermination(2,TimeUnit.SECONDS))persistOutbox();}catch(InterruptedException error){Thread.currentThread().interrupt();}catch(IOException error){log.accept("待发送数据保存失败："+error.getClass().getSimpleName());}actions.clear();outgoing.clear();queued.clear();}
 
     public static Properties load(Path file) throws IOException {
         Properties config=new Properties();
         if(!Files.exists(file)){
             Files.createDirectories(file.toAbsolutePath().getParent());
-            Files.writeString(file,"# HXZ Community Bridge 0.8.0\n# Get a separate token per server from the community administrator.\nenabled=false\ncommunity=https://qqbot.hxzmc.top\nserver=mod-1\ntoken=\nchat=false\nwhitelist=false\n",StandardCharsets.UTF_8,StandardOpenOption.CREATE_NEW);
+            Files.writeString(file,"# HXZ Community Bridge 0.9.2\n# Get a separate token per server from the community administrator.\nenabled=false\ncommunity=https://qqbot.hxzmc.top\nserver=mod-1\ntoken=\nchat=false\nwhitelist=false\n",StandardCharsets.UTF_8,StandardOpenOption.CREATE_NEW);
         }
         try(var reader=Files.newBufferedReader(file,StandardCharsets.UTF_8)){config.load(reader);}return config;
     }

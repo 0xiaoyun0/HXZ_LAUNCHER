@@ -25,9 +25,9 @@ export function Home(){
  const s=useSnapshot(state),t=useSnapshot(task),navigate=useNavigate();
  const [query,setQuery]=useState(''),[manage,setManage]=useState(false),[cover,setCover]=useState(''),[switching,setSwitching]=useState(false),identityPending=useRef(false),[starting,setStarting]=useState(''),startPending=useRef(false);
  useEffect(()=>{if(!s.ready)return;const layouts=state.settings.cardLayouts||{};if(Object.entries(layouts).some(([key,value]:any)=>/^home\.(wide|compact)$/.test(key)&&[...(value.items||[]).map((item:any)=>item.i),...(value.hidden||[]),...(value.locked||[]),...(value.fixed||[])].includes('launcher-news')))void saveSettings((settings:any)=>({cardLayouts:Object.fromEntries(Object.entries(settings.cardLayouts||{}).map(([key,value]:any)=>/^home\.(wide|compact)$/.test(key)?[key,{...value,items:(value.items||[]).filter((item:any)=>item.i!=='launcher-news'),...Object.fromEntries(['hidden','locked','fixed'].map(field=>[field,(value[field]||[]).filter((id:string)=>id!=='launcher-news')]))}]:[key,value]))}));},[s.ready]);
- const instances=s.instances,game=selected(s),role=account(s),locked=t.busy||s.running||!!starting,current=cfg(game?.id||'',s);
+ const instances=s.instances,game=selected(s),role=account(s),locked=t.busy||(s.running&&s.settings.keepLauncherAvailable===false)||!!starting,current=cfg(game?.id||'',s);
  async function switchIdentity(change:()=>Promise<void>){
-  if(identityPending.current||task.busy||state.running)return;
+  if(identityPending.current||task.busy||(state.running&&state.settings.keepLauncherAvailable===false))return;
   identityPending.current=true;setSwitching(true);disconnect();
   try{await change();}finally{if(account())void connect();identityPending.current=false;setSwitching(false);}
  }
@@ -37,7 +37,7 @@ export function Home(){
   const open=async(dialog='details')=>{await selectInstance(i.id);if(dialog==='details')setManage(true);else{ui.instance=i.id;ui.dialog=dialog;}};
   return [{label:'管理实例',icon:PackageOpen,disabled:locked,action:()=>open()},{label:'启动配置',icon:Settings2,disabled:locked,action:()=>open('instance')},{label:'模组、资源包与蓝图',icon:Layers,disabled:locked||!i.installed,action:()=>open('mods')},{separator:true},...([['versions','版本目录'],['screenshots','截图目录'],['saves','存档目录']] as const).map(([kind,label])=>({label,icon:FolderOpen,disabled:!i.installed,action:()=>invoke('instance.folder',{id:i.id,kind})})),{label:cfg(i.id,s).favorite?'取消收藏':'收藏实例',icon:Star,disabled:locked,action:async()=>{await invoke('instance.favorite',{id:i.id,favorite:!cfg(i.id,s).favorite});await reload();}}];
  };
- async function startInstance(id:string){if(startPending.current||task.busy||state.running)return;startPending.current=true;setStarting(id);try{await selectInstance(id);await launch(id);}finally{startPending.current=false;setStarting('');}}
+ async function startInstance(id:string){if(startPending.current||task.busy||(state.running&&state.settings.keepLauncherAvailable===false))return;startPending.current=true;setStarting(id);try{await selectInstance(id);await launch(id);}finally{startPending.current=false;setStarting('');}}
  const cards:CardSpec[]=[
   {id:'library',title:'游戏实例',x:4,y:0,w:8,minW:4,minH:10,plain:true,className:'home-library-card',content:<div className="home-instance-list">
    <div className="home-list-tools"><div className="search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索实例" aria-label="搜索实例"/></div><Button icon={PackageOpen} disabled={locked} onClick={()=>importPack()}>导入</Button><Button icon={Download} onClick={()=>navigate('/workshop/install')}>下载</Button></div>

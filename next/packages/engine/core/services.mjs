@@ -10,6 +10,9 @@ import {createDirectLobby} from './direct-lobby.mjs';
 import {createRelayClient} from './room-relay.mjs';
 import {testP2P} from './room-p2p.mjs';
 import {startFecEdge} from './fec-sidecar.mjs';
+import {createServerConnection} from './server-connection.mjs';
+import {gameSessions} from './game-sessions.mjs';
+import {createErrorReporter} from './error-reporter.mjs';
 import {prepareDirectHelper} from './direct-helper.mjs';
 import {normalizeCardPlacements,normalizeWidgets} from './card-extras.mjs';
 import {normalizeCardLayouts,normalizeCardStyle} from './card-layout.mjs';
@@ -79,7 +82,7 @@ const SKIN = "https://skin.hxzmc.top/api/yggdrasil";
 const APPEARANCE_VERSION = 2;
 // Presentation and voice settings do not change files owned by the active task.
 const LIVE_SETTINGS = new Set([
-  'autoCheckUpdates','instancesCollapsed','theme','fontSize','accentColor',
+  'keepLauncherAvailable','autoReportErrors','autoCheckUpdates','instancesCollapsed','theme','fontSize','accentColor',
   'backgroundColor','backgroundImage','backgroundOpacity','backgroundPositionX',
   'backgroundPositionY','backgroundFit','backgroundVideo','backgroundMusic',
   'defaultCover','musicVolume','videoQuality','linkingDiscovered','showLinking',
@@ -101,6 +104,7 @@ export async function createServices({
   skinPanel,
   netease,
   p2pRuntime
+  ,version='0.9.2'
 }) {
   await fs.mkdir(data, { recursive: true });
   const dependencies=await dependencyStore(dependencyRoot,data);
@@ -131,6 +135,8 @@ export async function createServices({
     layout: "standard",
     downloadMode: "official",
     fecEnabled: true,
+    keepLauncherAvailable: true,
+    autoReportErrors: true,
     communityRelayEnabled: true,
     downloadConcurrency: 32,
     downloadSpeedMBps: 0,
@@ -167,6 +173,7 @@ export async function createServices({
   }
   if (!Array.isArray(settings.hiddenInstances)) settings.hiddenInstances = [];
   const presetCatalog = await createPresetCatalog(data,()=>settings.communityUrl);
+  const serverConnection=createServerConnection({presets:()=>presetCatalog.list(),remote:route=>remoteJSON(endpoint(settings.communityUrl)+route,{signal:AbortSignal.timeout(2500)})});
   void presetCatalog.refresh();
   // Extend old settings without resetting the player's appearance.
   settings.appearanceVersion = APPEARANCE_VERSION;
@@ -234,11 +241,12 @@ export async function createServices({
         safeStorage.decryptString(await fs.readFile(accountFile))
       );
     } catch {}
-  let running = null,
-    task = null,
+  const sessions=gameSessions(emit);
+  let task = null,
     logs = [],
     community = null;
-  let lastCrash=null, stoppedByUser=false;
+  let lastCrash=null;
+  const errorReporter=await createErrorReporter({data,version,enabled:()=>settings.autoReportErrors!==false,send:async event=>{let identity;try{if(settings.selectedAccount)identity=await actions['community.connect']({});}catch{}return remoteJSON(endpoint(settings.communityUrl)+'/api/error-reports',{method:'POST',headers:{'Content-Type':'application/json',...(identity?.token?{Authorization:'Bearer '+identity.token}:{})},body:JSON.stringify(event),signal:AbortSignal.timeout(8000)});}});
   // Profile writes share a queue so layout snapshots cannot replace a newer
   // favorite, account selection or installed-instance configuration.
   let settingsQueue = Promise.resolve();
@@ -370,7 +378,7 @@ export async function createServices({
     await saveAccounts();
     return a;
   }
-  let offlineSession=null;const skinTasks=new Map();
+  const skinTasks=new Map();
   async function rememberSkin(a){if(skinTasks.has(a.uuid))return skinTasks.get(a.uuid);const task=cacheSkin(data,a).catch(e=>log('[皮肤缓存] '+e.message)).finally(()=>skinTasks.delete(a.uuid));skinTasks.set(a.uuid,task);return task;}
   async function ensureAccount() {
     const a = selected();
@@ -385,7 +393,7 @@ export async function createServices({
     }
   }
   function busy() {
-    if (task || running) throw Error("请等待当前任务完成或先停止游戏");
+    if (task || (sessions.size&&settings.keepLauncherAvailable===false)) throw Error("请等待当前任务完成，或在设置中开启游戏运行时继续操作");
   }
   function memoryFor(cfg) {
     if (
@@ -634,6 +642,7 @@ export async function createServices({
   async function launch(id, updateOnly = false, joinServer = false, direct = null) {
     const preparationStarted=Date.now();
     busy();
+    if(sessions.hasInstance(id,settings.gameRoot))throw Error('此实例正在运行。请在实例维护中创建副本后多开，避免游戏文件和存档相互覆盖。');
     logs = [];
     emit({ type: "logs-reset" });
     const preset = (await presetCatalog.refresh()).find(p => p.id === id);
@@ -696,7 +705,7 @@ export async function createServices({
       throw Error("此实例尚未安装完成，请在下载页面使用同一名称重试");
     const controller = new AbortController();
     task = controller;
-    let fecEdge=null;
+    let fecEdge=null,offlineSession=null;
     try {
       const cfg = {
         memoryMB: settings.defaultMemoryMB,
@@ -779,7 +788,7 @@ export async function createServices({
         stopDirectHelper=await prepareDirectHelper({resources,dependencies,metadata,command,config:host,signal:controller.signal,log});
       }
       phase({ phase: "正在启动游戏", busy: true });
-      const gameStarted=Date.now(),gameLogs=[],startedRoot=settings.gameRoot;stoppedByUser=false;lastCrash=null;
+      const gameStarted=Date.now(),gameLogs=[],startedRoot=settings.gameRoot;lastCrash=null;
       const memoryFlag=command.args.find(v=>/^-Xmx\d+[mMgG]$/.test(v))?.match(/^-Xmx(\d+)([mMgG])$/),recordedMemory=memoryFlag?Number(memoryFlag[1])*(memoryFlag[2].toLowerCase()==='g'?1024:1):cfg.memoryMB;
       // Diagnostics must never delay or prevent an otherwise valid game launch.
       const performanceEntry=inspectJava(command.command).catch(()=>({version:'',arch:''})).then(runtimeInfo=>performanceHistory.start({instance:id,root:startedRoot,preparationMs:gameStarted-preparationStarted,memoryMB:recordedMemory,javaVersion:runtimeInfo.version,architecture:runtimeInfo.arch})).catch(error=>{log('启动统计未保存：'+error.message);return null;});let spawnFailed=false;
@@ -790,35 +799,35 @@ export async function createServices({
         windowsHide: true,
         shell: false
       });
-      running = child;
+      const session=sessions.add(child,{instance:id,root:startedRoot,cleanup:async()=>{offlineSession?.close();await fecEdge?.stop();}});
       child.once('spawn',()=>{void personalPlaytime.start(child).catch(error=>log('游玩日历未保存：'+error.message));});
       child.once('exit',()=>{void personalPlaytime.stop(child).catch(error=>log('游玩日历未保存：'+error.message));});
       attachLog(child.stdout,capture);
       attachLog(child.stderr,capture);
       child.on("error", error => {
-        spawnFailed=true;
+        spawnFailed=true;void errorReporter.capture({category:'game-launch',message:error.message,context:{instance:id}}).catch(()=>{});
         if(direct)void lobby.close('游戏启动失败，联机已关闭');
         offlineSession?.close();offlineSession=null;
         log("游戏启动失败: " + error.message);
-        running = null;
+        session.finish();
         void fecEdge?.stop();
-        phase({
+        if(!task)phase({
           phase: "启动失败",
           busy: false,
-          running: false,
+          running: sessions.size>0,
           error: error.message
         });
       });
       child.on("close", (code, exitSignal) => {
-        const stopped=stoppedByUser;void performanceEntry.then(key=>key&&performanceHistory.finish(key,{code,signal:exitSignal,stopped,failedToStart:spawnFailed})).catch(error=>log('启动统计未保存：'+error.message));
+        const stopped=session.stopped;void performanceEntry.then(key=>key&&performanceHistory.finish(key,{code,signal:exitSignal,stopped,failedToStart:spawnFailed})).catch(error=>log('启动统计未保存：'+error.message));
         if(direct)void lobby.close('游戏已退出，联机已关闭');
         offlineSession?.close();offlineSession=null;
-        running = null;
+        session.finish();
         void fecEdge?.stop();
-        phase({
+        if(!task)phase({
           phase: code === 0 ? "游戏已结束" : "游戏进程已退出",
           busy: false,
-          running: false,
+          running: sessions.size>0,
           failed: code != null && code !== 0,
           failure:
             code != null && code !== 0
@@ -827,15 +836,15 @@ export async function createServices({
           exitCode: code
         });
         log("游戏退出代码: " + code + " · 信号: " + (exitSignal||"无"));
-        if(!stoppedByUser && (code!==0 || exitSignal)) void crashReport({cwd:command.cwd,id,started:gameStarted,code,signal:exitSignal,logs:gameLogs,secrets:[...secrets],java:command.command}).then(report=>{lastCrash=report;emit({type:"game-crash",report});}).catch(error=>log("诊断报告读取失败: "+error.message));
+        if(!session.stopped && (code!==0 || exitSignal)) void crashReport({cwd:command.cwd,id,started:gameStarted,code,signal:exitSignal,logs:gameLogs,secrets:[...secrets],java:command.command}).then(report=>{lastCrash=report;emit({type:"game-crash",report});void errorReporter.capture({category:"game-crash",message:"游戏异常退出 "+code,detail:diagnosticText(report),context:{instance:id,java:command.command}}).catch(()=>{});}).catch(error=>log("诊断报告读取失败: "+error.message));
         if (code != null && code >>> 0 === 0xc0000005) {
           const message =
             "Java 本机运行库异常退出 (0xC0000005)。请在设置中切换同版本的其他 Java（例如 Zulu / Temurin），并查看游戏崩溃日志。";
           log(message);
-          phase({
+          if(!task)phase({
             phase: "Java 运行库异常退出",
             busy: false,
-            running: false,
+            running: sessions.size>0,
             error: message
           });
         }
@@ -1037,6 +1046,13 @@ export async function createServices({
   }});
   const assetExporter=createAssetExporter({choose:async(name,ext)=>{const value=await dialog.showSaveDialog(window(),{defaultPath:name,filters:[{name:'创作素材',extensions:[ext]}]});return value.canceled?null:value.filePath;}});
   const actions = {
+    'errors.report':input=>errorReporter.capture(input),
+    'errors.status':()=>errorReporter.status(),
+    'errors.flush':()=>errorReporter.flush(),
+    'errors.clear':()=>errorReporter.clear(),
+    'game.sessions':()=>sessions.list(),
+    'servers.status':input=>serverConnection.status(input),
+    async 'hxzre.test'(){const presets=await presetCatalog.refresh();return {items:await Promise.all(presets.map(async preset=>{let edge;try{edge=await startFecEdge({resources,preset,probeTimeout:3500});return {id:preset.id,name:preset.name,ok:!!edge,detail:edge?'MC 双向传输已验证':'服务器未配置 HXZRE',latency:edge?.status?.latency};}catch(error){return {id:preset.id,name:preset.name,ok:false,detail:error.message};}finally{await edge?.stop();}}))};},
     async 'hxzre.status'(){
       const manifestFile=path.join(resources,'hxzre','module.json');
       const binaryFile=path.join(resources,'hxzre','bin','mc-tcp-fec.exe');
@@ -1313,7 +1329,7 @@ export async function createServices({
           freeMemoryMB: Math.floor(os.freemem() / 1048576),
           platform: process.platform
         },
-        running: !!running
+        running: sessions.size>0,sessions:sessions.list()
       };
     },
     async "settings.save"(input) {
@@ -1383,7 +1399,7 @@ export async function createServices({
       }
       if(input.shortcuts!=null)nextSettings.shortcuts=normalizeShortcuts(input.shortcuts);
       if(input.gameWindowAction!=null){if(!['keep','minimize','hide'].includes(input.gameWindowAction))throw Error('游戏窗口操作无效');nextSettings.gameWindowAction=input.gameWindowAction;}
-      for (const key of ['shortcutEnabled','voiceOverlay','gameSleep','memoryOptimization','onboardingDone','chinesePaths','confirmUnsaved','instancesCollapsed','promptJavaDownload','showCover'])
+      for (const key of ['keepLauncherAvailable','autoReportErrors','shortcutEnabled','voiceOverlay','gameSleep','memoryOptimization','onboardingDone','chinesePaths','confirmUnsaved','instancesCollapsed','promptJavaDownload','showCover'])
         if (typeof input[key] === 'boolean') nextSettings[key] = input[key];
       if (input.chatHistoryDays != null) {
         if (![0,1,3,5,7,30].includes(input.chatHistoryDays)) throw Error('聊天记录范围无效');
@@ -2169,9 +2185,8 @@ export async function createServices({
       task?.abort();
       return { ok: true };
     },
-    async "game.stop"() {
-      stoppedByUser=true;running?.kill();
-      return { ok: true };
+    async "game.stop"(input) {
+      return {ok:true,stopped:sessions.stop(input.key)};
     },
     async "diagnostics.current"(){return lastCrash;},
     async "diagnostics.folder"(){if(!lastCrash)throw Error("暂无异常报告");return shell.openPath(lastCrash.cwd);},
@@ -2237,6 +2252,7 @@ export async function createServices({
             Object.keys(input).some(k => !LIVE_SETTINGS.has(k))))
       )
         throw Error("请等待当前游戏任务完成");
+      if(sessions.size&&((action==='instance.delete'&&sessions.hasInstance(input.id,settings.gameRoot))||action==='storage.migrate'||(action==='instance.maintenance'&&['restore','delete'].includes(input.op)&&sessions.hasInstance(input.id,settings.gameRoot))))throw Error('此操作会替换或移除正在使用的游戏文件，请先关闭对应实例');
       if (owns) exclusive = true;
       try {
         // Finish already queued preference writes before capturing paths for a task.
@@ -2246,23 +2262,27 @@ export async function createServices({
         return await (mutatesProfile
           ? withSettings(() => actions[action](input))
           : actions[action](input));
+      } catch(error) {
+        if(!action.startsWith('errors.')&&!/取消|请先登录|请等待/.test(error.message))await errorReporter.capture({message:error.message,detail:redactDiagnostic(error.stack||error.message,[...secrets]),context:{action,instance:input.id||''}}).catch(()=>{});
+        throw error;
       } finally {
         if (owns) exclusive = false;
       }
     },
     dispose() {
+      const closed=errorReporter.close().catch(()=>{});
       personalPlaytime.dispose();
       void assetExporter.close();
       lobby.dispose();void stopDirectHelper?.();
       blueprintDownload?.abort();
-      offlineSession?.close();
       presetCatalog.dispose();
       task?.abort();
       clearTimeout(logTimer);
       pendingLogs = [];
+      return closed;
     },
     isBusy() {
-      return exclusive || !!task || !!running;
+      return exclusive || !!task || sessions.size>0;
     }
   };
 }

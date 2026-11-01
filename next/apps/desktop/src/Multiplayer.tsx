@@ -16,7 +16,7 @@ export function MultiplayerPage(){
  const [method,setMethod]=useState('auto'),[joinMethod,setJoinMethod]=useState('auto'),[address,setAddress]=useState(''),[port,setPort]=useState('25566'),[preparing,setPreparing]=useState(false),[plan,setPlan]=useState<any>(null),[p2pTest,setP2pTest]=useState<any>(null),[p2pTesting,setP2pTesting]=useState(false);
  const u=useSnapshot(ui);useEffect(()=>{if(u.roomInvite){setInvite(u.roomInvite);ui.roomInvite='';setChecked(null);}},[u.roomInvite]);
  const chosen=instances.some((v:any)=>v.id===instance)?instance:instances[0]?.id||'';
- const active=status.mode!=='idle',running=s.running,busy=active||running||preparing;
+ const active=status.mode!=='idle',running=s.running,busy=active||(running&&s.settings.keepLauncherAvailable===false)||preparing;
  async function permissions(){if(!s.settings.selectedAccount){ui.dialog='account';return;}setAccessError('');try{const result=await invoke('lobby.access');setAccess(result);if(result.admin)setGrants(await invoke('lobby.grants'));}catch(e:any){setAccess(null);setAccessError(e.message);}}
  async function refresh(){setStatus(await invoke('lobby.status'));}
  async function refreshRooms(){if(!s.settings.selectedAccount){setRooms([]);setRoomsError('');return;}setRoomsLoading(true);try{const value=await invoke('lobby.rooms');setRooms(value.items);setRoomsError('');}catch(e:any){setRoomsError(e.message);}finally{setRoomsLoading(false);}}

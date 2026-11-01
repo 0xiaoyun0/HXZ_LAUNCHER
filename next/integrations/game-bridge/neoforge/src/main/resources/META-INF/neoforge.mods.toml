@@ -4,7 +4,7 @@ license="MIT"
 
 [[mods]]
 modId="hxz_community_bridge"
-version="0.8.0"
+version="0.9.2"
 displayName="幻想镇社区 · 游戏桥"
 description="仅服务端：可信游戏统计、在线状态、社区聊天及经审核的白名单同步。"
 

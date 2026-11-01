@@ -28,7 +28,7 @@ function back(){changed('');emit('open','');emit('back');}
     <fieldset class="account-colors081"><legend>强调色</legend><button v-for="color in ['#4265df','#407d8b','#626cc1','#9f6178','#a17137']" :key="color" :aria-label="'强调色 '+color" :aria-pressed="settings.accent===color" @click="settings.accent=color"><span :style="{background:color}"><Icon v-if="settings.accent===color" name="check"/></span></button></fieldset>
   </section>
   <details ref="background" class="settings-disclosure081" @toggle="background?.open&&changed('background')"><summary>背景与动效</summary><div id="media-controls"/></details>
-  <details ref="preferences" class="settings-disclosure081" @toggle="preferences?.open&&changed('notifications')"><summary>通知与默认偏好</summary>
+  <details ref="preferences" class="settings-disclosure081" @toggle="preferences?.open&&changed('notifications')"><summary>通知与默认偏好</summary><div class="card account-fields081"><label class="account-toggle081"><span><strong>自动提交错误诊断</strong><small>向管理员提交版本、系统和已隐藏凭据的错误信息；断网时暂存并稍后重试，不提交存档与聊天记录。</small></span><input type="checkbox" role="switch" :checked="settings.autoReportErrors!==false" @change="settings.autoReportErrors=$event.target.checked"></label></div>
     <div class="card account-fields081">
       <label class="account-toggle081"><span><strong>语音屏幕覆盖</strong></span><input type="checkbox" role="switch" :checked="settings.voiceOverlay" @change="$emit('voice-overlay',$event)"></label>
       <label>默认说话方式<AppSelect v-model="settings.ptt" label="默认说话方式" :options="[{value:false,label:'自由说话',icon:'mic'},{value:true,label:'按住说话',icon:'mute'}]" @change="value=>$emit('voice-change',{ptt:value,pressing:false})"/></label>

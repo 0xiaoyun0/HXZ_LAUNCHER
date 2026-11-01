@@ -10,10 +10,10 @@ import {download,remoteJSON} from '../core/io.mjs';
 import {downloadSources,setDownloadMode} from '../core/sources.mjs';
 
 test('actual game.install accepts UI vanilla request and reaches version lookup',async t=>{
- const root=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-vanilla083-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
+ const root=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-vanilla083-'));let service;const originalFetch=globalThis.fetch;t.after(async()=>{try{await service?.dispose();}finally{globalThis.fetch=originalFetch;await fs.rm(root,{recursive:true,force:true,maxRetries:3});}});
  await fs.writeFile(path.join(root,'settings.json'),JSON.stringify({gameRoot:path.join(root,'game')}));
- const originalFetch=globalThis.fetch;globalThis.fetch=async url=>new Response(JSON.stringify({versions:[]}),{headers:{'Content-Type':'application/json'}});t.after(()=>globalThis.fetch=originalFetch);
- const service=await createServices({data:root,resources:root,safeStorage:{isEncryptionAvailable:()=>false},emit:()=>{},window:()=>null});t.after(()=>service.dispose());
+ globalThis.fetch=async url=>new Response(JSON.stringify({versions:[]}),{headers:{'Content-Type':'application/json'}});
+ service=await createServices({data:root,resources:root,safeStorage:{isEncryptionAvailable:()=>false},emit:()=>{},window:()=>null});
  await assert.rejects(service.invoke('game.install',{name:'纯原版',minecraft:'1.21.1',loader:'vanilla',loaderVersion:'stale-loader'}),/Minecraft 版本不存在/);
  const journal=JSON.parse(await fs.readFile(path.join(root,'game/.hxzl-install/纯原版/job.json'),'utf8'));
  assert.deepEqual(journal.identity.request,{gameVersion:'1.21.1',loader:{type:'',version:''}});

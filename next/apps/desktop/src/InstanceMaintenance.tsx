@@ -11,7 +11,7 @@ import {PresetTools,PerformanceTools,MigrationTools} from './InstanceTools';
 const size=(value:number)=>value>=1024**3?(value/1024**3).toFixed(2)+' GB':value>=1024**2?(value/1024**2).toFixed(1)+' MB':value>=1024?Math.ceil(value/1024)+' KB':value+' B';
 const date=(value:number)=>new Date(value).toLocaleString('zh-CN');
 export function InstanceMaintenance({id}:{id:string}){
- const s=useSnapshot(state),t=useSnapshot(task),locked=t.busy||s.running,isolated=cfg(id,s).isolated;
+ const s=useSnapshot(state),t=useSnapshot(task),locked=t.busy||(s.running&&s.settings.keepLauncherAvailable===false),isolated=cfg(id,s).isolated;
  const info=useData<any>(()=>locked?Promise.resolve(null):invoke('instance.maintenance',{id,op:'inspect'}),[id,s.settings.gameRoot]);
  const [dialog,setDialog]=useState<any>(null),[name,setName]=useState(''),[working,setWorking]=useState(false);
  const [worlds,setWorlds]=useState<string[]>([]),[world,setWorld]=useState(''),[exported,setExported]=useState<any>(null);
@@ -31,7 +31,7 @@ export function InstanceMaintenance({id}:{id:string}){
   {info.error&&<div className="maintenance-error" role="alert">{info.error}<Button disabled={locked} onClick={info.reload}>重试</Button></div>}
   {info.loading&&<p role="status">正在统计空间与读取恢复点…</p>}
   {!isolated&&<p className="maintenance-warning">当前实例未开启隔离。请先在配置中启用实例隔离，再创建恢复点或实验副本，以免遗漏共享目录里的存档。</p>}
-  {s.running&&<p className="maintenance-warning">游戏运行期间暂停维护，关闭游戏后可重新统计。</p>}
+  {s.running&&<p className="maintenance-warning">运行中的存档可能仍在写入；恢复、删除和迁移前请关闭对应游戏。</p>}
   <CardBoard id="instance-maintenance" cards={[
    {id:'storage',title:'空间占用',w:5,minW:4,content:<div className="maintenance-storage"><div className="maintenance-stat"><HardDrive size={24}/><strong>{views?size(total):'—'}</strong><span>{views?views.files.toLocaleString()+' 个文件':'等待统计'}</span></div><div className="maintenance-groups">{(views?.groups||[]).map((group:any)=><div key={group.name}><div><span title={group.name}>{group.name}</span><b>{size(group.bytes)}</b></div><div className="maintenance-bar"><i style={{width:(total?Math.max(.5,group.bytes/total*100):0)+'%'}}/></div></div>)}</div></div>},
    {id:'snapshots',title:'恢复点',x:5,w:7,minW:4,content:<div className="maintenance-snapshots"><div className="maintenance-actions"><span>{snapshots.length} 个恢复点 · {size(snapshots.reduce((sum:number,item:any)=>sum+item.bytes,0))}</span><Button icon={History} tone="solid" disabled={locked||!isolated||!views} onClick={()=>open('snapshot')}>创建恢复点</Button></div>{snapshots.length?<div className="maintenance-snapshot-list">{snapshots.map((item:any)=><article key={item.key}><div><h3>{item.label}</h3><p>{date(item.created)}</p><small>{size(item.bytes)} · {item.files.toLocaleString()} 个文件</small></div><div className="maintenance-actions"><Button icon={ArchiveRestore} disabled={locked||!isolated} onClick={()=>open('restore',item)}>还原</Button><Button icon={Trash2} aria-label={'删除恢复点 '+item.label} disabled={locked} onClick={()=>open('delete',item)}>删除</Button></div></article>)}</div>:<Empty icon={History} title="改动之前，留下一个恢复点">添加模组或调整配置前保存，之后可以回到此时的文件状态。</Empty>}</div>},

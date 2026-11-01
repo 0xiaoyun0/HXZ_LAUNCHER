@@ -35,10 +35,10 @@ function ActiveHubPage({area:areaKey='events'}:{area?:string}){
   navigate:(url:string)=>{if(/^https?:\/\//.test(url))return invoke('external.open',{url});const target=appDestination(url);if(!target)throw Error('这个内容入口已不可用，历史记录仍保留');navigate(target);},
   worldPlan:async(record:string)=>invoke('world.plan',{record}),
   exportAsset:(blob:Blob,name:string)=>exportAsset((input:any)=>invoke('asset.export',input),blob,name),
-  importWorld:async(input:any)=>{if(task.busy||state.running)throw Error('请等待当前任务或游戏结束');if(!state.settings.gameRoot&&!await chooseRoot())throw Error('尚未选择游戏目录');ui.tasks=true;await invoke('world.import',input);await reload();notify('世界已导入，可以在游戏实例中启动');},
+  importWorld:async(input:any)=>{if(task.busy||(state.running&&state.settings.keepLauncherAvailable===false))throw Error('请等待当前任务或游戏结束');if(!state.settings.gameRoot&&!await chooseRoot())throw Error('尚未选择游戏目录');ui.tasks=true;await invoke('world.import',input);await reload();notify('世界已导入，可以在游戏实例中启动');},
   downloadServer:async(id:string)=>{
    if(!['HXZ-survival','HXZ-mod-1','HXZ-mod-2'].includes(id))throw Error('不支持这个服务器实例');
-   if(task.busy||state.running)throw Error('请等待当前任务或游戏结束后再安装');
+   if(task.busy||(state.running&&state.settings.keepLauncherAvailable===false))throw Error('请等待当前任务或游戏结束后再安装');
    if(!account()){ui.dialog='account';throw Error('请先选择登录角色');}
    if(!state.settings.gameRoot&&!await chooseRoot())throw Error('尚未选择游戏目录，待办已保留');
    ui.tasks=true;await invoke('game.update',{id});await reload();

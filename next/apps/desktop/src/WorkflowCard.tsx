@@ -18,7 +18,7 @@ export function WorkflowCard({item,draft,editing,onChange}:any){
   if(action==='leave-voice')await leaveVoice();
   if(action==='instance-folder'){const instance=selected();if(!instance?.installed)throw Error('请先选择一个已安装的实例');await invoke('instance.folder',{id:instance.id,kind:'versions'});}
   if(action==='launch-instance'){
-   if(task.busy||state.running)throw Error('请等待当前任务完成或先关闭游戏');
+   if(task.busy||(state.running&&state.settings.keepLauncherAvailable===false))throw Error('请等待当前任务完成或先关闭游戏');
    if(!selected())throw Error('请先选择实例');if(!account())throw Error('请先登录皮肤站角色');await launch();
   }
   if(action==='open-tasks')ui.tasks=true;

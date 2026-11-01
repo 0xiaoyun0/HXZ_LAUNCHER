@@ -1,3 +1,4 @@
+import {createPluginMarket} from './plugin-market.mjs';
 import {createVoiceTools} from './voice-tools.mjs';
 import {createCommunityHub} from './hub/index.mjs';
 import {createTankRooms} from './tank-rooms.mjs';
@@ -26,6 +27,7 @@ import {avatarData} from "./avatars.mjs";
 import http from 'node:http';
 import {createAdmin} from './admin.mjs';
 import {createFeedback} from './feedback.mjs';
+import {createErrorReports} from './error-reports.mjs';
 import {communityUpdates} from './updates.mjs';
 import {createVoiceRooms} from './voice-rooms.mjs';
 import {createShop} from './shop.mjs';
@@ -50,7 +52,7 @@ export function createCommunity(options={}) {
   const key=readFileSync(keyPath), db=new DatabaseSync(join(data,'community.sqlite'));
   const appRoot=resolve(dirname(fileURLToPath(import.meta.url)),'..');
   const repoRoot=resolve(appRoot,'..','..');
-  const resources=options.resources || (existsSync(join(appRoot,'resources','hxzre'))?join(appRoot,'resources'):join(repoRoot,'resources'));
+  const resources=options.resources || (existsSync(join(appRoot,'resources','hxzre'))?join(appRoot,'resources'):existsSync(join(appRoot,'integrations','hxzre'))?join(appRoot,'integrations'):join(repoRoot,'resources'));
   const runningServer=process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url;
   const fecAuto=createFecAutoconfig({data,resources,enabled:options.fecAuto ?? ((runningServer || process.env.HXZ_SUPERVISED==='1') && process.env.HXZ_FEC_AUTO !== '0'),log:message=>console.error(message)});
   db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
@@ -106,7 +108,7 @@ export function createCommunity(options={}) {
   const chatMedia=createChatMedia({data,db,auth,body,send,limit,broadcast,inbox});
   const content=createContent({data,db,auth,admin,adminIDs,body,send,limit,inbox});
   const adminRoute=createAdmin({redact:target=>inbox.redact(target),updateSources,data,db,issue,admin,send,body,limit,clients,broadcast,adminIDs});
-  const serverOnline=createServerOnline({data,admin,body,send});
+  const serverOnline=createServerOnline({data,admin,body,send,bridgeState:id=>gameBridge.state(id)});
   const presetsRoute=createServerPresets({data,admin,body,send,broadcast,initialize:servers=>fecAuto.apply(servers)});
   const points=createPoints({db,auth,admin,body,send,limit});
   const media=createMedia({data,db,auth,admin,body,send,limit});
@@ -126,6 +128,8 @@ export function createCommunity(options={}) {
   const tanks=createTankRooms({auth,body,send,limit,broadcast,points});
   const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast,points});
   const feedbackRoute=createFeedback({db,auth,admin,body,send,limit,inbox,adminIDs});
+  const pluginMarket=createPluginMarket({db,auth,admin,body,send,limit});
+  const errorReports=createErrorReports({db,auth,admin,body,send,limit});
   const directLobby=createDirectLobby({db,auth,admin,adminIDs,body,send,limit,inventory});
   // The relay is deliberately a separate, bounded transport. It only pairs
   // authenticated guests with a host that has an active room lease; it never
@@ -142,6 +146,7 @@ export function createCommunity(options={}) {
     if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
     try {
       const url=new URL(req.url,'http://localhost'),path=url.pathname;limit((/^\/api\/(avatars|chat-media)\//.test(path)?'media-http:':'http:')+clientIP(req),/^\/api\/(avatars|chat-media)\//.test(path)?600:240);
+      if(path==='/api/admin/hxzre'){admin(req);if(req.method==='GET')return send(res,200,fecAuto.status());if(req.method==='POST'){limit('hxzre-probe',6);const input=await body(req);return send(res,200,await fecAuto.probe(input.id));}return send(res,405,{error:'不支持此操作'});}
       if(await updates.route(req,res,url))return;
       if(await gameBridge.route(req,res,url))return;
       if(await playtime.route(req,res,url))return;
@@ -170,6 +175,8 @@ export function createCommunity(options={}) {
       if(await roomRelay.route(req,res,url))return;
       if(await directLobby(req,res,url))return;
       if(await feedbackRoute(req,res,url))return;
+      if(await errorReports(req,res,url))return;
+      if(await pluginMarket(req,res,url))return;
       if(await content.route(req,res,url))return;
       if(await adminRoute(req,res,url))return;
       if(path==='/api/chat/history'&&req.method==='GET'){
@@ -247,4 +254,4 @@ export function createCommunity(options={}) {
   const sweep=setInterval(()=>{for(const [id,v] of attempts)if(Date.now()>v.expires)attempts.delete(id);for(const ws of wss.clients){const c=clients.get(ws);if(c&&c.user.exp<Date.now()){ws.close(1008,'登录已过期');continue;}if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();}},15000);sweep.unref();
   return {server,db,async close(){voiceTools.close();hub.close();gameBridge.close();playtime.close();roomRelay.close();await chatMedia.close();inventory.close();updates.close();tanks.close();werewolf.close();p2pSignal.close();await boards.close();await fecAuto.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
 }
-if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const service=createCommunity();const port=Number(process.env.PORT||8787),host=process.env.HOST||'127.0.0.1';service.server.listen(port,host,()=>{process.send?.({type:'hxz-ready',version:VERSION});console.log(`幻想镇社区服务 http://${host}:${port}\n网页管理：http://127.0.0.1:${port}/admin/\n初始密码见数据目录的 初始管理员密码.txt`);});let closing=false;const shutdown=()=>{if(closing)return;closing=true;void service.close().then(()=>process.exit());};process.on('message',message=>{if(message?.type==='hxz-shutdown')shutdown();});for(const sig of ['SIGINT','SIGTERM'])process.on(sig,shutdown);}
+if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const service=createCommunity();const port=Number(process.env.PORT||8787),host=process.env.HOST||'127.0.0.1';service.server.listen(port,host,()=>{process.send?.({type:'hxz-ready',version:VERSION});console.log(`幻想镇社区服务 http://${host}:${port}\n网页管理：http://127.0.0.1:${port}/admin/\n初始密码见数据目录的 初始管理员密码.txt`);});let closing=false;const shutdown=()=>{if(closing)return;closing=true;void service.close().then(()=>process.exit());};process.on('message',message=>{if(message?.type==='hxz-shutdown')shutdown();});if(process.env.HXZ_SUPERVISED==='1')process.on('disconnect',shutdown);for(const sig of ['SIGINT','SIGTERM'])process.on(sig,shutdown);}

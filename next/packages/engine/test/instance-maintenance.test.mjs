@@ -6,7 +6,7 @@ import {randomUUID} from 'node:crypto';
 import {inspectInstance,createSnapshot,restoreSnapshot,deleteSnapshot,cloneInstance} from '../core/instance-maintenance.mjs';
 
 async function fixture(t){
- const parent=path.resolve('.runtime/review080/engine');await fs.mkdir(parent,{recursive:true});
+ await fs.mkdir('.runtime/review080/engine',{recursive:true});const parent=await fs.realpath('.runtime/review080/engine');
  const root=await fs.mkdtemp(path.join(parent,'maintenance-')),id='中文实验实例',target=path.join(root,'versions',id),home=path.join(root,'.hxzl-maintenance',id);
  t.after(async()=>{assert.ok(root.startsWith(parent+path.sep));await fs.rm(root,{recursive:true,force:true});});
  const put=async(relative,value)=>{const file=path.join(target,relative);await fs.mkdir(path.dirname(file),{recursive:true});await fs.writeFile(file,value);};

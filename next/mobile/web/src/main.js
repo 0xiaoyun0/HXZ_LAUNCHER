@@ -1,3 +1,4 @@
+import {captureError} from './error-reporter.js';
 import {createApp} from 'vue';
 import App from './App.vue';
 import './style.css';
@@ -6,4 +7,4 @@ import './layout-hardening.css';
 import './card-finish.css';
 import './mobile-layout081.css';
 import '../../../packages/ui/file-input.css';
-createApp(App).mount('#app');
+const app=createApp(App);app.config.errorHandler=error=>captureError(error,'vue');app.mount('#app');

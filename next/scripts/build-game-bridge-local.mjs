@@ -20,6 +20,6 @@ const args=['--release','21','-encoding','UTF-8','-proc:none','-classpath',cp,'-
 const argFile=path.join(root,'build','javac-'+neo+'.args');await fs.writeFile(argFile,args.map(quote).join('\n'));
 await run('javac',['@'+argFile]);
 await fs.cp(path.join(root,'src/main/resources'),classes,{recursive:true});
-const output=path.join(out,'hxz-community-bridge-0.8.0-neoforge-1.21.1.jar');
+const output=path.join(out,'hxz-community-bridge-'+JSON.parse(await fs.readFile('package.json','utf8')).version+'-neoforge-1.21.1.jar');
 await run('jar',['--create','--file',output,'-C',classes,'.']);
 console.log('Bridge compiled against NeoForge '+neo+': '+output);

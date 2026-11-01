@@ -13,6 +13,7 @@ const signingFile=path.join(os.homedir(),'.hxz-launcher-publish','android-commun
 const javaHome=process.env.JAVA_HOME||'C:/Program Files/Java/jdk-21';const java=path.join(javaHome,'bin',process.platform==='win32'?'java.exe':'java');const javac=path.join(javaHome,'bin',process.platform==='win32'?'javac.exe':'javac');const toolDir=path.join(root,'.runtime','android-sign-tools');
 await fs.mkdir(toolDir,{recursive:true});execFileSync(javac,['-encoding','UTF-8','-d',toolDir,path.join(root,'mobile','tools','SignAndroidUpdate.java')],{stdio:'pipe'});
 const manifestFile=path.join(root,'release',version,'updates','android-latest.json');
+await fs.mkdir(path.dirname(manifestFile),{recursive:true});
 execFileSync(java,['-cp',toolDir,'SignAndroidUpdate',path.join(root,apk),String(build),version,payload.url,path.join(root,'docs',`${version}发布说明.md`),manifestFile],{stdio:'pipe',env:{...process.env,HXZ_ANDROID_KEYSTORE:signing.keystore,HXZ_ANDROID_STORE_PASSWORD:signing.password}});
 await fs.copyFile(manifestFile,path.join(root,'release',version,'updates',`android-${build}.json`));
 const envelope=JSON.parse(await fs.readFile(manifestFile,'utf8'));const envelopeBytes=Buffer.from(JSON.stringify(envelope)+'\n');

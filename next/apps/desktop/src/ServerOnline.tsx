@@ -1,7 +1,7 @@
 import {useEffect,useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {Play,Download,RefreshCw,Users,Settings2} from 'lucide-react';
-import {state,task,ui,launch,selectInstance} from './model';
+import {state,task,ui,launch,selectInstance,invoke,desktop} from './model';
 import {request,useData} from './data';
 import {Button,Modal} from './ui';
 import {PackIcon} from './GameLibrary';
@@ -9,8 +9,8 @@ import {CardCollection,ContentCard} from './CardPrimitives';
 import './server-online.css';
 const statusIds:Record<string,string>={'HXZ-survival':'survival','HXZ-mod-1':'mod-1','HXZ-mod-2':'mod-2'};
 export function ServerOnline(){
- const s=useSnapshot(state),t=useSnapshot(task),value=useData(()=>request('/api/server-online?refresh=1')),[players,setPlayers]=useState('');
- const servers=s.instances.filter((item:any)=>item.builtin),busy=t.busy||s.running;
+ const s=useSnapshot(state),t=useSnapshot(task),value=useData(()=>desktop?invoke('servers.status',{refresh:true}):request('/api/server-online?refresh=1')),[players,setPlayers]=useState('');
+ const servers=s.instances.filter((item:any)=>item.builtin),busy=t.busy||(s.running&&s.settings.keepLauncherAvailable===false);
  useEffect(()=>{const tick=setInterval(()=>{if(!document.hidden)void value.reload();},30000);return()=>clearInterval(tick);},[value.reload]);
  const statusFor=(id:string)=>value.data?.items?.find((item:any)=>item.id===statusIds[id]);
  const shown=statusFor(players),game=servers.find((item:any)=>item.id===players);
@@ -22,6 +22,6 @@ export function ServerOnline(){
    <button className="server-players-link" disabled={!status?.available} onClick={()=>setPlayers(item.id)}><Users size={15}/>查看在线玩家</button>
   </ContentCard>;})}</CardCollection>
   {!servers.length&&<p className="muted">正在准备默认服务器配置…</p>}
-  <Modal open={!!players} onClose={()=>setPlayers('')} title={(game?.name||'服务器')+' · 在线玩家'}><p>{shown?.online||0} 人在线</p><div className="server-player-chips">{shown?.players?.map((player:any,i:number)=><span key={(player.id||player.name)+'-'+i}>{player.name}</span>)}</div><p className="muted">{shown?.players?.length?'这里显示服务器公开的玩家名单，可能不是全部在线玩家。':shown?.online?'服务器未公开玩家名单。':'目前没有在线玩家。'}</p></Modal>
+  <Modal open={!!players} onClose={()=>setPlayers('')} title={(game?.name||'服务器')+' · 在线玩家'}><p>{shown?.online||0} 人在线</p><div className="server-player-chips">{shown?.players?.map((player:any,i:number)=><span key={(player.id||player.name)+'-'+i}>{player.name}</span>)}</div><p className="muted">{shown?.players?.length?(shown.sample===false?'游戏桥返回的完整在线玩家名单。':'这里显示服务器公开的玩家名单，可能不是全部在线玩家。'):shown?.online?'服务器未公开玩家名单。':'目前没有在线玩家。'}</p></Modal>
  </div>;
 }

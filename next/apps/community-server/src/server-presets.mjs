@@ -10,7 +10,8 @@ export function createServerPresets({data,admin,body,send,broadcast,initialize})
     if(url.pathname.includes('/admin/'))admin(req);
     if(req.method==='GET')send(res,200,{servers});
     else if(req.method==='PUT'&&url.pathname.includes('/admin/')) {
-      const next=normalizePresets((await body(req)).servers);
+      let next=normalizePresets((await body(req)).servers);
+      if(typeof initialize==='function')next=normalizePresets(initialize(next));
       writeFileSync(file+'.tmp',JSON.stringify(next,null,2));renameSync(file+'.tmp',file);servers=next;
       broadcast({type:'server-presets-changed'});send(res,200,{servers});
     } else send(res,405,{error:'不支持的操作'});

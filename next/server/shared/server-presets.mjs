@@ -1,7 +1,7 @@
 export const DEFAULT_SERVERS = [
   {id:"HXZ-survival",group:"survival",name:"原版生存群组服",version:"26.2",loader:"fabric",loaderVersion:"",fabricAPI:true,address:"s1.hxzmc.top",updateUrls:["https://hxzup.1szt.com/original"],autoUpdate:true,updateRequired:false,autoJoin:true,enabled:true,profileSource:"manual",packageUrl:"",packageSha256:"",fec:{enabled:true,origin:"",token:"",dataShards:8,parityShards:24,shardSize:1000,recoveryTimeoutMs:200,maxRetries:5,cacheBlocks:256}},
-  {id:"HXZ-mod-1",group:"mod-1",name:"模组一服",version:"",loader:"",loaderVersion:"",fabricAPI:false,address:"",updateUrls:["https://hxzup.1szt.com/modv1"],autoUpdate:true,updateRequired:false,autoJoin:true,enabled:true,profileSource:"hxzup",packageUrl:"",packageSha256:"",fec:{enabled:true,origin:"",token:"",dataShards:8,parityShards:24,shardSize:1000,recoveryTimeoutMs:200,maxRetries:5,cacheBlocks:256}},
-  {id:"HXZ-mod-2",group:"mod-2",name:"模组二服",version:"",loader:"",loaderVersion:"",fabricAPI:false,address:"",updateUrls:["https://hxzup.1szt.com/modv2"],autoUpdate:true,updateRequired:false,autoJoin:true,enabled:true,profileSource:"hxzup",packageUrl:"",packageSha256:"",fec:{enabled:true,origin:"",token:"",dataShards:8,parityShards:24,shardSize:1000,recoveryTimeoutMs:200,maxRetries:5,cacheBlocks:256}}
+  {id:"HXZ-mod-1",group:"mod-1",name:"模组一服",version:"",loader:"",loaderVersion:"",fabricAPI:false,address:"s2.hxzmc.top",updateUrls:["https://hxzup.1szt.com/modv1"],autoUpdate:true,updateRequired:false,autoJoin:true,enabled:true,profileSource:"hxzup",packageUrl:"",packageSha256:"",fec:{enabled:true,origin:"",token:"",dataShards:8,parityShards:24,shardSize:1000,recoveryTimeoutMs:200,maxRetries:5,cacheBlocks:256}},
+  {id:"HXZ-mod-2",group:"mod-2",name:"模组二服",version:"",loader:"",loaderVersion:"",fabricAPI:false,address:"s3.hxzmc.top",updateUrls:["https://hxzup.1szt.com/modv2"],autoUpdate:true,updateRequired:false,autoJoin:true,enabled:true,profileSource:"hxzup",packageUrl:"",packageSha256:"",fec:{enabled:true,origin:"",token:"",dataShards:8,parityShards:24,shardSize:1000,recoveryTimeoutMs:200,maxRetries:5,cacheBlocks:256}}
 ];
 function normalizeFec(value, fallback) {
   const input = value && typeof value === 'object' ? value : fallback;
@@ -40,6 +40,7 @@ export function normalizePresets(value) {
     }
     if (!p.name || p.name.length>50 || !['manual','hxzup','package'].includes(p.profileSource) || !['','fabric','quilt','forge','neoforge'].includes(p.loader)) throw Error('服务器名称、安装来源或加载器无效');
     for (const key of ['version','loaderVersion']) if(p[key]&&!/^[\w.+-]{1,100}$/.test(p[key]))throw Error('游戏或加载器版本格式无效');
+    if(!p.address&&p.profileSource==='hxzup')p.address=base.address;
     if(p.address&&!/^(?:[a-z0-9][a-z0-9.-]*|\[[0-9a-f:]+\])(?::\d{1,5})?$/i.test(p.address))throw Error('游戏服务器地址无效');
     if (!Array.isArray(input.updateUrls) || input.updateUrls.length>16) throw Error('每个服务器最多设置 16 个更新地址');
     p.updateUrls=[...new Set(input.updateUrls.map(normalizeUpdateUrl))];

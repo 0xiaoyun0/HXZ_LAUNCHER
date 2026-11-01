@@ -24,7 +24,7 @@ export function PackIcon({game}:any){
 export function GameLibrary(){
  const s=useSnapshot(state),t=useSnapshot(task),role=account(s);
  const [query,setQuery]=useState(''),[filter,setFilter]=useState('all'),[manager,setManager]=useState(false),[order,setOrder]=useState('default');
- const locked=t.busy||s.running;
+ const locked=t.busy||(s.running&&s.settings.keepLauncherAvailable===false);
  const games=s.instances.filter((game:any)=>(game.name+' '+game.version).toLowerCase().includes(query.toLowerCase())&&(filter==='all'||filter==='official'&&game.builtin||filter==='local'&&!game.builtin||filter==='favorites'&&cfg(game.id,s).favorite)).slice().sort((a:any,b:any)=>Number(!!b.builtin)-Number(!!a.builtin)||(order==='name'?a.name.localeCompare(b.name,'zh-CN'):Number(cfg(b.id,s).favorite)-Number(cfg(a.id,s).favorite)));
  const openManager=async(game:any)=>{await selectInstance(game.id);setManager(true);};
  const start=async(game:any)=>{if(locked){ui.tasks=true;return;}await selectInstance(game.id);await launch(game.id);};
@@ -42,7 +42,7 @@ export function GameLibrary(){
   <div className="play-library-filter"><nav aria-label="游戏分类">{[{id:'all',label:'全部游戏'},{id:'official',label:'默认服务器'},{id:'local',label:'本地实例'},{id:'favorites',label:'收藏'}].map(f=><button key={f.id} aria-pressed={filter===f.id} className={filter===f.id?'active':''} onClick={()=>setFilter(f.id)}>{f.label}{f.id==='all'&&<small>{s.instances.length}</small>}</button>)}</nav><div className="play-library-actions"><div className="search"><Search size={16}/><input placeholder="搜索游戏" aria-label="搜索游戏" value={query} onChange={e=>setQuery(e.target.value)}/></div><Dropdown trigger={<button className="button icon-button" aria-label="排序与刷新"><ListFilter size={17}/></button>} items={[{label:'默认顺序',detail:order==='default'?'✓':'',action:()=>setOrder('default')},{label:'按名称排序',detail:order==='name'?'✓':'',action:()=>setOrder('name')},{separator:true},{label:'刷新游戏库',icon:RefreshCw,disabled:locked,action:reload}]}/><Button icon={PackageOpen} disabled={locked} onClick={()=>importPack()}>导入</Button><Link className="button solid" to="/workshop/install"><Plus size={16}/>安装游戏</Link></div></div>
   <div className="play-library-scroll">
    <div className="direct-game-grid">{games.map((game:any)=>{
-    const running=s.running&&selected(s)?.id===game.id,busy=t.busy&&selected(s)?.id===game.id;
+    const running=s.sessions?.some((session:any)=>session.instance===game.id),busy=t.busy&&selected(s)?.id===game.id;
     return <article className={'direct-game-card '+(running||busy?'game-active':'')} key={game.id}>
      <div className="game-card-head"><span className={'game-source '+(game.builtin?'official':'')}>{game.builtin?'幻想镇 · 默认服务器':'本地实例'}</span><Dropdown trigger={<button className="card-menu" aria-label={game.name+'的更多操作'}><MoreHorizontal size={19}/></button>} items={menu(game)}/></div>
      <button className="game-identity" disabled={locked} onClick={()=>perform(()=>openManager(game))} aria-label={'管理 '+game.name}><PackIcon game={game}/><span><h2>{game.name}</h2><span className="game-version-tags"><small>{version(game)}</small>{game.loader&&game.loader!=='跟随整合包'&&<small>{game.loader}</small>}</span></span></button>
