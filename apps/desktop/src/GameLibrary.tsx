@@ -1,6 +1,6 @@
-import {useState} from 'react';
+import {useDeferredValue,useMemo,useState} from 'react';
 import {useSnapshot} from 'valtio';
-import {Link} from 'react-router-dom';
+import {Link,useSearchParams} from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import {Play, Plus, Search, Settings2, FolderOpen, Star, MoreHorizontal, PackageOpen, RefreshCw, Square, Layers, Download, FileUp, Trash2, ChevronDown, X, UserRound, ArrowDownToLine, ListFilter, Check, ArrowUpRight} from 'lucide-react';
 import {state,ui,task,account,selected,cfg,perform,invoke,saveSettings,selectInstance,launch,importPack,reload,chooseRoot,bytes} from './model';
@@ -23,9 +23,17 @@ export function PackIcon({game}:any){
 
 export function GameLibrary(){
  const s=useSnapshot(state),t=useSnapshot(task),role=account(s);
- const [query,setQuery]=useState(''),[filter,setFilter]=useState('all'),[manager,setManager]=useState(false),[order,setOrder]=useState('default');
+ const [params]=useSearchParams();
+ const [page,setPage]=useState(0);
+ const [query,setQuery]=useState(params.get('q')||''),[filter,setFilter]=useState('all'),[manager,setManager]=useState(false),[order,setOrder]=useState('default');
  const locked=t.busy||(s.running&&s.settings.keepLauncherAvailable===false);
- const games=s.instances.filter((game:any)=>(game.name+' '+game.version).toLowerCase().includes(query.toLowerCase())&&(filter==='all'||filter==='official'&&game.builtin||filter==='local'&&!game.builtin||filter==='favorites'&&cfg(game.id,s).favorite)).slice().sort((a:any,b:any)=>Number(!!b.builtin)-Number(!!a.builtin)||(order==='name'?a.name.localeCompare(b.name,'zh-CN'):Number(cfg(b.id,s).favorite)-Number(cfg(a.id,s).favorite)));
+ const term=useDeferredValue(query.trim().toLocaleLowerCase());
+ const preferences=s.settings.instanceSettings;
+ const games=useMemo(()=>s.instances.filter((g:any)=>{
+   if(filter==='official'&&!g.builtin||filter==='local'&&g.builtin||filter==='favorites'&&!preferences[g.id]?.favorite)return false;
+   return !term||[g.name,g.id,g.version,g.loader].join(' ').toLocaleLowerCase().includes(term);
+ }).slice().sort((a:any,b:any)=>Number(!!b.builtin)-Number(!!a.builtin)||(order==='name'?a.name.localeCompare(b.name,'zh-CN'):Number(!!preferences[b.id]?.favorite)-Number(!!preferences[a.id]?.favorite))),[s.instances,term,filter,order,preferences]);
+ const size=24,pages=Math.max(1,Math.ceil(games.length/size)),current=Math.min(page,pages-1);
  const openManager=async(game:any)=>{await selectInstance(game.id);setManager(true);};
  const start=async(game:any)=>{if(locked){ui.tasks=true;return;}await selectInstance(game.id);await launch(game.id);};
  const menu=(game:any)=>[
@@ -39,20 +47,21 @@ export function GameLibrary(){
   <header className="play-library-toolbar"><div className="library-location"><h1>我的游戏</h1><Link className="button" to="/library/worlds">世界与入服</Link><button onClick={()=>perform(chooseRoot)} title={s.settings.gameRoot||'选择游戏目录'}><FolderOpen size={15}/><span>{s.settings.gameRoot||'选择已有游戏目录'}</span><ChevronDown size={12}/></button></div>
    <div className="library-profile">{role?<Dropdown trigger={<button className="library-account"><Avatar name={role.name} image={role.avatar} size={33}/><span><small>当前角色</small><strong>{role.name||role.username}</strong></span><ChevronDown size={14}/></button>} items={[...s.accounts.map((a:any)=>({label:a.name||a.username,detail:a.id===role.id?'当前':'',action:async()=>{disconnect();await saveSettings({selectedAccount:a.id});void connect();}})),{separator:true},{label:'管理账号与角色',action:()=>location.hash='/account'},{label:'添加账号',icon:Plus,action:()=>ui.dialog='account'}]}/>:<Button icon={UserRound} onClick={()=>ui.dialog='account'}>登录角色</Button>}</div>
   </header>
-  <div className="play-library-filter"><nav aria-label="游戏分类">{[{id:'all',label:'全部游戏'},{id:'official',label:'默认服务器'},{id:'local',label:'本地实例'},{id:'favorites',label:'收藏'}].map(f=><button key={f.id} aria-pressed={filter===f.id} className={filter===f.id?'active':''} onClick={()=>setFilter(f.id)}>{f.label}{f.id==='all'&&<small>{s.instances.length}</small>}</button>)}</nav><div className="play-library-actions"><div className="search"><Search size={16}/><input placeholder="搜索游戏" aria-label="搜索游戏" value={query} onChange={e=>setQuery(e.target.value)}/></div><Dropdown trigger={<button className="button icon-button" aria-label="排序与刷新"><ListFilter size={17}/></button>} items={[{label:'默认顺序',detail:order==='default'?'✓':'',action:()=>setOrder('default')},{label:'按名称排序',detail:order==='name'?'✓':'',action:()=>setOrder('name')},{separator:true},{label:'刷新游戏库',icon:RefreshCw,disabled:locked,action:reload}]}/><Button icon={PackageOpen} disabled={locked} onClick={()=>importPack()}>导入</Button><Link className="button solid" to="/workshop/install"><Plus size={16}/>安装游戏</Link></div></div>
+  <div className="play-library-filter"><nav aria-label="游戏分类">{[{id:'all',label:'全部游戏'},{id:'official',label:'默认服务器'},{id:'local',label:'本地实例'},{id:'favorites',label:'收藏'}].map(f=><button key={f.id} aria-pressed={filter===f.id} className={filter===f.id?'active':''} onClick={()=>{setFilter(f.id);setPage(0);}}>{f.label}{f.id==='all'&&<small>{s.instances.length}</small>}</button>)}</nav><div className="play-library-actions"><div className="search"><Search size={16}/><input placeholder="搜索游戏" aria-label="搜索游戏" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/></div><Dropdown trigger={<button className="button icon-button" aria-label="排序与刷新"><ListFilter size={17}/></button>} items={[{label:'默认顺序',detail:order==='default'?'✓':'',action:()=>setOrder('default')},{label:'按名称排序',detail:order==='name'?'✓':'',action:()=>setOrder('name')},{separator:true},{label:'刷新游戏库',icon:RefreshCw,disabled:locked,action:reload}]}/><Button icon={PackageOpen} disabled={locked} onClick={()=>importPack()}>导入</Button><Link className="button solid" to="/workshop/install"><Plus size={16}/>安装游戏</Link></div></div>
   <div className="play-library-scroll">
-   <div className="direct-game-grid">{games.map((game:any)=>{
-    const running=s.sessions?.some((session:any)=>session.instance===game.id),busy=t.busy&&selected(s)?.id===game.id;
+   <div className="direct-game-grid">{games.slice(current*size,(current+1)*size).map((game:any)=>{
+    const running=s.sessions?.find((session:any)=>session.instance===game.id),busy=t.busy&&selected(s)?.id===game.id;
     return <article className={'direct-game-card '+(running||busy?'game-active':'')} key={game.id}>
      <div className="game-card-head"><span className={'game-source '+(game.builtin?'official':'')}>{game.builtin?'幻想镇 · 默认服务器':'本地实例'}</span><Dropdown trigger={<button className="card-menu" aria-label={game.name+'的更多操作'}><MoreHorizontal size={19}/></button>} items={menu(game)}/></div>
      <button className="game-identity" disabled={locked} onClick={()=>perform(()=>openManager(game))} aria-label={'管理 '+game.name}><PackIcon game={game}/><span><h2>{game.name}</h2><span className="game-version-tags"><small>{version(game)}</small>{game.loader&&game.loader!=='跟随整合包'&&<small>{game.loader}</small>}</span></span></button>
      <div className="game-card-status"><i className={running?'running':game.error?'broken':ready(game)?'ready':''}/><span>{running?'游戏运行中':busy?t.phase:game.placeholder?'尚未开放':game.error?'需要修复':ready(game)?'已安装，可直接启动':'尚未安装'}</span>{cfg(game.id,s).favorite&&<Star size={13} className="card-favorite"/>}{cfg(game.id,s).autoUpdate&&<small title="启动前自动检查 HXZ UP 更新"><RefreshCw size={11}/>自动更新</small>}</div>
-     <div className="game-card-bottom"><Button tone={running?'danger':'solid'} className="card-launch" icon={running?Square:busy?Layers:ready(game)?Play:ArrowDownToLine} disabled={game.placeholder||(locked&&!running&&!busy)} onClick={()=>running?invoke('game.stop'):start(game)}>{running?'结束游戏':busy?'查看任务':ready(game)?'启动游戏':'安装并启动'}</Button><Button className="card-manage" icon={Settings2} disabled={locked} onClick={()=>openManager(game)}>管理</Button></div>
+     <div className="game-card-bottom"><Button tone={running?'danger':'solid'} className="card-launch" icon={running?Square:busy?Layers:ready(game)?Play:ArrowDownToLine} disabled={game.placeholder||(locked&&!running&&!busy)} onClick={()=>running?invoke('game.stop',{key:running.key}):start(game)}>{running?'结束游戏':busy?'查看任务':ready(game)?'启动游戏':'安装并启动'}</Button><Button className="card-manage" icon={Settings2} disabled={locked} onClick={()=>openManager(game)}>管理</Button></div>
     </article>;
    })}
    {!query&&<Link className="add-game-card" to="/workshop/install"><span><Plus size={25}/></span><strong>添加游戏</strong><small>安装新版本或导入整合包</small></Link>}
    </div>
    {!games.length&&query&&<Empty title="没有找到匹配的游戏">试试其他名称或版本号。</Empty>}
+   {pages>1&&<nav className="pager-3rd" aria-label="游戏库分页"><Button disabled={!current} onClick={()=>setPage(current-1)}>上一页</Button><span>第 {current+1} / {pages} 页 · {games.length} 个实例</span><Button disabled={current+1===pages} onClick={()=>setPage(current+1)}>下一页</Button></nav>}
    <div className="library-drop-hint"><PackageOpen size={15}/><span>支持拖入整合包，也可选择其他启动器的 .minecraft 目录。</span></div>
   </div>
   {t.busy&&<button className="library-current-task" onClick={()=>ui.tasks=true}><RefreshCw size={18} className="spin"/><span><strong>{t.phase}</strong><small>{t.total?`${t.completed} / ${t.total} ${t.unit} · ${bytes(t.speed)}/s`:'正在准备任务'}</small></span>{t.total>0&&<progress value={t.completed} max={t.total}/>}<span>查看详情<ArrowUpRight size={15}/></span></button>}

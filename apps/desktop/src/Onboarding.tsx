@@ -11,7 +11,7 @@ import './onboarding.css';
 export function Onboarding(){
  const s=useSnapshot(state),u=useSnapshot(ui),c=useSnapshot(community),navigate=useNavigate(),location=useLocation();
  const entries=guideEntries({admin:!!c.user?.admin}),[step,setStep]=useState(0),[tour,setTour]=useState(false),[folded,setFolded]=useState(false);
- const open=s.ready&&(!s.settings.onboardingDone||!!u.onboarding),entry=entries[Math.min(step,entries.length-1)];
+ const open=s.ready&&!!u.onboarding,entry=entries[Math.min(step,entries.length-1)];
  useEffect(()=>{if(!open){setTour(false);setStep(0);}},[open]);
  useEffect(()=>{setStep(index=>Math.min(index,entries.length-1));},[entries.length]);
  const finish=()=>perform(async()=>{await saveSettings({onboardingDone:true,onboardingVersion:GUIDE_VERSION});ui.onboarding=false;setTour(false);});

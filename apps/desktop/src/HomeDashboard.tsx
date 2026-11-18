@@ -1,4 +1,6 @@
-import {useEffect,useRef,useState} from 'react';
+import {useHomeCards} from './workspace/useHomeCards';
+import {resumeTarget} from '../../../packages/engine/core/resume.mjs';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {useNavigate} from 'react-router-dom';
 import {Play,Settings2,FolderOpen,ArrowRight,Square,Layers,Search,Star,PackageOpen,Download,Globe,UserPlus} from 'lucide-react';
@@ -31,21 +33,26 @@ export function Home(){
   identityPending.current=true;setSwitching(true);disconnect();
   try{await change();}finally{if(account())void connect();identityPending.current=false;setSwitching(false);}
  }
- useEffect(()=>{let live=true;const fallback=current.coverMedia||s.settings.defaultCover||(game?mediaFor(game):'');setCover(s.settings.showCover?fallback:'');if(game&&s.settings.showCover&&desktop)void invoke('instance.cover',{id:game.id}).then(value=>{if(live)setCover(value||fallback);}).catch(()=>{});return()=>{live=false;};},[game?.id,current.coverMedia,s.settings.defaultCover,s.settings.showCover]);
- const games=[...instances].filter((i:any)=>(i.name+' '+versionLabel(i)).toLowerCase().includes(query.trim().toLowerCase())).sort((a:any,b:any)=>Number(b.builtin)-Number(a.builtin)||Number(cfg(b.id,s).favorite)-Number(cfg(a.id,s).favorite));
+ useEffect(()=>{let live=true;const fallback=current.coverMedia||s.settings.defaultCover||'';setCover(s.settings.showCover?fallback:'');if(game&&s.settings.showCover&&desktop)void invoke('instance.cover',{id:game.id}).then(value=>{if(live)setCover(value||fallback);}).catch(()=>{});return()=>{live=false;};},[game?.id,current.coverMedia,s.settings.defaultCover,s.settings.showCover]);
+ const favorites=s.settings.instanceSettings,term=query.trim().toLowerCase();
+ const resume=resumeTarget(s.instances,s.settings),activeSession=resume&&s.sessions?.find((v:any)=>v.instance===resume.game.id&&v.root===s.settings.gameRoot);
+ const games=useMemo(()=>instances.filter((i:any)=>!term||(i.name+' '+versionLabel(i)).toLowerCase().includes(term)).slice().sort((a:any,b:any)=>Number(!!favorites[b.id]?.favorite)-Number(!!favorites[a.id]?.favorite)||Number(!!b.installed)-Number(!!a.installed)||Number(!!b.builtin)-Number(!!a.builtin)),[instances,term,favorites]);
+ const visible=(term||!resume?games:games.filter((g:any)=>g.id!==resume.game.id)).slice(0,3);
  const actionsFor=(i:any)=>{
   const open=async(dialog='details')=>{await selectInstance(i.id);if(dialog==='details')setManage(true);else{ui.instance=i.id;ui.dialog=dialog;}};
   return [{label:'管理实例',icon:PackageOpen,disabled:locked,action:()=>open()},{label:'启动配置',icon:Settings2,disabled:locked,action:()=>open('instance')},{label:'模组、资源包与蓝图',icon:Layers,disabled:locked||!i.installed,action:()=>open('mods')},{separator:true},...([['versions','版本目录'],['screenshots','截图目录'],['saves','存档目录']] as const).map(([kind,label])=>({label,icon:FolderOpen,disabled:!i.installed,action:()=>invoke('instance.folder',{id:i.id,kind})})),{label:cfg(i.id,s).favorite?'取消收藏':'收藏实例',icon:Star,disabled:locked,action:async()=>{await invoke('instance.favorite',{id:i.id,favorite:!cfg(i.id,s).favorite});await reload();}}];
  };
  async function startInstance(id:string){if(startPending.current||task.busy||(state.running&&state.settings.keepLauncherAvailable===false))return;startPending.current=true;setStarting(id);try{await selectInstance(id);await launch(id);}finally{startPending.current=false;setStarting('');}}
+ const cardsFromPlugins=useHomeCards();
  const cards:CardSpec[]=[
   {id:'library',title:'游戏实例',x:4,y:0,w:8,minW:4,minH:10,plain:true,className:'home-library-card',content:<div className="home-instance-list">
+   {resume&&<div className="home-resume"><div className="home-resume-meta"><PackIcon game={resume.game}/><span><small>{resume.reason==='last'?'上次游玩':'上次选择'}</small><strong>{resume.game.name}</strong></span></div><Button tone="solid" icon={activeSession?Square:Play} disabled={locked||!!resume.game.placeholder} onClick={()=>activeSession?invoke('game.stop',{key:activeSession.key}):startInstance(resume.game.id)}>{activeSession?'停止游戏':resume.game.installed?'继续游玩':'安装并启动'}</Button></div>}
    <div className="home-list-tools"><div className="search"><Search size={16}/><input value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索实例" aria-label="搜索实例"/></div><Button icon={PackageOpen} disabled={locked} onClick={()=>importPack()}>导入</Button><Button icon={Download} onClick={()=>navigate('/workshop/install')}>下载</Button></div>
-   <div className="home-game-rows">{games.map((i:any)=><ContextMenu key={i.id} items={actionsFor(i)}><div className={'home-game-row '+(game?.id===i.id?'selected':'')}><button disabled={locked} className="home-game-select" onClick={()=>perform(()=>selectInstance(i.id))} aria-pressed={game?.id===i.id} aria-label={'选择实例 '+i.name}><PackIcon game={i}/><span><strong>{i.name}{cfg(i.id,s).favorite&&<Star size={13}/>}</strong><small>{versionLabel(i)}{i.builtin&&!i.installed?' · 待安装':''}</small></span></button><Button className="home-instance-start" tone={game?.id===i.id?'solid':''} icon={Play} disabled={locked||!!i.placeholder} aria-label={(i.installed?'启动 ':'安装并启动 ')+i.name} onClick={()=>startInstance(i.id)}>{starting===i.id?'准备中':s.running&&game?.id===i.id?'运行中':i.installed?'启动':'安装并启动'}</Button></div></ContextMenu>)}</div>
+   <div className="home-game-rows">{visible.map((i:any)=><ContextMenu key={i.id} items={actionsFor(i)}><div className={'home-game-row '+(game?.id===i.id?'selected':'')}><button disabled={locked} className="home-game-select" onClick={()=>perform(()=>selectInstance(i.id))} aria-pressed={game?.id===i.id} aria-label={'选择实例 '+i.name}><PackIcon game={i}/><span><strong>{i.name}{cfg(i.id,s).favorite&&<Star size={13}/>}</strong><small>{versionLabel(i)}{i.builtin&&!i.installed?' · 待安装':''}</small></span></button><Button className="home-instance-start" icon={Play} disabled={locked||!!i.placeholder} aria-label={(i.installed?'启动 ':'安装并启动 ')+i.name} onClick={()=>startInstance(i.id)}>{starting===i.id?'准备中':s.sessions?.some((v:any)=>v.instance===i.id&&v.root===s.settings.gameRoot)?'运行中':i.installed?'启动':'安装并启动'}</Button></div></ContextMenu>)}</div>
    {!games.length&&<div className="home-list-empty muted"><p>{instances.length?'没有匹配的实例':'还没有游戏实例，可下载或导入整合包。'}</p></div>}
-   <div className="home-list-footer"><span>{instances.filter((i:any)=>i.installed).length} 个已安装{instances.some((i:any)=>i.builtin&&!i.installed)?' · 默认服务器可直接安装':''}</span><button disabled={!game||locked} onClick={async()=>{await selectInstance(game.id);setManage(true);}}>管理实例 <ArrowRight size={14}/></button></div>
+   <div className="home-list-footer"><button onClick={()=>navigate('/library'+(query?'?q='+encodeURIComponent(query):''))}>{query?'查看搜索结果':'打开游戏库'} · {games.length}</button><span>{instances.filter((i:any)=>i.installed).length} 个已安装{instances.some((i:any)=>i.builtin&&!i.installed)?' · 默认服务器可直接安装':''}</span></div>
   </div>},
-  {id:'launch',title:'实例详情',x:0,y:28,w:4,minW:4,minH:9,plain:true,className:'launch-card home-play-card',content:<div className="home-play">
+  {id:'launch',title:'所选实例详情',x:0,y:28,w:4,minW:4,minH:9,plain:true,className:'launch-card home-play-card',content:<div className="home-play">
    <div className="home-play-body">
    
    <div className="home-play-identity"><div><h2>{game?.name||'准备好进入幻想镇'}</h2>{game&&<p>{versionLabel(game)}</p>}</div>{game&&<span className={'home-ready '+(game?.error?'error':'')} aria-live="polite">{s.running?'游戏运行中':game?.error?'需要修复':game?.placeholder?'尚未开放':game?.installed?'已准备好':'首次启动自动安装'}</span>}</div>
@@ -66,5 +73,6 @@ export function Home(){
   {id:'playtime',title:'游玩日历',x:4,y:22,w:8,minW:4,minH:13,content:<PlayCalendar/>},
   {id:'monitor',title:'服务状态',x:0,y:14,w:4,minW:4,minH:5,className:'home-monitor-card',content:<ServerMonitor limit={3}/>} 
  ];
+ for(const {manifest,card} of cardsFromPlugins)cards.push({id:'plugin-'+manifest.id,title:card.title,x:0,y:40,w:4,minW:3,minH:4,content:<div className="setting-group"><p>{card.body}</p>{card.route&&<Button onClick={()=>navigate(card.route)}>打开</Button>}</div>});
  return <div className="air-home home-dashboard"><CardBoard id="home" pageTitle label="启动游戏" cards={cards}/><Modal open={manage} onClose={()=>setManage(false)} title="实例管理" wide><InstanceManager/></Modal></div>;
 }
