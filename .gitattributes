@@ -1,0 +1,11 @@
+* text=auto eol=lf
+*.bat text eol=crlf
+*.jar binary
+*.woff2 binary
+*.webp binary
+*.png binary
+*.so binary
+*.exe binary
+*.node binary
+*.ogg binary
+*.glb binary
