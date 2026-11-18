@@ -10,6 +10,7 @@ export function gameSessions(onChange=()=>{}){
   add(child,{instance,root,cleanup=()=>{}}){
    const session={key:randomUUID(),instance,root,pid:child.pid,started:Date.now(),child,stopped:false};
    sessions.set(session.key,session);publish();
+   child.once?.('spawn',()=>{session.pid=child.pid;publish();});
    let finished=false;session.finish=()=>{if(finished)return;finished=true;sessions.delete(session.key);Promise.resolve().then(cleanup).catch(()=>{});publish();};
    return session;
   },

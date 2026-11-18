@@ -1,3 +1,4 @@
+import {validateCard} from './card-plugin.mjs';
 import {createHash} from 'node:crypto';
 export const PLUGIN_API=1,PLUGIN_LIMIT=4*1024*1024;
 const identifier=/^[a-z][a-z0-9-]{2,63}$/;
@@ -7,6 +8,7 @@ export function validatePluginPackage(input){
  const bytes=typeof input==='string'?input:JSON.stringify(input);
  if(Buffer.byteLength(bytes)>PLUGIN_LIMIT)throw Error('插件包不能超过 4 MiB');
  const value=typeof input==='string'?JSON.parse(input):input,m=value?.manifest,files=value?.files;
+ if(value?.format==='hxz-card-v2')return validateCard(value);
  if(value?.format!=='hxz-plugin-v1'||!m||!identifier.test(m.id)||!version.test(m.version)||m.apiVersion!==PLUGIN_API)throw Error('插件标识、版本或 API 版本无效');
  for(const key of ['name','author','description'])if(typeof m[key]!=='string'||!m[key].trim()||m[key].length>(key==='description'?2000:100))throw Error('插件缺少有效的 '+key);
  if(!Array.isArray(m.permissions)||m.permissions.length!==1||m.permissions[0]!=='launcher.full')throw Error('完整启动器插件必须声明 launcher.full 权限');

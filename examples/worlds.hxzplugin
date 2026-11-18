@@ -1,0 +1,19 @@
+{
+  "format": "hxz-card-v2",
+  "manifest": {
+    "id": "worlds-shortcut",
+    "version": "1.0.0",
+    "apiVersion": 2,
+    "name": "世界收藏夹",
+    "author": "幻想镇",
+    "description": "在首页添加进入实例库的快捷卡片。",
+    "permissions": [
+      "home.card"
+    ]
+  },
+  "card": {
+    "title": "我的世界",
+    "body": "打开本机的实例与存档。",
+    "route": "/library"
+  }
+}

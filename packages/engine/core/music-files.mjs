@@ -52,6 +52,6 @@ export async function importMusicFile(root,source) {
    await output.write(chunk,0,bytesRead);position+=bytesRead;offset+=bytesRead;
   }
   await output?.close();output=null;
-  return {id:randomUUID(),title:String(metadata.musicName||path.basename(source,path.extname(source))).slice(0,200),artist:Array.isArray(metadata.artist)?metadata.artist.map(a=>Array.isArray(a)?a[0]:a).join(' / ').slice(0,200):'本地音乐',source:'local',format,url:'hxz-media://local/'+path.basename(target),size:stat.size-start};
+  return {id:randomUUID(),title:String(metadata.musicName||path.basename(source,path.extname(source))).slice(0,200),artist:Array.isArray(metadata.artist)?metadata.artist.map(a=>Array.isArray(a)?a[0]:a).join(' / ').slice(0,200):'本地音乐',source:'local',format,url:'http://hxz-media.localhost/'+path.basename(target),size:stat.size-start};
  } catch(error){await output?.close().catch(()=>{});if(target)await fs.rm(target,{force:true});throw error;}finally{await input.close();}
 }

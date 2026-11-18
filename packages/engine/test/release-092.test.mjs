@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
-import {once,EventEmitter} from 'node:events';
+import {once} from 'node:events';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -9,8 +9,8 @@ import {createServerConnection} from '../core/server-connection.mjs';
 import {varint,queryMinecraftStatus} from '../../../server/shared/minecraft-connection.mjs';
 import {gameSessions} from '../core/game-sessions.mjs';
 import {createErrorReporter} from '../core/error-reporter.mjs';
-import {createPluginHost} from '../core/plugin-host.mjs';
-import {validatePluginPackage} from '../../../server/shared/plugin-package.mjs';
+import {cardPlugins} from '../../../engine/plugins.mjs';
+import {validateCard} from '../../../server/shared/card-plugin.mjs';
 import {createFecAutoconfig} from '../../../apps/community-server/src/fec-autoconfig.mjs';
 
 async function temporary(t){const root=await fs.mkdtemp(path.join(os.tmpdir(),'hxz092-'));t.after(async()=>{assert.ok(root.startsWith(path.join(os.tmpdir(),'hxz092-')));await fs.rm(root,{recursive:true,force:true});});return root;}
@@ -29,15 +29,19 @@ test('diagnostics survive offline restart and retry with the same event identity
  await r.capture({message:'failure',detail:'password=secretvalue'});await r.flush();assert.equal(r.status().pending,1);await r.close();offline=false;
  r=await createErrorReporter({data,version:'0.9.2',enabled:()=>true,send:async e=>{seen.push(e.eventId);assert.doesNotMatch(e.detail,/secretvalue/);}});await r.flush();assert.equal(r.status().pending,0);assert.equal(new Set(seen).size,1);await r.close();
 });
-test('full launcher plugin installs disabled, requires trust, activates and cleans up',async t=>{
- const data=await temporary(t),scripts=[],wc=new EventEmitter();wc.executeJavaScript=async code=>scripts.push(code);wc.isLoading=()=>false;wc.getURL=()=>'';
- const win={webContents:wc,isDestroyed:()=>false},services={value:0};
- const p=validatePluginPackage({format:'hxz-plugin-v1',manifest:{id:'test-local',version:'1.0.0',apiVersion:1,name:'Local test',author:'test',description:'integration',permissions:['launcher.full'],platforms:['win32-x64'],main:'main.cjs',renderer:'renderer.js'},files:{'main.cjs':'exports.activate=api=>{api.services.value=42;return ()=>{api.services.value=0;};};','renderer.js':'api.document.title="plugin";'}});
- const file=path.join(data,'test.hxzplugin');await fs.writeFile(file,p.serialized);
- const host=await createPluginHost({data,window:()=>win,app:{},services,dialog:{showOpenDialog:async()=>({canceled:false,filePaths:[file]})},request:async()=>{throw Error('unused');}});t.after(()=>host.close());
- await host.invoke('plugins.install');assert.equal(services.value,0);await assert.rejects(()=>host.invoke('plugins.enable',{id:p.manifest.id}),/确认/);
- await host.invoke('plugins.enable',{id:p.manifest.id,accepted:true});assert.equal(services.value,42);wc.emit('did-finish-load');await new Promise(r=>setTimeout(r,10));assert.ok(scripts.some(v=>v.includes('document.title')));
- await host.invoke('plugins.disable',{id:p.manifest.id});assert.equal(services.value,0);
+test('home card installation, consent, persistence, cancellation and removal',async t=>{
+ const home=await temporary(t),file=path.resolve('examples/worlds.hxzplugin'),events=[];
+ const fixture=JSON.parse(await fs.readFile(file,'utf8')),id=fixture.manifest.id;
+ let cancel=true;
+ const options={home,choose:async()=>({canceled:cancel,filePaths:[file]}),request:async()=>{throw Error('unexpected network');},emit:e=>events.push(e)};
+ const invoke=cardPlugins(options);
+ assert.equal((await invoke('plugins.install',{})).cancelled,true);cancel=false;
+ await invoke('plugins.install',{});assert.equal((await invoke('plugins.list',{})).items[0].enabled,false);
+ await assert.rejects(invoke('plugins.enable',{id}),/确认/);await invoke('plugins.enable',{id,accepted:true});
+ assert.equal((await cardPlugins(options)('plugins.list',{})).items[0].enabled,true);
+ await Promise.all([invoke('plugins.disable',{id}),invoke('plugins.remove',{id})]);
+ assert.deepEqual((await invoke('plugins.list',{})).items,[]);assert.equal(events.length,4);
+ assert.throws(()=>validateCard({...fixture,files:{}}),/字段/);
 });
 test('managed native HXZRE origin transports MC packets in both directions',async t=>{
  const data=await temporary(t),address=await mc(t),udp=await import('node:dgram'),socket=udp.createSocket('udp4');socket.bind(0,'127.0.0.1');await once(socket,'listening');const port=socket.address().port;await new Promise(r=>socket.close(r));

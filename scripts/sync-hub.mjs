@@ -15,3 +15,5 @@ await copyFile(new URL('../server/shared/plugin-package.mjs',import.meta.url),ne
 await copyFile(new URL('../server/shared/hxzre-tunnel.mjs',import.meta.url),new URL('../apps/community-server/shared/hxzre-tunnel.mjs',import.meta.url));
 
 await copyFile(new URL('../server/shared/minecraft-proxy.mjs',import.meta.url),new URL('../apps/community-server/shared/minecraft-proxy.mjs',import.meta.url));
+
+await copyFile(new URL('../server/shared/card-plugin.mjs',import.meta.url),new URL('../apps/community-server/shared/card-plugin.mjs',import.meta.url));

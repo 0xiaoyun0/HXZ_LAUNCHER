@@ -14,7 +14,7 @@ export function createPluginMarket({db,auth,admin,body,send,limit}){
    const mine=url.searchParams.get('mine')==='1',q=String(url.searchParams.get('q')||'').slice(0,100),offset=Math.max(0,Math.min(100000,Number(url.searchParams.get('offset'))||0));
    const where=isAdmin?'1=1':mine?'owner=?':"status='approved'",args=mine&&!isAdmin?[user.uid]:[];
    const clause=' WHERE '+where+' AND (?=\'\' OR instr(manifest,?)>0)';args.push(q,q);
-   send(res,200,{items:db.prepare('SELECT * FROM launcher_plugins'+clause+' ORDER BY updated DESC LIMIT 30 OFFSET ?').all(...args,offset).map(publicRow),total:db.prepare('SELECT count(*) n FROM launcher_plugins'+clause).get(...args).n,apiVersion:1});return true;
+   send(res,200,{items:db.prepare('SELECT * FROM launcher_plugins'+clause+' ORDER BY updated DESC LIMIT 30 OFFSET ?').all(...args,offset).map(publicRow),total:db.prepare('SELECT count(*) n FROM launcher_plugins'+clause).get(...args).n,apiVersion:2});return true;
   }
   if(!id&&req.method==='POST'&&!isAdmin){
    limit('plugin-submit:'+user.uid,4,3600000);const input=await body(req,PLUGIN_LIMIT+65536),value=validatePluginPackage(input.package);

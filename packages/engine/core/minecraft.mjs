@@ -120,7 +120,7 @@ export async function scanInstances(root) {
       result.push({ id: e.name, name: e.name, installed: false, error: error.message });
     }
   }
-  return result.slice(0, 300);
+  return result;
 }
 const javaInspections = new Map();
 export async function inspectJava(binary) {

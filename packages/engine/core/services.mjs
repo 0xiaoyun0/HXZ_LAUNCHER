@@ -63,7 +63,7 @@ import { configureDownloads } from './io.mjs';
 import {
   findJava,
   inspectJava,
-  scanInstances,
+  scanInstances as scanOnDisk,
   prepareLaunch,
   readVersion
 } from "./minecraft.mjs";
@@ -104,7 +104,7 @@ export async function createServices({
   skinPanel,
   netease,
   p2pRuntime
-  ,version='0.9.2'
+, version, scanInstances=scanOnDisk, spawnGame=spawn, initialRoot=defaultGameRoot
 }) {
   await fs.mkdir(data, { recursive: true });
   const dependencies=await dependencyStore(dependencyRoot,data);
@@ -136,7 +136,7 @@ export async function createServices({
     downloadMode: "official",
     fecEnabled: true,
     keepLauncherAvailable: true,
-    autoReportErrors: true,
+    autoReportErrors: false,
     communityRelayEnabled: true,
     downloadConcurrency: 32,
     downloadSpeedMBps: 0,
@@ -164,17 +164,18 @@ export async function createServices({
     },
     instanceSettings: {}
   };
+  const preferenceKeys = new Set(Object.keys(settings));
   if (await exists(configFile))
     settings = { ...settings, ...(await json(configFile)) };
   settings.shortcuts=migrateShortcuts(settings.shortcuts);
   if (!settings.gameRoot) {
-    settings.gameRoot = await defaultGameRoot();
+    settings.gameRoot = await initialRoot();
     if (settings.gameRoot) await writeJSON(configFile, settings);
   }
   if (!Array.isArray(settings.hiddenInstances)) settings.hiddenInstances = [];
   const presetCatalog = await createPresetCatalog(data,()=>settings.communityUrl);
   const serverConnection=createServerConnection({presets:()=>presetCatalog.list(),remote:route=>remoteJSON(endpoint(settings.communityUrl)+route,{signal:AbortSignal.timeout(2500)})});
-  void presetCatalog.refresh();
+  // Refresh server presets on demand. Opening the local library only reads disk.
   // Extend old settings without resetting the player's appearance.
   settings.appearanceVersion = APPEARANCE_VERSION;
   settings.cardLayouts = normalizeCardLayouts(settings.cardLayouts);
@@ -238,9 +239,9 @@ export async function createServices({
   if (persistent && (await exists(accountFile)))
     try {
       accounts = JSON.parse(
-        safeStorage.decryptString(await fs.readFile(accountFile))
+        await safeStorage.decryptString(await fs.readFile(accountFile))
       );
-    } catch {}
+    } catch { throw Error("本机账号记录无法解密，请备份账号文件后重新登录"); }
   const sessions=gameSessions(emit);
   let task = null,
     logs = [],
@@ -327,7 +328,7 @@ export async function createServices({
   async function saveAccounts() {
     rememberSecrets();
     if (persistent) {
-      const buffer = safeStorage.encryptString(JSON.stringify(accounts));
+      const buffer = await safeStorage.encryptString(JSON.stringify(accounts));
       const tmp = accountFile + ".tmp";
       await fs.writeFile(tmp, buffer, { mode: 0o600 });
       await fs.rename(tmp, accountFile);
@@ -651,7 +652,7 @@ export async function createServices({
       if (!settings.gameRoot) {
         await withSettings(async () => {
           if (settings.gameRoot) return;
-          settings.gameRoot = await defaultGameRoot();
+          settings.gameRoot = await initialRoot();
           if (!settings.gameRoot) throw Error("未找到空间充足的非 C 盘，请在设置中选择游戏目录");
           await writeJSON(configFile, settings);
         });
@@ -794,13 +795,19 @@ export async function createServices({
       const performanceEntry=inspectJava(command.command).catch(()=>({version:'',arch:''})).then(runtimeInfo=>performanceHistory.start({instance:id,root:startedRoot,preparationMs:gameStarted-preparationStarted,memoryMB:recordedMemory,javaVersion:runtimeInfo.version,architecture:runtimeInfo.arch})).catch(error=>{log('启动统计未保存：'+error.message);return null;});let spawnFailed=false;
       const capture=line=>{if(direct?.mode==='host'){const ready=line.match(/\[HXZ-DIRECT\] READY (\d+)/);if(ready)lobby.markReady(ready[1]);if(line.includes('[HXZ-DIRECT] WAITING'))lobby.markWaiting();const helperError=line.match(/\[HXZ-DIRECT\] ERROR (.+)/);if(helperError)lobby.markError(helperError[1].split(']]>')[0].replace(/<\/?log4j:[^>]*>/g,'').trim());}gameLogs.push(redactDiagnostic(line,[...secrets]));if(gameLogs.length>5000)gameLogs.splice(0,gameLogs.length-5000);return false;};
       log("[启动] 实例: "+id+" · 目录: "+command.cwd+" · Java: "+command.command+" · 内存: "+cfg.memoryMB+" MB");
-      const child = spawn(command.command, command.args, {
+      const child = spawnGame(command.command, command.args, {
         cwd: command.cwd,
         windowsHide: true,
         shell: false
       });
       const session=sessions.add(child,{instance:id,root:startedRoot,cleanup:async()=>{offlineSession?.close();await fecEdge?.stop();}});
-      child.once('spawn',()=>{void personalPlaytime.start(child).catch(error=>log('游玩日历未保存：'+error.message));});
+      child.once('spawn',()=>{
+        emit({type:'game-window',action:settings.gameWindowAction});
+        void withSettings(async()=>{
+          const next={...settings,lastPlayed:{id,root:startedRoot,startedAt:gameStarted}};
+          await writeJSON(configFile,next);settings=next;emit({type:'last-played',value:next.lastPlayed});
+        }).catch(error=>log('最近游玩记录未保存：'+error.message));
+        void personalPlaytime.start(child).catch(error=>log('游玩日历未保存：'+error.message));});
       child.once('exit',()=>{void personalPlaytime.stop(child).catch(error=>log('游玩日历未保存：'+error.message));});
       attachLog(child.stdout,capture);
       attachLog(child.stderr,capture);
@@ -819,6 +826,7 @@ export async function createServices({
         });
       });
       child.on("close", (code, exitSignal) => {
+        if(sessions.size<=1)emit({type:"game-window",action:"restore"});
         const stopped=session.stopped;void performanceEntry.then(key=>key&&performanceHistory.finish(key,{code,signal:exitSignal,stopped,failedToStart:spawnFailed})).catch(error=>log('启动统计未保存：'+error.message));
         if(direct)void lobby.close('游戏已退出，联机已关闭');
         offlineSession?.close();offlineSession=null;
@@ -1332,7 +1340,7 @@ export async function createServices({
         running: sessions.size>0,sessions:sessions.list()
       };
     },
-    async "settings.save"(input) {
+    async "settings.save"(input, imported, previousGame) {
       if (Object.keys(input).some(k => !LIVE_SETTINGS.has(k))) busy();
       const nextSettings={...settings,columns:Object.fromEntries(Object.entries(settings.columns).map(([key,value])=>[key,{...value}])),instanceSettings:{...settings.instanceSettings}};
       if(input.cardPlacements!=null)nextSettings.cardPlacements=normalizeCardPlacements(input.cardPlacements);
@@ -1569,6 +1577,14 @@ export async function createServices({
             Math.min(2, Number.isFinite(v.coverZoom) ? v.coverZoom : 1)
           )
         };
+      }
+      if (imported) {
+        if(previousGame)nextSettings.lastPlayed=previousGame;
+        for (const [key,value] of Object.entries(imported)) {
+          if (!preferenceKeys.has(key) && !Object.hasOwn(nextSettings,key) && !["__proto__","prototype","constructor"].includes(key)) {
+            Object.defineProperty(nextSettings,key,{value,enumerable:true,writable:true,configurable:true});
+          }
+        }
       }
       await writeJSON(configFile, nextSettings);
       settings=nextSettings;
@@ -1855,12 +1871,7 @@ export async function createServices({
         await noLinks(source);
         if ((await fs.stat(source)).size > 16 * 1024 * 1024)
           throw Error("头图原图不能超过16MB");
-        const image = await nativeImage.createThumbnailFromPath(source, {
-          width: 1600,
-          height: 900
-        });
-        if (image.isEmpty()) throw Error("无法读取图片");
-        const buffer = image.toJPEG(80);
+        const buffer = await nativeImage.thumbnail(source);
         if (buffer.length > 1024 * 1024) throw Error("头图过大，请换一张图片");
         await fs.mkdir(path.dirname(file), { recursive: true });
         await fs.writeFile(file, buffer);
@@ -2081,24 +2092,8 @@ export async function createServices({
       await noLinks(file);
       if ((await fs.stat(file)).size > 8 * 1024 * 1024)
         throw Error("头像原图请小于 8 MB");
-      let image = await nativeImage.createThumbnailFromPath(file, {
-        width: 128,
-        height: 128
-      });
-      if (image.isEmpty()) throw Error("无法读取头像图片");
-      const { width, height } = image.getSize(),
-        side = Math.min(width, height);
-      image = image
-        .crop({
-          x: Math.floor((width - side) / 2),
-          y: Math.floor((height - side) / 2),
-          width: side,
-          height: side
-        })
-        .resize({ width: 96, height: 96 });
-      let png = image.toPNG();
-      if (png.length > 17000)
-        png = image.resize({ width: 64, height: 64 }).toPNG();
+      let png = await nativeImage.thumbnail(file, {avatar:true});
+      if (png.length > 17000) png = await nativeImage.thumbnail(file, {avatar:true,small:true});
       if (png.length > 18000) throw Error("头像处理失败，请换一张图片");
       return "data:image/png;base64," + png.toString("base64");
     },
@@ -2212,6 +2207,10 @@ export async function createServices({
   };
   let exclusive = false;
   return {
+    importPreferences(patch,original,previousGame=null) {
+      if(exclusive||task||sessions.size)throw Error("请先结束正在运行的游戏或任务");
+      return withSettings(()=>actions["settings.save"](patch,original,previousGame));
+    },
     hasAuthenticatedAccount() { return accounts.some(a => a.id === settings.selectedAccount && !!a.accessToken); },
     async invoke(action, input = {}) {
       if (!Object.hasOwn(actions, action)) throw Error("不支持的操作");

@@ -1,0 +1,16 @@
+{
+  "identifier": "local-workspace",
+  "description": "Allow bundled launcher and local companion panels to receive their own events and move their windows.",
+  "windows": [
+    "main",
+    "lyrics",
+    "voice",
+    "chat"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-start-dragging",
+    "core:window:allow-toggle-maximize"
+  ]
+}

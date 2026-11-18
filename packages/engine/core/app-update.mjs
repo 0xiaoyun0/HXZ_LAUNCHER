@@ -1,9 +1,7 @@
-import updaterPackage from "electron-updater";
 import path from 'node:path';
 import {readFileSync,writeFileSync,renameSync,mkdirSync,unlinkSync} from 'node:fs';
 import { remoteJSON } from "./io.mjs";
 import { discoverRelease, RELEASE_ROOT, compareVersions, UPDATE_SOURCES, fetchUpdateJSON } from "./update-sources.mjs";
-import { SignedReleaseProvider } from "./update-provider.mjs";
 export const REPOSITORY = {
   provider: "github",
   owner: "0xiaoyun0",
@@ -33,12 +31,12 @@ export function createAppUpdate({
   isBusy,
   emit,
   localOnly = false,
-  updater = updaterPackage.autoUpdater,
+  updater,
   discover = discoverRelease,
   stallTimeout = 45000
 }) {
   // Acceptance editions must never install a production release over themselves.
-  if (localOnly || /-air(?:$|[.-])/.test(app.getVersion())) {
+  if (!updater || localOnly || /-air(?:$|[.-])/.test(app.getVersion())) {
     const state={phase:'本地交付版 · 尚未接入在线程序更新',version:app.getVersion(),available:false,ready:false,percent:0};
     const notify=()=>{emit({type:'app-update',...state});return {...state};};
     return {status:()=>({...state}),check:async()=>notify(),download:async()=>{throw Error('本地交付版暂未发布在线更新');},install:()=>false,configure:()=>notify(),dispose:()=>{}};
@@ -71,7 +69,6 @@ export function createAppUpdate({
   async function selectSource(source) {
     updater.setFeedURL({
       provider: "custom",
-      updateProvider: SignedReleaseProvider,
       info: release.info,
       source
     });

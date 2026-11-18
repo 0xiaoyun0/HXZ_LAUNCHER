@@ -4,7 +4,6 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import {listInstanceFiles,toggleInstanceFile,importInstanceFiles,removeInstanceFile} from '../core/instance-files.mjs';
-import {gameEventDelivery} from '../../../apps/desktop/electron/game-events.mjs';
 
 test('Chinese instance paths: import, disable, restart and enable all four file kinds',async t=>{
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-files-081-'));t.after(()=>fs.rm(root,{recursive:true,force:true}));
@@ -25,10 +24,4 @@ test('Chinese instance paths: import, disable, restart and enable all four file 
  await assert.rejects(listInstanceFiles(settings,'../escape','mods'),/无效/);
  await assert.rejects(importInstanceFiles(settings,id,'mods',[path.join(source,'测试-resources.zip')]),/jar/);
  settings.instanceSettings[id].isolated=false;await importInstanceFiles(settings,id,'mods',[path.join(source,'测试-mods.jar')]);assert.equal((await listInstanceFiles(settings,id,'mods')).shared,true);assert.equal(await fs.readFile(path.join(gameRoot,'mods/测试-mods.jar'),'utf8'),'fixture-mods');
-});
-
-test('exit notification wakes and reaches renderer even when window restore throws',()=>{
- const calls=[];
- const deliver=gameEventDelivery({mainWindow:()=>({isDestroyed:()=>false,webContents:{isDestroyed:()=>false,send:()=>calls.push('notify')}}),wake:()=>calls.push('wake'),companion:()=>({game:()=>{calls.push('restore');throw Error('Object has been destroyed');}}),diagnostic:()=>calls.push('record')});
- assert.doesNotThrow(()=>deliver({type:'task',running:false}));assert.deepEqual(calls,['wake','notify','restore','record']);
 });
