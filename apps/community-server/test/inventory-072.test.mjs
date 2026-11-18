@@ -1,0 +1,88 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {createPoints} from '../src/points.mjs';
+import {createInventory, entitlementEnd} from '../src/inventory.mjs';
+import {createShop} from '../src/shop.mjs';
+import {createMusicAccess} from '../src/music-access.mjs';
+
+function fixture(t) {
+  const db = new DatabaseSync(':memory:'); let time = Date.parse('2026-10-13T00:00:00+08:00');
+  const owner = {uid: 'admin', name: '管理员'}, users = Array.from({length: 4}, (_, i) => ({uid: 'player' + i, name: '玩家' + i}));
+  db.exec('CREATE TABLE members(uid TEXT PRIMARY KEY,name TEXT,seen INTEGER); CREATE TABLE activity_rewards(hash TEXT);');
+  for (const user of [owner, ...users]) db.prepare('INSERT INTO members VALUES(?,?,?)').run(user.uid, user.name, time);
+  const options = {db, now: () => time, auth: req => req.user, admin: req => {if (req.user.uid !== owner.uid) throw Error('管理员权限'); return req.user;}, adminIDs: new Set([owner.uid]), body: async req => req.body, send: (res, status, value) => {res.status = status; res.value = value;}, limit() {}, broadcast() {}, media: {validate: value => value}, inbox: {notify() {}}};
+  const points = createPoints(options), inventory = createInventory({...options, points}), shop = createShop({...options, points, inventory}), music = createMusicAccess({...options, inventory});
+  t.after(() => {inventory.close(); points.close(); db.close();});
+  points.transaction(() => {for (const user of users) points.credit({id: 'fixture:' + user.uid, user, amount: 10000n, earned: 0n, weekly: false, reason: 'fixture'});});
+  const call = async (path, body = {}, user = users[0], method = 'POST') => {const req = {method, body, user}, res = {}, url = new URL('http://localhost' + path); if (!await inventory.route(req, res, url) && !await shop.route(req, res, url)) await music(req, res, url); return res.value;};
+  return {db, points, inventory, shop, call, users, owner, now: () => time, advance: ms => time += ms};
+}
+test('voucher purchase, personal/global limits, use idempotency, expiry and refund are atomic', async t => {
+  const f = fixture(t), {call, users, owner, inventory, points} = f;
+  await call('/api/admin/shop/settings', {enabled: true}, owner);
+  const purchase = (user, key) => call('/api/shop/buy', {item: 'voucher-hosting-3days', price: '100', requestId: 'purchase-request-' + key}, user);
+  const first = await purchase(users[0], 'one');
+  assert.equal(first.wallet.balance, '9900'); assert.equal(first.order.status, 'fulfilled'); assert.equal(inventory.has(users[0].uid, 'lobby.host'), false);
+  assert.equal((await purchase(users[0], 'one')).order.id, first.order.id);
+  await assert.rejects(purchase(users[0], 'again'), /限购/);
+  await purchase(users[1], 'two'); await purchase(users[2], 'three');
+  await assert.rejects(purchase(users[3], 'four'), /限量/); assert.equal(points.wallet(users[3]).balance, '10000');
+  const batch = inventory.view(users[0].uid).items[0].batches[0].id;
+  const use = {batch, requestId: 'use-request-000001'}, result = await call('/api/inventory/use', use);
+  assert.equal(result.expires, f.now() + 3 * 86400000); assert.equal(inventory.has(users[0].uid, 'lobby.host'), true);
+  assert.equal((await call('/api/inventory/use', use)).expires, result.expires);
+  await assert.rejects(call('/api/admin/shop/orders/' + first.order.id, {status: 'refunded'}, owner), /已使用/);
+  assert.equal(points.wallet(users[0]).balance, '9900'); f.advance(3 * 86400000); assert.equal(inventory.has(users[0].uid, 'lobby.host'), false);
+  f.advance(4 * 86400000); assert.equal((await purchase(users[0], 'next-week')).wallet.balance, '9800');
+});
+test('same permission has a three-voucher cap; mail, codes and natural months preserve ownership', async t => {
+  const f = fixture(t), {call, users, owner, inventory, points} = f, user = users[0], item = inventory.definition('netease-1month');
+  const mail = {item: item.id, quantity: 3, title: '测试邮寄', recipients: [user.uid], requestId: 'mail-request-1'};
+  await call('/api/admin/inventory/mail', mail, owner); await call('/api/admin/inventory/mail', mail, owner);
+  assert.equal(inventory.view(user.uid).mail.length, 1);
+  const id = inventory.view(user.uid).mail[0].id; await call('/api/inventory/claim', {id}); await call('/api/inventory/claim', {id});
+  assert.equal(inventory.view(user.uid).items[0].quantity, 3);
+  await call('/api/admin/shop/settings', {enabled: true}, owner);
+  await assert.rejects(call('/api/shop/buy', {item: 'voucher-netease-1month', price: '100', requestId: 'purchase-cap-test'}), /三张/);
+  assert.equal(points.wallet(user).balance, '10000');
+  const batch = inventory.view(user.uid).items[0].batches[0].id;
+  await call('/api/inventory/use', {batch, requestId: 'use-1'});
+  assert.equal((await call('/api/music/access', {}, user, 'GET')).allowed, true);
+  await call('/api/shop/buy', {item: 'voucher-netease-1month', price: '100', requestId: 'purchase-after-use'});
+  f.advance(8 * 86400000);
+  await assert.rejects(call('/api/shop/buy', {item: 'voucher-netease-1month', price: '100', requestId: 'purchase-same-month'}), /本月/);
+  assert.equal(entitlementEnd(Date.parse('2027-01-31T14:15:00+08:00'), 'months', 1), Date.parse('2027-02-28T14:15:00+08:00'));
+  f.db.prepare('INSERT INTO music_grants VALUES(?,?,?)').run(user.uid, owner.uid, f.now()); f.advance(60 * 86400000);
+  assert.equal((await call('/api/music/access', {}, user, 'GET')).allowed, true);
+  assert.equal((await call('/api/music/access', {}, user, 'GET')).expiresAt, null);
+});
+test('unused purchase refund returns points and capacity exactly once', async t => {
+  const {call, owner, inventory, users, points} = fixture(t);
+  await call('/api/admin/shop/settings', {enabled: true}, owner);
+  const request = {item: 'voucher-hosting-3days', price: '100', requestId: 'purchase-refund-test'};
+  const {order} = await call('/api/shop/buy', request);
+  for (let i = 0; i < 2; i++) await call('/api/admin/shop/orders/' + order.id, {status: 'refunded'}, owner);
+  assert.equal(inventory.view(users[0].uid).items.length, 0); assert.equal(points.wallet(users[0]).balance, '10000');
+  await call('/api/shop/buy', {...request, requestId: 'purchase-refund-next'});
+  assert.equal(inventory.view(users[0].uid).items.length, 1);
+});
+test('material codes are single use and escrow settles or returns without duplication', async t => {
+  const {call,owner,users,inventory,points,advance,now}=fixture(t);
+  const {id}=await call('/api/admin/inventory/items',{title:'建设补给',description:'委托用的材料',kind:'material',commission:true,enabled:true},owner);
+  await call('/api/admin/inventory/codes',{item:id,quantity:5,code:'秋日补给072',maxUses:1,expires:now()+86400000},owner);
+  await call('/api/inventory/redeem',{code:'秋日补给072'},users[0]);
+  await assert.rejects(call('/api/inventory/redeem',{code:'秋日补给072'},users[0]),/已经领取/);
+  await assert.rejects(call('/api/inventory/redeem',{code:'秋日补给072'},users[1]),/领完/);
+  points.transaction(()=>inventory.escrow(users[0].uid,id,3,'commission-settle'));
+  assert.equal(inventory.view(users[0].uid).items[0].quantity,2);
+  points.transaction(()=>{inventory.releaseEscrow('commission-settle',users[1].uid);inventory.releaseEscrow('commission-settle',users[1].uid);});
+  assert.equal(inventory.view(users[1].uid).mail.length,1);
+  const mail=inventory.view(users[1].uid).mail[0];await call('/api/inventory/claim',{id:mail.id},users[1]);
+  assert.equal(inventory.view(users[1].uid).items[0].quantity,3);
+  points.transaction(()=>{inventory.escrow(users[0].uid,id,2,'commission-cancel');inventory.releaseEscrow('commission-cancel');});
+  const returned=inventory.view(users[0].uid).mail[0];await call('/api/inventory/claim',{id:returned.id});
+  assert.equal(inventory.view(users[0].uid).items[0].quantity,2);
+  await call('/api/admin/inventory/codes',{item:id,quantity:1,code:'过期补给072',expires:now()+1000},owner);advance(1001);
+  await assert.rejects(call('/api/inventory/redeem',{code:'过期补给072'}),/过期/);
+});

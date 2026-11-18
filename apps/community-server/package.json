@@ -1,0 +1,18 @@
+{
+  "name": "hxz-launcher-community",
+  "version": "1.0.0-beta.1",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "packageManager": "pnpm@11.1.2",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env supervisor.mjs",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "chess.js": "1.4.0",
+    "ws": "^8.18.3"
+  }
+}

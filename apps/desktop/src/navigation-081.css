@@ -1,0 +1,30 @@
+.air-shell .air-primary-nav{overflow-x:auto;overflow-y:hidden;scrollbar-width:none;flex-wrap:nowrap}
+.air-shell .air-primary-nav::-webkit-scrollbar{display:none}
+.air-shell .air-primary-nav.nav-compact>a{flex:0 0 38px;min-width:38px;padding-inline:8px}
+.air-shell .air-primary-nav.nav-tight{gap:3px;margin-left:8px}
+.air-shell .air-primary-nav.nav-tight>a{padding-inline:9px;gap:6px;flex-shrink:0}
+.air-shell .air-window-tools{flex-shrink:0}
+.air-shell .app-status.status-balanced{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;min-height:42px;padding:4px 20px;line-height:1.4;align-items:center;overflow:hidden}
+.status-balanced .status-left,.status-balanced .status-right{display:flex;align-items:center;gap:12px;min-width:0;overflow:hidden}
+.status-balanced .status-right{justify-content:flex-end}
+.status-balanced .status-connection,.status-balanced .status-voice{display:flex;gap:6px;align-items:center;white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:.68rem}
+.status-balanced .status-connection i{width:6px;height:6px;flex:none}
+.air-shell .status-balanced .status-task{margin:0;max-width:36vw;display:flex;gap:7px;align-items:center;justify-content:center;min-width:112px;min-height:32px;padding:6px 10px;border:0;border-radius:6px;background:transparent;font-size:max(12px,.72rem);line-height:1.4;color:var(--muted);transition:color var(--duration)}
+.air-shell .status-balanced .status-task:hover{background:transparent;color:var(--accent)}
+.air-shell .status-balanced .status-task:focus-visible{outline-offset:-3px}
+.status-balanced .status-task span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.status-balanced .status-task svg{flex:none}
+.air-shell .status-balanced .status-right button{display:flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;min-height:32px;padding:6px 8px;border-radius:6px;font-size:max(12px,.72rem);line-height:1.4}
+.air-shell .status-balanced .status-right button:hover{background:transparent}
+.status-balanced .status-right small{font-size:.6rem}
+.status-balanced .music-mini{flex:0 1 240px;min-width:0}
+.status-balanced .music-mini>a{flex:1;min-width:0}
+.air-shell .status-balanced .music-mini .button{width:28px;height:28px;min-height:28px;padding:5px;flex-shrink:0}
+@media(max-width:1050px){.status-balanced .status-voice{display:none}.status-balanced .music-mini{max-width:130px}.status-balanced .status-left{gap:8px}.air-shell .app-status.status-balanced{gap:8px}}
+.launcher-updates-toolbar{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.launcher-release-body{line-height:1.85;font-size:.88rem;overflow-wrap:anywhere}
+.launcher-release-body h3{font-size:1.05rem;margin:22px 0 10px}
+.launcher-release-body p{margin:8px 0;white-space:pre-wrap}
+.launcher-release-body .release-list-item{padding-left:14px;position:relative}
+.launcher-release-body .release-list-item:before{content:'•';position:absolute;left:0;color:var(--accent)}
+.launcher-release-date{font-size:.75rem;color:var(--muted)}

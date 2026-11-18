@@ -1,0 +1,8 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {cardExtension} from '../core/card-extension.mjs';import {normalizeWidgets} from '../core/card-extras.mjs';import {exportLayoutPackage,applyLayoutPackage} from '../core/layout-package.mjs';
+const pkg={format:'hxz-card-extension',version:1,id:'station-helper',title:'出发前',author:'幻想镇',blocks:[{type:'text',text:'今日计划'},{type:'metric',metric:'instance'},{type:'check',id:'supplies',label:'带上建材'},{type:'link',label:'协会',page:'guild'},{type:'link',label:'官网',url:'https://www.hxzmc.top/'}]};
+test('declarative card imports expose limited capabilities and reject executable or inherited routes',()=>{
+ assert.deepEqual(cardExtension(pkg).permissions,['openExternal']);assert.deepEqual(cardExtension(pkg).hosts,['www.hxzmc.top']);
+ for(const b of [{type:'script',code:'alert(1)'},{type:'link',label:'隐蔽入口',page:'__proto__'},{type:'link',label:'脚本',url:'javascript:alert(1)'},{type:'metric',metric:'accessToken'}])assert.throws(()=>cardExtension({...pkg,blocks:[b]}));assert.throws(()=>cardExtension({...pkg,blocks:[{type:'check',id:'a',label:'A'},{type:'check',id:'a',label:'B'}]}));assert.throws(()=>cardExtension({...pkg,title:'x'.repeat(100000)}));
+ const widgets=normalizeWidgets([{id:'widget-1',type:'extension',page:'home',extension:pkg,checked:['supplies','unknown']}]);assert.deepEqual(widgets[0].checked,['supplies']);assert.deepEqual(normalizeWidgets([{id:'bad',type:'extension',page:'home',extension:{}}]),[]);
+ const shared=exportLayoutPackage({widgets});assert.deepEqual(shared.layout.widgets[0].checked,[]);const restored=applyLayoutPackage({},shared);assert.equal(restored.widgets[0].extension.title,'出发前');
+});

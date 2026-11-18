@@ -1,0 +1,477 @@
+import { createReadStream, createWriteStream } from "node:fs";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { createHash, randomUUID } from "node:crypto";
+import { Readable, Transform } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import yauzl from "yauzl";
+import {downloadRanges} from "./range-download.mjs";
+import { downloadSources, getDownloadMode } from "./sources.mjs";
+import { setTimeout as delay } from "node:timers/promises";
+import { networkFailure, networkAdvice } from './network-errors.mjs';
+import {createDownloadLimiter} from './download-limiter.mjs';
+import {transferFetch,hasPrivateHeaders} from './download-http.mjs';
+import {observeSource} from './source-health.mjs';
+
+export async function json(file) {
+  const stat = await fs.stat(file);
+  if (stat.size > 32 * 1024 * 1024) throw Error("配置文件过大");
+  return JSON.parse(await fs.readFile(file, "utf8"));
+}
+export async function writeJSON(file, value) {
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  const tmp = file + "." + randomUUID() + ".tmp";
+  try {
+    await fs.writeFile(tmp, JSON.stringify(value, null, 2), { mode: 0o600 });
+    await fs.rename(tmp, file);
+  } finally {
+    await fs.rm(tmp, { force: true });
+  }
+}
+export async function exists(file) {
+  try {
+    await fs.access(file);
+    return true;
+  } catch {
+    return false;
+  }
+}
+export async function hash(file, algorithm = "sha1") {
+  const sum = createHash(algorithm);
+  for await (const chunk of createReadStream(file)) sum.update(chunk);
+  return sum.digest("hex");
+}
+export function inside(root, relative) {
+  if (
+    typeof relative !== "string" ||
+    relative.includes("\\") ||
+    relative.includes(":") ||
+    path.isAbsolute(relative) ||
+    relative.split("/").some(p => p === "..")
+  )
+    throw Error("文件路径越界");
+  const target = path.resolve(root, relative);
+  if (
+    target !== path.resolve(root) &&
+    !target.startsWith(path.resolve(root) + path.sep)
+  )
+    throw Error("文件路径越界");
+  return target;
+}
+export async function noLinks(file) {
+  let cur = path.resolve(file);
+  while (true) {
+    try {
+      if ((await fs.lstat(cur)).isSymbolicLink())
+        throw Error("不允许通过链接修改游戏文件");
+    } catch (e) {
+      if (e.code !== "ENOENT") throw e;
+    }
+    const parent = path.dirname(cur);
+    if (parent === cur) break;
+    cur = parent;
+  }
+}
+export function endpoint(value) {
+  const u = new URL(value);
+  if (
+    u.username ||
+    u.password ||
+    u.hash ||
+    !(
+      u.protocol === "https:" ||
+      (u.protocol === "http:" &&
+        ["localhost", "127.0.0.1", "[::1]"].includes(u.hostname))
+    )
+  )
+    throw Error("服务地址需要 HTTPS；本机调试可以使用 HTTP");
+  return u.href.replace(/\/$/, "");
+}
+const sourceFailures=new Map();
+let downloadLimit=32,activeDownloads=0,downloadObserver=()=>{};
+const downloadQueue=[];
+const downloadLimiter=createDownloadLimiter();let configuredSpeed=0;
+export function configureDownloads({concurrency,speedLimitMBps,onStatus}={}){if([8,16,32,64,128].includes(concurrency))downloadLimit=concurrency;if(speedLimitMBps!=null&&speedLimitMBps!==configuredSpeed){configuredSpeed=speedLimitMBps;downloadLimiter.configure(speedLimitMBps);}if(onStatus)downloadObserver=onStatus;drainDownloads();}
+function drainDownloads(){while(activeDownloads<downloadLimit&&downloadQueue.length){const entry=downloadQueue.shift();if(entry.signal?.aborted){entry.reject(entry.signal.reason);continue;}activeDownloads++;entry.resolve(()=>{activeDownloads--;drainDownloads();});}}
+async function downloadSlot(signal){signal?.throwIfAborted();return new Promise((resolve,reject)=>{const entry={signal,resolve:release=>{signal?.removeEventListener('abort',abort);resolve(release);},reject};const abort=()=>{const i=downloadQueue.indexOf(entry);if(i>=0)downloadQueue.splice(i,1);reject(signal.reason);};signal?.addEventListener('abort',abort,{once:true});downloadQueue.push(entry);drainDownloads();});}
+const statusTimes=new Map();
+function sourceStatus(error,url,attempt){const host=new URL(url).hostname,now=Date.now();observeSource(url,{state:'error',reason:networkAdvice(error,host),checkKind:'transfer'});if(now-(statusTimes.get(host)||0)>5000){statusTimes.set(host,now);downloadObserver({source:host,attempt,message:networkAdvice(error,host)});}}
+function preferHealthy(urls){return getDownloadMode()==='official'?[...urls]:[...urls].sort((a,b)=>(sourceFailures.get(new URL(a).host)>Date.now()?1:0)-(sourceFailures.get(new URL(b).host)>Date.now()?1:0));}
+export async function remoteJSON(url, options = {}) {
+  const until=Date.now()+(options.retryBudgetMs||0);
+  for(let attempt=0;;attempt++)try{return await remoteJSONAttempt(url,options);}catch(error){
+    if(options.signal?.aborted||!networkFailure(error)||Date.now()>=until)throw error;
+    sourceStatus(error,url,attempt+1);
+    await delay(Math.min(until-Date.now(),options.retryDelay??Math.min(30000,1000*2**Math.min(attempt,5))),undefined,{signal:options.signal});
+  }
+}
+async function remoteJSONAttempt(url, options = {}) {
+  const candidates=preferHealthy((!options.method||options.method==='GET')&&!hasPrivateHeaders(options.headers)?downloadSources(url):[url]);
+  if(candidates.length===1)return remoteJSONOnce(candidates[0],options);
+  const read=async(candidate,settings)=>{let failure;for(let n=1;n<=5;n++){try{return await remoteJSONOnce(candidate,{...settings,timeoutMs:settings.timeoutMs??(/modrinth|mcimirror/.test(new URL(candidate).hostname)?20000:6000)});}catch(error){settings.signal?.throwIfAborted();failure=error;sourceStatus(error,candidate,n);if(!networkFailure(error)||error.name==='TimeoutError'||error.status===429||n===5)throw error;await delay(settings.retryDelay??Math.min(2000,250*2**(n-1)),undefined,{signal:settings.signal});}}throw failure;};
+  if(getDownloadMode()==='official'){
+    let failure;for(const candidate of candidates)try{return await read(candidate,options);}catch(error){options.signal?.throwIfAborted();failure=error;sourceStatus(error,candidate,1);sourceFailures.set(new URL(candidate).host,Date.now()+15000);}throw failure;
+  }
+  const controller=new AbortController(),signal=options.signal?AbortSignal.any([options.signal,controller.signal]):controller.signal;
+  let failure;
+  try{
+    for(let at=0;at<candidates.length;at+=2){
+      const tasks=candidates.slice(at,at+2).map(async(candidate,index)=>{
+        if(index)await delay(250,undefined,{signal});
+        try{return await read(candidate,{...options,signal});}catch(error){if(!signal.aborted){failure=error;sourceStatus(error,candidate,1);sourceFailures.set(new URL(candidate).host,Date.now()+15000);}throw error;}
+      });
+      try{return await Promise.any(tasks);}catch(error){if(options.signal?.aborted)throw options.signal.reason;failure ||= error;}
+    }
+    throw failure;
+  }finally{controller.abort();}
+}
+async function remoteJSONOnce(url, options = {}) {
+  const signal = options.signal
+    ? AbortSignal.any([options.signal, AbortSignal.timeout(options.timeoutMs??20000)])
+    : AbortSignal.timeout(options.timeoutMs??20000);
+  const r = await ((!options.method || options.method==='GET') ? transferFetch : fetch)(url, {
+    ...options,
+    signal,
+    redirect: !options.method || options.method === "GET" ? "follow" : "error"
+  });
+  let bytes = 0;
+  const chunks = [];
+  if (r.body)
+    for await (const chunk of r.body) {
+      bytes += chunk.length;
+      if (bytes > 4 * 1024 * 1024) throw Error("服务返回内容过大");
+      chunks.push(chunk);
+    }
+  const text = Buffer.concat(chunks).toString("utf8");
+  if(r.ok&&options.sha1&&createHash('sha1').update(Buffer.concat(chunks)).digest('hex')!==options.sha1.toLowerCase())throw Error('版本元数据校验不一致');
+  let value;
+  try {
+    value = text ? JSON.parse(text) : {};
+  } catch {
+    const error=Error(r.ok?'服务未返回有效数据':`服务请求失败 (${r.status})`);error.status=r.status;error.network=r.status===408||r.status===429||r.status>=500;throw error;
+  }
+  if (!r.ok) {
+    const error=Error(value.errorMessage || value.error || `服务请求失败 (${r.status})`);
+    error.status=r.status;error.network=r.status===408||r.status===429||r.status>=500;throw error;
+  }
+  return value;
+}
+// All aliases of a target share one writer. A cancelled subscriber cannot cancel
+// somebody else's transfer; the last subscriber releases the network operation.
+const pendingDownloads=new Map();
+export function download(url,file,options={}){
+  options.signal?.throwIfAborted();
+  const resolved=path.resolve(file),key=process.platform==='win32'?resolved.toLowerCase():resolved,signature=JSON.stringify([options.size,options.sha1,options.sha256,options.sha512,options.sha1||options.sha256||options.sha512?'':url]);
+  let entry=pendingDownloads.get(key);
+  if(entry?.controller.signal.aborted)return entry.settled.then(()=>download(url,file,options));
+  if(entry&&entry.signature!==signature)return Promise.reject(Error('同一目标文件存在冲突的下载声明'));
+  if(!entry){
+    entry={signature,controller:new AbortController(),listeners:new Set(),started:false};entry.settled=new Promise(resolve=>entry.settle=resolve);pendingDownloads.set(key,entry);
+  }
+  const promise=new Promise((resolve,reject)=>{
+    const listener={resolve,reject,progress:options.onProgress,transfer:options.onTransfer,signal:options.signal};
+    listener.abort=()=>{entry.listeners.delete(listener);reject(options.signal.reason);if(!entry.listeners.size)entry.controller.abort(options.signal.reason);};
+    entry.listeners.add(listener);options.signal?.addEventListener('abort',listener.abort,{once:true});
+  });
+  if(!entry.started){entry.started=true;
+    const notify=(field,value)=>{for(const listener of entry.listeners)listener[field]?.(value);};
+    downloadFile(url,file,{...options,signal:entry.controller.signal,onProgress:n=>notify('progress',n),onTransfer:v=>notify('transfer',v)}).then(()=>complete(),error=>complete(error));
+    function complete(error){pendingDownloads.delete(key);for(const listener of entry.listeners){listener.signal?.removeEventListener('abort',listener.abort);if(error)listener.reject(error);else listener.resolve();}entry.listeners.clear();entry.settle();}
+  }
+  return promise;
+}
+async function downloadFile(url, file, options = {}) {
+  if(options.size!=null&&(!Number.isSafeInteger(options.size)||options.size<0||options.size>(options.maxSize??8*1024**3)))throw Error('下载文件大小无效或超过上限');
+  await noLinks(file);
+  if(await exists(file)){
+    const checks=Object.entries({sha1:options.sha1,sha256:options.sha256,sha512:options.sha512}).filter(([,v])=>v);
+    const size=(await fs.stat(file)).size;
+    if(checks.length&&(options.size==null||options.size===size)&&(await Promise.all(checks.map(async([a,v])=>await hash(file,a)===v.toLowerCase()))).every(Boolean)){
+      options.onTransfer?.({bytes:size,total:size,verified:true,source:'本地校验'});return;
+    }
+  }
+  let failure;
+  const candidates = [
+    ...new Set([
+      ...(options.urls || []).flatMap(downloadSources),
+      ...downloadSources(url)
+    ])
+  ];
+  if(options.size>=(options.segmentThreshold??4*1024*1024)&&(options.sha1||options.sha256||options.sha512)&&await segmentedDownload(preferHealthy(candidates),file,{...options,originURL:url}))return;
+  const resumable=Boolean(options.sha1||options.sha256||options.sha512);
+  const partials=candidates.map(candidate=>file+'.'+createHash('sha256').update(candidate+JSON.stringify([options.sha1,options.sha256,options.sha512])).digest('hex').slice(0,20)+'.partial');
+  let committed=false;
+  try {
+  let until=Infinity;const retained=new Map(),budget=options.retryBudgetMs??120000,unavailable=new Set(),cooldowns=new Map();
+  for(const partial of partials)retained.set(partial,await fs.stat(partial).then(s=>s.size,()=>0));
+  for (let attempt = 0; ; attempt++) {
+    let retryable = false, retryAfter = 0;
+    // Two independent streams at most per file; all files share the same budget.
+    // The first fully verified file wins. Other streams write to separate staging
+    // paths and are cancelled before the winner is atomically committed.
+    const ordered=preferHealthy(candidates.filter(candidate=>!unavailable.has(candidate)&&(cooldowns.get(candidate)||0)<=Date.now()));
+    if(!ordered.length){const remaining=candidates.filter(candidate=>!unavailable.has(candidate));if(!remaining.length)break;const wait=Math.max(1,Math.min(...remaining.map(candidate=>(cooldowns.get(candidate)||0)-Date.now())));if(!Number.isFinite(until)||Date.now()+wait>=until)break;await delay(wait,undefined,{signal:options.signal});continue;}
+    const groupSize=getDownloadMode()==='official'?1:2;
+    for (let start=0;start<ordered.length;start+=groupSize) {
+      const group=ordered.slice(start,start+groupSize), controller=new AbortController(),signal=options.signal?AbortSignal.any([options.signal,controller.signal]):controller.signal;
+      const staged=group.map(()=>file+'.'+randomUUID()+'.candidate');
+      const failures=[];let winner;
+      const requests=group.map(async(candidate,index)=>{
+        let release;
+        try{
+          if(index)await delay(options.hedgeDelay??300,undefined,{signal});
+          for(let localAttempt=1;localAttempt<=5;localAttempt++){
+            signal.throwIfAborted();
+            try{
+              release=await downloadSlot(signal);
+              await downloadOne(candidate,staged[index],{...options,originURL:url,signal,resumeFile:resumable?partials[candidates.indexOf(candidate)]:undefined});
+              break;
+            }catch(error){
+              if(signal.aborted)throw signal.reason;
+              sourceStatus(error,candidate,localAttempt);
+              if(error.retryable===false){unavailable.add(candidate);throw error;}
+              if(error.retryAfter>2000){cooldowns.set(candidate,Date.now()+error.retryAfter);throw error;}
+              if(error.slowSource||error.stalledSource||localAttempt===5||!(error.retryable||networkFailure(error)))throw error;
+              release?.();release=undefined;
+              options.onTransfer?.({source:new URL(candidate).hostname,retrying:true,attempt:localAttempt,maxAttempts:5});
+              await delay(Math.max(error.retryAfter||0,options.retryDelay??Math.min(2000,250*2**(localAttempt-1))),undefined,{signal});
+            }finally{release?.();release=undefined;}
+          }
+          if(signal.aborted)throw signal.reason;
+          sourceFailures.delete(new URL(candidate).host);return staged[index];
+        }catch(error){if(!signal.aborted){failures.push(error);sourceStatus(error,candidate,attempt+1);if(error.retryable!==false)sourceFailures.set(new URL(candidate).host,Date.now()+15000);}throw error;}
+        finally{release?.();}
+      });
+      try {
+        winner=await Promise.any(requests);controller.abort();await Promise.allSettled(requests);
+        options.signal?.throwIfAborted();await noLinks(file);await fs.rename(winner,file);committed=true;return;
+      } catch (error) {
+        if (options.signal?.aborted) throw error;
+        failure=failures.find(e=>e.retryable||networkFailure(e))||failure||failures[0]||error;
+        let advanced=false;for(const candidate of group){const partial=partials[candidates.indexOf(candidate)],bytes=await fs.stat(partial).then(s=>s.size,()=>0);advanced||=bytes>(retained.get(partial)||0);retained.set(partial,bytes);}
+        if(!Number.isFinite(until)||advanced)until=Date.now()+budget;
+        retryable ||= failures.some(e=>e.retryable===true||networkFailure(e));
+      }finally{controller.abort();await Promise.allSettled(requests);await Promise.all(staged.map(p=>fs.rm(p,{force:true}).catch(()=>{})));}
+    }
+    if (!retryable || Date.now()>=until) break;
+    const wait=options.retryDelay ?? Math.min(10000,1000 * 2 ** Math.min(attempt,5)) + Math.floor(Math.random()*250);
+    if(Date.now()+wait>=until)break;
+    await delay(wait, undefined, {
+      signal: options.signal
+    });
+  }
+  throw failure;
+  }finally{if(committed){const identity=createHash('sha256').update(JSON.stringify([options.size,options.sha1,options.sha256,options.sha512])).digest('hex').slice(0,20);await Promise.all([...partials,file+'.'+identity+'.ranges.partial',file+'.'+identity+'.ranges.partial.json'].map(p=>fs.rm(p,{force:true}).catch(()=>{})));}}
+}
+async function segmentedDownload(urls,file,options){
+ let until=Date.now()+(options.retryBudgetMs??120000),completed=-1;
+ for(;;)try{return await downloadRanges(urls,file,options,{slot:downloadSlot,hash,noLinks,writeJSON,limit:downloadLimit,active:()=>pendingDownloads.size,report:downloadObserver,throttle:(bytes,signal)=>downloadLimiter.wait(bytes,signal)});}
+ catch(error){options.signal?.throwIfAborted();if(!error.partialRanges)throw error;if((error.completedBytes??error.completedRanges)>completed){completed=error.completedBytes??error.completedRanges;until=Date.now()+(options.retryBudgetMs??120000);}if(Date.now()>=until)throw error;downloadObserver({source:new URL(urls[0]).hostname,message:'正在继续未完成的分段，已下载内容保留，完成后统一校验'});await delay(options.retryDelay??1000,undefined,{signal:options.signal});}
+}
+async function downloadOne(
+  url,
+  file,
+  {
+    resumeFile,
+    sha1,
+    sha256,
+    sha512,
+    size,
+    headers,
+    originURL = url,
+    maxSize = 8 * 1024 ** 3,
+    signal,
+    onProgress = () => {},
+    onTransfer = () => {},
+    stallWindowMs = 10000,
+    connectTimeoutMs = 6000,
+    idleTimeoutMs
+  } = {}
+) {
+  await noLinks(file);
+  if (await exists(file)) {
+    const checks = Object.entries({ sha1, sha256, sha512 }).filter(
+      ([, v]) => v
+    );
+    if (
+      checks.length &&
+      (size == null || (await fs.stat(file)).size === size) &&
+      (
+        await Promise.all(
+          checks.map(
+            async ([a, v]) => (await hash(file, a)) === v.toLowerCase()
+          )
+        )
+      ).every(Boolean)
+    ) {
+      onTransfer({
+        bytes: (await fs.stat(file)).size,
+        total: size || (await fs.stat(file)).size,
+        verified: true,
+        source: "本地校验"
+      });
+      return;
+    }
+  }
+  const u = new URL(url);
+  if (!["http:", "https:"].includes(u.protocol))
+    throw Error("不支持的下载地址");
+  await noLinks(file);
+  await fs.mkdir(path.dirname(file), { recursive: true });
+  const temp = resumeFile || file + "." + randomUUID() + ".part";
+  await noLinks(temp);
+  let bytes = 0,retain=false;
+  if(resumeFile)try{const stat=await fs.stat(temp);if(stat.isFile()&&stat.size<=maxSize)bytes=stat.size;else await fs.rm(temp,{force:true});}catch(e){if(e.code!=="ENOENT")throw e;}
+  onTransfer({ bytes: 0, total: size || 0, source: u.hostname });
+  const sums = Object.entries({ sha1, sha256, sha512 })
+    .filter(([, v]) => v)
+    .map(([algorithm, expected]) => ({
+      sum: createHash(algorithm),
+      expected: expected.toLowerCase()
+    }));
+  const controller = new AbortController();
+  let idle = setTimeout(() => controller.abort(Error("下载连接超时")), connectTimeoutMs);
+  const transferSignal = signal
+    ? AbortSignal.any([signal, controller.signal])
+    : controller.signal;
+  try {
+    if(bytes&&sums.length&&(size==null||bytes===size)&&(await Promise.all(Object.entries({sha1,sha256,sha512}).filter(([,v])=>v).map(async([algorithm,expected])=>await hash(temp,algorithm)===expected.toLowerCase()))).every(Boolean)){
+      await fs.rename(temp,file);onTransfer({bytes,total:bytes,verified:true,source:'已完成断点校验'});return;
+    }
+    const r = await transferFetch(url, {
+      headers:{...headers,'Accept-Encoding':'identity',...(bytes?{Range:'bytes='+bytes+'-'}:{})},
+      signal: transferSignal
+    }, originURL);
+    if (!r.ok || !r.body) {
+      await r.body?.cancel();
+      if(r.status===416&&bytes){await fs.rm(temp,{force:true});const error=Error('断点已过期，重新请求完整文件');error.retryable=true;throw error;}
+      const error = Error(`下载失败 (${r.status}): ${u.hostname}`);
+      error.status=r.status;
+      error.retryable = r.status === 408 || r.status === 429 || r.status >= 500;
+      const after=r.headers.get('retry-after');
+      if((r.status===429||r.status===503)&&after){
+        const ms=/^\d+$/.test(after)?Number(after)*1000:Date.parse(after)-Date.now();
+        if(Number.isFinite(ms))error.retryAfter=Math.max(0,Math.min(ms,30*60*1000));
+      }
+      throw error;
+    }
+    if(bytes&&r.status!==206){bytes=0;await fs.rm(temp,{force:true});}
+    if(r.status===206){const range=/^bytes (\d+)-(\d+)\/(\d+)$/.exec(r.headers.get('content-range')||'');if(!range||Number(range[1])!==bytes||(size!=null&&Number(range[3])!==size)){await r.body.cancel();throw Error('断点下载范围不一致');}}
+    if(bytes)for await(const chunk of createReadStream(temp)){transferSignal.throwIfAborted();for(const check of sums)check.sum.update(chunk);}
+    const initialBytes=bytes;
+    const touch = () => {
+      clearTimeout(idle);
+      idle = setTimeout(
+        () => controller.abort(Error("下载长时间没有数据")),
+        idleTimeoutMs ?? (pendingDownloads.size<=Math.max(1,downloadLimit/4)?12000:30000)
+      );
+    };
+    touch();
+    let paceTime=Date.now(),paceBytes=0;
+    const meter = new Transform({
+      transform(chunk, _, done) {
+        touch();
+        paceBytes+=chunk.length;
+        if(Date.now()-paceTime>=stallWindowMs){const minimum=size-bytes>256*1024&&pendingDownloads.size<=Math.max(1,downloadLimit/4)?32:2;if(paceBytes<Math.max(512,stallWindowMs*minimum)){const error=Error('下载节点持续低速，正在切换备用来源');error.network=true;error.slowSource=true;done(error);return;}paceTime=Date.now();paceBytes=0;}
+        if (bytes+chunk.length > maxSize) {
+          done(Error("文件超过下载上限"));
+          return;
+        }
+        // Backpressure is deliberate while throttling, not an idle/slow-source failure.
+        clearTimeout(idle);const waiting=Date.now();
+        downloadLimiter.wait(chunk.length,transferSignal).then(()=>{
+          paceTime+=Date.now()-waiting;touch();bytes+=chunk.length;
+          for(const check of sums)check.sum.update(chunk);
+          onProgress(chunk.length);onTransfer({bytes,total:size||(Number(r.headers.get('content-length'))||0)+initialBytes,source:u.hostname});
+          done(null,chunk);
+        },done);
+      }
+    });
+    await pipeline(
+      Readable.fromWeb ? Readable.fromWeb(r.body) : Readable.from(readBody(r.body)),
+      meter,
+      createWriteStream(temp, { flags: bytes ? "a" : "w" }),
+      { signal: transferSignal }
+    );
+    if (sums.some(check => check.sum.digest("hex") !== check.expected)) {
+      const error=Error('下载内容校验不一致');error.retryable=false;throw error;
+    }
+    if (size != null && size >= 0 && bytes !== size) {
+      const error=Error('下载文件大小不一致');error.retryable=false;throw error;
+    }
+    await noLinks(file);
+    await fs.rename(temp, file);
+    onTransfer({ bytes, total: bytes, verified: true, source: u.hostname });
+  } catch(error) {
+    if(controller.signal.aborted&&!signal?.aborted){error.network=true;error.retryable=true;error.stalledSource=true;}
+    retain=Boolean(resumeFile&&(networkFailure(error)||error.retryable||signal?.aborted));
+    throw error;
+  } finally {
+    clearTimeout(idle);
+    if(!retain)await fs.rm(temp, { force: true }).catch(() => {});
+  }
+}
+async function* readBody(body) {
+  const reader=body.getReader();
+  try { for (;;) { const {done,value}=await reader.read(); if(done)return; yield value; } }
+  finally { await reader.cancel().catch(()=>{}); reader.releaseLock(); }
+}
+export async function parallel(values, fn, limit = 8) {
+  let next = 0,
+    failure;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, values.length) }, async () => {
+      while (!failure && next < values.length) {
+        const i = next++;
+        try {
+          await fn(values[i], i);
+        } catch (error) {
+          failure ||= error;
+        }
+      }
+    })
+  );
+  if (failure) throw failure;
+}
+export async function extractNative(archive, root, exclude = [], signal) {
+  await noLinks(root);
+  await fs.mkdir(root, { recursive: true });
+  const zip = await new Promise((ok, fail) =>
+    yauzl.open(archive, { lazyEntries: true }, (e, z) => (e ? fail(e) : ok(z)))
+  );
+  let bytes = 0;
+  await new Promise((ok, fail) => {
+    const abort = e => {
+      zip.close();
+      fail(e);
+    };
+    zip.on("error", abort);
+    zip.on("end", ok);
+    zip.on("entry", entry => {
+      (async () => {
+        signal?.throwIfAborted();
+        if (
+          entry.fileName.endsWith("/") ||
+          entry.fileName.startsWith("META-INF/") ||
+          exclude.some(p => entry.fileName.startsWith(p))
+        ) {
+          zip.readEntry();
+          return;
+        }
+        if (((entry.externalFileAttributes >>> 16) & 0xf000) === 0xa000)
+          throw Error("压缩包包含符号链接");
+        bytes += entry.uncompressedSize;
+        if (bytes > 512 * 1024 * 1024) throw Error("本机库压缩包解压超过上限");
+        const target = inside(root, entry.fileName);
+        await noLinks(target);
+        await fs.mkdir(path.dirname(target), { recursive: true });
+        const stream = await new Promise((resolve, reject) =>
+          zip.openReadStream(entry, (e, s) => (e ? reject(e) : resolve(s)))
+        );
+        await pipeline(stream, createWriteStream(target));
+        zip.readEntry();
+      })().catch(abort);
+    });
+    zip.readEntry();
+  });
+}

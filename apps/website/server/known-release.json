@@ -1,0 +1,34 @@
+{
+  "version": "0.5.2",
+  "published": "2026-09-27T11:58:21.403Z",
+  "checkedAt": 1790517169622,
+  "notes": "- 修复启动前 HXZUP 检查阻塞：已是最新版时不等待可选更新日志；元数据检查有总时限，更新完成后自动返回启动器。网络不可用可选择启动完整的本地版本，未完成替换仍需恢复。\n- 修复论坛排序无效，兼容旧社区接口未处理排序参数的情况，防止快速切换时旧请求覆盖新排序。\n- 个性化按主题与文字、背景与头图、栏目与面板、声音与动效、头像分组，统一设置与社区页面的间距和控件样式。\n- 实例头图改为显示开关，关闭后紧凑排列实例信息；移除头图透明度，其他区域不透明度最低20%，弹窗保持清晰。\n- 修复蓝图详情和下载流程，独立详情页、明确错误与保存结果、支持取消下载；Create 实例识别不再受 Java 元数据影响。\n- 论坛排序与搜索同栏，回复跟随主题和区域透明度；积分商城以卡片呈现，访客可浏览商品。\n- 小游戏按1–9顺序排列，修复弹幕、战机和挡板拖动滞后；降低林间疾跑起步速度并平缓加速。\n- 三个默认服务器实例不允许隐藏或删除，已被隐藏的固定实例重新显示；普通实例保持原有管理方式。\n- 同步 Windows x64、x86兼容版与Android（50201）；独立社区服务端保留旧版小游戏校验规则和现有榜单数据。升级服务端保留 data 与 .env。",
+  "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.5.2",
+  "assets": [
+    {
+      "name": "HXZ-Launcher-0.5.2-x64.exe",
+      "size": 139885448,
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.5.2/HXZ-Launcher-0.5.2-x64.exe"
+    },
+    {
+      "name": "HXZ-Launcher-0.5.2-windows-x64-portable.zip",
+      "size": 191072176,
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.5.2/HXZ-Launcher-0.5.2-windows-x64-portable.zip"
+    },
+    {
+      "name": "HXZ-Launcher-0.5.2-ia32.exe",
+      "size": 93393641,
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.5.2/HXZ-Launcher-0.5.2-ia32.exe"
+    },
+    {
+      "name": "HXZ-Launcher-0.5.2-windows-ia32-portable.zip",
+      "size": 124352719,
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.5.2/HXZ-Launcher-0.5.2-windows-ia32-portable.zip"
+    },
+    {
+      "name": "HXZ-Community-Android-0.5.2.apk",
+      "size": 3497680,
+      "url": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.5.2/HXZ-Community-Android-0.5.2.apk"
+    }
+  ]
+}

@@ -1,0 +1,95 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
+plugins {
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
+}
+
+val repositoryRoot = rootProject.projectDir.resolve("../..").canonicalFile
+val fork = providers.gradleProperty("hxzFclSource").orNull?.let { file(it) }
+    ?: repositoryRoot.resolve(".runtime/fcl-source/FoldCraftLauncher-efe4dcc5dbc78c55be177c330239e12845ae7ccf")
+val prepared = repositoryRoot.resolve(".runtime/embedded-runtime")
+check(prepared.resolve("AndroidManifest.xml").isFile) {
+    "Run node mobile/game-engine/prepare-embedded.mjs before building the community APK"
+}
+
+android {
+    namespace = "com.tungsten.fcl"
+    compileSdk = 35
+    defaultConfig {
+        minSdk = 29
+        ndk { abiFilters += "arm64-v8a" }
+        externalNativeBuild { cmake { arguments("-DANDROID_STL=c++_shared") } }
+    }
+    buildTypes {
+        configureEach {
+            resValue("string", "app_version", "HXZ Runtime")
+            resValue("string", "curse_api_key", "")
+            resValue("string", "oauth_api_key", "")
+        }
+    }
+    sourceSets.getByName("main") {
+        manifest.srcFile(prepared.resolve("AndroidManifest.xml"))
+        java.srcDir(fork.resolve("FCL/src/main/java"))
+        res.srcDir(prepared.resolve("res"))
+        assets.srcDir(prepared.resolve("assets"))
+        jniLibs.srcDir(prepared.resolve("jniLibs"))
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true
+    }
+    buildFeatures { viewBinding = true; buildConfig = true; resValues = true; prefab = true }
+    externalNativeBuild { cmake { path = fork.resolve("FCL/src/main/jni/CMakeLists.txt") } }
+    ndkVersion = "30.0.16248370"
+    ndkPath = providers.gradleProperty("hxzNdkPath").orNull ?: "E:/hxz_up/hxzup/tools/android-ndk-r30"
+    packaging { jniLibs { useLegacyPackaging = true; pickFirsts += "**/libbytehook.so" } }
+}
+kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
+ksp { arg("room.schemaLocation", layout.buildDirectory.dir("schemas").get().asFile.absolutePath) }
+
+dependencies {
+    // Host owns these stripped vendor AARs; compileOnly avoids illegal nesting of local AARs.
+    compileOnly(fileTree(mapOf("dir" to prepared.resolve("libs"), "include" to listOf("*.aar"))))
+    implementation(project(":ZipFileSystem"))
+    implementation(project(":Terracotta"))
+    implementation("com.squareup.okhttp3:okhttp:4.12.0") { exclude(group = "org.jetbrains.kotlin") }
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
+    implementation(libs.commons.io)
+    implementation(libs.jelf)
+    implementation(libs.nanohttpd)
+    implementation(libs.commons.compress)
+    implementation(libs.xz)
+    implementation(libs.opennbt)
+    implementation(libs.lz4)
+    implementation(libs.gson)
+    implementation(libs.tomlj)
+    implementation(libs.constant.pool.scanner)
+    implementation(libs.jsoup)
+    implementation(libs.chardet)
+    implementation(libs.junrar)
+    implementation(libs.bytehook)
+    implementation(libs.appcompat)
+    implementation(libs.androidx.viewpager2)
+    implementation(libs.core.splashscreen)
+    implementation(libs.material)
+    implementation(libs.constraintlayout)
+    implementation(libs.core.ktx)
+    implementation(libs.lifecycle.runtime.ktx)
+    implementation(libs.lifecycle.viewmodel)
+    implementation(libs.recyclerview)
+    implementation(libs.coroutines.android)
+    implementation(libs.glide)
+    implementation(libs.touchcontroller)
+    implementation(libs.palette.ktx)
+    implementation(libs.gamepad.remapper)
+    implementation(libs.segmented.button)
+    implementation(libs.datastore)
+    implementation(libs.kotlinx.serialization.json)
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+}

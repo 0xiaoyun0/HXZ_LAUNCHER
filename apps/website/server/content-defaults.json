@@ -1,0 +1,151 @@
+{
+  "site": {
+    "name": "幻想镇",
+    "origin": "https://www.hxzmc.top",
+    "description": "幻想镇 Minecraft 玩家社区。探索原版生存、机械动力与航空学、新时代科技三个服务器，查看玩家作品，用一个皮肤站账号开始你的旅程。",
+    "skin": "https://skin.hxzmc.top/",
+    "rules": "https://docs.qq.com/doc/DSnN1Z1NlS2ZlbkxN",
+    "faq": "https://docs.qq.com/doc/DSkhCTEFvU2p6S2Ft",
+    "otherLauncher": "https://docs.qq.com/doc/DSkNFdGZUaE91c0Zl",
+    "video": "https://www.bilibili.com/video/BV1c6hy6kE5Z/",
+    "adminVideo": "https://space.bilibili.com/418926329",
+    "ownerVideo": "https://space.bilibili.com/361753228",
+    "oopz": "https://oopz.vip/s/374S03wNJ74?t=a26i",
+    "oopzId": "073303750",
+    "qq": "1060358718",
+    "github": "https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases"
+  },
+  "home": {
+    "eyebrow": "MINECRAFT · FANTASY TOWN",
+    "title": "和喜欢的人，\n创造喜欢的世界。",
+    "intro": "从一间小屋，到一座城市。从第一次相遇，到一起走过的每个日常。欢迎来到幻想镇。",
+    "heroImage": "/media/hero.webp",
+    "heroCaption": "幻想镇宣传插画",
+    "primaryLabel": "开启我的旅程",
+    "worldsTitle": "三种玩法，一样的归属感。",
+    "communityTitle": "精彩，来自每一个你。",
+    "joinTitle": "下一个故事，等你加入。",
+    "showCommunity": true,
+    "showGuide": true,
+    "footer": "让创造有归处，让相遇有下文。"
+  },
+  "servers": [
+    {
+      "id": "survival",
+      "number": "01",
+      "name": "原版生存群组",
+      "short": "原版生存",
+      "english": "THE EVERYDAY ADVENTURE",
+      "headline": "从第一块木头，\n到一整个世界。",
+      "intro": "建造、红石、空岛与小游戏。保留原版的自由，也给每一种日常留出空间。",
+      "address": "s1.hxzmc.top",
+      "version": "26.2",
+      "platform": "原版 · MCDR",
+      "cycle": "生存二服 · 26.2 版本周目",
+      "status": "正常运行",
+      "testing": false,
+      "tags": [
+        "原版生电",
+        "粘液科技空岛",
+        "多世界玩法"
+      ],
+      "color": "sage",
+      "image": "/media/hero.webp",
+      "fit": "喜欢自由建造、红石研究，或想和朋友轻松长住的玩家。",
+      "features": [
+        {
+          "title": "把想法造出来",
+          "body": "从温暖的小屋到自动化工厂，在纯净原版生存里慢慢建设。"
+        },
+        {
+          "title": "从空岛重新开始",
+          "body": "体验粘液科技空岛，在有限空间里拓展新的可能。"
+        },
+        {
+          "title": "换一种方式相聚",
+          "body": "资源世界、空岛战争、起床战争与周期活动服，让日常不止一种节奏。"
+        }
+      ],
+      "note": "生存一服需要申请白名单；请先查看群公告与入服指南。该要求不代表整个原版群组都需要白名单。",
+      "imageCaption": "宣传插画"
+    },
+    {
+      "id": "mod-1",
+      "number": "02",
+      "name": "模组一服",
+      "short": "机械与天空",
+      "english": "MAKE THE WORLD MOVE",
+      "headline": "让齿轮转动，\n让想象起飞。",
+      "intro": "机械动力遇见航空学。在客制化地形之间，让每一个巧妙的设计真正运转起来。",
+      "address": "s2.hxzmc.top",
+      "version": "1.21.1",
+      "platform": "NeoForge",
+      "cycle": "2027 年度周目",
+      "status": "测试中",
+      "testing": true,
+      "tags": [
+        "机械动力",
+        "航空学",
+        "客制化地形"
+      ],
+      "color": "sand",
+      "image": "/media/mechanical.webp",
+      "fit": "喜欢机械设计、自动化产线和飞行载具，也乐于参与测试的玩家。",
+      "features": [
+        {
+          "title": "每个齿轮都有用",
+          "body": "围绕机械动力构建生产线，让传动、加工和运输成为一套流畅的设计。"
+        },
+        {
+          "title": "把创造带向天空",
+          "body": "用航空学拓展机械的边界，让载具与天空成为新的创作空间。"
+        },
+        {
+          "title": "在新地形中落脚",
+          "body": "围绕客制化地形探索与建设，找到属于你的基地位置。"
+        }
+      ],
+      "note": "当前处于测试阶段。开放安排与整合包调整请以模组一服公告为准。",
+      "imageCaption": "宣传插画"
+    },
+    {
+      "id": "mod-2",
+      "number": "03",
+      "name": "模组二服",
+      "short": "新时代科技",
+      "english": "BUILD WHAT COMES NEXT",
+      "headline": "向未知出发，\n把科技带回家。",
+      "intro": "探索、资源与科技共同推进。在新时代科技整合包里，从一次发现走向完整的自动化。",
+      "address": "s3.hxzmc.top",
+      "version": "1.21.1",
+      "platform": "NeoForge",
+      "cycle": "26-4 周目",
+      "status": "正常运行",
+      "testing": false,
+      "tags": [
+        "新时代科技",
+        "AE 存储",
+        "探索与自动化"
+      ],
+      "color": "sky",
+      "image": "/media/adventure.webp",
+      "fit": "喜欢科技成长、AE 网络、资源规划与冒险探索的玩家。",
+      "features": [
+        {
+          "title": "从探索积累灵感",
+          "body": "走出基地寻找资源，让旅途中的收获成为下一阶段发展的起点。"
+        },
+        {
+          "title": "把资源连接起来",
+          "body": "围绕 AE 整理存储与生产，在逐步扩展的网络中建立自己的秩序。"
+        },
+        {
+          "title": "让科技持续生长",
+          "body": "体验 New Age Science and Technology 整合包，推进研究与自动化建设。"
+        }
+      ],
+      "note": "请使用模组二服对应的整合包。模组一服与模组二服虽然游戏版本相同，包体和更新入口并不通用。",
+      "imageCaption": "宣传插画"
+    }
+  ]
+}

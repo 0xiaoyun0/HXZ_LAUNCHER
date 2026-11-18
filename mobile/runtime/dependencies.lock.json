@@ -1,0 +1,5224 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-21",
+  "target": "android-arm64-v8a",
+  "status": "foundations-ready-device-unverified",
+  "constraints": {
+    "minimumAndroidApi": 29,
+    "javaRuntimePageSize": 4096,
+    "deviceTested": false,
+    "gradleBuilt": false,
+    "minecraftDownloaded": false
+  },
+  "stageRoot": ".runtime/hxz-runtime-upstream/input/app_runtime",
+  "requiredComponents": [
+    {
+      "id": "java21",
+      "status": "ready",
+      "reason": "Pinned publisher runtime with complete legal tree; 4 KiB Android ARM64 only"
+    },
+    {
+      "id": "java25",
+      "status": "ready",
+      "reason": "Pinned publisher runtime with complete legal tree; 4 KiB Android ARM64 only"
+    },
+    {
+      "id": "lwjgl333",
+      "status": "ready",
+      "reason": "Successful independent NDK source build; 16 KiB PT_LOAD verified; matching official Java JNI exported"
+    },
+    {
+      "id": "lwjgl341",
+      "status": "ready",
+      "reason": "Successful independent NDK source build; 16 KiB PT_LOAD verified; matching official Java JNI exported"
+    },
+    {
+      "id": "openal",
+      "status": "ready",
+      "reason": "NDK source build; OpenSL; no HRTF; 16 KiB aligned"
+    },
+    {
+      "id": "libsync",
+      "status": "ready",
+      "reason": "AOSP source NDK build; libc/kernel ioctls; API26; 16 KiB aligned"
+    },
+    {
+      "id": "mesa",
+      "status": "ready",
+      "reason": "Successful independent NDK source build from official pinned Mesa25.3.4 + official Mesa24.3.4 OSMesa; verified softpipe/zink and public Android dependencies only"
+    },
+    {
+      "id": "jna5140",
+      "status": "ready",
+      "reason": "Official version-matched Android AAR; identical native in pinned upstream source; 69 JNI methods covered; public c/dl/m only"
+    },
+    {
+      "id": "jna5170",
+      "status": "ready",
+      "reason": "Official version-matched Android AAR; identical native in pinned upstream source; 69 JNI methods covered; public c/dl/m only"
+    },
+    {
+      "id": "freetype",
+      "status": "ready",
+      "reason": "Successful NDK source build; all 210 required LWJGL3.4.1 FreeType C API exports verified"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "java21",
+      "component": "java21",
+      "kind": "runtime",
+      "file": ".runtime/hxz-runtime-upstream/downloads/jre21-android-arm64.tar.xz",
+      "url": "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/download_jre21/jre21-android-arm64.tar.xz",
+      "sha256": "8d41ec401ee59f7722df60ed991f81ad146e130452804bfdd8a05d3436f7bbfe",
+      "size": 28675516,
+      "sourceCommit": "060c4f7589e7f13febd402f4dac3320f4c032b08",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0 AND module-specific legal notices",
+      "status": "ready",
+      "builderCommit": "196da32d80fe96d6967ca1c154f102cff0dfc389",
+      "builderBranch": "buildjre21",
+      "constraints": {
+        "androidAbi": "arm64-v8a",
+        "pageSize": 4096
+      },
+      "transportMirror": "https://ghproxy.net/",
+      "publisherHashVerified": true
+    },
+    {
+      "id": "java21-build-source",
+      "component": "java21",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/jdk21-build-196da32.tar.gz",
+      "url": "https://codeload.github.com/AngelAuraMC/angelauramc-openjdk-build/tar.gz/196da32d80fe96d6967ca1c154f102cff0dfc389",
+      "sha256": "3fab1cc273360b66efcec96f196d9d00c06d01fbd8d21d96c3a7d00fb051084f",
+      "size": 1431501,
+      "sourceCommit": "196da32d80fe96d6967ca1c154f102cff0dfc389",
+      "license": "OpenJDK patch file notices; build scripts upstream repo has no root license",
+      "status": "ready"
+    },
+    {
+      "id": "java21-source",
+      "component": "java21",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/openjdk21-060c4f7589e7.tar.gz",
+      "url": "https://codeload.github.com/openjdk/jdk21u/tar.gz/060c4f7589e7f13febd402f4dac3320f4c032b08",
+      "sha256": "0d288a3d0638bb0846775be8e012a331f26ed546563bfc8e8cccc7fc793c6f5a",
+      "size": 112249857,
+      "sourceCommit": "060c4f7589e7f13febd402f4dac3320f4c032b08",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0 AND third-party notices",
+      "status": "ready"
+    },
+    {
+      "id": "java25",
+      "component": "java25",
+      "kind": "runtime",
+      "file": ".runtime/hxz-runtime-upstream/downloads/jre25-android-arm64.tar.xz",
+      "url": "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/download_jre25/jre25-android-arm64.tar.xz",
+      "sha256": "d3eb7afe2240c26728a1bb440502c5f18ac3883e932d202dd7f0c9bcbbce4c37",
+      "size": 38031580,
+      "sourceCommit": "29d0b2b336e0a936436a5799d4bbdf4123155c09",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0 AND module-specific legal notices",
+      "status": "ready",
+      "builderCommit": "7a0266e745d9b4acf400afa189b58e672900f710",
+      "builderBranch": "fcl/BUILD_JRE_25",
+      "constraints": {
+        "androidAbi": "arm64-v8a",
+        "pageSize": 4096
+      },
+      "transportMirror": "https://ghproxy.net/",
+      "publisherHashVerified": true
+    },
+    {
+      "id": "java25-build-source",
+      "component": "java25",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/jdk25-build.tar.gz",
+      "url": "https://codeload.github.com/AngelAuraMC/angelauramc-openjdk-build/tar.gz/7a0266e745d9b4acf400afa189b58e672900f710",
+      "sha256": "b6a56c410b591df7a86352cf82da46ce4a018a0a4f44c330bcb9ca7dc3a382dd",
+      "size": 1282039,
+      "sourceCommit": "7a0266e745d9b4acf400afa189b58e672900f710",
+      "license": "OpenJDK patch file notices; build scripts upstream repo has no root license",
+      "status": "ready"
+    },
+    {
+      "id": "java25-source",
+      "component": "java25",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/openjdk25-29d0b2b336e0.tar.gz",
+      "url": "https://codeload.github.com/openjdk/jdk25u/tar.gz/29d0b2b336e0a936436a5799d4bbdf4123155c09",
+      "sha256": "7efdac88aee3d1b3a7c725eb1f7253d01cdffa115c9ad5a217bc8869741fd5e0",
+      "size": 119720766,
+      "sourceCommit": "29d0b2b336e0a936436a5799d4bbdf4123155c09",
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0 AND third-party notices",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl333-source",
+      "component": "lwjgl333",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/zalith-lwjgl3-3.3.3.tar.gz",
+      "url": "https://codeload.github.com/ZalithLauncher/lwjgl3/tar.gz/ddf2a2aa31b578cc89bc5644fba5057f56d66867",
+      "sha256": "50b9dfbffb01916003fbb6596655001f81778b583c5cc181d0491341b17b78dc",
+      "size": 15218470,
+      "sourceCommit": "ddf2a2aa31b578cc89bc5644fba5057f56d66867",
+      "license": "BSD-3-Clause AND libffi MIT AND stb MIT/public domain AND tinyfd Zlib",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-java-3.3.3",
+      "component": "lwjgl333",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-3.3.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.3.3/lwjgl-3.3.3.jar",
+      "sha256": "dc9c7b2d48e8396d68895f8902ffa01e46253de44dfe927533ff09457ebfeec4",
+      "size": 785029,
+      "sourceCommit": "f0ec1437a6149dae00eaa27c47268e5e4efb129f",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-glfw-java-3.3.3",
+      "component": "lwjgl333",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-glfw-3.3.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-glfw/3.3.3/lwjgl-glfw-3.3.3.jar",
+      "sha256": "bedc757fd2b1b255146db26b74b9cbd1fcf5644b89b47b104fa721c741604259",
+      "size": 135546,
+      "sourceCommit": "f0ec1437a6149dae00eaa27c47268e5e4efb129f",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-opengl-java-3.3.3",
+      "component": "lwjgl333",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-opengl-3.3.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-opengl/3.3.3/lwjgl-opengl-3.3.3.jar",
+      "sha256": "5062da750e5f7ec89e27e8b67b7d40fa8c4b16890159e35f828116ce6c8eca1e",
+      "size": 929192,
+      "sourceCommit": "f0ec1437a6149dae00eaa27c47268e5e4efb129f",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-stb-java-3.3.3",
+      "component": "lwjgl333",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-stb-3.3.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-stb/3.3.3/lwjgl-stb-3.3.3.jar",
+      "sha256": "0cff7aa46ea9d70fcc20857015293ea80fbf21adcac34600c84da9b81a44ca93",
+      "size": 120283,
+      "sourceCommit": "f0ec1437a6149dae00eaa27c47268e5e4efb129f",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-openal-java-3.3.3",
+      "component": "lwjgl333",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-openal-3.3.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-openal/3.3.3/lwjgl-openal-3.3.3.jar",
+      "sha256": "ae0e82767cacf08921f578fba9d84753ddeb00ceada0510a2b4a882be28fbf95",
+      "size": 110586,
+      "sourceCommit": "f0ec1437a6149dae00eaa27c47268e5e4efb129f",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-jemalloc-java-3.3.3",
+      "component": "lwjgl333",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-jemalloc-3.3.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-jemalloc/3.3.3/lwjgl-jemalloc-3.3.3.jar",
+      "sha256": "e99e31269e6678a4bfc62ef24c50a481c01cbdd004861ece9a59ba12768c6516",
+      "size": 43896,
+      "sourceCommit": "f0ec1437a6149dae00eaa27c47268e5e4efb129f",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-tinyfd-java-3.3.3",
+      "component": "lwjgl333",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-tinyfd-3.3.3.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-tinyfd/3.3.3/lwjgl-tinyfd-3.3.3.jar",
+      "sha256": "ee0515054ee19a3f4088426fee9d879eb2ee657b07e5064e4e2c851f6adcf14b",
+      "size": 13400,
+      "sourceCommit": "f0ec1437a6149dae00eaa27c47268e5e4efb129f",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-android-3.3.3",
+      "component": "lwjgl333",
+      "kind": "local-build",
+      "file": ".runtime/hxz-runtime-upstream/build/lwjgl-3.3.3-arm64/liblwjgl.so",
+      "url": "https://github.com/ZalithLauncher/lwjgl3/tree/ddf2a2aa31b578cc89bc5644fba5057f56d66867",
+      "sha256": "ec467d7db4741acfb768f6cf3d9132b8d7ce730248ccb5ebbb4953ea72bfa2e8",
+      "size": 2935176,
+      "sourceCommit": "ddf2a2aa31b578cc89bc5644fba5057f56d66867",
+      "license": "BSD-3-Clause AND bundled module licenses",
+      "status": "ready",
+      "buildRecipe": "mobile/runtime/upstream-build/build.ps1",
+      "needed": [
+        "libdl.so",
+        "libm.so",
+        "libc.so"
+      ],
+      "elfLoadAlignment": 16384,
+      "androidApi": 24
+    },
+    {
+      "id": "lwjgl_opengl-android-3.3.3",
+      "component": "lwjgl333",
+      "kind": "local-build",
+      "file": ".runtime/hxz-runtime-upstream/build/lwjgl-3.3.3-arm64/liblwjgl_opengl.so",
+      "url": "https://github.com/ZalithLauncher/lwjgl3/tree/ddf2a2aa31b578cc89bc5644fba5057f56d66867",
+      "sha256": "89c453156e01bcc0c00c87aef02353d0a0a89ace433b812ff21378f8908a0f0b",
+      "size": 4443472,
+      "sourceCommit": "ddf2a2aa31b578cc89bc5644fba5057f56d66867",
+      "license": "BSD-3-Clause AND bundled module licenses",
+      "status": "ready",
+      "buildRecipe": "mobile/runtime/upstream-build/build.ps1",
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "elfLoadAlignment": 16384,
+      "androidApi": 24
+    },
+    {
+      "id": "lwjgl_stb-android-3.3.3",
+      "component": "lwjgl333",
+      "kind": "local-build",
+      "file": ".runtime/hxz-runtime-upstream/build/lwjgl-3.3.3-arm64/liblwjgl_stb.so",
+      "url": "https://github.com/ZalithLauncher/lwjgl3/tree/ddf2a2aa31b578cc89bc5644fba5057f56d66867",
+      "sha256": "13e76aa44ebb5fc7531968d01428747b3f87ce6055c6808333ef4dfa4ee6e27e",
+      "size": 1864072,
+      "sourceCommit": "ddf2a2aa31b578cc89bc5644fba5057f56d66867",
+      "license": "BSD-3-Clause AND bundled module licenses",
+      "status": "ready",
+      "buildRecipe": "mobile/runtime/upstream-build/build.ps1",
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "elfLoadAlignment": 16384,
+      "androidApi": 24
+    },
+    {
+      "id": "lwjgl_tinyfd-android-3.3.3",
+      "component": "lwjgl333",
+      "kind": "local-build",
+      "file": ".runtime/hxz-runtime-upstream/build/lwjgl-3.3.3-arm64/liblwjgl_tinyfd.so",
+      "url": "https://github.com/ZalithLauncher/lwjgl3/tree/ddf2a2aa31b578cc89bc5644fba5057f56d66867",
+      "sha256": "5d104faeff633767573a187520c4f808eb44da29a304ef1304f1b004048bde83",
+      "size": 342912,
+      "sourceCommit": "ddf2a2aa31b578cc89bc5644fba5057f56d66867",
+      "license": "BSD-3-Clause AND bundled module licenses",
+      "status": "ready",
+      "buildRecipe": "mobile/runtime/upstream-build/build.ps1",
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "elfLoadAlignment": 16384,
+      "androidApi": 24
+    },
+    {
+      "id": "lwjgl341-source",
+      "component": "lwjgl341",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/zalith-lwjgl3-3.4.1.tar.gz",
+      "url": "https://codeload.github.com/ZalithLauncher/lwjgl3/tar.gz/ef3ffcba821accd5274be9661c2a6604a13e607c",
+      "sha256": "45c8dba9373cd2615ac34589eff817feb73112a647f6ca96d52e8a62e9b4327e",
+      "size": 10173300,
+      "sourceCommit": "ef3ffcba821accd5274be9661c2a6604a13e607c",
+      "license": "BSD-3-Clause AND libffi MIT AND stb MIT/public domain AND tinyfd Zlib",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-java-3.4.1",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.1/lwjgl-3.4.1.jar",
+      "sha256": "9b1c3a3a078c2377219ecb8a2662730b3dece07c10592cf1d12f957286037b69",
+      "size": 1157957,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-glfw-java-3.4.1",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-glfw-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-glfw/3.4.1/lwjgl-glfw-3.4.1.jar",
+      "sha256": "c2d93964f0a8b2a846708c7fb1b0a095e7d79dce8ea4c543969ffef508027190",
+      "size": 151893,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-opengl-java-3.4.1",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-opengl-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-opengl/3.4.1/lwjgl-opengl-3.4.1.jar",
+      "sha256": "a76b8fd9ff7428ae5e0f01b8f91a4e44debba87285048e965757742093418702",
+      "size": 937660,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-stb-java-3.4.1",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-stb-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-stb/3.4.1/lwjgl-stb-3.4.1.jar",
+      "sha256": "3d77b0a242b8a52788934356560191db910ed242ab23c521d55f030b4e867970",
+      "size": 142927,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-openal-java-3.4.1",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-openal-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-openal/3.4.1/lwjgl-openal-3.4.1.jar",
+      "sha256": "824a68b6f22220feb45cdaf06ebd5496b96e38c50e2588fc3ea0e819f910cf28",
+      "size": 153919,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-jemalloc-java-3.4.1",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-jemalloc-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-jemalloc/3.4.1/lwjgl-jemalloc-3.4.1.jar",
+      "sha256": "184866f4dcb444666e9062f690c389d69e4a62dd7fd9e2bb13ab7bdf3d03bd1e",
+      "size": 47872,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-tinyfd-java-3.4.1",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-tinyfd-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-tinyfd/3.4.1/lwjgl-tinyfd-3.4.1.jar",
+      "sha256": "3ffad01103b6cbc8c12c7156691fd87a96f063600a5ff5c9087d321c6736963a",
+      "size": 15931,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "lwjgl-android-3.4.1",
+      "component": "lwjgl341",
+      "kind": "local-build",
+      "file": ".runtime/hxz-runtime-upstream/build/lwjgl-3.4.1-arm64/liblwjgl.so",
+      "url": "https://github.com/ZalithLauncher/lwjgl3/tree/ef3ffcba821accd5274be9661c2a6604a13e607c",
+      "sha256": "20a852a962c2776e782b8501edf812593415764373ca0f16ac493fa8925d3aad",
+      "size": 3175688,
+      "sourceCommit": "ef3ffcba821accd5274be9661c2a6604a13e607c",
+      "license": "BSD-3-Clause AND bundled module licenses",
+      "status": "ready",
+      "buildRecipe": "mobile/runtime/upstream-build/build.ps1",
+      "needed": [
+        "libdl.so",
+        "libm.so",
+        "libc.so"
+      ],
+      "elfLoadAlignment": 16384,
+      "androidApi": 24
+    },
+    {
+      "id": "lwjgl_opengl-android-3.4.1",
+      "component": "lwjgl341",
+      "kind": "local-build",
+      "file": ".runtime/hxz-runtime-upstream/build/lwjgl-3.4.1-arm64/liblwjgl_opengl.so",
+      "url": "https://github.com/ZalithLauncher/lwjgl3/tree/ef3ffcba821accd5274be9661c2a6604a13e607c",
+      "sha256": "06ece44c525e7fddd707dd506335f364173c64cd2be3a6fc4d742fd0c568e512",
+      "size": 4475368,
+      "sourceCommit": "ef3ffcba821accd5274be9661c2a6604a13e607c",
+      "license": "BSD-3-Clause AND bundled module licenses",
+      "status": "ready",
+      "buildRecipe": "mobile/runtime/upstream-build/build.ps1",
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "elfLoadAlignment": 16384,
+      "androidApi": 24
+    },
+    {
+      "id": "lwjgl_stb-android-3.4.1",
+      "component": "lwjgl341",
+      "kind": "local-build",
+      "file": ".runtime/hxz-runtime-upstream/build/lwjgl-3.4.1-arm64/liblwjgl_stb.so",
+      "url": "https://github.com/ZalithLauncher/lwjgl3/tree/ef3ffcba821accd5274be9661c2a6604a13e607c",
+      "sha256": "5903660cb8da26e1250cbdda70667b333ad88d053a488e105d308e12fcbd9532",
+      "size": 2387192,
+      "sourceCommit": "ef3ffcba821accd5274be9661c2a6604a13e607c",
+      "license": "BSD-3-Clause AND bundled module licenses",
+      "status": "ready",
+      "buildRecipe": "mobile/runtime/upstream-build/build.ps1",
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "elfLoadAlignment": 16384,
+      "androidApi": 24
+    },
+    {
+      "id": "lwjgl_tinyfd-android-3.4.1",
+      "component": "lwjgl341",
+      "kind": "local-build",
+      "file": ".runtime/hxz-runtime-upstream/build/lwjgl-3.4.1-arm64/liblwjgl_tinyfd.so",
+      "url": "https://github.com/ZalithLauncher/lwjgl3/tree/ef3ffcba821accd5274be9661c2a6604a13e607c",
+      "sha256": "4ab06f0152bc576d0b1a2d0eada5e45c34f1e9529e321a9b300e067380bc6d22",
+      "size": 356288,
+      "sourceCommit": "ef3ffcba821accd5274be9661c2a6604a13e607c",
+      "license": "BSD-3-Clause AND bundled module licenses",
+      "status": "ready",
+      "buildRecipe": "mobile/runtime/upstream-build/build.ps1",
+      "needed": [
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "elfLoadAlignment": 16384,
+      "androidApi": 24
+    },
+    {
+      "id": "libffi-3.4.6",
+      "component": "lwjgl333",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/libffi-3.4.6.tar.gz",
+      "url": "https://codeload.github.com/libffi/libffi/tar.gz/refs/tags/v3.4.6",
+      "sha256": "9ac790464c1eb2f5ab5809e978a1683e9393131aede72d1b0a0703771d3c6cda",
+      "size": 598175,
+      "sourceCommit": "3d0ce1e6fcf19f853894862abcbac0ae78a7be60",
+      "license": "MIT",
+      "status": "ready"
+    },
+    {
+      "id": "libffi-3.5.2",
+      "component": "lwjgl341",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/libffi-3.5.2.tar.gz",
+      "url": "https://codeload.github.com/libffi/libffi/tar.gz/refs/tags/v3.5.2",
+      "sha256": "dd19253d3007f366319a51d248a40c9e5fcace4498cbea990b566291844e4e30",
+      "size": 598870,
+      "sourceCommit": "e2eda0cf72a0598b44278cc91860ea402273fa29",
+      "license": "MIT",
+      "status": "ready"
+    },
+    {
+      "id": "openal-source",
+      "component": "openal",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/openal-soft-1.24.3.tar.gz",
+      "url": "https://codeload.github.com/kcat/openal-soft/tar.gz/refs/tags/1.24.3",
+      "sha256": "7e1fecdeb45e7f78722b776c5cf30bd33934b961d7fd2a11e0494e064cc631ce",
+      "size": 1251714,
+      "sourceCommit": "dc7d7054a5b4f3bec1dc23a42fd616a0847af948",
+      "license": "LGPL-2.0-or-later AND MIT/fmt AND BSD-3-Clause AND LICENSE-pffft",
+      "status": "ready"
+    },
+    {
+      "id": "openal",
+      "component": "openal",
+      "kind": "local-build",
+      "file": ".runtime/hxz-runtime-upstream/build/openal-soft-arm64/libopenal.so",
+      "url": "https://github.com/kcat/openal-soft/tree/dc7d7054a5b4f3bec1dc23a42fd616a0847af948",
+      "sha256": "d659066c1c095493e10aa3e438cebe8c347b584b10c634120b09f4394d7a7763",
+      "size": 20222008,
+      "sourceCommit": "dc7d7054a5b4f3bec1dc23a42fd616a0847af948",
+      "license": "LGPL-2.0-or-later AND static third-party notices",
+      "status": "ready",
+      "androidApi": 24,
+      "elfLoadAlignment": 16384,
+      "buildRecipe": "mobile/runtime/upstream-build/build.ps1",
+      "hrtfEmbedded": false
+    },
+    {
+      "id": "libsync-source",
+      "component": "libsync",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/aosp-system-core-android15.tar.gz",
+      "url": "https://codeload.github.com/aosp-mirror/platform_system_core/tar.gz/refs/tags/android-15.0.0_r1",
+      "sha256": "9c004eaeddd3824c3eda792ab6f14c83229a41c4f298c778a39c76b551eae70e",
+      "size": 1944248,
+      "sourceCommit": "fc7bc8c4bfb4c6095e34ea784509dae56f25b486",
+      "license": "Apache-2.0",
+      "status": "ready"
+    },
+    {
+      "id": "libsync",
+      "component": "libsync",
+      "kind": "local-build",
+      "file": ".runtime/hxz-runtime-upstream/build/lwjgl-3.4.1-arm64/libsync.so",
+      "url": "https://github.com/aosp-mirror/platform_system_core/tree/fc7bc8c4bfb4c6095e34ea784509dae56f25b486/libsync",
+      "sha256": "a5b6ce9d59f8e78ff1d0743738b564ca066379febaddbeacde5fbd2a588c78e3",
+      "size": 26128,
+      "sourceCommit": "fc7bc8c4bfb4c6095e34ea784509dae56f25b486",
+      "license": "Apache-2.0",
+      "status": "ready",
+      "androidApi": 26,
+      "elfLoadAlignment": 16384,
+      "buildRecipe": "mobile/runtime/upstream-build/build.ps1"
+    },
+    {
+      "id": "mesa-candidate-archive",
+      "component": "mesa",
+      "kind": "renderer",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa25.3.4-aarch64.zip",
+      "url": "https://github.com/Vera-Firefly/android-mesa-build/releases/download/v25.3.4/25.3.4-aarch64.zip",
+      "sha256": "c4ef262f92dc4ff2b1a383335299b1059ca318da3263dbedc531980064cbbd41",
+      "size": 5753955,
+      "sourceCommit": "23e3445940 (binary-reported abbreviation; exact patched tree unverified)",
+      "license": "Mesa MIT/BSD family AND possible GPL-3.0 modifications; unverified",
+      "status": "blocked-source-correspondence",
+      "capabilities": {
+        "drivers": [
+          "zink",
+          "freedreno"
+        ],
+        "evidence": "Inferred from publisher recipe; exact binary source correspondence unverified",
+        "verified": false
+      }
+    },
+    {
+      "id": "mesa-candidate",
+      "component": "mesa",
+      "kind": "renderer",
+      "file": ".runtime/hxz-runtime-upstream/extracted/mesa25.3.4/libOSMesa.so",
+      "url": "https://github.com/Vera-Firefly/android-mesa-build/releases/download/v25.3.4/25.3.4-aarch64.zip",
+      "sha256": "fcb762f240abaa3c0fd936dcca1901c692f1066c88f8e6d277921947e9de9a20",
+      "size": 23530264,
+      "sourceCommit": "23e3445940 (binary-reported abbreviation; exact patched tree unverified)",
+      "license": "Mesa MIT/BSD family AND possible GPL-3.0 modifications; unverified",
+      "status": "blocked-source-correspondence",
+      "needed": [
+        "liblog.so",
+        "libsync.so",
+        "libz.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ],
+      "elfLoadAlignment": 16384,
+      "licenseDirectory": ".runtime/hxz-runtime-upstream/sources/mesa-build-fix",
+      "sourceDirectory": ".runtime/hxz-runtime-upstream/sources/mesa-build-fix",
+      "excludedFromStage": true,
+      "capabilities": {
+        "drivers": [
+          "zink",
+          "freedreno"
+        ],
+        "evidence": "Inferred from publisher recipe; exact binary source correspondence unverified",
+        "verified": false
+      }
+    },
+    {
+      "id": "mesa-publisher-build-source",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa25.3.4-build.tar.gz",
+      "url": "https://codeload.github.com/Vera-Firefly/android-mesa-build/tar.gz/7d578eb5706e25fe07e3d2cdb557cae64b4bca6a",
+      "sha256": "3c84e0be1a5b71bf18ed4e6111c5b2be100a7d013280f337b487c3342b91abf5",
+      "size": 14936,
+      "sourceCommit": "7d578eb5706e25fe07e3d2cdb557cae64b4bca6a",
+      "license": "No root license; inspect scripts; Mesa notices apply to Mesa",
+      "status": "research-only"
+    },
+    {
+      "id": "mesa-publisher-patches",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa-build-fix.tar.gz",
+      "url": "https://codeload.github.com/Vera-Firefly/mesa-build-fix/tar.gz/ff8f14430710cd108bbe37724a0459dd20b120d5",
+      "sha256": "2492f90a17b2940f91ec886905c53a7277719f502c28c0eae84454e36d5004a5",
+      "size": 163873,
+      "sourceCommit": "ff8f14430710cd108bbe37724a0459dd20b120d5",
+      "license": "GPL-3.0 AND Mesa per-file MIT/BSD notices; README says new contributions GPLv3 or MIT",
+      "status": "research-only"
+    },
+    {
+      "id": "mesa-upstream-source",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa25.3.4-source.tar.xz",
+      "url": "https://archive.mesa3d.org/mesa-25.3.4.tar.xz",
+      "sha256": "3a0fc6ec070b45ae25dc2ccb5e52fae1d89141f7c39c4a91fe4eaa80dfff9deb",
+      "size": 43415708,
+      "sourceCommit": "23e3445940104465152dcfc1d5952d09d3ba7b37",
+      "sourceTag": "mesa-25.3.4",
+      "license": "MIT AND per-file BSD and other compatible notices",
+      "status": "ready"
+    },
+    {
+      "id": "winflexbison-build-tool",
+      "component": "mesa",
+      "kind": "build-tool",
+      "file": ".runtime/hxz-runtime-upstream/downloads/win_flex_bison-2.5.25.zip",
+      "url": "https://github.com/lexxmark/winflexbison/releases/download/v2.5.25/win_flex_bison-2.5.25.zip",
+      "sha256": "8d324b62be33604b2c45ad1dd34ab93d722534448f55a16ca7292de32b6ac135",
+      "sourceCommit": "1176da2adaf972b2216b1ac8dd611e128fe80bc5",
+      "license": "Bison GPL-3.0 with output exception; Flex BSD; build-only tool",
+      "status": "ready",
+      "excludedFromStage": true,
+      "transportMirror": "https://ghproxy.net/"
+    },
+    {
+      "id": "mesa24-osmesa-file-2",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa24.3.4-osmesa/include/GL/osmesa.h",
+      "url": "https://gitlab.freedesktop.org/mesa/mesa/-/raw/769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de/include/GL/osmesa.h",
+      "sourceTag": "mesa-24.3.4",
+      "sourceCommit": "769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de",
+      "sha256": "0130046a5e7fbdd0c297dfb0ea4865a78d77c5cb79f03d03f4267a90ff484d2a",
+      "size": 10334,
+      "license": "MIT (original per-file headers retained)",
+      "status": "ready"
+    },
+    {
+      "id": "mesa24-osmesa-file-7",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa24.3.4-osmesa/src/gallium/frontends/osmesa/meson.build",
+      "url": "https://gitlab.freedesktop.org/mesa/mesa/-/raw/769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de/src/gallium/frontends/osmesa/meson.build",
+      "sourceTag": "mesa-24.3.4",
+      "sourceCommit": "769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de",
+      "sha256": "1e11520a77acd1d33547b35c8220ef6d81cedf196e44aece49db54dc32b4f096",
+      "size": 444,
+      "license": "MIT (original per-file headers retained)",
+      "status": "ready"
+    },
+    {
+      "id": "mesa24-osmesa-file-8",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa24.3.4-osmesa/src/gallium/frontends/osmesa/osmesa.c",
+      "url": "https://gitlab.freedesktop.org/mesa/mesa/-/raw/769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de/src/gallium/frontends/osmesa/osmesa.c",
+      "sourceTag": "mesa-24.3.4",
+      "sourceCommit": "769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de",
+      "sha256": "de1ea1fa9468c4d9e0da8b47f33be35820249a5f5723875ffd40f9043503fc96",
+      "size": 29497,
+      "license": "MIT (original per-file headers retained)",
+      "status": "ready"
+    },
+    {
+      "id": "mesa24-osmesa-file-11",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa24.3.4-osmesa/src/gallium/targets/osmesa/meson.build",
+      "url": "https://gitlab.freedesktop.org/mesa/mesa/-/raw/769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de/src/gallium/targets/osmesa/meson.build",
+      "sourceTag": "mesa-24.3.4",
+      "sourceCommit": "769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de",
+      "sha256": "ac4a3f44f2c2e81e94d2b70d87d534b182d5d4d0ce483bf72b470dcda142813d",
+      "size": 2098,
+      "license": "MIT (original per-file headers retained)",
+      "status": "ready"
+    },
+    {
+      "id": "mesa24-osmesa-file-12",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa24.3.4-osmesa/src/gallium/targets/osmesa/osmesa-symbols.txt",
+      "url": "https://gitlab.freedesktop.org/mesa/mesa/-/raw/769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de/src/gallium/targets/osmesa/osmesa-symbols.txt",
+      "sourceTag": "mesa-24.3.4",
+      "sourceCommit": "769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de",
+      "sha256": "d180ed214bdb6777986a090e1b55f3ba26e8a2291c578cddd462f1a5442a81da",
+      "size": 23544,
+      "license": "MIT (original per-file headers retained)",
+      "status": "ready"
+    },
+    {
+      "id": "mesa24-osmesa-file-13",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa24.3.4-osmesa/src/gallium/targets/osmesa/osmesa.def.in",
+      "url": "https://gitlab.freedesktop.org/mesa/mesa/-/raw/769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de/src/gallium/targets/osmesa/osmesa.def.in",
+      "sourceTag": "mesa-24.3.4",
+      "sourceCommit": "769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de",
+      "sha256": "8834012ef8987a418cf56517b2e1b5e9d0527cffe4afe0afe0ef8333d5b31dca",
+      "size": 5504,
+      "license": "MIT (original per-file headers retained)",
+      "status": "ready"
+    },
+    {
+      "id": "mesa24-osmesa-file-14",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa24.3.4-osmesa/src/gallium/targets/osmesa/osmesa.sym",
+      "url": "https://gitlab.freedesktop.org/mesa/mesa/-/raw/769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de/src/gallium/targets/osmesa/osmesa.sym",
+      "sourceTag": "mesa-24.3.4",
+      "sourceCommit": "769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de",
+      "sha256": "5e06ffffb28f5178de21697f145f6774920c2aca4e04c1bdf195337fd6781cb1",
+      "size": 339,
+      "license": "MIT (original per-file headers retained)",
+      "status": "ready"
+    },
+    {
+      "id": "mesa24-osmesa-file-15",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa24.3.4-osmesa/src/gallium/targets/osmesa/osmesa_target.c",
+      "url": "https://gitlab.freedesktop.org/mesa/mesa/-/raw/769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de/src/gallium/targets/osmesa/osmesa_target.c",
+      "sourceTag": "mesa-24.3.4",
+      "sourceCommit": "769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de",
+      "sha256": "eb6ee8a66912fdacf2de264594ea901fb02ec5cb94b617af624851efa3e04a04",
+      "size": 1857,
+      "license": "MIT (original per-file headers retained)",
+      "status": "ready"
+    },
+    {
+      "id": "mesa24-osmesa-file-16",
+      "component": "mesa",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/mesa24.3.4-osmesa/src/gallium/targets/osmesa/test-render.cpp",
+      "url": "https://gitlab.freedesktop.org/mesa/mesa/-/raw/769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de/src/gallium/targets/osmesa/test-render.cpp",
+      "sourceTag": "mesa-24.3.4",
+      "sourceCommit": "769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de",
+      "sha256": "c487a7381d7c5cb59a26b051b44d14ef1977b8415618b08ba9d1e7ebb3ed27dc",
+      "size": 8671,
+      "license": "MIT (original per-file headers retained)",
+      "status": "ready"
+    },
+    {
+      "id": "mesa-independent-build",
+      "component": "mesa",
+      "kind": "native-library",
+      "file": ".runtime/hxz-runtime-upstream/build/mesa-arm64/src/gallium/targets/osmesa/libOSMesa.so",
+      "url": "https://archive.mesa3d.org/mesa-25.3.4.tar.xz",
+      "sha256": "a1bd589ce45971a06847b7b22710389d3bb86500ca26269bd0fd7a3e7219f1eb",
+      "size": 20604664,
+      "sourceCommit": "23e3445940104465152dcfc1d5952d09d3ba7b37",
+      "osmesaSourceCommit": "769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de",
+      "license": "MIT AND BSD-2-Clause AND BSD-3-Clause AND Apache-2.0 AND SGI-B-2.0; per-file notices retained",
+      "status": "ready",
+      "buildScript": "mobile/runtime/upstream-build/build-mesa.ps1",
+      "preparationScript": "mobile/runtime/upstream-build/prepare-mesa.py",
+      "licenseDirectory": "licenses/mesa",
+      "capabilities": {
+        "drivers": [
+          "softpipe",
+          "zink"
+        ],
+        "driversVerified": true,
+        "llvm": false,
+        "deviceTested": false
+      },
+      "constraints": {
+        "minimumAndroidApi": 29,
+        "pageAlignment": 16384
+      },
+      "needed": [
+        "liblog.so",
+        "libz.so",
+        "libm.so",
+        "libdl.so",
+        "libc.so"
+      ]
+    },
+    {
+      "id": "jna5140-aar",
+      "component": "jna5140",
+      "kind": "android-aar",
+      "file": ".runtime/hxz-runtime-upstream/downloads/jna-5.14.0.aar",
+      "url": "https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.aar",
+      "sha256": "81a8b9afc65f9d6b205338c25908af8de0ff8411a00985104c9d83fffdfab380",
+      "size": 517894,
+      "sourceCommit": "c366bc4fd0c50a30ac8d2475603ec564f6611462",
+      "license": "Apache-2.0 AND MIT (libffi)",
+      "status": "ready",
+      "licenseDirectory": "licenses/jna5140"
+    },
+    {
+      "id": "jna5140-source",
+      "component": "jna5140",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/jna-5.14.0-source.tar.gz",
+      "url": "https://codeload.github.com/java-native-access/jna/tar.gz/refs/tags/5.14.0",
+      "sha256": "b8a51f4c97708171fc487304f98832ce954b6c02e85780de71d18888fddc69e3",
+      "size": 116167104,
+      "sourceCommit": "c366bc4fd0c50a30ac8d2475603ec564f6611462",
+      "license": "Apache-2.0 OR LGPL-2.1-or-later; libffi MIT",
+      "status": "ready",
+      "archivePaxCommitVerified": true
+    },
+    {
+      "id": "jna5140-native",
+      "component": "jna5140",
+      "kind": "native-library",
+      "file": ".runtime/hxz-runtime-upstream/extracted/jna-5.14.0/jni/arm64-v8a/libjnidispatch.so",
+      "url": "https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/5.14.0/jna-5.14.0.aar",
+      "sha256": "3730ce014f7a6807ae74af78c3b9f5a3cba1f5886316b3d3858493df923efe96",
+      "size": 168176,
+      "sourceCommit": "c366bc4fd0c50a30ac8d2475603ec564f6611462",
+      "license": "Apache-2.0 AND MIT (libffi)",
+      "status": "ready",
+      "archiveEntry": "jni/arm64-v8a/libjnidispatch.so",
+      "sourceArchiveBinaryIdentical": true
+    },
+    {
+      "id": "jna5170-aar",
+      "component": "jna5170",
+      "kind": "android-aar",
+      "file": ".runtime/hxz-runtime-upstream/downloads/jna-5.17.0.aar",
+      "url": "https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/5.17.0/jna-5.17.0.aar",
+      "sha256": "4dbeffffa665d97ad5aa7eee297531d3c841a86716ab7f774fd6956422b3cf38",
+      "size": 522249,
+      "sourceCommit": "695ae749e7bfd92f88324147c5d96b7129efec3e",
+      "license": "Apache-2.0 AND MIT (libffi)",
+      "status": "ready",
+      "licenseDirectory": "licenses/jna5170"
+    },
+    {
+      "id": "jna5170-source",
+      "component": "jna5170",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/jna-5.17.0-source.tar.gz",
+      "url": "https://codeload.github.com/java-native-access/jna/tar.gz/refs/tags/5.17.0",
+      "sha256": "fe35d85e63ea998ec08f1beaa0162b1e7f233e9e82b8f43ba500a0a824874158",
+      "size": 117280491,
+      "sourceCommit": "695ae749e7bfd92f88324147c5d96b7129efec3e",
+      "license": "Apache-2.0 OR LGPL-2.1-or-later; libffi MIT",
+      "status": "ready",
+      "archivePaxCommitVerified": true
+    },
+    {
+      "id": "jna5170-native",
+      "component": "jna5170",
+      "kind": "native-library",
+      "file": ".runtime/hxz-runtime-upstream/extracted/jna-5.17.0/jni/arm64-v8a/libjnidispatch.so",
+      "url": "https://repo.maven.apache.org/maven2/net/java/dev/jna/jna/5.17.0/jna-5.17.0.aar",
+      "sha256": "abc26e994517bcaa3309acdb0a27373864086c7569c89d3087b8626fada9ef06",
+      "size": 176520,
+      "sourceCommit": "695ae749e7bfd92f88324147c5d96b7129efec3e",
+      "license": "Apache-2.0 AND MIT (libffi)",
+      "status": "ready",
+      "archiveEntry": "jni/arm64-v8a/libjnidispatch.so",
+      "sourceArchiveBinaryIdentical": true
+    },
+    {
+      "id": "freetype-source",
+      "component": "freetype",
+      "kind": "source",
+      "file": ".runtime/hxz-runtime-upstream/downloads/freetype-VER-2-13-3.tar.gz",
+      "url": "https://codeload.github.com/freetype/freetype/tar.gz/refs/tags/VER-2-13-3",
+      "sha256": "bc5c898e4756d373e0d991bab053036c5eb2aa7c0d5c67e8662ddc6da40c4103",
+      "size": 2482495,
+      "sourceCommit": "42608f77f20749dd6ddc9e0536788eaad70ea4b5",
+      "license": "FTL OR GPL-2.0-only",
+      "status": "ready",
+      "archivePaxCommitVerified": true
+    },
+    {
+      "id": "freetype-independent-build",
+      "component": "freetype",
+      "kind": "native-library",
+      "file": ".runtime/hxz-runtime-upstream/build/freetype-arm64/libfreetype.so",
+      "url": "https://github.com/freetype/freetype/tree/42608f77f20749dd6ddc9e0536788eaad70ea4b5",
+      "sha256": "d3a8d977e63d6ca166910819ac0962eb3057dc090acc810eed3c98ccc264e3da",
+      "size": 4017672,
+      "sourceCommit": "42608f77f20749dd6ddc9e0536788eaad70ea4b5",
+      "license": "FTL",
+      "status": "ready",
+      "buildScript": "mobile/runtime/upstream-build/build-freetype.ps1",
+      "licenseDirectory": "licenses/freetype",
+      "capabilities": {
+        "requiredLwjglFunctions": 210,
+        "missingFunctions": [],
+        "pageAlignment": 16384
+      }
+    },
+    {
+      "id": "official-lwjgl-3.4.1-unsafe.jar",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-3.4.1-unsafe.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl/3.4.1/lwjgl-3.4.1-unsafe.jar",
+      "sha256": "28b8dd3421e11e90d4d93dd3b7c9261aeda2d67645324bee0194e175f6963de2",
+      "size": 1062128,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "official-lwjgl-freetype-3.4.1.jar",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-freetype-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-freetype/3.4.1/lwjgl-freetype-3.4.1.jar",
+      "sha256": "c57a40cedf39c4f3dfe25df596c0933cecb91d323c3fc4c2ed08661d1b79d8c7",
+      "size": 464342,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "official-lwjgl-shaderc-3.4.1.jar",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-shaderc-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-shaderc/3.4.1/lwjgl-shaderc-3.4.1.jar",
+      "sha256": "72293c0d58aa07205f67233efed3769111e8312c73bd8e1f4c13a44ab255f27f",
+      "size": 153051,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "official-lwjgl-spvc-3.4.1.jar",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-spvc-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-spvc/3.4.1/lwjgl-spvc-3.4.1.jar",
+      "sha256": "3c453700ea383d6f9ad736ed1d268d45b716d5acf27e9cc4f8c15c8fca1c421c",
+      "size": 148285,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "official-lwjgl-vma-3.4.1.jar",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-vma-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-vma/3.4.1/lwjgl-vma-3.4.1.jar",
+      "sha256": "d6a9677b5d487c97b874c18cb9c726197e9a8773f6a1c031ea9f5950b8c0b3c2",
+      "size": 109209,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "official-lwjgl-vulkan-3.4.1.jar",
+      "component": "lwjgl341",
+      "kind": "java-library",
+      "file": ".runtime/hxz-runtime-upstream/downloads/lwjgl-vulkan-3.4.1.jar",
+      "url": "https://repo.maven.apache.org/maven2/org/lwjgl/lwjgl-vulkan/3.4.1/lwjgl-vulkan-3.4.1.jar",
+      "sha256": "7f39be7c1e7b14b47d18ec5e23dd25240d2e41c090393524615d760203bf14a6",
+      "size": 8356700,
+      "sourceCommit": "b800ccffab14396fc529ddb6c931b7c5c5226763",
+      "license": "BSD-3-Clause",
+      "status": "ready"
+    },
+    {
+      "id": "java25-libcxx-shared",
+      "component": "java25",
+      "kind": "runtime-support",
+      "file": ".runtime/hxz-runtime-upstream/downloads/ndk-r30-arm64-libc++_shared.so",
+      "url": "https://dl.google.com/android/repository/android-ndk-r30-windows.zip",
+      "archiveEntry": "android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/usr/lib/aarch64-linux-android/libc++_shared.so",
+      "sha256": "7466ed097631a564ed6bff0b47768caa76bf03270d2047b5a65c03f497b824df",
+      "size": 9485032,
+      "sourceCommit": "9f872551d3c681d06fd303b36f16ed5c274735eb",
+      "sourceUrl": "https://android.googlesource.com/toolchain/llvm-project/+/9f872551d3c681d06fd303b36f16ed5c274735eb/libcxx/",
+      "buildSourceCommit": "9e20ac0b949feedcfe3da791189310f6ebcbc7a8",
+      "buildSourceUrl": "https://android.googlesource.com/toolchain/llvm_android/+/9e20ac0b949feedcfe3da791189310f6ebcbc7a8/",
+      "license": "Apache-2.0 WITH LLVM-exception; other NDK runtime notices retained",
+      "licenseDirectory": "licenses/android-ndk-r30",
+      "status": "ready",
+      "cppAbiImportsVerified": true,
+      "provenance": "Official installed NDK r30 distribution; revisions verified from bundled manifest"
+    }
+  ],
+  "stagedFiles": [
+    {
+      "path": "audio/libopenal.so",
+      "sha256": "d659066c1c095493e10aa3e438cebe8c347b584b10c634120b09f4394d7a7763",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/bin/java",
+      "sha256": "54cc3572df74cc18c1bc4a221f95b0e47d098417b4e6a9b96595c62097d73448",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/bin/jfr",
+      "sha256": "95d7c476884e1527b1e8ef3f8d32fac11c2ae5dedf4a08455c5addaada15a174",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/bin/jrunscript",
+      "sha256": "d447a9180cff62cbe627a749d57e09aae64005c6fb29427aeb66ba437798119f",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/bin/jwebserver",
+      "sha256": "8fcbdca1808f8fe36c327e97db8ac4e6a396bd2d6aaaac62b2c71b0c4eece028",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/bin/keytool",
+      "sha256": "5b11cc99cdee9f2bee1078e308f250435cf29ff988166174b890a4c856287f47",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/bin/rmiregistry",
+      "sha256": "c77c5f003c445e98f14ab0c819a226f1ca0768ce46ca5d782fc8b3ce01f0baac",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/jaxp.properties",
+      "sha256": "7d95c49465d0c836d608d02856d3b097934dfb5dc4bd2279affaf337d045b708",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/logging.properties",
+      "sha256": "b62d2733ab99556b108a1951d894c5a8d76b1ac7a00c02c388f9eb9be046c56f",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/management/jmxremote.access",
+      "sha256": "0c25d26ee212ca1e8c33f67c3c460d43fe849c3a1d23dbe341148517602b280c",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/management/jmxremote.password.template",
+      "sha256": "0273b6a6b9e20e6ce54c5aee70164028e0395063b2b7d39060a40b6495543dbf",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/management/management.properties",
+      "sha256": "07dffdd85b01c19bf46ca320a699aba48dd6b01043eb0bd6a9528c7993312bad",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/net.properties",
+      "sha256": "a88eeb56c61c0df79c8d000a43de10dba48c77130c8ada1af942c9a8ce29a787",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/sdp/sdp.conf.template",
+      "sha256": "e9441e51f0d29e25313d33a9005640f11ad93c27f01bc46a34bf02f2a98ffd6b",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/security/java.policy",
+      "sha256": "d51bcab7ed301caeff3779a5e777e6019864cecee5e2abc102ef991b0de77af2",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/security/java.security",
+      "sha256": "78f06ea1ce6fe10c188c99f6e4ca5631060e6e1b193ae598c0dfc6f3c3b6ac75",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/security/policy/README.txt",
+      "sha256": "6da0747334b0fea7592fd92614b2bbc8b126535e129b1fee483774d914e98eb5",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/security/policy/limited/default_US_export.policy",
+      "sha256": "758b930a526fc670ab7537f8c26321527050a31f5f42149a2dda623c56a0a1a9",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/security/policy/limited/default_local.policy",
+      "sha256": "2b2627548e61316150d47ffc3e6cad465ca05b3cccd4785eb7d21aa7baa0f441",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/security/policy/limited/exempt_local.policy",
+      "sha256": "8c3d7648abcd95a272ce12db870082937f4d7f6878d730d83cb7fbb31eb8b2c9",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/security/policy/unlimited/default_US_export.policy",
+      "sha256": "758b930a526fc670ab7537f8c26321527050a31f5f42149a2dda623c56a0a1a9",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/security/policy/unlimited/default_local.policy",
+      "sha256": "8d8a318e6d90dfd7e26612d2b6385aa704f686ca6134c551f8928418d92b851a",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/conf/sound.properties",
+      "sha256": "299c2360b6155eb28990ec49cd21753f97e43442fe8fab03e04f3e213df43a66",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.base/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.base/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.base/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.base/aes.md",
+      "sha256": "45c6d4da48325edfbff3dcf71c704e504c057904435ed23c6d57046d551eb69d",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.base/asm.md",
+      "sha256": "683be15695bd248272d60f5b7fbe5e126a935ea6bf231a624a9aa164733e1d1d",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.base/c-libutl.md",
+      "sha256": "bef40679922d6fdfb7e4ddb223ad6722300f6054ba737bbf6188d60fcec517f9",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.base/cldr.md",
+      "sha256": "19515e14a240e022640e95b61b5095127fa9690755950b4a2b0a02e783e08163",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.base/icu.md",
+      "sha256": "1bf28459c6e0af9f3429f4f8becd1668d6544055f8df240277456bc4b3d8a752",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.base/public_suffix.md",
+      "sha256": "e662969300048d914f80265eb516021ad2b0015c7e7eedd45c93655f11f256d7",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.base/unicode.md",
+      "sha256": "6f72f10d166b2c2e8a395e03e734c5afc852b59aeca73ced124f6b9c96268d53",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.compiler/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.compiler/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.compiler/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.datatransfer/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.datatransfer/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.datatransfer/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/colorimaging.md",
+      "sha256": "04d61e3e8e71dd452ebe52008af5378d9f6640d14578aeb515dc5375973b0189",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/giflib.md",
+      "sha256": "c8b99f33890887d27ad56fba9edd8ebbc668cfe0689168505a95613d1d4b32f8",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/harfbuzz.md",
+      "sha256": "a73cc87c16567c41180d2045d7e0076d41e07ff5dc27aa95fbc3721af5bc73b8",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/jpeg.md",
+      "sha256": "c1dfb9719a71ad9f861f8728550542d681e25c8ef40e6393606e6e2a0c1d653a",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/lcms.md",
+      "sha256": "8acf00b5efd25c1c055927222fd3c26b0c9fd02ed02e478c225b64e7a24d9782",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/libpng.md",
+      "sha256": "9c69c70e1e8443d35e4ea506e0d8dce0e67d4985859d35b0807566c8d6e7681e",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/mesa3d.md",
+      "sha256": "63f4e6f75caebbccb95d903fb43e46ac7111b3624d0a34f146b276d7d9e7b152",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/pipewire.md",
+      "sha256": "7c0494d35e85e5f33bb1a6b061a84b7b745904764c3b7bac7d7d8b817a6ca2d6",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.desktop/xwd.md",
+      "sha256": "1d4ffa93c87f35084b02a7aa90a21084b4019db4fe1003c2e5ce775b4a384f59",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.instrument/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.instrument/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.instrument/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.logging/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.logging/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.logging/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.management.rmi/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.management.rmi/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.management.rmi/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.management/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.management/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.management/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.naming/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.naming/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.naming/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.net.http/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.net.http/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.net.http/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.prefs/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.prefs/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.prefs/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.rmi/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.rmi/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.rmi/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.scripting/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.scripting/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.scripting/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.se/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.se/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.se/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.security.jgss/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.security.jgss/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.security.jgss/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.security.sasl/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.security.sasl/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.security.sasl/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.sql.rowset/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.sql.rowset/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.sql.rowset/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.sql/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.sql/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.sql/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.transaction.xa/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.transaction.xa/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.transaction.xa/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml.crypto/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml.crypto/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml.crypto/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml.crypto/santuario.md",
+      "sha256": "e181a8d640b7f60e3fe69a6898cee65d45571c6ae5f7133bc1ee4a575585bc34",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml/bcel.md",
+      "sha256": "853a1e7ce397bb10de0e2b3bde0844bcc651f17d983decd07d2d003c0304c311",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml/dom.md",
+      "sha256": "6686e8877667584a3a7c07344baadca1a03e29f677162d87c3c0811e990d1148",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml/jcup.md",
+      "sha256": "8d5dcfdf50455a3c34c753a98f21e953248af200415a9084e3f102cb6c43b8bf",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml/xalan.md",
+      "sha256": "c27eb875da4be683d4d7422be986e5e30f636ede31958ff1d39f9cd6109e7a00",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/java.xml/xerces.md",
+      "sha256": "4a6bf6b367193ee68681cb2d9fed30ffc5d62dd2d477bd62e0271707d71b3244",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.accessibility/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.accessibility/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.accessibility/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.charsets/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.charsets/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.charsets/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.crypto.cryptoki/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.crypto.cryptoki/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.crypto.cryptoki/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.crypto.cryptoki/pkcs11cryptotoken.md",
+      "sha256": "262802e081760b38b3748c8b194353d340e39bc936ac22e17abbb7158d895811",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.crypto.cryptoki/pkcs11wrapper.md",
+      "sha256": "371974b1fca3744a3892c7ee1fcc593b8b4281fc218f4cafd2f709e9df5fd81d",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.crypto.ec/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.crypto.ec/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.crypto.ec/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.dynalink/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.dynalink/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.dynalink/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.dynalink/dynalink.md",
+      "sha256": "17312591cabee3ef6c34ed8897d92e4e361ba9cea41ec00dcd61a322a8fc2cdb",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.httpserver/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.httpserver/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.httpserver/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.internal.vm.ci/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.internal.vm.ci/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.internal.vm.ci/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.jdwp.agent/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.jdwp.agent/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.jdwp.agent/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.jfr/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.jfr/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.jfr/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.jsobject/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.jsobject/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.jsobject/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.localedata/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.localedata/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.localedata/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.localedata/cldr.md",
+      "sha256": "19515e14a240e022640e95b61b5095127fa9690755950b4a2b0a02e783e08163",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.localedata/thaidict.md",
+      "sha256": "c326144a2351c9608fa708b5d7d3c5a3da03e82b66479b128e9db4969539824a",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.management.agent/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.management.agent/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.management.agent/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.management.jfr/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.management.jfr/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.management.jfr/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.management/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.management/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.management/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.naming.dns/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.naming.dns/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.naming.dns/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.naming.rmi/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.naming.rmi/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.naming.rmi/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.net/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.net/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.net/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.nio.mapmode/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.nio.mapmode/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.nio.mapmode/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.sctp/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.sctp/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.sctp/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.security.auth/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.security.auth/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.security.auth/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.security.jgss/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.security.jgss/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.security.jgss/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.unsupported/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.unsupported/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.unsupported/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.xml.dom/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.xml.dom/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.xml.dom/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.zipfs/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.zipfs/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/legal/jdk.zipfs/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/classlist",
+      "sha256": "0cd0cc7b1546e4a7a6eabf096b93fec6c80d351035f927e9994dc47f46fe1755",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fontconfig.Linux.bfc",
+      "sha256": "a4a7ad111dc2a9e765b600d447daf2c28a3aea854fbc01a60c7f634671b88940",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fontconfig.Linux.properties.src",
+      "sha256": "ded5f573c8c2ee3ba40259804987d58e9d7e0e1bba6524bd343ab4252d104b51",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fontconfig.bfc",
+      "sha256": "942da093488186fc3f4550e6a73dc5192547389cab26cdc85d84fd52319068ca",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fontconfig.properties",
+      "sha256": "28ae45ffc618d5ece35ae5b442d1f1923ac85c03bb7a144950a84367411c26d6",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fontconfig.properties.src",
+      "sha256": "dd68e63d8f693aa593756bb2f24decc086d01d61da774e5fc94065d63aea7ddc",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fonts/LucidaBrightDemiBold.ttf",
+      "sha256": "72cee3e6df72ad577af49c59dca2d0541060f95a881845950595e5614c486244",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fonts/LucidaBrightDemiItalic.ttf",
+      "sha256": "895c5262cdb6297c13725515f849ed70609dbd7c49974a382e8bbfe4a3d75f8c",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fonts/LucidaBrightItalic.ttf",
+      "sha256": "d68819a70b60ff68ca945ef5ad358c31829e43ec25024a99d17174c626575e06",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fonts/LucidaBrightRegular.ttf",
+      "sha256": "0faaaca3c730857d3e50fba1bbad4ca2330add217b35e22b7e67f02809fac923",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fonts/LucidaSansDemiBold.ttf",
+      "sha256": "53773357d739f89bc10087ab2a829ba057649784a9acbffee18a488b2dccb9ee",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fonts/LucidaSansRegular.ttf",
+      "sha256": "f8d877b0b64600e736dfe436753e8e11acb022e59b5d7723d7d221d81dc2fcde",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fonts/LucidaTypewriterBold.ttf",
+      "sha256": "fc908259013b90f1cbc597a510c6dd7855bf9e7830abe3fc3612ab4092edcde2",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fonts/LucidaTypewriterRegular.ttf",
+      "sha256": "d9d0aab0354c3856df81afac49bdc586e930a77428cb499007dde99ed31152ff",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/fonts/fonts.dir",
+      "sha256": "d7cb0a3e9c338629fe17302d6be5baf7f448449087550929a09183110c6f9e3f",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/jexec",
+      "sha256": "32412a69d57b050e17ac92ba48cb7682533ef619e347feb2b530781d2b28a4d5",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/jfr/default.jfc",
+      "sha256": "1f8063e3415ce30cba279fc190f4bd1a09cd30c0d00f3b77063bb62bb55754dc",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/jfr/profile.jfc",
+      "sha256": "d15370c8ebb18005dc1ed1e6ef028d238c39bfc1ddae3ed59084dc917fe4ed33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/jrt-fs.jar",
+      "sha256": "ba4089e9e9784b49af026a0c484d819a210276cd90df72c6cf8cc729dd7725a5",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/jspawnhelper",
+      "sha256": "9d90a564a028bf9d22d073f0165c13d487d1d6502a5b15b5a01fd21293bb43da",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/jvm.cfg",
+      "sha256": "aa9efb969444c1484e29adecab55a122458090616e766b2f1230ef05bc3867e0",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libawt.so",
+      "sha256": "799a6b2b680ca83d2283b432f1c46c8497e9ded5febaf82cc0900ed009c84f01",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libawt_headless.so",
+      "sha256": "04ffbb26260fd61385441695bf0ec8d45571977bce209edb9356499a7a41c603",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libdt_socket.so",
+      "sha256": "d6d48da21eb10b108d110616bf7fa657cbbe18d2df3798474a8e918ff357e878",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libextnet.so",
+      "sha256": "d5cc5902794e3bca28444c0c5bad25df73e5a9e804a0a379f3ed0869ac3ba9b3",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libfontmanager.so",
+      "sha256": "a6d3291d70cb93192cdda499fdf36cf7bd171e13f5e7ec635f4e3d0673cad745",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libfreetype.so",
+      "sha256": "10c29fb1081d049ca16e4a337cfd9933f18b97db5671703b8a6f8f9588f33208",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libinstrument.so",
+      "sha256": "94e392775a21f4ae38de0ebf748ed0b7fa2cc3f997e3f6febd905510ed7daf8a",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libj2gss.so",
+      "sha256": "626bba9fc616a3c850bd6c8610411ff3d69791a951daa6197eb8757482aa18d8",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libj2pkcs11.so",
+      "sha256": "696cd6fab5494f1831cb8849bfda8e76c08d76433b14ce6e596512e87782285c",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libjaas.so",
+      "sha256": "286f8a2daa6aa77c61ce6376a9826cc586bee025b2982fecb4f2eadb832fedba",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libjava.so",
+      "sha256": "d3a81966293689f61a896f3b39637d8070e1b39f4e3580628e39539a76087217",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libjavajpeg.so",
+      "sha256": "a7f0b17c99e6d861ba553baf4f61908189377d21d0ca1a5d6dfdef66af4c4639",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libjawt.so",
+      "sha256": "4f01a2cb73e6f57f8ea1fb279abb5f3d79b13d3eb251fe033f59dcefc7525645",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libjdwp.so",
+      "sha256": "91e0d71972dc850773aa84ba79e6bfcd25d98dd103d20d56ff05002a3f9a5ab0",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libjimage.so",
+      "sha256": "1ba95eef946d5b3748646b195feabbd6cc461285ffc3f9732fc933a50b652847",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libjli.so",
+      "sha256": "07d043b98d99dc9d7d988739be7f1a347ae44f00c424cf75a6a025b9e836008c",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libjsig.so",
+      "sha256": "1268f27c5026735f080c4e029bd26d89f89b6223dc5b43c306943a2aa64cea8d",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/liblcms.so",
+      "sha256": "4b1054b5b9f46eaea510327c761521c2fafafe0d33628cc749174f623b0d7ca4",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libmanagement.so",
+      "sha256": "a54b662d9e63e48dd0fcdb3f3ee770828ce9533b8a292c321e68ad03caf011c5",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libmanagement_agent.so",
+      "sha256": "48cac61ee3ec878847bb39e015d78298d8885c63d1e9962fcbbe17f05f352f96",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libmanagement_ext.so",
+      "sha256": "f25966ac20df29a6661e49c519ca2c9ab28e83a562f9ccabe88c11af9b794747",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libmlib_image.so",
+      "sha256": "85b5e2b8f9335d332e89341a49dc8542364a9720c18a0d18ccf3f1aa31f21725",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libnet.so",
+      "sha256": "f2875ee0d0afca1c0da23321c650ad3c5cd4af9d1b26bb4f646870685fd1b621",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libnio.so",
+      "sha256": "f477fbd7c4c3bbe6b857b182badd65ab664c1fb368a639aa81dc5a0d95f6181f",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libprefs.so",
+      "sha256": "ce43161946d0d9053a877acf5c09a4b8a59f5ce64b3921c1ec54532756938531",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/librmi.so",
+      "sha256": "ffc3059433ac6e3423b965ed248195abebfe713866e7aadf4b26d79319d05b1f",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libsctp.so",
+      "sha256": "694b2372a4e5f8aa42ec710f3e94da8bd4756f1dacbdc6292b9e5e371566a60c",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libsyslookup.so",
+      "sha256": "02bad444f23ce0f0958afa0e1005aab34f6f8b7e842c5c70582cb552a3b92732",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libverify.so",
+      "sha256": "e227a3a910d6cec0053e2daffc3b3b4bfd1fab36d677a9943855690666ee018e",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/libzip.so",
+      "sha256": "270d6d70cee5e8c36aa03578cc900d1af3121ee37fb074390dfed5bdffc83b33",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/modules",
+      "sha256": "c50e3d7ec72667feb1d5ddcdfc61e289d91358a33f6d3aba397d16edf8bea681",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/psfont.properties.ja",
+      "sha256": "5a4bd51b969bf187ff86d94f4a71fdfbfa602762975fa3c73d264b4575f7c78f",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/psfontj2d.properties",
+      "sha256": "780c565d5af3ee6f68b887b75c041cdf46a0592f67012f12eeb691283e92630a",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/security/blocked.certs",
+      "sha256": "96572f243f31c2ef81a6e627542e596f6a9295cff3c7ae095c1b595cb1457ded",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/security/cacerts",
+      "sha256": "355bbf02f83e340d72016ceb1090caa1ddb501efd80c5b26f5efc5c54b9d613e",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/security/default.policy",
+      "sha256": "2bd418aab30b091b136962f80be7ddf39dcba85f082a558a6993848ae65366ae",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/security/public_suffix_list.dat",
+      "sha256": "00ca9e095528e79cdcffcf6fec30c4c8c1fe45edf168e715cc89ab39b5c487b4",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/server/libjsig.so",
+      "sha256": "1268f27c5026735f080c4e029bd26d89f89b6223dc5b43c306943a2aa64cea8d",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/server/libjvm.so",
+      "sha256": "df8665c98bc26493cc529896e2f493ed0a78500fe527667cd35f804b3abb749c",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/lib/tzdb.dat",
+      "sha256": "b7dba25abdfee317daa042c89b01e5711f5781d020dd733ba411760b72addb93",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/21/release",
+      "sha256": "ff07a0b155b8acc99db82b1debe6f7663e8109653410c8b6c93215dec8794e52",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/bin/java",
+      "sha256": "1c3346a9f5aaaad30a35ff71d4214b7db12d40ab71c37dac0647e8f71210b779",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/bin/javac",
+      "sha256": "61e44c92c789c2b7245396132c813e057dd745d918ab2badf1d23f8987fda1b9",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/bin/jfr",
+      "sha256": "32cdf8d9a1ad57c3602ee28d2cd5104f76e85df97e235242a06647ff922af845",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/bin/jhsdb",
+      "sha256": "eae7e0a7df3679e34b7e5a925d473a07b6d92112dd2e38b82c0138786ad55c1a",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/bin/jrunscript",
+      "sha256": "18d0ed4b66cc121592cc8a10199e9e70deaced6985f6d36e9c9136baf388e48e",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/bin/jwebserver",
+      "sha256": "3d75c55907ea263576b704af50df749dab86cd05d55d8ecf6ed330675e147e3f",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/bin/keytool",
+      "sha256": "6076f202d6cf761999fb7613082729f040436c05c2fd98adc56344ebe08300a1",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/bin/rmiregistry",
+      "sha256": "e24287072890c0c09e8a625131b69c174a8a3afd4494db5edd34c5907f7aa2fc",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/bin/serialver",
+      "sha256": "5eca5c0f1333d0159b6e6cfe13f0cd66103685034163f911d019dbd684d13404",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/jaxp-strict.properties.template",
+      "sha256": "3cc9b87633769414b22c24c97ecded8a15df630fe5ab12abca2398d88e31b32b",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/jaxp.properties",
+      "sha256": "d4f45052a100e5aef02b6638a3b9c69b2bdd46155ceb58a52671e5d594c30100",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/logging.properties",
+      "sha256": "8590633e1e8a7d88ffe74cc04189c5c61b1ed4703180cbc851dcd5575efcce74",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/management/jmxremote.access",
+      "sha256": "0c25d26ee212ca1e8c33f67c3c460d43fe849c3a1d23dbe341148517602b280c",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/management/jmxremote.password.template",
+      "sha256": "0273b6a6b9e20e6ce54c5aee70164028e0395063b2b7d39060a40b6495543dbf",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/management/management.properties",
+      "sha256": "75e60327531d34d1ce5eb507db52711a1d926b9c77d14d6b3a392d747105488d",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/net.properties",
+      "sha256": "f0093906820c30e079cbf79bd744d761aaf32ae917598c7ce71fac7eae16f86d",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/sdp/sdp.conf.template",
+      "sha256": "e9441e51f0d29e25313d33a9005640f11ad93c27f01bc46a34bf02f2a98ffd6b",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/security/java.security",
+      "sha256": "dffc772af62932ccb19e333f90e2a340464111b02606858da6d09cc4ab278788",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/security/policy/README.txt",
+      "sha256": "6da0747334b0fea7592fd92614b2bbc8b126535e129b1fee483774d914e98eb5",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/security/policy/limited/default_US_export.policy",
+      "sha256": "758b930a526fc670ab7537f8c26321527050a31f5f42149a2dda623c56a0a1a9",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/security/policy/limited/default_local.policy",
+      "sha256": "2b2627548e61316150d47ffc3e6cad465ca05b3cccd4785eb7d21aa7baa0f441",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/security/policy/limited/exempt_local.policy",
+      "sha256": "8c3d7648abcd95a272ce12db870082937f4d7f6878d730d83cb7fbb31eb8b2c9",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/security/policy/unlimited/default_US_export.policy",
+      "sha256": "758b930a526fc670ab7537f8c26321527050a31f5f42149a2dda623c56a0a1a9",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/security/policy/unlimited/default_local.policy",
+      "sha256": "8d8a318e6d90dfd7e26612d2b6385aa704f686ca6134c551f8928418d92b851a",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/conf/sound.properties",
+      "sha256": "299c2360b6155eb28990ec49cd21753f97e43442fe8fab03e04f3e213df43a66",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.base/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.base/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.base/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.base/aes.md",
+      "sha256": "45c6d4da48325edfbff3dcf71c704e504c057904435ed23c6d57046d551eb69d",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.base/c-libutl.md",
+      "sha256": "bef40679922d6fdfb7e4ddb223ad6722300f6054ba737bbf6188d60fcec517f9",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.base/cldr.md",
+      "sha256": "472e341c36efc1136860ed7a6461a2af4a53ae95d55d1126726340f5ba62b06a",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.base/gcc.md",
+      "sha256": "589e34f142cdf7d1430daa573e61c2e3dd0330c9eb5a2c00d4a98b3a4450810b",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.base/icu.md",
+      "sha256": "be23ad20a8231d2241b37fcf401548febd8597de8373f89268882020cb7c8818",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.base/public_suffix.md",
+      "sha256": "861de1e4992a7d28f1de25c73cd50d26a94779ebd749c0643fecfa56442c3429",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.base/siphash.md",
+      "sha256": "5a792b5a74ad2a5f3d6a7ad8b7a841116e58a772c18bc6e392320a365b222c76",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.base/unicode.md",
+      "sha256": "5194d6760f2e7eccc07804196cc619f84e730fa9d10c0529b71416186f4d12dc",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.compiler/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.compiler/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.compiler/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.datatransfer/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.datatransfer/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.datatransfer/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/colorimaging.md",
+      "sha256": "04d61e3e8e71dd452ebe52008af5378d9f6640d14578aeb515dc5375973b0189",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/giflib.md",
+      "sha256": "206aab89ec75968e48a6a1ed6df7d8b9bfb7aea12cbe4c9345d93e5d97460a25",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/harfbuzz.md",
+      "sha256": "5ec7cba7f8e7fc3a089213140aab6fa1b3bd5bf8a91bf8bddb3b8d315fc5f7d0",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/jpeg.md",
+      "sha256": "c1dfb9719a71ad9f861f8728550542d681e25c8ef40e6393606e6e2a0c1d653a",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/lcms.md",
+      "sha256": "6d409e73a4ce3c25479b4fb01d05fe79c0458bcd1dccc07f72d3e211d64ac8ce",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/libpng.md",
+      "sha256": "f73afb394792f3aeecd959e89487603677a430e56b44eba596d8b572accfd540",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/mesa3d.md",
+      "sha256": "63f4e6f75caebbccb95d903fb43e46ac7111b3624d0a34f146b276d7d9e7b152",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/pipewire.md",
+      "sha256": "56a8fb1652c70ac204d13bb52ca4d678162e7d21a97d10209c2a633de8082de0",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.desktop/xwd.md",
+      "sha256": "1d4ffa93c87f35084b02a7aa90a21084b4019db4fe1003c2e5ce775b4a384f59",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.instrument/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.instrument/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.instrument/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.logging/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.logging/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.logging/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.management.rmi/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.management.rmi/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.management.rmi/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.management/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.management/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.management/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.naming/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.naming/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.naming/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.net.http/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.net.http/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.net.http/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.prefs/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.prefs/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.prefs/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.rmi/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.rmi/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.rmi/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.scripting/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.scripting/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.scripting/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.se/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.se/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.se/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.security.jgss/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.security.jgss/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.security.jgss/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.security.sasl/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.security.sasl/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.security.sasl/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.sql.rowset/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.sql.rowset/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.sql.rowset/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.sql/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.sql/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.sql/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.transaction.xa/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.transaction.xa/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.transaction.xa/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml.crypto/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml.crypto/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml.crypto/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml.crypto/santuario.md",
+      "sha256": "d08690d25f660f145c73365d260ed522cd0aace8a0e1396706551b7a1ae8c9a3",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/bcel.md",
+      "sha256": "cd578186ad93de46cca29ec8ace2b11f9da751987f3f140e6095c528596cc8c1",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/dom.md",
+      "sha256": "6686e8877667584a3a7c07344baadca1a03e29f677162d87c3c0811e990d1148",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/jcup.md",
+      "sha256": "8d5dcfdf50455a3c34c753a98f21e953248af200415a9084e3f102cb6c43b8bf",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/schema10part1.md",
+      "sha256": "b220f891e5bfa3aa4b2a4b34dfab53a291553c2ae0fd0b15a4cb1116d4e97770",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/schema10part2.md",
+      "sha256": "2350e35e91866d5ee5bd7ee7c303b3e424bbca335d36c71452588aac494eaa3e",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/xalan.md",
+      "sha256": "02bd013fc3f438dbb8fa41fa57888177e015efa6431d37fce6e794c6f353a6a1",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/xerces.md",
+      "sha256": "4a6bf6b367193ee68681cb2d9fed30ffc5d62dd2d477bd62e0271707d71b3244",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/xhtml10.md",
+      "sha256": "9a5cde47073ca80cf59127891420f4aed603eb65070738ad027bb19e76fb9319",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/xhtml10schema.md",
+      "sha256": "7bc51d884aaae6ef27551ee78d404ba3116356790da3d06b665679eb2e1cc002",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/xhtml11.md",
+      "sha256": "4f99a390896f0f55a0b78376de89bfd2ac845713de85e67e37f884b77e0c3122",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/xhtml11schema.md",
+      "sha256": "8cd69b1392e286538008f4cb003f85caea3a375c619e697813d820b69857cf74",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/xmlspec.md",
+      "sha256": "afec263bf5dc67697ee33734ee243f86a878161335ef6298273e4041673b0544",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/java.xml/xmlxsd.md",
+      "sha256": "498a5fec63509a8f3949983bb6878ac5c95aaf1d5e3679272d93314371aa0211",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.accessibility/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.accessibility/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.accessibility/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.charsets/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.charsets/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.charsets/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.compiler/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.compiler/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.compiler/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.crypto.cryptoki/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.crypto.cryptoki/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.crypto.cryptoki/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.crypto.cryptoki/pkcs11cryptotoken.md",
+      "sha256": "1f36ff1342a581142c858f90064e20633d43529ac82adb85345bd902a14e18b2",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.crypto.cryptoki/pkcs11wrapper.md",
+      "sha256": "371974b1fca3744a3892c7ee1fcc593b8b4281fc218f4cafd2f709e9df5fd81d",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.crypto.ec/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.crypto.ec/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.crypto.ec/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.dynalink/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.dynalink/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.dynalink/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.dynalink/dynalink.md",
+      "sha256": "17312591cabee3ef6c34ed8897d92e4e361ba9cea41ec00dcd61a322a8fc2cdb",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.editpad/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.editpad/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.editpad/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.hotspot.agent/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.hotspot.agent/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.hotspot.agent/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.httpserver/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.httpserver/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.httpserver/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.incubator.vector/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.incubator.vector/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.incubator.vector/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.incubator.vector/sleef.md",
+      "sha256": "ee27da65f6a1025fe5a4dc190c3ec3301876e4c0b4b37a7dcf0d104091d83191",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.ed/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.ed/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.ed/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.jvmstat/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.jvmstat/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.jvmstat/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.le/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.le/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.le/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.le/jline.md",
+      "sha256": "a6fb63a226b77b03cbd7559cce6cdc3e1ea8563af960b1dce2330c8e1dce1abf",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.md/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.md/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.md/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.md/commonmark.md",
+      "sha256": "23a6f08218b13b6dbe16410d11104d56d14861316dd3a064e1fbd5054b6f470c",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.opt/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.opt/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.opt/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.opt/jopt-simple.md",
+      "sha256": "99bc67f93cf57d6d20e6047731c93fbb267d70fbdd4115d119e0f85c6efe5c05",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.vm.ci/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.vm.ci/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.internal.vm.ci/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.jdwp.agent/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.jdwp.agent/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.jdwp.agent/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.jfr/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.jfr/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.jfr/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.jsobject/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.jsobject/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.jsobject/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.localedata/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.localedata/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.localedata/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.localedata/cldr.md",
+      "sha256": "472e341c36efc1136860ed7a6461a2af4a53ae95d55d1126726340f5ba62b06a",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.localedata/thaidict.md",
+      "sha256": "c326144a2351c9608fa708b5d7d3c5a3da03e82b66479b128e9db4969539824a",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.management.agent/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.management.agent/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.management.agent/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.management.jfr/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.management.jfr/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.management.jfr/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.management/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.management/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.management/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.naming.dns/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.naming.dns/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.naming.dns/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.naming.rmi/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.naming.rmi/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.naming.rmi/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.net/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.net/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.net/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.nio.mapmode/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.nio.mapmode/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.nio.mapmode/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.sctp/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.sctp/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.sctp/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.security.auth/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.security.auth/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.security.auth/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.security.jgss/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.security.jgss/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.security.jgss/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.unsupported/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.unsupported/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.unsupported/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.xml.dom/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.xml.dom/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.xml.dom/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.zipfs/ADDITIONAL_LICENSE_INFO",
+      "sha256": "a69bce275ba7a3570af6579cb0f55682cd75fedfcd49e0e8e9022270c447c916",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.zipfs/ASSEMBLY_EXCEPTION",
+      "sha256": "75292f03bf23d3db7c985aecc191029b93883200721ed23ed34a2e601463df33",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/legal/jdk.zipfs/LICENSE",
+      "sha256": "4b9abebc4338048a7c2dc184e9f800deb349366bdf28eb23c2677a77b4c87726",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/classlist",
+      "sha256": "a8450498392604748bdc9117201c65b62ba39d675df8c3260e5e15e21fa245c7",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/ct.sym",
+      "sha256": "12f74cb6b7ecc4fa57248dc90afe1f3671c905829683610b97a5fe32a670d471",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fontconfig.Linux.bfc",
+      "sha256": "a4a7ad111dc2a9e765b600d447daf2c28a3aea854fbc01a60c7f634671b88940",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fontconfig.Linux.properties.src",
+      "sha256": "ded5f573c8c2ee3ba40259804987d58e9d7e0e1bba6524bd343ab4252d104b51",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fontconfig.bfc",
+      "sha256": "942da093488186fc3f4550e6a73dc5192547389cab26cdc85d84fd52319068ca",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fontconfig.properties",
+      "sha256": "28ae45ffc618d5ece35ae5b442d1f1923ac85c03bb7a144950a84367411c26d6",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fontconfig.properties.src",
+      "sha256": "dd68e63d8f693aa593756bb2f24decc086d01d61da774e5fc94065d63aea7ddc",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fonts/LucidaBrightDemiBold.ttf",
+      "sha256": "72cee3e6df72ad577af49c59dca2d0541060f95a881845950595e5614c486244",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fonts/LucidaBrightDemiItalic.ttf",
+      "sha256": "895c5262cdb6297c13725515f849ed70609dbd7c49974a382e8bbfe4a3d75f8c",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fonts/LucidaBrightItalic.ttf",
+      "sha256": "d68819a70b60ff68ca945ef5ad358c31829e43ec25024a99d17174c626575e06",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fonts/LucidaBrightRegular.ttf",
+      "sha256": "0faaaca3c730857d3e50fba1bbad4ca2330add217b35e22b7e67f02809fac923",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fonts/LucidaSansDemiBold.ttf",
+      "sha256": "53773357d739f89bc10087ab2a829ba057649784a9acbffee18a488b2dccb9ee",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fonts/LucidaSansRegular.ttf",
+      "sha256": "f8d877b0b64600e736dfe436753e8e11acb022e59b5d7723d7d221d81dc2fcde",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fonts/LucidaTypewriterBold.ttf",
+      "sha256": "fc908259013b90f1cbc597a510c6dd7855bf9e7830abe3fc3612ab4092edcde2",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fonts/LucidaTypewriterRegular.ttf",
+      "sha256": "d9d0aab0354c3856df81afac49bdc586e930a77428cb499007dde99ed31152ff",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/fonts/fonts.dir",
+      "sha256": "d7cb0a3e9c338629fe17302d6be5baf7f448449087550929a09183110c6f9e3f",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/jexec",
+      "sha256": "1a82cd526e2d8a2e1acd5bd78a4dde4bd4bc477a8b3923b322e5e64db1bf0daa",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/jfr/default.jfc",
+      "sha256": "26f2d7bf2f8473b3849f9480629eee695edf59fd667da838890a22919237718a",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/jfr/profile.jfc",
+      "sha256": "3e2c847608b1e7d182337f56bbf75b6a026ba4e9634b398bd92aec865e9ea8a7",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/jrt-fs.jar",
+      "sha256": "15fc4c9344e8417fef3aa6e530decfb3d83e2fe69ca0ba86f2f389e2f407399f",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/jspawnhelper",
+      "sha256": "5bd309d8988143cc970eb4bbe02ef7df437c1a079cb78a7223325b8e39929614",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/jvm.cfg",
+      "sha256": "aa9efb969444c1484e29adecab55a122458090616e766b2f1230ef05bc3867e0",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libawt.so",
+      "sha256": "a69334b158689c6f59a2dd16715b29afea8fd50d15ffa05e69fe14ccd254e191",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libawt_headless.so",
+      "sha256": "63f411f95cbb62ffcb853016557e2343cc44a4b4cfc79fedfa9937fb35aa4262",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libawt_xawt.so",
+      "sha256": "5546c61c1ef1772f7b760261a57a64b34a884a4a3c9c85e88f5adff03148e659",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libc++_shared.so",
+      "sha256": "7466ed097631a564ed6bff0b47768caa76bf03270d2047b5a65c03f497b824df",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libdt_socket.so",
+      "sha256": "917a44ba3ff8a9c48aaab268277590ce5e66ed5a82a9fbd1ca6eb059cf4c67c2",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libextnet.so",
+      "sha256": "1e9cf8dfd9cb866c9eab7000b5a8d6619327b3b243b5859c262ffec232b33d75",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libfontmanager.so",
+      "sha256": "3eb8d54ad4b55975f245431db5e2c94dbe3948da2248162a175659a6cc81a239",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libfreetype.so",
+      "sha256": "f4f63765a4fcc9379b3d96715bb5ca7bf0bae4c75d2289f5e95512f232b3bdcd",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libinstrument.so",
+      "sha256": "31bacf0420ca9dbef2243754ecba0ab97b3c32a545408303a955ac6e0da4d5c0",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libj2gss.so",
+      "sha256": "eb42834e0f8d265b83dc0b205fb6e0adf35004eba3e7495e410b763da8740702",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libj2pkcs11.so",
+      "sha256": "3b7fa5b33cfcfad6c8a806a4f8428b756480ae1e017a51ed22a43dbac1094f8a",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libjaas.so",
+      "sha256": "0a6afd37e1d8b69b1bc8d878fdfa09fc015153e4e71e22b46025ebf622be3795",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libjava.so",
+      "sha256": "5619356d4fbb9893a7f38ac8679d5d7419ee17672f307f4bf5a699c504af5785",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libjavajpeg.so",
+      "sha256": "f9e046985f2e607713c34d41c22e4cc103d2b26e83346dd2471a965176401c39",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libjawt.so",
+      "sha256": "aab535891518748e2e3f77f8b93cd2ddbcedb9f07b9ecfba3ed2f6f93f229dca",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libjdwp.so",
+      "sha256": "9ea70f2405df786f7184a4c65baa5b95cd7b78f25ca03d974da208673219fc55",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libjimage.so",
+      "sha256": "7d9a3ca909d4f6d1ea07521e02a7ead4838c511f196cba23e5631960de7a627c",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libjli.so",
+      "sha256": "ad98d37c560c9efe7d6e4af6e4b3a3cc2f01260155d25c8e7354617313a4c2ad",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libjsig.so",
+      "sha256": "24f6431e89bc6310ae9bd0bb02f5dfad6fbc3ca1386444c3bbf6425d9c7cf270",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/liblcms.so",
+      "sha256": "a5ed2fd876e11b2d3bd90af2c0237ad85ff17f245e367f61d49d2a0cdc6c65fc",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libmanagement.so",
+      "sha256": "5f24e29a6f3bfdad923963156ba15da0edf877df10ed0a3996a3a57048ba2e5f",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libmanagement_agent.so",
+      "sha256": "ad4c0785dd0ac261159af56ffd08e35e8bdfac595aa68fa21edf1a20cca485e3",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libmanagement_ext.so",
+      "sha256": "82f7e428da391f19a44be1162d47472163afeb83ddcf6af8325873b34973ea81",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libmlib_image.so",
+      "sha256": "1b62d24c164d0be22e627e1457ffa182d1c69354becfc4e527b036de66408b60",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libnet.so",
+      "sha256": "f05ec34ea53055552f4a079efd4a3bf3bb35f32a51d6ec85be54221014569d89",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libnio.so",
+      "sha256": "6231bdfc4c2af83c6372866e12b55d0442709165d5afb4806570132944fc5063",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libprefs.so",
+      "sha256": "80bd716f6fc8e2683b21325cb29339c4b68bca1653b30b82fcb72ffd69a8aeb5",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/librmi.so",
+      "sha256": "6c367a4a121c5c91f26bfb387a0102f35b39c5675d8501663a5404a4b8ea86d6",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libsctp.so",
+      "sha256": "7c925ff1df165aa9e4c8e3e8aa68a23e65756d158cd2e0cb23b9557ccd283c8c",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libsleef.so",
+      "sha256": "1aeacc756258a22384cd2548edaacebc446714f502b62caa4d4966d00425fc44",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libsyslookup.so",
+      "sha256": "bd340f6a6600c77e7aa000e62f9310c0853428984714e1bd490fef9f7b583d0e",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libverify.so",
+      "sha256": "b03357e6e29a4fb14e05b3fd7c994f34422ad7b0230eb2bb5434175559762b58",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/libzip.so",
+      "sha256": "603c7f0cbf8d6f6a628ae0b6fc7e4c6295ea9362592054454533811ad0df26d7",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/modules",
+      "sha256": "8abfeba9e3ae50fa81cb56542e48720537eb2d6d929e3e80274608a4f4cd8678",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/psfont.properties.ja",
+      "sha256": "5a4bd51b969bf187ff86d94f4a71fdfbfa602762975fa3c73d264b4575f7c78f",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/psfontj2d.properties",
+      "sha256": "cfb2f55fc4a22368567273c38f1afe3fc627ad56710a1d922ada68015710e53f",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/security/blocked.certs",
+      "sha256": "96572f243f31c2ef81a6e627542e596f6a9295cff3c7ae095c1b595cb1457ded",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/security/cacerts",
+      "sha256": "2675a0aa6e7c158bbccf1181383ee794319e362df9a6bc88e1a5f8469a4c1dd7",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/security/public_suffix_list.dat",
+      "sha256": "16b42002aa6f83a7763c4cdbd399ecf738460377d447e362884495545afd60a3",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/server/libjsig.so",
+      "sha256": "24f6431e89bc6310ae9bd0bb02f5dfad6fbc3ca1386444c3bbf6425d9c7cf270",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/server/libjvm.so",
+      "sha256": "5e1edd62f3162e12191f31730bf48cd8f256493ad4d4caef4b4dc398e8510818",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/lib/tzdb.dat",
+      "sha256": "5906b44e25a8a730131d7ba1beb5d15af27043f6536f1a169ca8a5d8b8bed8f8",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "java/25/release",
+      "sha256": "35c95eee018e03d152353536668cbd385e0269750ef3f7c2afcdc66deb8b16b8",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "jna/5.14.0/libjnidispatch.so",
+      "sha256": "3730ce014f7a6807ae74af78c3b9f5a3cba1f5886316b3d3858493df923efe96",
+      "component": "jna5140",
+      "status": "ready"
+    },
+    {
+      "path": "jna/5.17.0/libjnidispatch.so",
+      "sha256": "abc26e994517bcaa3309acdb0a27373864086c7569c89d3087b8626fada9ef06",
+      "component": "jna5170",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/android-ndk-r30/AndroidVersion.txt",
+      "sha256": "50f8283fa70fe63736cf031db7ebba878de94c8c43f02a40fea0d87ba1f6c4f5",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/android-ndk-r30/BUILD_INFO",
+      "sha256": "b84e4f5f1846a9f02c54118e79e850d653ae348f8c4d70f7f113f9a046207f41",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/android-ndk-r30/NOTICE",
+      "sha256": "a3c12eee897f63991da71464b690433a15d0d74a508ce0e275436279bdcaff58",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/android-ndk-r30/NOTICE.toolchain",
+      "sha256": "6b8633011d874b75629180e60de13ebfd546a10e56dc7d0380a35f6609f30617",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/android-ndk-r30/aosp_manifest_16134705.xml",
+      "sha256": "3101de9d6af821ad2fc47a811f272573fe829f939f8229179f1d96f3c9111b82",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/android-ndk-r30/clang_source_info.md",
+      "sha256": "22a60039318372c44c09b6bbb5aa5acb770a006ed3a2efaa372434e5ba4be0b2",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/android-ndk-r30/manifest_16134705.xml",
+      "sha256": "b9311b6363728fefa936407d3d3070a9bb51a4a8b8535326ed326cd1cd42f092",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/android-ndk-r30/source.properties",
+      "sha256": "e73b7dc557cea2da9212c09ee1795434957d62e63b7550eef69fd1887a355d94",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/android-ndk-r30/toolchains/llvm/prebuilt/windows-x86_64/sysroot/NOTICE",
+      "sha256": "0ed879a95b81b7d73beb4bc8ca5d1899ce5e3d65cedecbb9b642fc34d00005e8",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/freetype/LICENSE.TXT",
+      "sha256": "2e3bbb7d7c5c396368dd0853a790ec29ce5b8647163dde42a0493fb0d6556b2b",
+      "component": "freetype",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/freetype/README",
+      "sha256": "304b99f680248e42f9c656d36c8c41cda74cf6eebbc5af4d11c4abc1b0d9e2b9",
+      "component": "freetype",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/freetype/docs-FTL.TXT",
+      "sha256": "08c135755dd589039470f1fdbb400daaabaaa50d0b366d19cebff4d22986baa1",
+      "component": "freetype",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/freetype/docs-GPLv2.TXT",
+      "sha256": "c4120c6752c910c299e3bd9cb3a46ff262c268303ca2069b61f92f10a5656c18",
+      "component": "freetype",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/java21/SOURCE.txt",
+      "sha256": "4ce52ae9c408dca482416ae8378abf5d606002d41b8bfb33d4bd3837eaa86b12",
+      "component": "java21",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/java25/SOURCE.txt",
+      "sha256": "b5f1998d582b59e38a171560796fb57cbbc3a83669779da83a62f31f6228276c",
+      "component": "java25",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5140/AL2.0",
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "component": "jna5140",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5140/LGPL2.1",
+      "sha256": "eea173a556abac0370461e57e12aab266894ea6be3874c2be05fd87871f75449",
+      "component": "jna5140",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5140/LICENSE",
+      "sha256": "521bb271ac56e0e29a1b1b688b94af17d00d378fc8e63478d8c8b2a7c4a229d0",
+      "component": "jna5140",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5140/native-Makefile",
+      "sha256": "59bbfa4e75f1f60d36568b1b7f46625be512c75d29aff20830ed2778e344a312",
+      "component": "jna5140",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5140/native-dispatch.c",
+      "sha256": "7257cae4597b67c633b5bda02eedb322c194943957d9b4c9409843d95ec033d3",
+      "component": "jna5140",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5140/native-libffi-LICENSE",
+      "sha256": "2c9c2acb9743e6b007b91350475308aee44691d96aa20eacef8e199988c8c388",
+      "component": "jna5140",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5170/AL2.0",
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "component": "jna5170",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5170/LGPL2.1",
+      "sha256": "eea173a556abac0370461e57e12aab266894ea6be3874c2be05fd87871f75449",
+      "component": "jna5170",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5170/LICENSE",
+      "sha256": "07c938b23950ab7d47a24ef35f9f5da3a05ae164278dc959ad6994135ed59ff1",
+      "component": "jna5170",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5170/native-Makefile",
+      "sha256": "dff77b4e509446c21bc12a19ba9edea25f7ef839d0778297be91f730dbb1ba51",
+      "component": "jna5170",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5170/native-dispatch.c",
+      "sha256": "270300a79e0520a565a523e3aed3d173f44f4a1c088ec97332569d9360d612b5",
+      "component": "jna5170",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/jna5170/native-libffi-LICENSE",
+      "sha256": "2c9c2acb9743e6b007b91350475308aee44691d96aa20eacef8e199988c8c388",
+      "component": "jna5170",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/libffi-3.4.6/LICENSE",
+      "sha256": "67894089811f93fca47a76f85e017da6f8582d4ba0905963c6e0f1ad6df7a195",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/libffi-3.5.2/LICENSE",
+      "sha256": "d5699fa516968e3a1550e6c902b7441c78856f2603d61bedd0b0662a26655366",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/libsync/Android.bp",
+      "sha256": "c724f3c67c0d0e5fa0fd0d4ec3c247e3e511dc72eb5c74945bcd2733f36fc738",
+      "component": "libsync",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/libsync/NOTICE",
+      "sha256": "efcb3b0d1a6686c84546d85d1ad53ae01b0535443972c1f33eb248ae24b8357d",
+      "component": "libsync",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/blendish_license.txt",
+      "sha256": "f86e79ad7efad1d9e8cf167d499fd5aebf312c9370cd6b49d236c79342e464ff",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/freetype_license.txt",
+      "sha256": "08c135755dd589039470f1fdbb400daaabaaa50d0b366d19cebff4d22986baa1",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/glfw_license.txt",
+      "sha256": "12db5bb3f12c0793117746211cfa360a4c5067173b85f330d89552424c56be91",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/khronos_license.txt",
+      "sha256": "f3857759226191860119a14e6cc0420df506c10a5c1b6b2ff8abc8f8d31920fb",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/libffi_license.txt",
+      "sha256": "d66f6a020ebb611afe64b93270d447aa32a9345d2d3a43d296493e9806b944f8",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/liburing_license.txt",
+      "sha256": "1ec30e534aecb8eef3439fe3e36b20be20461bb758ca85107602fdaa3e23d274",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/lwjgl_license.txt",
+      "sha256": "4c2f770897d0cfda4d9a65bb4d6d6983dccfd57d4c7eb74ea5ded0762cbc0e75",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/nanosvg_license.txt",
+      "sha256": "05013ed6643293c88110521dd5cdd4700d5a9f74f58fd168ed604e9aa90a9157",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/nanovg_license.txt",
+      "sha256": "d1c46d70e4e62e6324ff845bc8f4831912e33a940a5e7949298250be74ef47aa",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/openal_soft_license.txt",
+      "sha256": "b7993225104d90ddd8024fd838faf300bea5e83d91203eab98e29512acebd69c",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/shaderc_license.txt",
+      "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/tinyfd_license.txt",
+      "sha256": "43eedc0b74269e842aebc6d28286bcd3f4a464aed058687dc6a1b3835e3593f4",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/.github/workflows/android/assets/licenses/vma_license.txt",
+      "sha256": "0146642a102ded4cf932cdc99d5b97d971a56c797877bcc335c8b1f03d222e24",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/LICENSE.md",
+      "sha256": "4c2f770897d0cfda4d9a65bb4d6d6983dccfd57d4c7eb74ea5ded0762cbc0e75",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/SOURCE.txt",
+      "sha256": "48b24f51b58537e627edbf251dec8f7b90114d7e35715194e9a20e798d541f03",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/modules/lwjgl/core/libffi_license.txt",
+      "sha256": "d66f6a020ebb611afe64b93270d447aa32a9345d2d3a43d296493e9806b944f8",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/modules/lwjgl/core/liburing_license.txt",
+      "sha256": "1ec30e534aecb8eef3439fe3e36b20be20461bb758ca85107602fdaa3e23d274",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/modules/lwjgl/openal/openal_soft_license.txt",
+      "sha256": "b7993225104d90ddd8024fd838faf300bea5e83d91203eab98e29512acebd69c",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/modules/lwjgl/opengl/khronos_license.txt",
+      "sha256": "f3857759226191860119a14e6cc0420df506c10a5c1b6b2ff8abc8f8d31920fb",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/modules/lwjgl/tinyfd/tinyfd_license.txt",
+      "sha256": "43eedc0b74269e842aebc6d28286bcd3f4a464aed058687dc6a1b3835e3593f4",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/stb-source-notices/stb_dxt.h",
+      "sha256": "807667ef98e0fd749cdb65cca0c2d980bc148109d2fed6f1873c81ae0f449933",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/stb-source-notices/stb_easy_font.h",
+      "sha256": "7b48b52a316477766c0a7a096b33a29bcbd847b6fab4fabd32bb3fdb7cea1a60",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/stb-source-notices/stb_image.h",
+      "sha256": "38e08c1c5ab8869ae8d605ddaefa85ad3fea24a2964fd63a099c0c0f79c70bcc",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/stb-source-notices/stb_image_resize.h",
+      "sha256": "6a0e75adbabb48df9031c2e39ccd97437bb226fe31e7d4a01c7bf70a18d32ec6",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/stb-source-notices/stb_image_write.h",
+      "sha256": "cbd5f0ad7a9cf4468affb36354a1d2338034f2c12473cf1a8e32053cb6914a05",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/stb-source-notices/stb_perlin.h",
+      "sha256": "17e688447a02776fe667e0b6a5d1155bf85c827a83f787ae2d44f57699274960",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/stb-source-notices/stb_rect_pack.h",
+      "sha256": "6388366a30de57c1b4c29b6eed4ed1c7d758fc1443d2dd95cfce943370bb3aa1",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl333/stb-source-notices/stb_truetype.h",
+      "sha256": "a34d8d536ce7c11b9163ab2d524721c1f4df1452cce6595c4f11d3048384f925",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/blendish_license.txt",
+      "sha256": "f86e79ad7efad1d9e8cf167d499fd5aebf312c9370cd6b49d236c79342e464ff",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/freetype_license.txt",
+      "sha256": "08c135755dd589039470f1fdbb400daaabaaa50d0b366d19cebff4d22986baa1",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/glfw_license.txt",
+      "sha256": "12db5bb3f12c0793117746211cfa360a4c5067173b85f330d89552424c56be91",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/khronos_license.txt",
+      "sha256": "f3857759226191860119a14e6cc0420df506c10a5c1b6b2ff8abc8f8d31920fb",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/libffi_license.txt",
+      "sha256": "d66f6a020ebb611afe64b93270d447aa32a9345d2d3a43d296493e9806b944f8",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/liburing_license.txt",
+      "sha256": "1ec30e534aecb8eef3439fe3e36b20be20461bb758ca85107602fdaa3e23d274",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/lwjgl_license.txt",
+      "sha256": "4c2f770897d0cfda4d9a65bb4d6d6983dccfd57d4c7eb74ea5ded0762cbc0e75",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/nanosvg_license.txt",
+      "sha256": "05013ed6643293c88110521dd5cdd4700d5a9f74f58fd168ed604e9aa90a9157",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/nanovg_license.txt",
+      "sha256": "d1c46d70e4e62e6324ff845bc8f4831912e33a940a5e7949298250be74ef47aa",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/openal_soft_license.txt",
+      "sha256": "b7993225104d90ddd8024fd838faf300bea5e83d91203eab98e29512acebd69c",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/shaderc_license.txt",
+      "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/tinyfd_license.txt",
+      "sha256": "43eedc0b74269e842aebc6d28286bcd3f4a464aed058687dc6a1b3835e3593f4",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/.github/workflows/android/assets/licenses/vma_license.txt",
+      "sha256": "0146642a102ded4cf932cdc99d5b97d971a56c797877bcc335c8b1f03d222e24",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/LICENSE.md",
+      "sha256": "4c2f770897d0cfda4d9a65bb4d6d6983dccfd57d4c7eb74ea5ded0762cbc0e75",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/SOURCE.txt",
+      "sha256": "c3d6d79ab22b143968454d70ca6b34015e1646c92108d50d4885f046fe12bc62",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/modules/lwjgl/core/libffi_license.txt",
+      "sha256": "d66f6a020ebb611afe64b93270d447aa32a9345d2d3a43d296493e9806b944f8",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/modules/lwjgl/core/liburing_license.txt",
+      "sha256": "1ec30e534aecb8eef3439fe3e36b20be20461bb758ca85107602fdaa3e23d274",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/modules/lwjgl/openal/openal_soft_license.txt",
+      "sha256": "b7993225104d90ddd8024fd838faf300bea5e83d91203eab98e29512acebd69c",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/modules/lwjgl/opengl/khronos_license.txt",
+      "sha256": "f3857759226191860119a14e6cc0420df506c10a5c1b6b2ff8abc8f8d31920fb",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/modules/lwjgl/tinyfd/tinyfd_license.txt",
+      "sha256": "43eedc0b74269e842aebc6d28286bcd3f4a464aed058687dc6a1b3835e3593f4",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/stb-source-notices/stb_dxt.h",
+      "sha256": "807667ef98e0fd749cdb65cca0c2d980bc148109d2fed6f1873c81ae0f449933",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/stb-source-notices/stb_easy_font.h",
+      "sha256": "7b48b52a316477766c0a7a096b33a29bcbd847b6fab4fabd32bb3fdb7cea1a60",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/stb-source-notices/stb_image.h",
+      "sha256": "594c2fe35d49488b4382dbfaec8f98366defca819d916ac95becf3e75f4200b3",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/stb-source-notices/stb_image_resize2.h",
+      "sha256": "73dd721907eed16c3ac4168cc574f44d8792c6e8fb514d583d79894234a94462",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/stb-source-notices/stb_image_write.h",
+      "sha256": "cbd5f0ad7a9cf4468affb36354a1d2338034f2c12473cf1a8e32053cb6914a05",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/stb-source-notices/stb_perlin.h",
+      "sha256": "17e688447a02776fe667e0b6a5d1155bf85c827a83f787ae2d44f57699274960",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/stb-source-notices/stb_rect_pack.h",
+      "sha256": "6388366a30de57c1b4c29b6eed4ed1c7d758fc1443d2dd95cfce943370bb3aa1",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/lwjgl341/stb-source-notices/stb_truetype.h",
+      "sha256": "a34d8d536ce7c11b9163ab2d524721c1f4df1452cce6595c4f11d3048384f925",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/Apache-2.0",
+      "sha256": "7e4d3fba250d15e9e0afa380d4b611828fa2560cc8fdebe95bcf2f01a487de12",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/BSL-1.0",
+      "sha256": "9b9fea7520a816107fcac2598b7c0155222f16bc430e989706b22f4367f1df7d",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/GPL-1.0-or-later",
+      "sha256": "8ff76f1528e6e4e9400c0f6b1f2d19d4979aaac3bcc44bb707a55389132825c4",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/GPL-2.0-only",
+      "sha256": "6667ad4063569cd53b13500550d93fcd3dc11bcf82c5514296af013a0b720ba5",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/MIT",
+      "sha256": "323c587d0ccf10e376f8bf9a7f31fb4ca6078105194b42e0b1e0ee2bc9bde71f",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/SGI-B-2.0",
+      "sha256": "686bf035a1fd22076416fd3b90370ac67771e884bf57f55693d51f8ce7c710a7",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/exceptions/Linux-Syscall-Note",
+      "sha256": "9b4084655174654608fd037e9ddb4feeadfada01cd042e9c17b05aa7105b2b9f",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/license.rst",
+      "sha256": "0d1a0472ecc81830e75c20d59b0ea02841e3db21255e0ebad97ab682c54d6615",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/osmesa-source-notices/include/GL/osmesa.h",
+      "sha256": "0130046a5e7fbdd0c297dfb0ea4865a78d77c5cb79f03d03f4267a90ff484d2a",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/osmesa-source-notices/src/gallium/frontends/osmesa/meson.build",
+      "sha256": "1e11520a77acd1d33547b35c8220ef6d81cedf196e44aece49db54dc32b4f096",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/osmesa-source-notices/src/gallium/frontends/osmesa/osmesa.c",
+      "sha256": "de1ea1fa9468c4d9e0da8b47f33be35820249a5f5723875ffd40f9043503fc96",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/osmesa-source-notices/src/gallium/targets/osmesa/meson.build",
+      "sha256": "ac4a3f44f2c2e81e94d2b70d87d534b182d5d4d0ce483bf72b470dcda142813d",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/osmesa-source-notices/src/gallium/targets/osmesa/osmesa-symbols.txt",
+      "sha256": "d180ed214bdb6777986a090e1b55f3ba26e8a2291c578cddd462f1a5442a81da",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/osmesa-source-notices/src/gallium/targets/osmesa/osmesa.def.in",
+      "sha256": "8834012ef8987a418cf56517b2e1b5e9d0527cffe4afe0afe0ef8333d5b31dca",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/osmesa-source-notices/src/gallium/targets/osmesa/osmesa.sym",
+      "sha256": "5e06ffffb28f5178de21697f145f6774920c2aca4e04c1bdf195337fd6781cb1",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/osmesa-source-notices/src/gallium/targets/osmesa/osmesa_target.c",
+      "sha256": "eb6ee8a66912fdacf2de264594ea901fb02ec5cb94b617af624851efa3e04a04",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/mesa/osmesa-source-notices/src/gallium/targets/osmesa/test-render.cpp",
+      "sha256": "c487a7381d7c5cb59a26b051b44d14ef1977b8415618b08ba9d1e7ebb3ed27dc",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/openal/BSD-3Clause",
+      "sha256": "b5a08cf98996dd83aa906a72c163600f6cb17a65ce546a553815a1267abd43ff",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/openal/COPYING",
+      "sha256": "d808ce217e5b611854da622b57ec29fe545584c48bc5352fae72a4b6e5074a15",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/openal/LICENSE-pffft",
+      "sha256": "64056328b3e7bc104e24ef96accc1a7abead156f0c02d1b87c97e3f3a28030de",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/openal/README.md",
+      "sha256": "b7d8113e4cff86a1447b8fb514bc58f492e51797b6cb105d1f5e57c6b7ae9d39",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "licenses/openal/SOURCE.txt",
+      "sha256": "03852d931a814e73d8d93078f2033c24811dfb3ad741a787b4bd5a0b3c4c89f8",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/java/lwjgl-3.3.3.jar",
+      "sha256": "dc9c7b2d48e8396d68895f8902ffa01e46253de44dfe927533ff09457ebfeec4",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/java/lwjgl-glfw-3.3.3.jar",
+      "sha256": "bedc757fd2b1b255146db26b74b9cbd1fcf5644b89b47b104fa721c741604259",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/java/lwjgl-jemalloc-3.3.3.jar",
+      "sha256": "e99e31269e6678a4bfc62ef24c50a481c01cbdd004861ece9a59ba12768c6516",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/java/lwjgl-openal-3.3.3.jar",
+      "sha256": "ae0e82767cacf08921f578fba9d84753ddeb00ceada0510a2b4a882be28fbf95",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/java/lwjgl-opengl-3.3.3.jar",
+      "sha256": "5062da750e5f7ec89e27e8b67b7d40fa8c4b16890159e35f828116ce6c8eca1e",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/java/lwjgl-stb-3.3.3.jar",
+      "sha256": "0cff7aa46ea9d70fcc20857015293ea80fbf21adcac34600c84da9b81a44ca93",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/java/lwjgl-tinyfd-3.3.3.jar",
+      "sha256": "ee0515054ee19a3f4088426fee9d879eb2ee657b07e5064e4e2c851f6adcf14b",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/liblwjgl.so",
+      "sha256": "ec467d7db4741acfb768f6cf3d9132b8d7ce730248ccb5ebbb4953ea72bfa2e8",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/liblwjgl_opengl.so",
+      "sha256": "89c453156e01bcc0c00c87aef02353d0a0a89ace433b812ff21378f8908a0f0b",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/liblwjgl_stb.so",
+      "sha256": "13e76aa44ebb5fc7531968d01428747b3f87ce6055c6808333ef4dfa4ee6e27e",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/liblwjgl_tinyfd.so",
+      "sha256": "5d104faeff633767573a187520c4f808eb44da29a304ef1304f1b004048bde83",
+      "component": "lwjgl333",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.3.3/libopenal.so",
+      "sha256": "d659066c1c095493e10aa3e438cebe8c347b584b10c634120b09f4394d7a7763",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-3.4.1-unsafe.jar",
+      "sha256": "28b8dd3421e11e90d4d93dd3b7c9261aeda2d67645324bee0194e175f6963de2",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-3.4.1.jar",
+      "sha256": "9b1c3a3a078c2377219ecb8a2662730b3dece07c10592cf1d12f957286037b69",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-freetype-3.4.1.jar",
+      "sha256": "c57a40cedf39c4f3dfe25df596c0933cecb91d323c3fc4c2ed08661d1b79d8c7",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-glfw-3.4.1.jar",
+      "sha256": "c2d93964f0a8b2a846708c7fb1b0a095e7d79dce8ea4c543969ffef508027190",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-jemalloc-3.4.1.jar",
+      "sha256": "184866f4dcb444666e9062f690c389d69e4a62dd7fd9e2bb13ab7bdf3d03bd1e",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-openal-3.4.1.jar",
+      "sha256": "824a68b6f22220feb45cdaf06ebd5496b96e38c50e2588fc3ea0e819f910cf28",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-opengl-3.4.1.jar",
+      "sha256": "a76b8fd9ff7428ae5e0f01b8f91a4e44debba87285048e965757742093418702",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-shaderc-3.4.1.jar",
+      "sha256": "72293c0d58aa07205f67233efed3769111e8312c73bd8e1f4c13a44ab255f27f",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-spvc-3.4.1.jar",
+      "sha256": "3c453700ea383d6f9ad736ed1d268d45b716d5acf27e9cc4f8c15c8fca1c421c",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-stb-3.4.1.jar",
+      "sha256": "3d77b0a242b8a52788934356560191db910ed242ab23c521d55f030b4e867970",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-tinyfd-3.4.1.jar",
+      "sha256": "3ffad01103b6cbc8c12c7156691fd87a96f063600a5ff5c9087d321c6736963a",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-vma-3.4.1.jar",
+      "sha256": "d6a9677b5d487c97b874c18cb9c726197e9a8773f6a1c031ea9f5950b8c0b3c2",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/java/lwjgl-vulkan-3.4.1.jar",
+      "sha256": "7f39be7c1e7b14b47d18ec5e23dd25240d2e41c090393524615d760203bf14a6",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/libfreetype.so",
+      "sha256": "d3a8d977e63d6ca166910819ac0962eb3057dc090acc810eed3c98ccc264e3da",
+      "component": "freetype",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/liblwjgl.so",
+      "sha256": "20a852a962c2776e782b8501edf812593415764373ca0f16ac493fa8925d3aad",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/liblwjgl_opengl.so",
+      "sha256": "06ece44c525e7fddd707dd506335f364173c64cd2be3a6fc4d742fd0c568e512",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/liblwjgl_stb.so",
+      "sha256": "5903660cb8da26e1250cbdda70667b333ad88d053a488e105d308e12fcbd9532",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/liblwjgl_tinyfd.so",
+      "sha256": "4ab06f0152bc576d0b1a2d0eada5e45c34f1e9529e321a9b300e067380bc6d22",
+      "component": "lwjgl341",
+      "status": "ready"
+    },
+    {
+      "path": "lwjgl/3.4.1/libopenal.so",
+      "sha256": "d659066c1c095493e10aa3e438cebe8c347b584b10c634120b09f4394d7a7763",
+      "component": "openal",
+      "status": "ready"
+    },
+    {
+      "path": "renderers/osmesa/libOSMesa.so",
+      "sha256": "a1bd589ce45971a06847b7b22710389d3bb86500ca26269bd0fd7a3e7219f1eb",
+      "component": "mesa",
+      "status": "ready"
+    },
+    {
+      "path": "renderers/osmesa/libsync.so",
+      "sha256": "a5b6ce9d59f8e78ff1d0743738b564ca066379febaddbeacde5fbd2a588c78e3",
+      "component": "libsync",
+      "status": "ready"
+    }
+  ],
+  "researchEvidence": {
+    "officialJavaJniCoverage": ".runtime/hxz-runtime-upstream/research/official-java-jni-coverage.json",
+    "javaElfAudit": ".runtime/hxz-runtime-upstream/research/jre-elf-audit.json",
+    "mesaElfAudit": ".runtime/hxz-runtime-upstream/research/mesa-independent-build.elf.txt",
+    "unsafeAndJnaJniCoverage": ".runtime/hxz-runtime-upstream/research/unsafe-and-jna-jni-coverage.json",
+    "freetypeSymbolCoverage": ".runtime/hxz-runtime-upstream/research/freetype-symbol-coverage.json",
+    "minecraft26LibraryMetadata": ".runtime/hxz-runtime-upstream/research/minecraft-26.2-library-metadata.json",
+    "java25CppAbiAudit": ".runtime/hxz-runtime-upstream/research/java25-libcxx-abi-audit.json"
+  },
+  "exclusions": [
+    "FCL vendor AAR or assets",
+    "launcher Java GLFW/CallbackBridge code",
+    "paid Minecraft client jars",
+    "unverified published Mesa binary from formal stage"
+  ],
+  "excludedArchiveFiles": [
+    "java/21/lib/fontconfig.Mac OS X.properties.src",
+    "java/21/lib/fontconfig.Mac OS X.bfc"
+  ],
+  "buildToolchain": {
+    "ndkRevision": "Pkg.Desc = Android NDK\nPkg.Revision = 30.0.16248370\nPkg.BaseRevision = 30.0.16248370\nPkg.ReleaseName = r30",
+    "ndkDistribution": "https://developer.android.com/ndk/downloads",
+    "cmakeVersion": "3.22.1",
+    "clangVersion": "21.0.0",
+    "staticCppLicenseDirectory": "licenses/android-ndk-r30"
+  },
+  "mesaBuildAttempt": {
+    "baseSourceCommit": "23e3445940104465152dcfc1d5952d09d3ba7b37",
+    "osmesaSourceCommit": "769e51468b49b2a42f0a0eaf71cf9eed5ff4e5de",
+    "script": "mobile/runtime/upstream-build/build-mesa.ps1",
+    "preparationScript": "mobile/runtime/upstream-build/prepare-mesa.py",
+    "drivers": [
+      "zink",
+      "softpipe"
+    ],
+    "llvm": false,
+    "status": "success",
+    "notes": "OSMesa restored from official Mesa24.3.4 files, independent minimal Mesa25 API adaptations; Vera publisher overlay excluded from final build input",
+    "elfEvidence": ".runtime/hxz-runtime-upstream/research/mesa-independent-build.elf.txt",
+    "privateAndroidApis": false,
+    "nativeTlsRequiresAndroidApi": 29
+  },
+  "capabilities": {
+    "vulkanGameBackend": false,
+    "preferredGraphicsBackend": "opengl",
+    "vulkanBackendReason": "Independent GLFW bridge supplies OSMesa OpenGL only; options preferredGraphicsBackend set to opengl; shaderc/spvc/vma natives are not supplied"
+  },
+  "lwjgl341Capabilities": {
+    "coreClassifier": "unsafe",
+    "coreJniMethodsVerified": 2142,
+    "requiredNativeLibraries": [
+      "liblwjgl.so",
+      "liblwjgl_opengl.so",
+      "liblwjgl_stb.so",
+      "liblwjgl_tinyfd.so",
+      "libfreetype.so"
+    ],
+    "officialModuleJars": [
+      "lwjgl-3.4.1.jar",
+      "lwjgl-glfw-3.4.1.jar",
+      "lwjgl-jemalloc-3.4.1.jar",
+      "lwjgl-openal-3.4.1.jar",
+      "lwjgl-opengl-3.4.1.jar",
+      "lwjgl-stb-3.4.1.jar",
+      "lwjgl-tinyfd-3.4.1.jar",
+      "lwjgl-3.4.1-unsafe.jar",
+      "lwjgl-freetype-3.4.1.jar",
+      "lwjgl-shaderc-3.4.1.jar",
+      "lwjgl-spvc-3.4.1.jar",
+      "lwjgl-vma-3.4.1.jar",
+      "lwjgl-vulkan-3.4.1.jar"
+    ],
+    "unsupportedNativeModules": [
+      "shaderc",
+      "spvc",
+      "vma"
+    ],
+    "vulkanLibrary": "Android public libvulkan.so; game Vulkan backend disabled"
+  }
+}

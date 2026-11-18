@@ -1,0 +1,404 @@
+{
+  "schemaVersion": 1,
+  "kind": "hxz-runtime-tools",
+  "requiredComponents": [
+    {
+      "id": "hxzup",
+      "status": "ready"
+    },
+    {
+      "id": "direct-lobby",
+      "status": "ready"
+    },
+    {
+      "id": "authlib-injector",
+      "status": "ready"
+    },
+    {
+      "id": "runtime-build",
+      "status": "ready"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "authlib-injector-1.2.8",
+      "version": "1.2.8",
+      "sourceCommit": "5437f5b465ee3f5be0a1e5e1ae3c50978114f6fb",
+      "download_url": "https://authlib-injector.yushi.moe/artifact/56/authlib-injector-1.2.8.jar",
+      "checksums": {
+        "sha256": "9c7f4343e6c82034958ffb48c14a2cb0c85928be7283103ce17da00c6d5a7b10"
+      },
+      "authority": "https://authlib-injector.yushi.moe/artifact/latest.json",
+      "source_url": "https://codeload.github.com/yushijinhun/authlib-injector/zip/5437f5b465ee3f5be0a1e5e1ae3c50978114f6fb",
+      "source_sha256": "be3c56d65dcb51c75662ef3fc68c9daf5bc19f2354b76a3d76ab7ddfc6ad60ba",
+      "license": "AGPL-3.0-or-later WITH AUTHLIB-INJECTOR-exception",
+      "unmodified": true,
+      "status": "ready"
+    },
+    {
+      "id": "hxzup",
+      "kind": "project-tool",
+      "file": "resources/hxzup/updater-launcher.jar",
+      "license": "Apache-2.0; embedded Gson Apache-2.0",
+      "status": "ready",
+      "sourceCoverage": "Repository maintained installer sources and updater IO/Rules; pre-existing bootstrap classes are not claimed rebuilt by this script."
+    },
+    {
+      "id": "direct-lobby",
+      "kind": "project-tool",
+      "file": "resources/direct-lobby/direct-lobby.jar",
+      "license": "Apache-2.0",
+      "status": "ready",
+      "source": "resources/direct-lobby/src/top/hxz/DirectLobbyAgent.java"
+    },
+    {
+      "id": "runtime-build",
+      "kind": "project-build-sources",
+      "source": "mobile/runtime/upstream-build",
+      "license": "Apache-2.0 for independent build scripts; upstream notices retained",
+      "status": "ready"
+    }
+  ],
+  "stagedFiles": [
+    {
+      "path": "licenses/authlib-injector/AGPLv3-with-authlib-injector-exception.txt",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/authlib-injector/AGPLv3-with-authlib-injector-exception.txt",
+      "sha256": "3ae6da2502108d2bf777508663a6c4ca55fb937137507bebb642e4506c0ccd0b",
+      "size": 35009,
+      "component": "authlib-injector",
+      "status": "ready",
+      "role": "license",
+      "origin": "https://codeload.github.com/yushijinhun/authlib-injector/zip/5437f5b465ee3f5be0a1e5e1ae3c50978114f6fb#authlib-injector-5437f5b465ee3f5be0a1e5e1ae3c50978114f6fb/AGPLv3-with-authlib-injector-exception.txt"
+    },
+    {
+      "path": "licenses/authlib-injector/bundled/asm.txt",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/authlib-injector/bundled/asm.txt",
+      "sha256": "293b6af371eee28b0ff16f0334ea19e20a3d5522143faa4b95b346855507879a",
+      "size": 1598,
+      "component": "authlib-injector",
+      "status": "ready",
+      "role": "license",
+      "origin": "https://authlib-injector.yushi.moe/artifact/56/authlib-injector-1.2.8.jar#META-INF/licenses/asm.txt"
+    },
+    {
+      "path": "licenses/authlib-injector/bundled/authlib-injector.txt",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/authlib-injector/bundled/authlib-injector.txt",
+      "sha256": "3ae6da2502108d2bf777508663a6c4ca55fb937137507bebb642e4506c0ccd0b",
+      "size": 35009,
+      "component": "authlib-injector",
+      "status": "ready",
+      "role": "license",
+      "origin": "https://authlib-injector.yushi.moe/artifact/56/authlib-injector-1.2.8.jar#META-INF/licenses/authlib-injector.txt"
+    },
+    {
+      "path": "licenses/authlib-injector/bundled/json-simple.txt",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/authlib-injector/bundled/json-simple.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size": 11358,
+      "component": "authlib-injector",
+      "status": "ready",
+      "role": "license",
+      "origin": "https://authlib-injector.yushi.moe/artifact/56/authlib-injector-1.2.8.jar#META-INF/licenses/json-simple.txt"
+    },
+    {
+      "path": "licenses/authlib-injector/bundled/nanohttpd.txt",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/authlib-injector/bundled/nanohttpd.txt",
+      "sha256": "3825e0f8f684b3b89ecd56ea6b2faa2dda2b7a9c4127b2baf302d6d2b0cea765",
+      "size": 1474,
+      "component": "authlib-injector",
+      "status": "ready",
+      "role": "license",
+      "origin": "https://authlib-injector.yushi.moe/artifact/56/authlib-injector-1.2.8.jar#META-INF/licenses/nanohttpd.txt"
+    },
+    {
+      "path": "licenses/authlib-injector/CC-BY-SA-4.0.txt",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/authlib-injector/CC-BY-SA-4.0.txt",
+      "sha256": "28a9529c7d0bb4dc51f4bf5c116a3d16ef247a052f7591466768ddf563fd1cf5",
+      "size": 20138,
+      "component": "authlib-injector",
+      "status": "ready",
+      "role": "license",
+      "origin": "https://codeload.github.com/yushijinhun/authlib-injector/zip/5437f5b465ee3f5be0a1e5e1ae3c50978114f6fb#authlib-injector-5437f5b465ee3f5be0a1e5e1ae3c50978114f6fb/CC-BY-SA-4.0.txt"
+    },
+    {
+      "path": "licenses/authlib-injector/COPYING.md",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/authlib-injector/COPYING.md",
+      "sha256": "d73be21d8c64fd3695b4a5c3cdd913893d94284abe99f3d6b1f14570f3daa15c",
+      "size": 1741,
+      "component": "authlib-injector",
+      "status": "ready",
+      "role": "license",
+      "origin": "https://codeload.github.com/yushijinhun/authlib-injector/zip/5437f5b465ee3f5be0a1e5e1ae3c50978114f6fb#authlib-injector-5437f5b465ee3f5be0a1e5e1ae3c50978114f6fb/COPYING.md"
+    },
+    {
+      "path": "licenses/direct-lobby/LICENSE",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/direct-lobby/LICENSE",
+      "sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+      "size": 11558,
+      "component": "direct-lobby",
+      "status": "ready",
+      "role": "license",
+      "origin": "LICENSE"
+    },
+    {
+      "path": "licenses/hxzup/bundled/gson-LICENSE.txt",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/hxzup/bundled/gson-LICENSE.txt",
+      "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "size": 11358,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "license",
+      "origin": "resources/hxzup/updater-launcher.jar#META-INF/licenses/gson-LICENSE.txt"
+    },
+    {
+      "path": "licenses/hxzup/bundled/THIRD-PARTY-NOTICES.txt",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/hxzup/bundled/THIRD-PARTY-NOTICES.txt",
+      "sha256": "e39bad24212085ab2b1de8b772e68ac746e6475a46f23f5a6aec339c914b942c",
+      "size": 183,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "license",
+      "origin": "resources/hxzup/updater-launcher.jar#META-INF/THIRD-PARTY-NOTICES.txt"
+    },
+    {
+      "path": "licenses/hxzup/LICENSE",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/hxzup/LICENSE",
+      "sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+      "size": 11558,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "license",
+      "origin": "LICENSE"
+    },
+    {
+      "path": "licenses/runtime-build/LICENSE",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/licenses/runtime-build/LICENSE",
+      "sha256": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6",
+      "size": 11558,
+      "component": "runtime-build",
+      "status": "ready",
+      "role": "license",
+      "origin": "LICENSE"
+    },
+    {
+      "path": "provenance/authlib-injector-published.json",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/provenance/authlib-injector-published.json",
+      "sha256": "d01dd38ff9f408723e6c89a2abe219d592fbaf01a50a7492d3848df9f7efe2b6",
+      "size": 655,
+      "component": "authlib-injector",
+      "status": "ready",
+      "role": "provenance",
+      "origin": "https://authlib-injector.yushi.moe/artifact/latest.json"
+    },
+    {
+      "path": "sources/authlib-injector/authlib-injector-1.2.8-source.zip",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/authlib-injector/authlib-injector-1.2.8-source.zip",
+      "sha256": "be3c56d65dcb51c75662ef3fc68c9daf5bc19f2354b76a3d76ab7ddfc6ad60ba",
+      "size": 887181,
+      "component": "authlib-injector",
+      "status": "ready",
+      "role": "source",
+      "origin": "https://codeload.github.com/yushijinhun/authlib-injector/zip/5437f5b465ee3f5be0a1e5e1ae3c50978114f6fb"
+    },
+    {
+      "path": "sources/direct-lobby/DirectLobbyAgent.java",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/direct-lobby/DirectLobbyAgent.java",
+      "sha256": "9c31157dca1ebe92cb90a47fa9e0264b0efc8f410ed3be385c1e7f87ee007efc",
+      "size": 7607,
+      "component": "direct-lobby",
+      "status": "ready",
+      "role": "source",
+      "origin": "resources/direct-lobby/src/top/hxz/DirectLobbyAgent.java"
+    },
+    {
+      "path": "sources/hxzup/installer/DownloadRateLimiter.java",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/hxzup/installer/DownloadRateLimiter.java",
+      "sha256": "853d193108e8a1b529f8877cc299741fbf4c2138b7a7ead324a97e4d22307391",
+      "size": 2299,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "source",
+      "origin": "resources/installer/src/up/hxz/DownloadRateLimiter.java"
+    },
+    {
+      "path": "sources/hxzup/installer/ForgeInstaller.java",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/hxzup/installer/ForgeInstaller.java",
+      "sha256": "bc89702d1e1c6a05b07e6284a83c7cdd2004374dd5320519d24e89a2602dd9a4",
+      "size": 11769,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "source",
+      "origin": "resources/installer/src/up/hxz/ForgeInstaller.java"
+    },
+    {
+      "path": "sources/hxzup/installer/GameInstaller.java",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/hxzup/installer/GameInstaller.java",
+      "sha256": "d3f2c0c69fd2a6aa286ff5fc5de897bb1459248724d344f99cfdb5774a0840e5",
+      "size": 32416,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "source",
+      "origin": "resources/installer/src/up/hxz/GameInstaller.java"
+    },
+    {
+      "path": "sources/hxzup/installer/LauncherInstall.java",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/hxzup/installer/LauncherInstall.java",
+      "sha256": "6483b49029658c9d23f098757ee1695eb4135d19c8c07f14ec666c95727fae7a",
+      "size": 1587,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "source",
+      "origin": "resources/installer/src/up/hxz/LauncherInstall.java"
+    },
+    {
+      "path": "sources/hxzup/installer/Network.java",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/hxzup/installer/Network.java",
+      "sha256": "670508c77e7377b1fe2e24b7d74290b58d7b0790fdffa3d1e8f01b941f4ca9c0",
+      "size": 40481,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "source",
+      "origin": "resources/installer/src/up/hxz/Network.java"
+    },
+    {
+      "path": "sources/hxzup/installer/Updater.java",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/hxzup/installer/Updater.java",
+      "sha256": "96e922ca0d5a06c7eb3474544f8bd07292b076ae9a5e4e64bbc2c7fb737a467b",
+      "size": 43179,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "source",
+      "origin": "resources/installer/src/up/hxz/Updater.java"
+    },
+    {
+      "path": "sources/hxzup/updater-base/IO.java",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/hxzup/updater-base/IO.java",
+      "sha256": "5b8e4c98e571028dd0262f2c5e990370ecc8675460e282e85a829a2933771e05",
+      "size": 4578,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "source",
+      "origin": "mobile/game-engine/updater-base/IO.java"
+    },
+    {
+      "path": "sources/hxzup/updater-base/Rules.java",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/hxzup/updater-base/Rules.java",
+      "sha256": "170b2cce0bb01873b8b1cc2d4afb20b121cfd1539e0db1d995a19813f834c52a",
+      "size": 1642,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "source",
+      "origin": "mobile/game-engine/updater-base/Rules.java"
+    },
+    {
+      "path": "sources/runtime-build/build-freetype.ps1",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/runtime-build/build-freetype.ps1",
+      "sha256": "f0fc709851b2910753381fcf4ca876663e3c0b974ada70f3c4fff1d0e005209c",
+      "size": 1388,
+      "component": "runtime-build",
+      "status": "ready",
+      "role": "source",
+      "origin": "mobile/runtime/upstream-build/build-freetype.ps1"
+    },
+    {
+      "path": "sources/runtime-build/build-mesa.ps1",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/runtime-build/build-mesa.ps1",
+      "sha256": "fb2357912a73b180758da148e799d012b13324db5ca81bdaba9ebbb7f13e6fef",
+      "size": 1732,
+      "component": "runtime-build",
+      "status": "ready",
+      "role": "source",
+      "origin": "mobile/runtime/upstream-build/build-mesa.ps1"
+    },
+    {
+      "path": "sources/runtime-build/build.ps1",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/runtime-build/build.ps1",
+      "sha256": "2aade607de35e749168fff57896823782291a337b5225355116f774455b5ae8f",
+      "size": 1880,
+      "component": "runtime-build",
+      "status": "ready",
+      "role": "source",
+      "origin": "mobile/runtime/upstream-build/build.ps1"
+    },
+    {
+      "path": "sources/runtime-build/CMakeLists.txt",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/runtime-build/CMakeLists.txt",
+      "sha256": "b99f0696f41afe6298276db1ec6cbeca4b7750d20fd654e4c9c32a6bb07542ff",
+      "size": 3965,
+      "component": "runtime-build",
+      "status": "ready",
+      "role": "source",
+      "origin": "mobile/runtime/upstream-build/CMakeLists.txt"
+    },
+    {
+      "path": "sources/runtime-build/fficonfig.h",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/runtime-build/fficonfig.h",
+      "sha256": "4cce4e9301c19248ba800fc6c4bad037f965306625f94d58498a4cc3816d5f54",
+      "size": 697,
+      "component": "runtime-build",
+      "status": "ready",
+      "role": "source",
+      "origin": "mobile/runtime/upstream-build/fficonfig.h"
+    },
+    {
+      "path": "sources/runtime-build/mesa-android-arm64.ini",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/runtime-build/mesa-android-arm64.ini",
+      "sha256": "764b0479846eca28d0c90817ad40c386d8e353dc2b53ed140ae78cccb330e183",
+      "size": 1189,
+      "component": "runtime-build",
+      "status": "ready",
+      "role": "source",
+      "origin": "mobile/runtime/upstream-build/mesa-android-arm64.ini"
+    },
+    {
+      "path": "sources/runtime-build/prepare-mesa.py",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/runtime-build/prepare-mesa.py",
+      "sha256": "c707cfa98f5d5153ecb96e04c49cde4b8902e33f0c3474ecec15e9e165414006",
+      "size": 6227,
+      "component": "runtime-build",
+      "status": "ready",
+      "role": "source",
+      "origin": "mobile/runtime/upstream-build/prepare-mesa.py"
+    },
+    {
+      "path": "sources/runtime-build/prepare-sources.py",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/sources/runtime-build/prepare-sources.py",
+      "sha256": "2e47312282f20075604c7141a9948f3e11d33f4f7ab513c7ced8d280ffd7cebe",
+      "size": 1831,
+      "component": "runtime-build",
+      "status": "ready",
+      "role": "source",
+      "origin": "mobile/runtime/upstream-build/prepare-sources.py"
+    },
+    {
+      "path": "tools/authlib-injector.jar",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/tools/authlib-injector.jar",
+      "sha256": "9c7f4343e6c82034958ffb48c14a2cb0c85928be7283103ce17da00c6d5a7b10",
+      "size": 349681,
+      "component": "authlib-injector",
+      "status": "ready",
+      "role": "binary",
+      "origin": "https://authlib-injector.yushi.moe/artifact/56/authlib-injector-1.2.8.jar"
+    },
+    {
+      "path": "tools/direct-lobby.jar",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/tools/direct-lobby.jar",
+      "sha256": "ac762c5821d1cf98666a42715af6ae84f96a14949326c4b452bb1e70b7e30e68",
+      "size": 5471,
+      "component": "direct-lobby",
+      "status": "ready",
+      "role": "binary",
+      "origin": "resources/direct-lobby/direct-lobby.jar"
+    },
+    {
+      "path": "tools/updater-launcher.jar",
+      "file": ".runtime/hxz-runtime-upstream/tools/input/app_runtime/tools/updater-launcher.jar",
+      "sha256": "b1576386662b3b2cc8091f35e96e5b271815d8d4ed5aa3ab5a330c2bc3a28f9e",
+      "size": 433433,
+      "component": "hxzup",
+      "status": "ready",
+      "role": "binary",
+      "origin": "resources/hxzup/updater-launcher.jar"
+    }
+  ]
+}

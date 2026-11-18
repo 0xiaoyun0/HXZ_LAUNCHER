@@ -1,0 +1,13 @@
+services:
+  community:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      HXZ_DATA: /app/data
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - ./data:/app/data
+    mem_limit: 512m

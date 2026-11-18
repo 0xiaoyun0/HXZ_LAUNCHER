@@ -1,0 +1,2 @@
+// Chromium 108 (Windows 7 / 32-bit) needs the composable abort helper.
+if(!AbortSignal.any)AbortSignal.any=(signals:AbortSignal[])=>{const controller=new AbortController(),listeners=new Map<AbortSignal,()=>void>();const abort=(signal:AbortSignal)=>{controller.abort(signal.reason);for(const [source,fn] of listeners)source.removeEventListener('abort',fn);listeners.clear();};for(const signal of signals){if(signal.aborted){abort(signal);break;}const fn=()=>abort(signal);listeners.set(signal,fn);signal.addEventListener('abort',fn,{once:true});}return controller.signal;};

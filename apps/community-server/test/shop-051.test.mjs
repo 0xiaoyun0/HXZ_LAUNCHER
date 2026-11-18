@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {DatabaseSync} from 'node:sqlite';
+import {createPoints,weekOf} from '../src/points.mjs';
+import {createShop} from '../src/shop.mjs';
+test('shop inventory, idempotency, refunds and permission preserve earned leaderboard points',async t=>{
+ const db=new DatabaseSync(':memory:'),user={uid:'player',name:'玩家'},owner={uid:'admin',name:'管理员'};
+ const options={db,auth:r=>r.user,admin:r=>{if(r.user.uid!=='admin')throw Error('无权限');return r.user;},body:async r=>r.body,send:(r,status,value)=>{r.status=status;r.value=value;},limit(){}};
+ const points=createPoints(options);t.after(()=>{points.close();db.close();});
+ points.transaction(()=>points.credit({id:'fixture',user,amount:100n,reason:'fixture'}));
+ const shop=createShop({...options,points});const call=async(path,body,as=owner,method='POST')=>{const res={};await shop.route({method,body,user:as},res,new URL('http://localhost'+path));return res.value;};
+ await call('/api/admin/shop/settings',{enabled:true});
+ const {id}=await call('/api/admin/shop/items',{title:'纪念品',description:'管理员交付',price:'40',stock:1,enabled:true});
+ const request={item:id,price:'40',requestId:'purchase-request-0001'};
+ const bought=await call('/api/shop/buy',request,user);assert.equal(bought.wallet.balance,'60');
+ assert.equal((await call('/api/shop/buy',request,user)).order.id,bought.order.id);
+ await assert.rejects(call('/api/shop/buy',{...request,requestId:'purchase-request-0002'},user),/售罄/);
+ assert.equal(points.weeklyBoard(weekOf())[0].points,'100');
+ await assert.rejects(call('/api/admin/shop/settings',{enabled:false},user),/权限/);
+ await call('/api/admin/shop/orders/'+bought.order.id,{status:'refunded'});
+ await call('/api/admin/shop/orders/'+bought.order.id,{status:'refunded'});
+ assert.equal(points.wallet(user).balance,'100');assert.equal(points.weeklyBoard(weekOf())[0].points,'100');assert.equal(shop.catalog().items[0].stock,1);
+ await call('/api/admin/shop/settings',{enabled:true,starts:Date.now()+60000});
+ await assert.rejects(call('/api/shop/buy',{...request,requestId:'purchase-request-0003'},user),/未开放/);
+});

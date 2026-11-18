@@ -1,0 +1,8 @@
+web/node_modules/
+web/dist/
+android/.gradle/
+android/local.properties
+android/**/build/
+*.keystore
+*.jks
+.test/

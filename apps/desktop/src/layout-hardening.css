@@ -1,0 +1,17 @@
+/* 0.8.8 layout contract: containment belongs to the shared shell so every page
+   keeps its own scroll area when cards, text or window dimensions change. */
+.app-shell,.app-shell>*{min-width:0;min-height:0}
+.app-main,.app-main>*{min-width:0;min-height:0}
+.app-main{overflow-x:clip;overscroll-behavior:contain}
+.page-transition,.standard-page,.community-page,.workspace-top,.page-title,.section-heading{min-width:0}
+.page-title>div,.workspace-top>div,.section-heading>div{min-width:0}
+.page-title h1,.workspace-top h1,.section-heading h2,.section-heading p{overflow-wrap:anywhere}
+.actions,.toolbar,.card-actions{max-width:100%;min-width:0}
+.actions>*,.toolbar>*{min-width:0;max-width:100%}
+.catalog-grid,.blueprint-grid,.shop-grid,.game-shelf,.voice-grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))}
+.air-card,.card-slot,.card-inner,.foreign-card-content{min-width:0;max-width:100%}
+.card-inner{overflow-wrap:anywhere}
+@media(max-width:600px){
+  .standard-page,.community-page{padding-inline:max(16px,env(safe-area-inset-left)) max(16px,env(safe-area-inset-right))}
+  .modal,.task-drawer{max-width:calc(100vw - 24px - env(safe-area-inset-left) - env(safe-area-inset-right))}
+}

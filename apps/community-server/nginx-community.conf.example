@@ -1,0 +1,26 @@
+# Place within your nginx http context. Replace domain and certificate paths.
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+server {
+    listen 443 ssl;
+    server_name community.example.com;
+    ssl_certificate /etc/letsencrypt/live/community.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/community.example.com/privkey.pem;
+    # Chat uses JSON/base64: an 8 MiB image needs about 11 MiB on the wire.
+    # The application still validates each route's decoded byte and pixel limits.
+    client_max_body_size 12m;
+    location / {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_read_timeout 180s;
+        proxy_send_timeout 180s;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+}

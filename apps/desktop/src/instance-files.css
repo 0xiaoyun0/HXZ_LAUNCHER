@@ -1,0 +1,15 @@
+.instance-files{position:relative;min-width:0;padding:4px;border:2px dashed transparent;border-radius:12px;transition:border-color var(--duration,.2s),background var(--duration,.2s)}
+.instance-files.drag-over{border-color:var(--accent);background:var(--accent-soft)}
+.instance-files-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.instance-files-toolbar .search{flex:1 1 190px;min-width:140px}
+.instance-files-summary{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;color:var(--muted);font-size:.8rem;margin:14px 0}
+.instance-file-list{max-height:min(48vh,530px);overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.instance-file-row{display:flex;gap:12px;align-items:center;min-width:0;padding:12px 4px;border-bottom:1px solid var(--line)}
+.instance-file-row:last-child{border-bottom:0}
+.instance-file-symbol{display:grid;place-items:center;flex:0 0 36px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--accent-text)}
+.instance-file-name{flex:1;min-width:0;display:grid;gap:4px}.instance-file-name strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.9rem;font-weight:500}.instance-file-name small{font-size:.75rem;color:var(--muted)}
+.instance-file-row.disabled-file .instance-file-symbol{background:var(--surface-muted,var(--accent-soft));color:var(--muted)}
+.instance-file-row>.toggle-row{padding:0;margin:0;flex:none;min-height:32px}.instance-file-row>.toggle-row>span{display:none}.instance-file-row>.toggle-row .toggle{flex:none}
+.instance-file-hint{font-size:.78rem;color:var(--muted);line-height:1.65;margin:14px 0 2px}.instance-files .inline-notice{font-size:.8rem;line-height:1.65;background:var(--accent-soft);padding:10px 12px;border-radius:8px}
+.file-confirm-name{overflow-wrap:anywhere;font-weight:600}.instance-tabs{flex-wrap:wrap;row-gap:6px}.instance-tabs button{white-space:nowrap}
+@media(max-width:1050px){.instance-file-row{gap:8px}.instance-file-symbol{flex-basis:28px}.instance-files-toolbar .search{flex-basis:220px}}

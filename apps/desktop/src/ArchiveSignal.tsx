@@ -1,0 +1,4 @@
+import {Field,Select} from './ui';
+import {useArchiveSignal} from './linking-effects';
+export function ArchiveSignalMark(){return <svg width="39" height="39" viewBox="0 0 48 48" aria-label="LINKING 归途灯标" role="img"><rect x="2" y="2" width="44" height="44" rx="11" fill="#697755"/><path d="M24 8 36 15v18l-12 7-12-7V15Z" fill="none" stroke="#e6edda" strokeWidth="1.5"/><path d="m24 14 7 10-7 10-7-10Z" fill="#e2ebcf"/><path d="M8 24h8m16 0h8M24 5v7m0 24v7" stroke="#c6d4af" strokeWidth="1.5"/><circle cx="24" cy="24" r="3" fill="#697755"/></svg>;}
+export function ArchiveSignalPreference(){const signal=useArchiveSignal();return signal.earned?<Field label="LINKING · 归途灯标" hint="已完成档案馆归途记录，可替换左上角的启动器标志。"><Select label="启动器标志" value={signal.enabled?'signal':'classic'} onChange={(v:string)=>signal.setEnabled(v==='signal')} options={[{value:'classic',label:'幻想镇 · 默认标志'},{value:'signal',label:'LINKING · 归途灯标'}]}/></Field>:null;}

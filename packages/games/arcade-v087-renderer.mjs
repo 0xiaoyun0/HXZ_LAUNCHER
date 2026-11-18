@@ -1,0 +1,25 @@
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const box=(c,x,y,w,h,r,fill)=>{c.fillStyle=fill;c.beginPath();c.roundRect(x,y,w,h,r);c.fill();};
+const label=(c,text,x,y,size=12,color='#eaf2ff',align='left')=>{c.fillStyle=color;c.font=`${size}px "Segoe UI","Microsoft YaHei",sans-serif`;c.textAlign=align;c.fillText(text,x,y);};
+export function drawV087(c,s,id,reduce=false){
+  if(id==='orbit'){
+    c.strokeStyle='#8ec8e444';c.lineWidth=2;c.beginPath();c.arc(180,245,112,0,Math.PI*2);c.stroke();c.beginPath();c.arc(180,245,66,0,Math.PI*2);c.stroke();
+    c.fillStyle='#f4d58e';c.beginPath();c.arc(s.target.x,s.target.y,8+Math.sin(s.tick*.2)*2,0,Math.PI*2);c.fill();
+    for(const b of s.debris){c.fillStyle='#d78d9d';c.beginPath();c.arc(b.x,b.y,b.r,0,Math.PI*2);c.fill();}
+    c.fillStyle='#a9e1e8';c.beginPath();c.arc(s.x,s.y,11,0,Math.PI*2);c.fill();c.strokeStyle='#ffffff99';c.stroke();
+    label(c,'ORBIT HARVEST',16,25,11,'#bbd8f2');label(c,'生命 '+s.lives+' · 连锁 '+s.combo,344,25,12,'#f3dfb5','right');
+  } else if(id==='supply'){
+    c.fillStyle='#284b59';c.fillRect(0,210,360,270);c.fillStyle='#336575';for(let y=230;y<480;y+=26){c.fillRect(0,y,360,1);}
+    c.fillStyle='#d7b37c';c.fillRect(s.boat-27,402,54,24);c.fillStyle='#f1d39a';c.fillRect(s.boat-10,390,20,12);
+    for(const crate of s.crates){box(c,crate.x-8,crate.y-8,16,16,3,crate.good?'#f1d39a':'#bd7085');c.fillStyle='#ffffff66';c.fillRect(crate.x-5,crate.y-2,10,2);}
+    label(c,'MIST HARBOR',16,25,11,'#c5e0e4');label(c,'连锁 '+s.combo+' · 漏接 '+s.missed+'/5',344,25,12,'#f3dfb5','right');
+  } else if(id==='rhythm'){
+    const lanes=[45,135,225,315],colors=['#7fc9dc','#d8a2db','#f0c27d','#a4d5a7'];for(let i=0;i<4;i++){c.fillStyle=colors[i]+'28';c.fillRect(lanes[i]-25,42,50,402);c.fillStyle=colors[i];c.fillRect(lanes[i]-25,412,50,4);}
+    const index={left:0,up:1,down:2,right:3};for(const n of s.notes){const i=index[n.lane];if(i==null)continue;c.fillStyle=colors[i];c.beginPath();c.arc(lanes[i],n.y,9,0,Math.PI*2);c.fill();}
+    label(c,'NEON BEAT',16,25,11,'#f0c8ea');label(c,'连击 '+s.combo+' · 命中 '+s.accuracy,344,25,12,'#f3dfb5','right');
+  } else if(id==='alchemy'){
+    for(let y=0;y<7;y++)for(let x=0;x<7;x++){const i=y*7+x,fill=['#253b43','#35584d','#7a678e','#b78362'][s.grid[i]||0];box(c,32+x*43,62+y*43,36,36,7,fill);if(x===s.x&&y===s.y){c.strokeStyle='#f5e4a8';c.lineWidth=3;c.strokeRect(33+x*43,63+y*43,34,34);}}
+    label(c,'MYSTIC ALCHEMY',16,25,11,'#c8e1bd');label(c,'等级 '+s.level+' · 连锁 '+s.chain,344,25,12,'#f3dfb5','right');
+  }
+  if(s.event&&s.tick-s.event.tick<12&&!reduce){c.globalAlpha=(12-(s.tick-s.event.tick))/12*.4;c.fillStyle='#fff4c9';c.fillRect(0,0,360,480);c.globalAlpha=1;}
+}

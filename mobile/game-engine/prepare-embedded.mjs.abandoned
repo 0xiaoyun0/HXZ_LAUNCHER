@@ -1,0 +1,100 @@
+// Build-time conversion, not an APK plugin loader. Generated files stay under .runtime.
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+const here=path.dirname(fileURLToPath(import.meta.url)),root=path.resolve(here,'../..');
+const fork=path.resolve(process.argv[2]||path.join(root,'.runtime/fcl-source/FoldCraftLauncher-efe4dcc5dbc78c55be177c330239e12845ae7ccf'));
+const out=path.join(root,'.runtime/embedded-runtime');
+await fs.mkdir(out,{recursive:true});
+// Recreate only our fixed generated children; removed upstream assets must not linger.
+for(const name of ['assets','libs','res','jniLibs']){
+ const generated=path.resolve(out,name);
+ if(path.dirname(generated)!==out)throw Error('Generated directory escaped embedded runtime workspace');
+ await fs.rm(generated,{recursive:true,force:true});
+}
+await fs.cp(path.join(here,'src'),path.join(fork,'FCL/src/main/java'),{recursive:true});
+// Keep the maintained APK build working; only the community reads activated external assets.
+const utilsFile=path.join(fork,'FCL/src/main/java/com/tungsten/fcl/util/RuntimeUtils.java');
+let utils=await fs.readFile(utilsFile,'utf8');
+utils=utils.replaceAll('RuntimeUtils.class.getResourceAsStream(', 'com.tungsten.fcl.hxz.HxzRuntimeAssets.open(')
+ .replaceAll('context.getAssets().open(', 'com.tungsten.fcl.hxz.HxzRuntimeAssets.open(context, ')
+ .replaceAll('context.getAssets().list(', 'com.tungsten.fcl.hxz.HxzRuntimeAssets.list(context, ');
+utils=utils.replace(/    public static boolean isLatest\(String targetDir, String srcDir\) throws IOException \{[\s\S]*?\n    \}/,`    public static boolean isLatest(String targetDir, String srcDir) throws IOException {
+        File targetFile = new File(targetDir + "/version");
+        try (InputStream stream = com.tungsten.fcl.hxz.HxzRuntimeAssets.open(srcDir + "/version")) {
+            if (stream == null) throw new IOException("运行模块版本文件缺失");
+            long version = Long.parseLong(IOUtils.readFullyAsString(stream).trim());
+            if (!targetFile.isFile()) return false;
+            String installedVersion = FileUtils.readText(targetFile).trim();
+            return !installedVersion.isEmpty() && Long.parseLong(installedVersion) == version;
+        }
+    }`);
+await fs.writeFile(utilsFile,utils);
+const runtimeFragmentFile=path.join(fork,'FCL/src/main/java/com/tungsten/fcl/fragment/RuntimeFragment.kt');
+let runtimeFragment=await fs.readFile(runtimeFragmentFile,'utf8');
+runtimeFragment=runtimeFragment.replace('val files = assetManager.list(dirPath)','val files = com.tungsten.fcl.hxz.HxzRuntimeAssets.list(requireContext(), dirPath)');
+await fs.writeFile(runtimeFragmentFile,runtimeFragment);
+const updaterFile=path.join(fork,'FCL/src/main/java/com/tungsten/fcl/upgrade/UpdateChecker.java');
+let updater=await fs.readFile(updaterFile,'utf8');
+if(!updater.includes('HXZ_EMBEDDED_UPDATES'))updater=updater.replace('    public Task<?> check(Context context, boolean showBeta, boolean showAlert) {',`    public Task<?> check(Context context, boolean showBeta, boolean showAlert) {
+        // HXZ_EMBEDDED_UPDATES: the community owns updates; never install an FCL APK.
+        if ("top.hxzmc.community".equals(context.getPackageName())) return Task.runAsync(() -> {
+            if (showAlert) Schedulers.androidUIThread().execute(() -> Toast.makeText(context, "请在社区设置中检查应用更新", Toast.LENGTH_LONG).show());
+        });`);
+await fs.writeFile(updaterFile,updater);
+const bridgeFile=path.join(fork,'FCL/src/main/java/com/tungsten/fclauncher/bridge/FCLBridge.java');
+let bridge=await fs.readFile(bridgeFile,'utf8');
+if(!bridge.includes('HxzRooms.gameExited(code)'))bridge=bridge.replace('    public void onExit(int code) {','    public void onExit(int code) {\n        com.tungsten.fcl.hxz.HxzRooms.gameExited(code);');
+await fs.writeFile(bridgeFile,bridge);
+// Resolve Activity names before merge into the host's different namespace. No launcher alias.
+let manifest=await fs.readFile(path.join(fork,'FCL/src/main/AndroidManifest.xml'),'utf8');
+manifest=manifest.replace(/\s*<uses-permission\b[^>]*android:name="android.permission.(?:READ_EXTERNAL_STORAGE|WRITE_EXTERNAL_STORAGE|MANAGE_EXTERNAL_STORAGE|REQUEST_INSTALL_PACKAGES|REQUEST_DELETE_PACKAGES)"[^>]*\/>/gs,'')
+ .replace(/\s*<permission\b[^>]*\/>/g,'')
+ .replace(/\s*<queries>[\s\S]*?<\/queries>/g,'')
+ .replace(/\s*<activity-alias\b[\s\S]*?<\/activity-alias>/g,'')
+ .replace(/<application\b[\s\S]*?>/, '<application android:allowNativeHeapPointerTagging="false" android:largeHeap="true">')
+ .replace(/android:(name|targetActivity)="\.([^"]+)"/g,'android:$1="com.tungsten.fcl.$2"')
+ .replace(/\s*<intent-filter>[\s\S]*?<\/intent-filter>/g,filter=>filter.includes('android.intent.action.MAIN')?'':filter);
+manifest=manifest.replace(/<(activity|service|provider)\b[\s\S]*?>/g,(tag,kind)=>{
+ const vpn=tag.includes('TerracottaVPNService');
+ tag=tag.replace(/\s+android:permission="top.hxzmc.permission.GAME_ENGINE"/g,'');
+ tag=tag.replace(/android:exported="true"/g, 'android:exported="'+(vpn?'true':'false')+'"');
+ if(!tag.includes('android:exported='))tag=tag.replace(/\s*\/?>(?![\s\S])/,m=>' android:exported="false"'+m);
+ if(!tag.includes('android:process='))tag=tag.replace(/\s*\/?>(?![\s\S])/,m=>' android:process=":game"'+m);
+ if(kind==='activity'&&!tag.includes('android:theme='))tag=tag.replace(/\s*\/?>(?![\s\S])/,m=>' android:theme="@style/Theme.FoldCraftLauncher"'+m);
+ return tag;
+});
+await fs.writeFile(path.join(out,'AndroidManifest.xml'),manifest);
+// Local vendor AARs contain runtime assets. Strip only those assets; retain classes/resources/JNI.
+const python=process.env.HXZ_PYTHON||'python';
+execFileSync(python,['-c',String.raw`
+import pathlib,sys,zipfile,shutil,json,hashlib
+fork=pathlib.Path(sys.argv[1]);out=pathlib.Path(sys.argv[2]);libs=out/'libs';libs.mkdir(exist_ok=True)
+assets=out/'assets';assets.mkdir(exist_ok=True)
+shutil.copytree(fork/'FCL/src/main/assets',assets,dirs_exist_ok=True,ignore=shutil.ignore_patterns('app_runtime'))
+for source in sorted((fork/'FCL/libs').glob('*.aar')):
+ with zipfile.ZipFile(source) as src,zipfile.ZipFile(libs/source.name,'w',zipfile.ZIP_DEFLATED) as dst:
+  for item in src.infolist():
+   # FCL builds glxshim from its maintained C source. The vendor driver AAR also
+   # carries an older library with that SONAME; keep the source-built host copy.
+   other_abi=item.filename.startswith('jni/') and not item.filename.startswith('jni/arm64-v8a/')
+   if not other_abi and not item.filename.startswith('assets/app_runtime/') and not (item.filename.startswith('jni/') and item.filename.endswith('/libglxshim.so')):
+    dst.writestr(item,src.read(item))
+print(json.dumps({'vendorAars':len(list(libs.glob('*.aar'))),'assets':str(assets)}))
+`,fork,out],{stdio:'inherit',windowsHide:true});
+await fs.mkdir(path.join(out,'assets/hxz'),{recursive:true});
+await fs.copyFile(path.join(root,'resources/direct-lobby/direct-lobby.jar'),path.join(out,'assets/hxz/direct-lobby.jar'));
+await fs.mkdir(path.join(out,'jniLibs'),{recursive:true});
+await fs.cp(path.join(fork,'FCL/src/main/jniLibs/arm64-v8a'),path.join(out,'jniLibs/arm64-v8a'),{recursive:true});
+await fs.cp(path.join(fork,'FCL/src/main/res'),path.join(out,'res'),{recursive:true});
+for(const dir of await fs.readdir(path.join(out,'res'))){
+ if(!dir.startsWith('values'))continue;
+ for(const name of await fs.readdir(path.join(out,'res',dir))){
+  if(!name.endsWith('.xml'))continue;const file=path.join(out,'res',dir,name);const value=await fs.readFile(file,'utf8');
+  const changed=value.replace(/(<string\s+name="file_browser_provider"[^>]*>)[^<]*(<\/string>)/g,'$1top.hxzmc.community.provider$2');
+  if(value!==changed)await fs.writeFile(file,changed);
+ }
+}
+await fs.writeFile(path.join(out,'source.json'),JSON.stringify({fork,upstreamCommit:'efe4dcc5dbc78c55be177c330239e12845ae7ccf',module:'hxz-runtime-assets',abi:'arm64-v8a'},null,2)+'\n');
+console.log('Prepared embedded runtime library in '+out);

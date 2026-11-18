@@ -1,0 +1,1 @@
+export const labelMarkSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 310 145"><g fill="none" stroke="#171713" stroke-width="6"><circle cx="155" cy="72" r="54"/><circle cx="155" cy="72" r="18"/><circle cx="155" cy="72" r="5"/><path d="M106 25L87 14M204 119l19 13M105 119l-18 13M205 25l18-12"/></g></svg>';

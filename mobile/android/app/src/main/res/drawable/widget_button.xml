@@ -1,0 +1,1 @@
+<ripple xmlns:android="http://schemas.android.com/apk/res/android" android:color="#305e69ad"><item><shape><solid android:color="@color/widget_button"/><corners android:radius="12dp"/></shape></item></ripple>

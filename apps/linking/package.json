@@ -1,0 +1,19 @@
+{
+  "name": "hxz-linking",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/patch-rolling-number.mjs && tsc --noEmit && vite build",
+    "dev": "vite --host 127.0.0.1 --port 5198"
+  },
+  "dependencies": {
+    "three": "0.183.2",
+    "@kitlangton/rolling-number": "0.4.1"
+  },
+  "devDependencies": {
+    "@types/three": "0.183.1",
+    "typescript": "5.9.3",
+    "vite": "7.3.6"
+  }
+}
