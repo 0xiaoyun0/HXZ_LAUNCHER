@@ -1,3 +1,4 @@
+import {setTimeout as delay} from 'node:timers/promises';
 import fs from 'node:fs/promises';
 import {createReadStream,createWriteStream} from 'node:fs';
 import {pipeline} from 'node:stream/promises';
@@ -5,6 +6,17 @@ import {Transform} from 'node:stream';
 import {createHash,randomUUID} from 'node:crypto';
 import path from 'node:path';
 import {inside,noLinks,json,writeJSON,exists} from './io.mjs';
+
+// On Windows, an indexer or virus scanner can briefly hold a newly closed file.
+async function moveEntry(from,to){
+ for(let attempt=0;;attempt++){
+   try{return await fs.rename(from,to);}
+   catch(error){
+     if(process.platform!=='win32'||attempt>=6||!['EPERM','EACCES','EBUSY'].includes(error.code))throw error;
+     await delay(30*2**attempt);
+   }
+ }
+}
 
 const MAX_FILES=150000,MAX_BYTES=256*1024**3;
 function locations(root,id){
@@ -73,12 +85,12 @@ async function recover(paths,options={}){
  if(journal.instance!==paths.id)throw Error('恢复记录不属于此实例，请保留维护目录');
  for(const file of [paths.target,stage,rollback,previous])await noLinks(file);
  // Before the new directory is published, an interrupted replacement rolls back.
- if(!await exists(paths.target)&&await exists(rollback))await fs.rename(rollback,paths.target);
+ if(!await exists(paths.target)&&await exists(rollback))await moveEntry(rollback,paths.target);
  if(!await exists(paths.target))throw Error('恢复操作尚未完成，请保留维护目录并重试');
  if(await exists(stage))await clean(paths.home,stage);
  // A completed replacement retains the previous version as another recovery point.
  if(await exists(rollback)){
-  await fs.mkdir(previous,{recursive:true});await fs.rename(rollback,path.join(previous,'files'));
+  await fs.mkdir(previous,{recursive:true});await moveEntry(rollback,path.join(previous,'files'));
  }
  // If closing interrupted the backup hash, its directory remains journalled.
  if(await exists(path.join(previous,'files'))&&!await exists(path.join(previous,'manifest.json'))){
@@ -103,7 +115,7 @@ export async function createSnapshot(root,id,{label='手动恢复点',signal,pro
  try{
   const files=await copyFiles(paths.target,path.join(stage,'files'),scan.files,{signal,progress});check(signal);
   const value={format:1,instance:id,key,created:Date.now(),label:String(label).trim().slice(0,80)||'手动恢复点',bytes:scan.bytes,files};
-  await writeJSON(path.join(stage,'manifest.json'),value);await fs.rename(stage,target);return {key,bytes:scan.bytes};
+  await writeJSON(path.join(stage,'manifest.json'),value);await moveEntry(stage,target);return {key,bytes:scan.bytes};
  }finally{await clean(paths.home,stage).catch(()=>{});}
 }
 export async function restoreSnapshot(root,id,key,{signal,progress}={}){
@@ -116,8 +128,8 @@ export async function restoreSnapshot(root,id,key,{signal,progress}={}){
  try{
   await copyFiles(path.join(source,'files'),stage,manifest.files,{signal,progress,verify:true});check(signal);await noLinks(paths.target);await noLinks(rollback);
   await writeJSON(record,{operation,instance:id,created:Date.now()});
-  if(await exists(paths.target))await fs.rename(paths.target,rollback);
-  try{await fs.rename(stage,paths.target);}catch(error){if(await exists(rollback))await fs.rename(rollback,paths.target);throw error;}
+  if(await exists(paths.target))await moveEntry(paths.target,rollback);
+  try{await moveEntry(stage,paths.target);}catch(error){if(await exists(rollback))await moveEntry(rollback,paths.target);throw error;}
   await recover(paths,{progress});return {ok:true};
  }finally{if(!await exists(record))await clean(paths.home,stage).catch(()=>{});}
 }
@@ -130,11 +142,11 @@ export async function cloneInstance(root,id,newId,{signal,progress,template=fals
  await recover(source,{signal,progress});const scan=await walk(source.target,{signal,template});await fs.mkdir(source.home,{recursive:true});await capacity(source.home,scan.bytes);const stage=inside(source.home,'clone-'+randomUUID());
  try{
   await copyFiles(source.target,stage,scan.files,{signal,progress});const metadata=await json(inside(stage,id+'.json'));metadata.id=newId;await writeJSON(inside(stage,newId+'.json'),metadata);await fs.rm(inside(stage,id+'.json'));
-  if(await exists(inside(stage,id+'.jar')))await fs.rename(inside(stage,id+'.jar'),inside(stage,newId+'.jar'));
+  if(await exists(inside(stage,id+'.jar')))await moveEntry(inside(stage,id+'.jar'),inside(stage,newId+'.jar'));
   // A copy starts as an installed experiment, never as somebody else's pending job.
   await fs.rm(inside(stage,'.hxzl/install-request.json'),{force:true});
   await prepare(stage);
-  check(signal);await noLinks(destination.target);if(await exists(destination.target))throw Error('同名实例已出现，请换一个名称');await fs.rename(stage,destination.target);return {id:newId};
+  check(signal);await noLinks(destination.target);if(await exists(destination.target))throw Error('同名实例已出现，请换一个名称');await moveEntry(stage,destination.target);return {id:newId};
  }finally{await clean(source.home,stage).catch(()=>{});}
 }
 
@@ -158,6 +170,6 @@ export async function migrateGameRoot(root,destination,{signal,progress}={}){
    }
   }
   check(signal);await noLinks(destination);if(await exists(destination)){if((await fs.readdir(destination)).length)throw Error('目标目录在迁移期间发生变化，已停止替换');await fs.rmdir(destination);}
-  await fs.rename(stage,destination);return {root:destination,previous:root,bytes:scan.bytes,files:scan.files.length};
+  await moveEntry(stage,destination);return {root:destination,previous:root,bytes:scan.bytes,files:scan.files.length};
  }finally{await clean(parent,stage).catch(()=>{});}
 }
