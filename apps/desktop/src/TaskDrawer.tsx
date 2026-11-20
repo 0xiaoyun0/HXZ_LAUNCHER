@@ -1,3 +1,4 @@
+import {IssueHelp} from './IssueHelp';
 import {useEffect,useState} from 'react';
 import {useSnapshot} from 'valtio';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -15,16 +16,16 @@ export function TaskDrawer(){
  useEffect(()=>{if(u.tasks&&window.launcher)invoke('install.list').then(setJobs).catch(()=>{});},[u.tasks,t.busy]);
  useEffect(()=>{if(!u.tasks||!t.busy)return;setNow(Date.now());const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[u.tasks,t.busy]);
  const matches=(v:string)=>v.toLowerCase().includes(query.toLowerCase()),logs=t.logs.filter((line:string)=>matches(line)&&(!errors||/error|exception|failed|失败|错误|异常/i.test(line)));
- const percent=progressPercent(t),idle=Math.max(0,now-t.changed),speed=t.busy&&now-t.sampled<4000?t.speed:0,issue=playerError(t.failure);
+ const percent=progressPercent(t),idle=Math.max(0,now-t.changed),speed=t.busy&&now-t.sampled<4000?t.speed:0,issue=playerError(t.failure,u.launchUpdateOnly?'install.update':'game.launch');
  const hxzre=t.hxzre as any;
  const hxzreCopy=hxzre?.state==='enabled'?['HXZRE 已启用','上传前向纠错补偿正在接管服务器连接。']:hxzre?.state==='checking'?['正在检查 HXZRE','正在确认服务器补偿节点和本机运行时。']:hxzre?.state==='fallback'?['HXZRE 未启用','补偿不可用，已回退原始连接，游戏仍会继续启动。']:hxzre?.state==='disabled'?['HXZRE 已关闭','本次启动使用原始连接。']:null;
  const resume=async()=>{if(jobs.length===1)await invoke('install.resume',{id:jobs[0].id});else if(u.launchTarget)await launch(u.launchTarget,u.launchUpdateOnly);};
  return <Dialog.Root open={u.tasks} modal={false} onOpenChange={v=>ui.tasks=v}><Dialog.Portal><Dialog.Content className="task-drawer" aria-describedby={undefined}>
   <header><div><span className="eyebrow">任务中心</span><Dialog.Title>安装进度与日志</Dialog.Title></div><IconButton icon={X} label="收起任务" onClick={()=>ui.tasks=false}/></header>
   <div className="task-scroll">
-   {t.failure&&<section className="task-issue" role="status"><AlertCircle size={22}/><div><h3>{issue.title}</h3><p>{issue.message}</p><div className="actions">{!t.busy&&(jobs.length===1||u.launchTarget)&&<Button tone="solid" onClick={resume}>继续安装 / 启动</Button>}{issue.action==='source'&&!t.busy&&<Button onClick={async()=>{await saveSettings({downloadMode:settings.downloadMode==='official'?'domestic':'official'});await resume();}}>切换为{settings.downloadMode==='official'?'镜像':'官方'}源{(jobs.length===1||u.launchTarget)?'并继续':''}</Button>}<Button onClick={()=>invoke('logs.export')}>导出诊断</Button></div><details><summary>技术详情</summary><pre>{t.failure}</pre></details></div></section>}
+   {t.failure&&<section className="task-issue" role="status"><AlertCircle size={22}/><IssueHelp issue={issue} details={t.failure}>{!t.busy&&(jobs.length===1||u.launchTarget)&&<Button tone="solid" onClick={resume}>继续安装 / 启动</Button>}{issue.action==='source'&&!t.busy&&<Button onClick={async()=>{await saveSettings({downloadMode:settings.downloadMode==='official'?'domestic':'official'});await resume();}}>切换为{settings.downloadMode==='official'?'镜像':'官方'}源{(jobs.length===1||u.launchTarget)?'并继续':''}</Button>}</IssueHelp></section>}
    {hxzreCopy&&<section className={'task-runtime-badge '+(hxzre?.state==='enabled'?'active':'fallback')} role="status">{hxzre?.state==='enabled'?<ShieldCheck size={21}/>:<WifiOff size={21}/>}<div><strong>{hxzreCopy[0]}</strong><small>{hxzreCopy[1]}</small></div></section>}
-   <section className="task-live-card"><div className="task-stage-heading"><span>{t.busy?'当前步骤':t.failed?'任务未完成':t.started?'任务已结束':'等待任务'}</span><b>{percent!==null?`${percent.toFixed(2)}%`:t.busy?'处理中':'—'}</b></div><h3>{t.phase}</h3>
+   <section className="task-live-card"><div className="task-stage-heading"><span>{t.busy?'当前步骤':t.failed?issue.title:t.started?'任务已结束':'等待任务'}</span><b>{percent!==null?`${percent.toFixed(2)}%`:t.busy?'处理中':'—'}</b></div><h3>{t.phase}</h3>
     {(t.busy||percent!==null)&&<progress aria-label="当前步骤进度" value={percent!==null?t.completed:undefined} max={t.total||1}/>}
     <div className="task-count">{percent!==null?count(t):t.busy?'此步骤未提供总量，完成后继续下一步':'开始安装或启动游戏后查看进度'}</div>
     <div className="task-stats"><div><small>下载速度</small><strong>{bytes(speed)}/s</strong></div><div><small>本次接收</small><strong>{bytes(t.traffic)}</strong></div><div><small>已用时间</small><strong>{t.started?duration((t.ended||now)-t.started):'—'}</strong></div></div>
