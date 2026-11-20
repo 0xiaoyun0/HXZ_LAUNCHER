@@ -31,5 +31,11 @@ test('a checked package is committed after transfer, supports local import and s
   assert.equal(JSON.parse(await fs.readFile(marker)).sha256,sha256);
   await op('extension.disable');assert.equal(JSON.parse(await fs.readFile(marker)).sha256,'');
   picked=sample;await op('extension.import');assert.equal(JSON.parse(await fs.readFile(marker)).sha256,sha256);
+  const installerSource=path.join(home,'本机交付','extensions'),installedApp=path.join(home,'sample','bin');
+  await fs.mkdir(installerSource,{recursive:true});await fs.mkdir(installedApp,{recursive:true});
+  await fs.writeFile(path.join(installedApp,'installed.flag'),'\uFEFF'+installerSource,'utf16le');
+  await fs.copyFile(sample,path.join(installerSource,definition.name));
+  await op('extension.disable');await op('extension.install');
+  assert.equal(JSON.parse(await fs.readFile(marker)).sha256,sha256);
   assert.equal(requested,3);
 });

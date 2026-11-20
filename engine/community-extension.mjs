@@ -20,9 +20,15 @@ export function communityExtension({home,resources,definition,choose,emit=()=>{}
       const result=await choose({title:'选择幻想镇社区插件',properties:['openFile'],filters:[{name:'社区插件',extensions:['zip']}]});
       const file=result.filePaths?.[0];return file?createReadStream(file):null;
     }
-    // A local release directory can supply the same pinned package before the website is deployed.
-    const sibling=path.resolve(resources,'../../../extensions',definition.name);
-    if((await fs.stat(sibling).catch(()=>null))?.isFile())return createReadStream(sibling);
+    // A player can keep the optional download alongside a local distribution, even after running its installer.
+    const app=path.resolve(resources,'../..');
+    const sourceDir=(await fs.readFile(path.join(app,'installed.flag'),'utf16le').catch(()=>'')).replace(/^\uFEFF/,'');
+    const locations=[path.join(app,'extensions'),path.resolve(app,'../extensions')];
+    if(path.isAbsolute(sourceDir))locations.unshift(sourceDir);
+    for(const location of locations){
+      const file=path.join(location,definition.name);
+      if((await fs.stat(file).catch(()=>null))?.isFile())return createReadStream(file);
+    }
     const response=await fetcher(definition.url,{signal:AbortSignal.timeout(120000),redirect:'error'});
     if(!response.ok){await response.body?.cancel();throw Error('社区插件下载 HTTP '+response.status);}
     if(!response.body)throw Error('社区插件下载中断');
