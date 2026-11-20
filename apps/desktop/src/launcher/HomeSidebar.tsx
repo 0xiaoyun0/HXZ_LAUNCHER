@@ -47,13 +47,26 @@ export function PlayCalendar(){
   const byDate=new Map(days?.map(d=>[d.date,d.seconds]));
   const first=midnight-(7*(weeks-1)+weekday)*day;
   const squares=Array.from({length:weeks*7},(_,i)=>new Date(first+i*day).toISOString().slice(0,10));
+  const columns={gridTemplateColumns:'repeat('+weeks+',minmax(0,1fr))'};
+  const months=squares.flatMap((date,index)=>{
+    if(index%7!==0)return [];
+    const monthDay=Number(date.slice(8));
+    if(index===0?monthDay>20:monthDay>7)return [];
+    return [{column:1+index/7,month:Number(date.slice(5,7))}];
+  });
   return <section className="desk-card calendar-card"><header><h2>游玩日历</h2><Link to="/playtime">游玩记录 <ArrowRight size={14}/></Link></header>
     {failed?<p role="alert">本机记录读取失败。<button className="small-action" onClick={refresh}>重试</button></p>:!days?<p>正在读取本机记录…</p>:<>
     <dl className="time-periods">{[['今天',sum(today)],['本周',sum(monday)],['本月',sum(today.slice(0,7)+'-01')]].map(([label,seconds])=><div key={label}><dt>{label}</dt><dd>{playDuration(Number(seconds))}</dd></div>)}</dl>
     <div className="calendar-tools"><small>最近 {weeks} 周 · 本机游玩</small><div className="segmented" aria-label="日历范围">{[[26,'半年'],[52,'一年']].map(([count,text])=><button key={count} aria-pressed={weeks===count} onClick={()=>setWeeks(Number(count))}>{text}</button>)}</div></div>
-    <div className="calendar-grid" style={{gridTemplateColumns:'repeat('+weeks+',minmax(0,1fr))'}} aria-label="本机游玩日历">{squares.map(date=>{
-      const seconds=byDate.get(date)||0;
-      return <i key={date} data-level={date>today?'future':seconds>=7200?3:seconds>=1800?2:seconds>0?1:0} title={date+' · '+playDuration(seconds)}/>;
-    })}</div></>}
+    <div className="calendar-chart" role="group" aria-label="本机游玩日历">
+      <div className="calendar-months" style={columns} aria-hidden="true">{months.map(({month,column})=>
+        <span key={column} style={{gridColumn:column}}>{month}月</span>)}</div>
+      <div className="calendar-weekdays" aria-hidden="true">{['一','三','五','日'].map((day,index)=>
+        <span key={day} style={{gridRow:1+index*2}}>{day}</span>)}</div>
+      <div className="calendar-grid" style={columns}>{squares.map(date=>{
+        const seconds=byDate.get(date)||0;
+        return <i key={date} data-level={date>today?'future':seconds>=7200?3:seconds>=1800?2:seconds>0?1:0} title={date+' · '+playDuration(seconds)}/>;
+      })}</div>
+    </div></>}
   </section>;
 }

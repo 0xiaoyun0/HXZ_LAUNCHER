@@ -23,9 +23,10 @@ for(const [offset,minutes] of [[0,42],[1,80],[2,24],[4,115],[6,90],[8,25],[11,12
 await fs.writeFile(path.join(home,'game-playtime.json'),JSON.stringify({version:2,days:sampleDays}));
 const previousSeconds=Object.values(sampleDays).reduce((a,b)=>a+b,0)/1000;
 await fs.mkdir(artifacts,{recursive:true});
+const searchedInstance='石溪驿站';
 const names=['云杉谷生存','星港 · 机械动力','暮色群岛','方块工坊'];
 for(let n=0;n<325;n++){
- const id=names[n]??('test-world-'+String(n).padStart(3,'0')),folder=path.join(gameRoot,'versions',id);
+ const id=names[n]??(n===324?searchedInstance:'test-world-'+String(n).padStart(3,'0')),folder=path.join(gameRoot,'versions',id);
  await fs.mkdir(folder,{recursive:true});await fs.writeFile(path.join(folder,id+'.json'),JSON.stringify({id,releaseTime:'2025-01-01',mainClass:'net.minecraft.client.main.Main',javaVersion:{majorVersion:17}}));
 }
 {
@@ -79,10 +80,10 @@ try {
    const resume=page.locator('.resume-panel');await resume.getByText(names[0],{exact:true}).waitFor();
    const left=await page.locator('.game-summary').boundingBox(),right=await page.locator('.game-primary').boundingBox();
    assert.ok(left.x<42&&Math.abs(left.y-right.y)<2&&right.x>left.x+left.width&&right.x-left.x-left.width<26);
-   await page.getByRole('textbox',{name:'搜索实例',exact:true}).fill('test-world-324');await page.getByText('test-world-324',{exact:true}).waitFor();
+   await page.getByRole('textbox',{name:'搜索实例',exact:true}).fill(searchedInstance);await page.getByText(searchedInstance,{exact:true}).waitFor();
    await page.getByRole('textbox',{name:'搜索实例',exact:true}).fill('');
-   await page.getByRole('button',{name:'一年',exact:true}).click();assert.equal(await page.locator('.calendar-grid i').count(),364);
-   await page.getByRole('button',{name:'半年',exact:true}).click();assert.equal(await page.locator('.calendar-grid i').count(),182);
+   await page.getByRole('button',{name:'一年',exact:true}).click();assert.equal(await page.locator('.calendar-grid i').count(),364);assert.ok(await page.locator('.calendar-months span').count()>=11);
+   await page.getByRole('button',{name:'半年',exact:true}).click();assert.equal(await page.locator('.calendar-grid i').count(),182);assert.equal(await page.locator('.calendar-weekdays span').count(),4);
    assert.equal(await page.evaluate(()=>{const rows=[...document.querySelectorAll('.home-instance-row')],card=document.querySelector('.instances-card').getBoundingClientRect(),footer=document.querySelector('.instances-card footer').getBoundingClientRect(),calendar=document.querySelector('.calendar-card').getBoundingClientRect(),search=document.querySelector('.instance-toolbar label').getBoundingClientRect();return rows.every(row=>row.getBoundingClientRect().bottom<=footer.top)&&footer.bottom<=card.bottom+1&&card.bottom<calendar.top&&search.height<=40;}),true,'instance list, footer and calendar must fit in their own panels');
    await capture('launcher-home');
    await resume.getByRole('button',{name:'继续游玩'}).click();await page.getByRole('dialog').waitFor();await page.keyboard.press('Escape');
@@ -97,15 +98,15 @@ try {
    const cards=page.locator('.direct-game-card');await cards.first().waitFor();assert.equal(await cards.count(),24);
    await page.getByRole('button',{name:'默认服务器',exact:true}).click();await capture('launcher-library');
    await page.getByRole('button',{name:/全部游戏/}).click();await page.getByRole('button',{name:'下一页',exact:true}).click();
-   await page.getByRole('textbox',{name:'搜索游戏',exact:true}).fill('test-world-324');
-   await page.getByRole('heading',{name:'test-world-324'}).waitFor();assert.equal(await cards.count(),1);
-   const menu=()=>page.getByRole('button',{name:'test-world-324的更多操作'}).click();
+   await page.getByRole('textbox',{name:'搜索游戏',exact:true}).fill(searchedInstance);
+   await page.getByRole('heading',{name:searchedInstance}).waitFor();assert.equal(await cards.count(),1);
+   const menu=()=>page.getByRole('button',{name:searchedInstance+'的更多操作'}).click();
    await menu();await page.getByRole('menuitem',{name:'收藏',exact:true}).click();
    await menu();await page.getByRole('menuitem',{name:'取消收藏',exact:true}).waitFor();await page.keyboard.press('Escape');
-   await page.getByRole('button',{name:'管理 test-world-324',exact:true}).click();await page.getByRole('dialog').waitFor();await page.keyboard.press('Escape');
+   await page.getByRole('button',{name:'管理 '+searchedInstance,exact:true}).click();await page.getByRole('dialog').waitFor();await page.keyboard.press('Escape');
    await menu();await page.getByRole('menuitem',{name:'启动前检查',exact:true}).click();
    await page.getByText('没有找到客户端 JAR，清单也没有下载地址',{exact:true}).waitFor();
-   await page.getByRole('button',{name:'查看实例'}).click();await page.getByRole('heading',{name:'test-world-324'}).waitFor();
+   await page.getByRole('button',{name:'查看实例'}).click();await page.getByRole('heading',{name:searchedInstance}).waitFor();
    await nav.getByRole('link',{name:'游戏',exact:true}).click();await resume.getByText(names[0],{exact:true}).waitFor();
    await nav.getByRole('link',{name:'联机大厅'}).click();await page.getByRole('button',{name:'登录账号'}).click();await page.getByRole('dialog').waitFor();await page.keyboard.press('Escape');
    await page.keyboard.press('Control+k');await page.getByPlaceholder('搜索实例或功能').fill('启动前检查');await page.locator('.finder-results button').first().click();await page.getByRole('heading',{name:'启动前检查'}).waitFor();
@@ -124,7 +125,7 @@ try {
    await nav.getByRole('link',{name:'游戏',exact:true}).click();await page.getByRole('link',{name:'游玩记录'}).click();await page.getByRole('heading',{name:'游玩记录',exact:true}).waitFor();
    await nav.getByRole('link',{name:'游戏',exact:true}).click();await page.setViewportSize({width:800,height:565});await resume.getByText(names[0],{exact:true}).waitFor();
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth&&Array.from(document.querySelectorAll('.launcher-bar nav[aria-label="主导航"] a,.window-buttons button,.home-instance-row>button')).every(el=>{const box=el.getBoundingClientRect();return box.left>=0&&box.right<=window.innerWidth;})),true);await capture('launcher-compact');
-   const saved=JSON.parse(await fs.readFile(path.join(home,'settings.json'),'utf8'));assert.deepEqual(saved.futureSetting,{keep:42});assert.equal(saved.instanceSettings['test-world-324'].favorite,true);
+   const saved=JSON.parse(await fs.readFile(path.join(home,'settings.json'),'utf8'));assert.deepEqual(saved.futureSetting,{keep:42});assert.equal(saved.instanceSettings[searchedInstance].favorite,true);
    if(fixture){
      await page.setViewportSize({width:1250,height:825});await resume.getByRole('button',{name:'继续游玩'}).click();await fixture.login(page);
      await resume.getByRole('button',{name:'继续游玩'}).click();await page.getByRole('button',{name:'收起任务'}).click();
@@ -160,9 +161,21 @@ try {
      await page.reload();await page.getByRole('button',{name:'重启启动器'}).waitFor();assert.equal((await native('extension.status')).value.active,false);
      console.log('Plugin staged: a WebView reload kept it inactive');await restart();assert.equal((await native('extension.status')).value.active,true);console.log('Community enabled by native restart');
      const reopened=await native('state',{localOnly:true});assert.equal(reopened.value.settings.defaultMemoryMB,768);assert.equal(reopened.value.settings.downloadConcurrency,8);
-     await page.setViewportSize({width:780,height:540});
-     assert.ok(await page.evaluate(()=>Array.from(document.querySelectorAll('.launcher-bar nav[aria-label="主导航"] a,.window-buttons button')).every(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.left>=0&&r.right<=innerWidth;})));
-     await page.setViewportSize({width:1250,height:825});
+     const shortcuts=page.getByRole('navigation',{name:'快捷导航'});
+     for(const width of [780,850,921,980,981,1121,1231,1250]){
+       await page.setViewportSize({width,height:width<900?540:825});
+       for(const name of ['音乐播放器','冒险者协会','LINKING 档案馆']){
+         assert.ok(await shortcuts.getByRole('link',{name,exact:true}).isVisible(),name+' at '+width);
+       }
+       const layout=await page.evaluate(()=>{
+         const buttons=Array.from(document.querySelectorAll('.launcher-bar a,.launcher-bar button'));
+         const boxes=buttons.map(button=>button.getBoundingClientRect());
+         return boxes.every((box,index)=>box.width>0&&box.left>=0&&box.right<=innerWidth&&(!index||box.left>=boxes[index-1].right-1));
+       });
+       assert.ok(layout,'titlebar controls overlap at '+width);
+     }
+     const roleText=page.locator('.bar-role-name');
+     assert.ok(await roleText.evaluate(el=>getComputedStyle(el).whiteSpace==='nowrap'&&el.scrollWidth<=el.clientWidth+1),'four-character player name should fit on one line');
      await capture('launcher-enabled-home');await fixture.exercise(page,capture);
      const social=page.getByRole('navigation',{name:'社区导航'});
      await social.getByRole('link',{name:'冒险者协会'}).click();await page.getByRole('heading',{name:'委托广场'}).waitFor();await capture('launcher-guild');
