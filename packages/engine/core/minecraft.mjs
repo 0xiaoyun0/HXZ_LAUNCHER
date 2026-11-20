@@ -1,5 +1,5 @@
 import launcherPackage from '../../../package.json' with {type:'json'};
-import {javaHeapLimit} from './memory-policy.mjs';
+import {javaHeapLimit,controlledHeapArgs} from './memory-policy.mjs';
 import {prepareLogging} from './logging-config.mjs';
 import { normalizeDownloadConcurrency } from "./download-settings.mjs";
 import { serverAddress } from "./instances.mjs";
@@ -480,7 +480,6 @@ export async function prepareLaunch({
   }
   const memory = javaHeapLimit(settings.memoryMB,os.totalmem()/1048576,j.architecture);
   jvm.unshift(
-    "-Xmx" + memory + "M",
     "-Dfile.encoding=UTF-8",
     "-Dstdout.encoding=UTF-8",
     "-Dstderr.encoding=UTF-8",
@@ -510,7 +509,7 @@ export async function prepareLaunch({
     )
   )
     throw Error("额外 JVM 参数格式无效");
-  jvm.push(...extra);
+  jvm = ["-Xmx"+memory+"M", ...controlledHeapArgs([...jvm, ...extra], memory)];
   const gameArgs = version.minecraftArguments
     ? legacySplit(version.minecraftArguments).map(replace)
     : flatten(version.arguments?.game || [], { has_custom_resolution: true });
@@ -541,6 +540,7 @@ export async function prepareLaunch({
     command: java,
     args: [...jvm, version.mainClass, ...gameArgs],
     cwd: run,
+    heapMB: memory, javaVersion: j.version, architecture: j.architecture,
     javaMajor: j.major
   };
 }

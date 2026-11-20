@@ -17,7 +17,7 @@ import {prepareDirectHelper} from './direct-helper.mjs';
 import {normalizeCardPlacements,normalizeWidgets} from './card-extras.mjs';
 import {normalizeCardLayouts,normalizeCardStyle} from './card-layout.mjs';
 import {listBlueprintInstances,importBlueprint} from './blueprint-import.mjs';
-import {automaticMemory} from './memory-policy.mjs';
+import {requestedHeap} from './memory-policy.mjs';
 import {diagnoseServer} from './server-diagnostics.mjs';
 import {dependencyStore} from './dependency-store.mjs';
 import {cacheSkin,cachedSkin,startOfflineSkin} from './offline-skin.mjs';
@@ -325,7 +325,19 @@ export async function createServices({
     authenticated: !!a.accessToken,
     avatar: a.avatars?.[a.uuid]
   });
-  async function saveAccounts() {
+  let accountWrites=Promise.resolve();
+  const credentialTasks=new Map(), sessionRequests=new Map();
+  function withCredentials(a,run){
+    const next=(credentialTasks.get(a.id)||Promise.resolve()).catch(()=>{}).then(run);
+    credentialTasks.set(a.id,next);
+    const release=()=>{if(credentialTasks.get(a.id)===next)credentialTasks.delete(a.id);};
+    next.then(release,release);return next;
+  }
+  function saveAccounts(){
+    const job=accountWrites.catch(()=>{}).then(writeAccounts);
+    accountWrites=job;return job;
+  }
+  async function writeAccounts() {
     rememberSecrets();
     if (persistent) {
       const buffer = await safeStorage.encryptString(JSON.stringify(accounts));
@@ -356,7 +368,7 @@ export async function createServices({
     return remoteJSON(SKIN + "/authserver/" + method, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
+      body: JSON.stringify(body),timeoutMs:8000,...(method==='validate'?{retryBudgetMs:1800,retryDelay:250}:{})
     });
   }
   function selected() {
@@ -383,29 +395,18 @@ export async function createServices({
   async function rememberSkin(a){if(skinTasks.has(a.uuid))return skinTasks.get(a.uuid);const task=cacheSkin(data,a).catch(e=>log('[皮肤缓存] '+e.message)).finally(()=>skinTasks.delete(a.uuid));skinTasks.set(a.uuid,task);return task;}
   async function ensureAccount() {
     const a = selected();
-    try {
+    return withCredentials(a,async()=>{try {
       await authCall("validate", {
         accessToken: a.accessToken,
         clientToken: a.clientToken
       });
       return a;
     } catch(error) {
-      if(networkFailure(error))throw error;return refresh(a);
-    }
+      if(![401,403].includes(error.status))throw error;return refresh(a);
+    }});
   }
   function busy() {
     if (task || (sessions.size&&settings.keepLauncherAvailable===false)) throw Error("请等待当前任务完成，或在设置中开启游戏运行时继续操作");
-  }
-  function memoryFor(cfg) {
-    if (
-      (cfg.memoryMode && cfg.memoryMode !== "inherit"
-        ? cfg.memoryMode
-        : settings.memoryMode) !== "auto"
-    )
-      return cfg.memoryMB;
-    const total = Math.floor(os.totalmem() / 1048576);
-    const free = Math.floor(os.freemem() / 1048576);
-    return automaticMemory(total,free);
   }
   let previousPhase = "", lastDetailLog=0;
   function phase(value) {
@@ -721,7 +722,7 @@ export async function createServices({
       };
       if(preset?.updateRequired)cfg.autoUpdate=true;
       if(direct){cfg.autoJoin=direct.mode==='guest';cfg.serverAddress=direct.address||'';if(direct.mode==='guest')cfg.autoUpdate=false;}
-      cfg.memoryMB = memoryFor(cfg);
+      cfg.memoryMB = requestedHeap(settings,settings.instanceSettings[id],os.totalmem()/1048576,os.freemem()/1048576);
       if (joinServer) {
         if (!cfg.serverAddress) throw Error("请先在实例配置中填写服务器地址");
         cfg.autoJoin = true;
@@ -790,9 +791,8 @@ export async function createServices({
       }
       phase({ phase: "正在启动游戏", busy: true });
       const gameStarted=Date.now(),gameLogs=[],startedRoot=settings.gameRoot;lastCrash=null;
-      const memoryFlag=command.args.find(v=>/^-Xmx\d+[mMgG]$/.test(v))?.match(/^-Xmx(\d+)([mMgG])$/),recordedMemory=memoryFlag?Number(memoryFlag[1])*(memoryFlag[2].toLowerCase()==='g'?1024:1):cfg.memoryMB;
-      // Diagnostics must never delay or prevent an otherwise valid game launch.
-      const performanceEntry=inspectJava(command.command).catch(()=>({version:'',arch:''})).then(runtimeInfo=>performanceHistory.start({instance:id,root:startedRoot,preparationMs:gameStarted-preparationStarted,memoryMB:recordedMemory,javaVersion:runtimeInfo.version,architecture:runtimeInfo.arch})).catch(error=>{log('启动统计未保存：'+error.message);return null;});let spawnFailed=false;
+      log('[内存] 当前 Java 最大堆 '+command.heapMB+' MB · '+command.architecture);
+      const performanceEntry=performanceHistory.start({instance:id,root:startedRoot,preparationMs:gameStarted-preparationStarted,memoryMB:command.heapMB,javaVersion:command.javaVersion,architecture:command.architecture}).catch(error=>{log('启动统计未保存：'+error.message);return null;});let spawnFailed=false;
       const capture=line=>{if(direct?.mode==='host'){const ready=line.match(/\[HXZ-DIRECT\] READY (\d+)/);if(ready)lobby.markReady(ready[1]);if(line.includes('[HXZ-DIRECT] WAITING'))lobby.markWaiting();const helperError=line.match(/\[HXZ-DIRECT\] ERROR (.+)/);if(helperError)lobby.markError(helperError[1].split(']]>')[0].replace(/<\/?log4j:[^>]*>/g,'').trim());}gameLogs.push(redactDiagnostic(line,[...secrets]));if(gameLogs.length>5000)gameLogs.splice(0,gameLogs.length-5000);return false;};
       log("[启动] 实例: "+id+" · 目录: "+command.cwd+" · Java: "+command.command+" · 内存: "+cfg.memoryMB+" MB");
       const child = spawnGame(command.command, command.args, {
@@ -833,12 +833,12 @@ export async function createServices({
         session.finish();
         void fecEdge?.stop();
         if(!task)phase({
-          phase: code === 0 ? "游戏已结束" : "游戏进程已退出",
+          phase: stopped ? "游戏已停止" : code === 0 ? "游戏已结束" : "游戏进程已退出",
           busy: false,
           running: sessions.size>0,
-          failed: code != null && code !== 0,
+          failed: !stopped && code != null && code !== 0,
           failure:
-            code != null && code !== 0
+            !stopped && code != null && code !== 0
               ? "游戏退出码 " + code + "，请查看最后的错误日志"
               : "",
           exitCode: code
@@ -1580,6 +1580,13 @@ export async function createServices({
       }
       if (imported) {
         if(previousGame)nextSettings.lastPlayed=previousGame;
+        for(const [id,old] of Object.entries(imported.instanceSettings||{})){
+          if(!id||id.length>255||/[\\\\/:]/.test(id)||['..','.','__proto__','constructor','prototype'].includes(id)||!old||typeof old!=='object'||Array.isArray(old))continue;
+          const copy={...old};
+          if(copy.memoryMode&&!['inherit','auto','manual'].includes(copy.memoryMode))throw Error('实例内存模式无效：'+id);
+          if(copy.memoryMB!=null&&(!Number.isInteger(copy.memoryMB)||copy.memoryMB<512||copy.memoryMB>131072))throw Error('实例内存范围为 512–131072 MB：'+id);
+          nextSettings.instanceSettings[id]={...nextSettings.instanceSettings[id],...copy};
+        }
         for (const [key,value] of Object.entries(imported)) {
           if (!preferenceKeys.has(key) && !Object.hasOwn(nextSettings,key) && !["__proto__","prototype","constructor"].includes(key)) {
             Object.defineProperty(nextSettings,key,{value,enumerable:true,writable:true,configurable:true});
@@ -1977,17 +1984,18 @@ export async function createServices({
         clientToken,
         requestUser: true
       });
-      const a = {
-        id: randomUUID(),
-        username: input.username,
+      const existing=accounts.find(v=>v.username?.toLowerCase()===input.username.trim().toLowerCase()&&v.uuid===(response.selectedProfile?.id||''));
+      const a = Object.assign(existing||{},{
+        id: existing?.id||randomUUID(),
+        username: input.username.trim(),
         accessToken: response.accessToken,
         clientToken: response.clientToken || clientToken,
         profiles: response.availableProfiles || [],
         name: response.selectedProfile?.name || "",
         uuid: response.selectedProfile?.id || ""
-      };
+      });
       if(skinPanel)try{await skinPanel.login(a.id,input.username,input.password);}catch{log("[皮肤站] 内嵌会话需要在账号管理中完成网站验证");}
-      accounts.push(a);
+      if(!existing)accounts.push(a);
       if(a.uuid)void rememberSkin(a);
       settings.selectedAccount = a.id;
       community = null;
@@ -2000,6 +2008,7 @@ export async function createServices({
       const a = accounts.find(a => a.id === input.id),
         profile = a?.profiles.find(p => p.id === input.uuid);
       if (!profile) throw Error("角色不存在");
+      return withCredentials(a,async()=>{
       const response = await authCall("refresh", {
         accessToken: a.accessToken,
         clientToken: a.clientToken,
@@ -2015,7 +2024,7 @@ export async function createServices({
       community = null;
       void rememberSkin(a);
       await saveAccounts();
-      return accountView(a);
+      return accountView(a);});
     },
     async "account.remove"(input) {
       busy();
@@ -2041,39 +2050,31 @@ export async function createServices({
     async "skin.open"() {
       return openSkin(settings.selectedAccount || "default");
     },
+    async "skin.status"() {
+      const start=Date.now();
+      const active=accounts.find(a=>a.id===settings.selectedAccount&&a.uuid&&a.accessToken);
+      if(active){await ensureAccount();}
+      else await remoteJSON(SKIN,{timeoutMs:6000,retryBudgetMs:1500,retryDelay:250});
+      return {authenticated:!!active,latency:Date.now()-start};
+    },
     async "community.connect"(input) {
-      if (input.refresh) community = null;
-      if (
-        community &&
-        community.user.uid === selected().uuid &&
-        community.expiresAt > Date.now() + 60000
-      ) {
-        void syncAvatar(selected());
-        return community;
-      }
-      const a = await ensureAccount();
-      const base = endpoint(settings.communityUrl);
-      const response = await remoteJSON(base + "/api/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accessToken: a.accessToken,
-          clientToken: a.clientToken
-        })
+      const a=selected(),uuid=a.uuid,base=endpoint(settings.communityUrl),key=JSON.stringify([a.id,uuid,base]);
+      if(sessionRequests.has(key))return sessionRequests.get(key);
+      if(!input.refresh && community?.accountId===a.id && community.base===base && community.user.uid===uuid && community.expiresAt>Date.now()+60000) return community;
+      const exchange=withCredentials(a,async()=>{
+        if(settings.selectedAccount!==a.id||a.uuid!==uuid)throw Error('当前角色已切换');
+        // The community validates the skin token. A second client-side validation doubles the network dependency.
+        const result=await remoteJSON(base+'/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:a.accessToken,clientToken:a.clientToken}),timeoutMs:15000});
+        if(!result.token||result.user?.uid!==uuid||!result.credentials?.accessToken)throw Error('社区返回的身份与当前角色不匹配，请重新连接');
+        if(!accounts.includes(a))throw Error('该账号已退出');
+        a.accessToken=result.credentials.accessToken;a.clientToken=result.credentials.clientToken||a.clientToken;
+        await saveAccounts();
+        if(settings.selectedAccount!==a.id||a.uuid!==uuid||endpoint(settings.communityUrl)!==base)throw Error('账号或社区地址已更改，请重新连接');
+        community={token:result.token,user:result.user,accountId:a.id,base,expiresAt:Date.now()+11*3600000};
+        void syncAvatar(a);return community;
       });
-      Object.assign(a, {
-        accessToken: response.credentials.accessToken,
-        clientToken: response.credentials.clientToken || a.clientToken
-      });
-      await saveAccounts();
-      community = {
-        token: response.token,
-        user: response.user,
-        base,
-        expiresAt: Date.now() + 11 * 3600000
-      };
-      void syncAvatar(a);
-      return community;
+      sessionRequests.set(key,exchange);
+      try{return await exchange;}finally{if(sessionRequests.get(key)===exchange)sessionRequests.delete(key);}
     },
     async "update-logs.list"() {
       return remoteJSON(endpoint(settings.communityUrl) + "/api/update-logs", {
@@ -2207,9 +2208,9 @@ export async function createServices({
   };
   let exclusive = false;
   return {
-    importPreferences(patch,original,previousGame=null) {
+    importPreferences(patch,original,previousGame=null,playtime=null) {
       if(exclusive||task||sessions.size)throw Error("请先结束正在运行的游戏或任务");
-      return withSettings(()=>actions["settings.save"](patch,original,previousGame));
+      return withSettings(async()=>{const result=await actions["settings.save"](patch,original,previousGame);if(playtime&&Object.keys(playtime.days).length)await personalPlaytime.importHistory(playtime);return result;});
     },
     hasAuthenticatedAccount() { return accounts.some(a => a.id === settings.selectedAccount && !!a.accessToken); },
     async invoke(action, input = {}) {
@@ -2257,7 +2258,7 @@ export async function createServices({
         // Finish already queued preference writes before capturing paths for a task.
         if(owns)await settingsQueue.catch(()=>{});
         const mutatesProfile = ["settings.save", "cards.apply", "instance.presets", "instance.favorite", "instance.cover-placement",
-          "instance.cover", "instance.restore", "instance.delete", "account.login", "account.remove"].includes(action);
+          "instance.cover", "instance.restore", "instance.delete", "account.login", "account.profile", "account.remove"].includes(action);
         return await (mutatesProfile
           ? withSettings(() => actions[action](input))
           : actions[action](input));
@@ -2269,8 +2270,7 @@ export async function createServices({
       }
     },
     dispose() {
-      const closed=errorReporter.close().catch(()=>{});
-      personalPlaytime.dispose();
+      const closed=Promise.all([errorReporter.close().catch(()=>{}),personalPlaytime.dispose(),accountWrites,settingsQueue]);
       void assetExporter.close();
       lobby.dispose();void stopDirectHelper?.();
       blueprintDownload?.abort();

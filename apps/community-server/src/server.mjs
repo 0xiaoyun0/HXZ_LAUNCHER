@@ -94,8 +94,11 @@ export function createCommunity(options={}) {
     if(options.exchange)response=await options.exchange(input);
     else {
       if(typeof input.accessToken!=='string'||typeof input.clientToken!=='string')throw Error('缺少皮肤站登录凭据');
-      const upstream=await fetch(skin+'/authserver/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:input.accessToken,clientToken:input.clientToken,requestUser:true}),signal:AbortSignal.timeout(15000),redirect:'error'});
-      if(!upstream.ok)throw Error('皮肤站登录已过期，请重新登录');let bytes=0;const chunks=[];for await(const chunk of upstream.body){bytes+=chunk.length;if(bytes>262144)throw Error('皮肤站响应过大');chunks.push(chunk);}response=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+      const upstream=await fetch(skin+'/authserver/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:input.accessToken,clientToken:input.clientToken,requestUser:true}),signal:AbortSignal.timeout(15000),redirect:'error'}).catch(()=>{throw Object.assign(Error('暂时无法连接皮肤站，请稍后重连'),{status:503});});
+      if(!upstream.ok){
+        if(upstream.status===401||upstream.status===403)throw Object.assign(Error('皮肤站登录已过期，请重新登录'),{status:401});
+        throw Object.assign(Error('皮肤站暂时不可用，请稍后重连'),{status:503});
+      }let bytes=0;const chunks=[];for await(const chunk of upstream.body){bytes+=chunk.length;if(bytes>262144)throw Error('皮肤站响应过大');chunks.push(chunk);}response=JSON.parse(Buffer.concat(chunks).toString('utf8'));
     }
     const p=response.selectedProfile;if(!p||!/^\w{1,64}$/.test(p.id)||typeof p.name!=='string')throw Error('请先在皮肤站选择游戏角色');
     // Identity comes from the authenticated upstream response, never the caller's claimed UUID.
@@ -236,7 +239,7 @@ export function createCommunity(options={}) {
       if(!c){if(message.type!=='auth')throw Error('请先登录');const user=verify(message.token);content.recordMember(user);hub.visit(user);const platform=message.platform==='android'?'android':'desktop';
         for(const [old,p] of clients)if(p.user.uid===user.uid&&p.platform===platform){voiceEvent(p,'leave');clients.delete(old);old.close(4001,'已在另一处登录此设备');}
 
-        c={id:randomUUID(),user,platform:message.platform==='android'?'android':'desktop',room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',heartbeatInterval:15000,voiceTransport:'ws-opus-v1',rooms:voiceRooms.rooms(),roomLimit,id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
+        c={id:randomUUID(),user,platform,room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',heartbeatInterval:15000,voiceTransport:'ws-opus-v1',rooms:voiceRooms.rooms(),roomLimit,id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
       verify(c.token);if(message.type==='coop-control'){tanks.input(c.user,message,c.id);return;}limit('client:'+c.id,120,10000);
       if(message.type==='ping'){ws.alive=true;packet(ws,{type:'pong'});}
       else if(message.type==='chat'){limit('chat:'+c.user.uid,8,10000);const value=text(message.body,1000);inbox.validateMentions(c.user,value);const created=Date.now();const inserted=db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)').run('lobby',c.user.uid,c.user.name,value,created);
