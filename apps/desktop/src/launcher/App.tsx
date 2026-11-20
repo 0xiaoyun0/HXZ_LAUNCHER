@@ -2,7 +2,7 @@ import {ArchiveSignalMark} from '../ArchiveSignal';
 import {useArchiveSignal} from '../linking-effects';
 import {WindowButtons} from './WindowButtons';
 import {lazy,Suspense,useEffect,useRef,useState} from 'react';
-import {createHashRouter,RouterProvider,Routes,Route,Navigate,NavLink,Link,useLocation,useNavigate} from 'react-router-dom';
+import {createHashRouter,RouterProvider,Routes,Route,Navigate,NavLink,Link,useLocation,useNavigate,useBlocker} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
 import {AlertCircle,ArrowRight,Box,Check,ChevronRight,Layers3,Minus,Search,Settings2,Square,UserRound,X} from 'lucide-react';
 import {account,desktop,invoke,notify,perform,reload,state,task,ui} from '../model';
@@ -13,6 +13,8 @@ import {Dialogs,TaskDrawer} from '../Dialogs';
 import {useGameSleep} from '../low-resource';
 import {pages} from './pages';
 import {Home} from './Home';
+import {PortableSources} from '../PortableCards';
+import {Wallpaper} from './Wallpaper';
 import {version} from '../../../../package.json';
 import {CommunitySlot,extension,Extensions,refreshExtension} from './Extensions';
 import {MiniPlayer} from './MiniPlayer';
@@ -25,11 +27,17 @@ const Player=lazy(()=>import('./Player').then(m=>({default:m.Player})));
 const Playtime=lazy(()=>import('./Playtime').then(m=>({default:m.Playtime})));
 const Library=lazy(()=>import('../GameLibrary').then(m=>({default:m.GameLibrary})));
 const Resources=lazy(()=>import('../Workshop').then(m=>({default:m.Workshop})));
+const InstallCards=lazy(()=>import('../Workshop').then(m=>({default:m.Install})));
 const Lobby=lazy(()=>import('../Multiplayer').then(m=>({default:m.MultiplayerPage})));
 const Settings=lazy(()=>import('./Preferences').then(m=>({default:m.Preferences})));
 const Identity=lazy(()=>import('./Preferences').then(m=>({default:m.Identity})));
 const Preflight=lazy(()=>import('./Preflight').then(m=>({default:m.Preflight})));
 
+function UnsavedCardChanges(){
+ const blocker=useBlocker(({currentLocation,nextLocation})=>!!ui.layoutUnsaved&&currentLocation.pathname+currentLocation.search!==nextLocation.pathname+nextLocation.search);
+ if(blocker.state!=='blocked')return null;
+ return <Modal open title="保存卡片内容？" onClose={()=>blocker.reset()}><p>这张卡片有正在编辑的内容。</p><footer className="modal-actions"><button className="small-action" onClick={()=>blocker.reset()}>继续编辑</button><button className="small-action" onClick={()=>{ui.layoutUnsaved?.discard();blocker.proceed();}}>放弃更改</button><button className="launch-primary" onClick={()=>perform(async()=>{await ui.layoutUnsaved?.save();blocker.proceed();})}>保存并离开</button></footer></Modal>;
+}
 function Finder({close}:{close:()=>void}){
  const [query,setQuery]=useState(''),s=useSnapshot(state),go=useNavigate(),tokens=query.trim().toLowerCase().split(/\s+/);
  const match=(v:string)=>tokens.every(t=>v.toLowerCase().includes(t));
@@ -77,10 +85,10 @@ function Frame(){
    </div>
    <WindowButtons/>
  </header>
- {typeof s.settings.backgroundImage==='string'&&/^(?:data:image\/(?:png|jpeg|webp);base64,|http:\/\/hxz-media\.localhost\/)/i.test(s.settings.backgroundImage)&&<div className="launcher-wallpaper" aria-hidden="true" style={{backgroundImage:'url('+JSON.stringify(s.settings.backgroundImage)+')',opacity:Math.max(.05,Math.min(.85,Number(s.settings.backgroundOpacity)||.4))}}/>}
+ <Wallpaper settings={s.settings} sleeping={asleep||!!s.running}/>
  <main ref={main} className="launcher-content" id="workspace-main"><PageBoundary key={location.pathname.startsWith('/community')?'/community':location.pathname}>{s.error?<section className="launch-page"><h1>无法读取本机资料</h1><IssueHelp issue={playerError(s.error,'state')}/><button onClick={()=>perform(reload)}>重试</button></section>:!s.ready?<p className="launch-page" role="status">正在读取本机游戏…</p>:asleep?<section className="launch-page"><h1>游戏运行中</h1></section>:gate?<section className="launch-page login-gate"><h1>{destination?.label}</h1><p>{location.pathname==='/multiplayer'?'登录幻想镇账号后，可以创建房间或加入伙伴。':location.pathname==='/guild'?'登录后查看委托与协会进度。':'登录后可以继续阅读和同步档案进度。'}</p><button className="launch-primary" onClick={()=>ui.dialog='account'}>登录账号 <ArrowRight size={16}/></button></section>:
  <Suspense fallback={<p className="launch-page" role="status">正在打开…</p>}><Routes><Route index element={<Home/>}/><Route path="/community/*" element={<CommunitySlot/>}/><Route path="/town" element={<Navigate replace to="/community"/>}/><Route path="/playtime" element={<Playtime/>}/><Route path="/music" element={<Player/>}/><Route path="/guild" element={<Navigate replace to="/community/guild"/>}/><Route path="/linking" element={<Navigate replace to="/community/linking"/>}/><Route path="/library" element={<Library/>}/><Route path="/workshop/*" element={<Resources/>}/><Route path="/servers" element={<Servers/>}/><Route path="/support" element={<Support/>}/><Route path="/updates" element={<section className="launch-page"><header className="launch-title"><h1>更新公告</h1></header><Updates/></section>}/><Route path="/multiplayer" element={<Lobby/>}/><Route path="/settings/extensions" element={<Extensions/>}/><Route path="/settings" element={<Settings/>}/><Route path="/account" element={<Identity/>}/><Route path="/check" element={<Preflight/>}/><Route path="*" element={<section className="launch-page"><h1>找不到这个页面</h1><Link to="/">返回首页</Link></section>}/></Routes></Suspense>}</PageBoundary></main>
- <footer className="launcher-status"><span className="status-connection"><i/>{s.running?'游戏运行中':role?.authenticated?'当前角色已登录':'本地工作台'}</span><MiniPlayer/><button onClick={()=>ui.tasks=true}><Layers3 size={14}/><span title={t.busy?t.phase:undefined}>{t.busy?t.phase:'任务与日志'}</span></button><span>{version}</span></footer><Dialogs/><TaskDrawer/><Modal open={!!u.issueOpen&&!!u.issue} title="处理建议" onClose={()=>ui.issueOpen=false}>{u.issue&&<IssueHelp issue={u.issue}/>}</Modal>{finder&&<Finder close={()=>setFinder(false)}/>}
+ <footer className="launcher-status"><span className="status-connection"><i/>{s.running?'游戏运行中':role?.authenticated?'当前角色已登录':'本地工作台'}</span><MiniPlayer/><button onClick={()=>ui.tasks=true}><Layers3 size={14}/><span title={t.busy?t.phase:undefined}>{t.busy?t.phase:'任务与日志'}</span></button><span>{version}</span></footer><Suspense fallback={null}><PortableSources render={path=>path==='/'?<Home/>:path==='/music'?<Player/>:path==='/workshop/install'?<InstallCards/>:null}/></Suspense><UnsavedCardChanges/><Dialogs/><TaskDrawer/><Modal open={!!u.issueOpen&&!!u.issue} title="处理建议" onClose={()=>ui.issueOpen=false}>{u.issue&&<IssueHelp issue={u.issue}/>}</Modal>{finder&&<Finder close={()=>setFinder(false)}/>}
  {u.toast&&<div className={'third-toast '+(u.toastError?'error':'')} role="status">{u.toastError?<AlertCircle size={16}/>:<Check size={15}/>}<span>{u.toast}</span>{u.toastError&&u.issue&&<button onClick={()=>{ui.issueOpen=true;ui.toast='';}}>处理方法</button>}<button aria-label="关闭提示" onClick={()=>ui.toast=''}><X size={14}/></button></div>}</div>;
 }
 const router=createHashRouter([{path:'*',element:<Frame/>}]);export default function App(){return <RouterProvider router={router}/>;}

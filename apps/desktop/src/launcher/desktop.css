@@ -12,3 +12,5 @@
 @import url('../workspace/workspace.css') layer(legacy);
 @import url('./launcher.css');
 @import url('./workspace-layout.css');
+@import url('./themes.css');
+@import url('./card-controls.css');

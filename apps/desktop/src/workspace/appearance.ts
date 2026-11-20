@@ -1,23 +1,50 @@
-import {useEffect} from 'react';
+import {useLayoutEffect} from 'react';
 import {normalizeCardStyle} from '../../../../packages/engine/core/card-layout.mjs';
+import {activeDesign} from '../../../../packages/engine/core/desktop-themes.mjs';
+
+const channels=(hex:string)=>hex.slice(1).match(/../g)!.map(c=>parseInt(c,16));
+function luminance(rgb:number[]){
+  const [r,g,b]=rgb.map(c=>c/255<=.04045?c/255/12.92:((c/255+.055)/1.055)**2.4);
+  return .2126*r+.7152*g+.0722*b;
+}
+function readable(rgb:number[],dark:boolean){
+  const ground=dark?.045:.76,edge=dark?255:0;
+  let color=rgb;
+  for(let i=0;i<22;i++){
+    const lum=luminance(color);
+    if((Math.max(lum,ground)+.05)/(Math.min(lum,ground)+.05)>=4.8)break;
+    color=color.map(c=>Math.round(c+(edge-c)*.12));
+  }
+  return color.join(',');
+}
+
 export function useAppearance(s:any,off:boolean,speed:number){
- useEffect(()=>{
-  const root=document.documentElement;root.dataset.theme=s.settings.theme;root.dataset.motion=off?'off':'on';root.style.setProperty('--duration',off?'0s':(.32/speed)+'s');root.style.setProperty('--accent',s.settings.accentColor||'#5668bc');root.style.setProperty('--font-size',(s.settings.fontSize||16)+'px');
-  const rgba=(hex:string,alpha:number)=>`rgba(${hex.slice(1).match(/../g)?.map(v=>parseInt(v,16)).join(',')||'255,255,255'},${Math.max(.2,Math.min(1,alpha))})`;
-  const base=s.settings.theme==='dark'?'#252a35':'#ffffff';
-  // Derive selection surfaces from the player's accent, including Chromium 108.
-  const accent=s.settings.accentColor||'#5668bc',rgb=/^#[0-9a-f]{6}$/i.test(accent)?accent.slice(1).match(/../g)!.map(v=>parseInt(v,16)).join(','):'86,104,188';
-  const [red,green,blue]=rgb.split(',').map(channel=>{
-   const value=Number(channel)/255;
-   return value<=.04045?value/12.92:((value+.055)/1.055)**2.4;
-  });
-  const luminance=.2126*red+.7152*green+.0722*blue;
-  root.style.setProperty('--accent-ink',luminance>.179?'#000':'#fff');
-  root.style.setProperty('--accent-soft',`rgba(${rgb},${s.settings.theme==='dark'?.19:.09})`);
-  root.style.setProperty('--accent-border',`rgba(${rgb},${s.settings.theme==='dark'?.5:.28})`);
-  root.style.setProperty('--accent-text',s.settings.theme==='dark'?`rgb(${rgb.split(',').map(v=>Math.round(Number(v)+(255-Number(v))*.55)).join(',')})`:accent);
-  for(const [key,value] of Object.entries(s.settings.columns||{}) as any)root.style.setProperty('--'+key+'-surface',rgba(value.color||base,value.opacity??1));
-  const card=normalizeCardStyle(s.settings.cardStyle),workspace=s.settings.columns?.workspace;
-  root.style.setProperty('--card-surface',rgba(card.color||workspace?.color||base,card.opacity));root.style.setProperty('--card-radius',card.radius+'px');
- },[s.settings.theme,s.settings.fontSize,s.settings.accentColor,s.settings.columns,s.settings.cardStyle,speed,off]);
+  const settings=s.settings,design=activeDesign(settings);
+  useLayoutEffect(()=>{
+    const root=document.documentElement,vars=root.style,dark=settings.theme==='dark';
+    const card=normalizeCardStyle(settings.cardStyle),accent=/^#[a-f0-9]{6}$/i.test(settings.accentColor)?settings.accentColor:design.accent;
+    const rgb=channels(accent),text=readable(rgb,dark),base=dark?'#252a35':'#ffffff';
+    root.dataset.skin=design.id;root.dataset.theme=dark?'dark':'light';root.dataset.motion=off?'off':'on';
+    vars.setProperty('--duration',off?'0s':(.32/speed)+'s');
+    vars.setProperty('--font-size',(settings.fontSize||16)+'px');vars.setProperty('--accent',accent);
+    vars.setProperty('--accent-rgb',rgb.join(','));vars.setProperty('--accent-ink',luminance(rgb)>.179?'#000':'#fff');
+    vars.setProperty('--accent-text','rgb('+text+')');vars.setProperty('--accent-soft','rgba('+rgb+','+(dark?.20:.12)+')');
+    vars.setProperty('--accent-border','rgba('+text+','+(dark?.53:.34)+')');
+    vars.setProperty('--pane-opacity',String(card.opacity));vars.setProperty('--pane-radius',card.radius+'px');
+    vars.setProperty('--card-radius',card.radius+'px');vars.setProperty('--card-spacing',card.gap+'px');
+    vars.setProperty('--control-radius',Math.max(4,Math.round(card.radius*.48))+'px');
+    if(card.color){
+      const tint=channels(card.color),canvas=dark?[27,35,45]:[226,232,244];
+      const panelDark=luminance(tint.map((c,i)=>Math.round(c*card.opacity+canvas[i]*(1-card.opacity))))<.20;
+      vars.setProperty('--custom-pane-rgb',tint.join(','));vars.setProperty('--pane-fg',panelDark?'#f7f8fc':'#202637');
+      vars.setProperty('--pane-muted',panelDark?'#d3dce6':'#3d4659');vars.setProperty('--pane-link','rgb('+readable(rgb,panelDark)+')');
+    }else for(const key of ['--custom-pane-rgb','--pane-fg','--pane-muted','--pane-link'])vars.removeProperty(key);
+    if(/^#[a-f0-9]{6}$/i.test(settings.backgroundColor||''))vars.setProperty('--custom-canvas',settings.backgroundColor);else vars.removeProperty('--custom-canvas');
+    vars.setProperty('--wall-protection',String(Math.max(.05,.72-card.opacity*.77)));
+    vars.setProperty('--card-surface','var(--theme-pane)');
+    for(const [key,value] of Object.entries(settings.columns||{}) as any){
+      const hex=/^#[a-f0-9]{6}$/i.test(value.color)?value.color:base;
+      vars.setProperty('--'+key+'-surface','rgba('+channels(hex)+','+Math.max(.2,Math.min(1,value.opacity??1))+')');
+    }
+  },[design.id,design.accent,settings.theme,settings.accentColor,settings.cardStyle,settings.columns,settings.backgroundColor,settings.fontSize,off,speed]);
 }

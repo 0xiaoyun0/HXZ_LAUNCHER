@@ -40,7 +40,7 @@ export function Social(){
           <Routes><Route index element={<Chat/>}/><Route path="forum" element={<Forum/>}/><Route path="forum/:id" element={<Forum/>}/><Route path="voice" element={<Voice/>}/><Route path="inbox" element={<Inbox/>}/>
             <Route path="guild" element={<Guild/>}/><Route path="linking" element={<Linking/>}/>
             <Route path="playtime" element={<Calendar initialSource="server" initialWeek={params.has('week')?Number(params.get('week'))||0:undefined}/>}/>
-            <Route path="worlds" element={<Hub area="worlds"/>}/><Route path="blueprints" element={<Blueprints/>}/>
+            <Route path="worlds" element={<Hub area="worlds"/>}/><Route path="blueprints" element={<section className="catalog-panel" aria-label="社区蓝图目录"><Blueprints/></section>}/>
             <Route path="wallet" element={<Wallet/>}/><Route path="shop" element={<Shop/>}/><Route path="backpack" element={<Inventory/>}/>
             <Route path="saved" element={<Hub area="personal"/>}/><Route path="events" element={<Hub area="events"/>}/><Route path="appeals" element={<Hub area="support"/>}/>
             <Route path="*" element={<p>这个社区页面已归档。<Link to="/community">返回社区聊天</Link></p>}/>

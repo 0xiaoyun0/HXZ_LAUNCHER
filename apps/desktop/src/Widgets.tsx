@@ -22,7 +22,8 @@ export function Widget({id,editing}:{id:string;editing:boolean}){
 }
 function WidgetContent({item,editing}:{item:any;editing:boolean}){
  const id=item.id,s=useSnapshot(state),[draft,setDraft]=useState<any>(item),[query,setQuery]=useState(''),now=useMinute(),navigate=useNavigate();
- useEffect(()=>setDraft(item),[item]);
+ const savedContent=JSON.stringify(item);
+ useEffect(()=>setDraft(item),[savedContent]);
  const store=async(value:any)=>{await saveSettings((s:any)=>({widgets:normalizeWidgets(s.widgets.map((v:any)=>v.id===id?{...v,...value}:v))}));};
  const changed=JSON.stringify(draft)!==JSON.stringify(item);
  const save=()=>store(draft);

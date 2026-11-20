@@ -18,5 +18,6 @@ export const pages=[
  {path:'/check',label:'启动前检查',terms:'检查 Java 缺少 文件 角色 诊断',icon:Stethoscope,primary:false,member:false},
  {path:'/account',label:'账号与角色',terms:'皮肤 身份 切换 登录',icon:UserRound,primary:false,member:false},
  {path:'/settings/extensions',label:'扩展',terms:'社区 插件 下载 安装 停用 重启',icon:PackageOpen,primary:false,member:false},
+ {path:'/settings?section=appearance',label:'外观与启动器',terms:'外观 自定义 主题 风格 壁纸 透明 圆角 小镇微光 星海观测站 纸上工坊',icon:Settings2,primary:false,member:false},
  {path:'/settings',label:'设置',terms:'Java 内存 目录 迁移 下载 外观 版本',icon:Settings2,primary:false,member:false}
 ];
