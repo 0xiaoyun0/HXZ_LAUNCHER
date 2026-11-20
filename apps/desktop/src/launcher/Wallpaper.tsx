@@ -1,12 +1,13 @@
-import {useEffect,useRef,useState,type CSSProperties} from 'react';
-import {activeDesign,wallpaperSource} from '../../../../packages/engine/core/desktop-themes.mjs';
+import {useEffect,useRef,type CSSProperties} from 'react';
+import {proxy,useSnapshot} from 'valtio';
+import {wallpaperSource} from '../../../../packages/engine/core/desktop-wallpaper.mjs';
 
+export const wallpaperHealth=proxy({failed:'',attempt:0});
+export function retryWallpaper(){wallpaperHealth.failed='';wallpaperHealth.attempt++;}
 export function Wallpaper({settings,sleeping}:{settings:any;sleeping:boolean}){
-  const design=activeDesign(settings),source=wallpaperSource(settings),url=source?.url||'';
-  const [failed,setFailed]=useState(''),video=useRef<HTMLVideoElement>(null);
-  const available=!!url&&failed!==url;
-  const builtIn=design.scene?'./media/'+design.scene:'';
-  const image=available&&!source?.video?url:(settings.desktopBackdrop!=='plain'||(url&&!available)?builtIn:'');
+  const source=wallpaperSource(settings),url=source?.url||'',health=useSnapshot(wallpaperHealth);
+  const video=useRef<HTMLVideoElement>(null),available=!!url&&health.failed!==url;
+  useEffect(()=>{wallpaperHealth.failed='';},[url]);
   useEffect(()=>{
     const el=video.current;if(!el)return;
     const reduced=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -16,12 +17,11 @@ export function Wallpaper({settings,sleeping}:{settings:any;sleeping:boolean}){
     }
     playback();el.addEventListener('loadeddata',playback);document.addEventListener('visibilitychange',playback);reduced.addEventListener('change',playback);
     return ()=>{el.pause();el.removeEventListener('loadeddata',playback);document.removeEventListener('visibilitychange',playback);reduced.removeEventListener('change',playback);};
-  },[available,url,sleeping,settings.animationSpeed]);
-  const fit=settings.backgroundFit==='contain'?'contain':settings.backgroundFit==='100% 100%'?'fill':'cover';
-  const position=(settings.backgroundPositionX??50)+'% '+(settings.backgroundPositionY??50)+'%';
-  const style={'--scene-strength':settings.backgroundOpacity??design.strength,'--scene-position':position} as CSSProperties;
+  },[available,url,sleeping,settings.animationSpeed,health.attempt]);
+  const objectFit=settings.backgroundFit==='contain'?'contain':settings.backgroundFit==='100% 100%'?'fill':'cover';
+  const style={'--scene-strength':settings.backgroundOpacity??.77,'--scene-position':(settings.backgroundPositionX??50)+'% '+(settings.backgroundPositionY??50)+'%'} as CSSProperties;
   return <div className="launcher-wallpaper" aria-hidden="true" style={style}>
-    {image&&<img key={image} src={image} alt="" draggable={false} style={{objectFit:fit}} onError={()=>{if(image===url)setFailed(url);}}/>}
-    {available&&source?.video&&<video ref={video} key={url} src={url} muted loop playsInline preload="auto" style={{objectFit:fit}} onError={()=>setFailed(url)}/>}
+    {available&&(source?.video?<video ref={video} key={url+health.attempt} src={url} muted loop playsInline preload="auto" style={{objectFit}} onError={()=>wallpaperHealth.failed=url}/>:
+      <img key={url+health.attempt} src={url} alt="" draggable={false} style={{objectFit}} onError={()=>wallpaperHealth.failed=url}/>)}
   </div>;
 }

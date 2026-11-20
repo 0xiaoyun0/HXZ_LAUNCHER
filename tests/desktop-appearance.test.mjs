@@ -5,7 +5,8 @@ import os from 'node:os';
 import path from 'node:path';
 import {createServices} from '../packages/engine/core/services.mjs';
 import {legacyAppearance,legacyCardPackage} from '../engine/legacy-appearance.mjs';
-import {activeDesign,wallpaperSource} from '../packages/engine/core/desktop-themes.mjs';
+import {activeDesign} from '../packages/engine/core/desktop-themes.mjs';
+import {wallpaperSource} from '../packages/engine/core/desktop-wallpaper.mjs';
 import {boardCards,updateBoard} from '../packages/engine/core/board-preferences.mjs';
 import {mediaPath} from '../packages/engine/core/media.mjs';
 
@@ -13,7 +14,7 @@ async function fixture(t){
   const dir=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-material-'));
   t.after(()=>fs.rm(dir,{recursive:true,force:true,maxRetries:8,retryDelay:200}));
   const home=path.join(dir,'third');await fs.mkdir(home);
-  const open=()=>createServices({data:home,resources:home,initialRoot:async()=>'',safeStorage:{isEncryptionAvailable:()=>false},emit(){},window:()=>null});
+  const open=(dialog)=>createServices({dialog,data:home,resources:home,initialRoot:async()=>'',safeStorage:{isEncryptionAvailable:()=>false},emit(){},window:()=>null});
   return {dir,home,open,file:path.join(home,'settings.json')};
 }
 test('named designs retain independent looks through restart, failed edits, reset and deletion',async t=>{
@@ -51,7 +52,7 @@ test('old wallpaper preview, retry, missing files and cancellation leave the old
   assert.deepEqual(await fs.readFile(mediaPath(home,source.url)),bytes);assert.equal((await fs.readdir(path.join(home,'media'))).length,1);
   assert.ok(!Object.hasOwn(snapshot,'privateField'));assert.equal(await fs.readFile(config,'utf8'),document);
   await fs.rm(path.join(media,id));assert.equal((await legacyAppearance(dir,home,service,true)).missing,true);
-  assert.equal(wallpaperSource(await service.invoke('settings.save',{})),null);
+  assert.deepEqual(wallpaperSource(await service.invoke('settings.save',{})),source);
   assert.equal(wallpaperSource({backgroundVideo:'https://unrelated.example/video.mp4'}),null);
 });
 test('legacy layout preview and merged import preserve outside boards, widget notes and unknown settings',async t=>{
@@ -76,4 +77,61 @@ test('board edits preserve unmounted cards and legacy order, and enforce locked 
   assert.throws(()=>updateBoard(specs,v,{id:'monitor',op:'move',to:'library'}),/解锁/);
   assert.throws(()=>updateBoard(specs,v,{id:'roles',op:'visible',value:true}),/解锁/);
   assert.deepEqual(saved.hidden,['future']);
+});
+
+test('player wallpaper survives layout and material switches, reset, copy and restart',async t=>{
+  const {dir,file,open}=await fixture(t),chosen=[];
+  const dialog={showOpenDialog:async(_window,options)=>{
+    const next=chosen.shift();
+    if(next)assert.ok(options.filters[0].extensions.includes(path.extname(next).slice(1)));
+    return {canceled:!next,filePaths:next?[next]:[]};
+  }};
+  let service=await open(dialog);
+  const save=values=>service.invoke('settings.save',values);
+  assert.equal((await save({})).wallpaperMode,'plain');
+  const image=path.join(dir,'still.webp'),video=path.join(dir,'loop.mp4');
+  await fs.writeFile(image,'fixture image');await fs.writeFile(video,'fixture video');
+  chosen.push(image,video,null);
+  const jpg=await service.invoke('background.choose',{kind:'image'}),mp4=await service.invoke('background.choose',{kind:'video'});
+  await save({backgroundImage:jpg,wallpaperImageSource:'file',wallpaperMode:'image'});
+  await save({backgroundVideo:mp4,wallpaperMode:'video',backgroundPositionX:25,backgroundFit:'contain'});
+  const before=await fs.readFile(file);assert.equal(await service.invoke('background.choose',{kind:'image'}),null);
+  assert.deepEqual(await fs.readFile(file),before);
+  for(const command of [{op:'select',id:'paper'},{op:'copy',name:'晚间'},{op:'reset'},{op:'delete'}]){
+    const stored=await save({themeChange:command,workspaceLayout:'journal'});
+    assert.deepEqual(wallpaperSource(stored),{url:mp4,video:true});
+    assert.equal(stored.backgroundPositionX,25);assert.equal(stored.backgroundFit,'contain');
+  }
+  await save({wallpaperMode:'plain',workspaceModules:{featured:false}});
+  service=await open(dialog);
+  assert.equal(wallpaperSource(await save({workspaceLayout:'library',workspaceModules:{quickLinks:true}})),null);
+  const again=await save({wallpaperMode:'image'});
+  assert.deepEqual(wallpaperSource(again),{url:jpg,video:false});assert.equal(again.backgroundVideo,mp4);
+  assert.deepEqual(again.workspaceModules,{featured:false,quickLinks:true});
+  const backup=await fs.readFile(file);
+  for(const input of [{workspaceLayout:'old'},{workspaceModules:{miniPlayer:0}},{wallpaperMode:'remote'},{wallpaperImageSource:'unknown'},{backgroundVideo:jpg}]){
+    await assert.rejects(save(input));assert.deepEqual(await fs.readFile(file),backup);
+  }
+  assert.deepEqual(wallpaperSource(await save({wallpaperMode:'video'})),{url:mp4,video:true});
+  assert.equal(await fs.readFile(image,'utf8'),'fixture image');assert.equal(await fs.readFile(video,'utf8'),'fixture video');
+});
+
+test('upgrade freezes the old active artwork and retains fields in inactive schemes',async t=>{
+  const {open,file}=await fixture(t);
+  const previous={desktopThemes:{active:'observatory',entries:[{id:'paper',base:'paper',appearance:{backgroundFit:'contain',future:'keep'}}]},
+    desktopBackdrop:'scene',workspaceModules:{futureModule:'keep'},cardLayouts:{'home.wide':{hidden:['monitor']}},unknown:'keep'};
+  await fs.writeFile(file,JSON.stringify(previous));
+  const service=await open(),save=input=>service.invoke('settings.save',input);
+  const upgraded=await save({themeChange:{op:'select',id:'paper'},workspaceLayout:'journal',workspaceModules:{shortcuts:false}});
+  assert.deepEqual(wallpaperSource(upgraded),{url:'./media/adventure.webp',video:false});
+  assert.equal(upgraded.workspaceModules.futureModule,'keep');assert.equal(upgraded.unknown,'keep');
+  assert.deepEqual(upgraded.cardLayouts['home.wide'].hidden,['monitor']);
+  const reset=await save({themeChange:{op:'reset'}});
+  assert.equal(reset.desktopThemes.entries.find(p=>p.id==='paper').appearance.future,'keep');
+  assert.deepEqual(wallpaperSource(await (await open()).invoke('settings.save',{})),wallpaperSource(upgraded));
+  const trimmed=await save({workspaceShelf:['classic','library']});
+  assert.equal(trimmed.workspaceLayout,'classic');await assert.rejects(save({workspaceLayout:'journal'}),/先在/);
+  await assert.rejects(save({workspaceShelf:[]}),/至少/);
+  await save({workspaceShelf:['classic','library','journal']});
+  assert.equal((await save({workspaceLayout:'journal'})).workspaceLayout,'journal');
 });

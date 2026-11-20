@@ -9,24 +9,29 @@ export async function verifyCustomization(page,directory){
   const flow=async(fn)=>{await fn();await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));};
   const board=page.locator('[data-board=home]'),dialog=page.getByRole('dialog');
   await home.click();await page.locator('.home-server-list a').first().waitFor();
+  const panel=name=>page.getByRole('navigation',{name:'外观设置分区'}).getByRole('button',{name,exact:true}).click();
+  await settings();await panel('壁纸');await page.getByRole('button',{name:'静态图片',exact:true}).click();await page.getByRole('button',{name:'暮色小镇',exact:true}).click();
+  await after(()=>document.querySelector('.launcher-wallpaper img')?.naturalWidth>0);
+  await capture('workspaces-wallpaper');await home.click();
   for(const [id,name,radius,alpha] of [['town','小镇微光',20,.7],['observatory','星海观测站',14,.78],['paper','纸上工坊',8,1]]){
-    await settings();await page.getByRole('button',{name:'使用'+name,exact:true}).click();
+    await settings();await panel('颜色与窗格');await page.getByRole('button',{name:'使用'+name,exact:true}).click();
     await page.waitForFunction(id=>document.documentElement.dataset.skin===id,id);
     if(id==='town')await capture('themes-gallery');
     await home.click();await board.locator('.instances-card').waitFor();
-    if(id!=='paper')await after(()=>document.querySelector('.launcher-wallpaper img')?.naturalWidth>0);
-    else assert.equal(await page.locator('.launcher-wallpaper img,.launcher-wallpaper video').count(),0);
+    await after(()=>document.querySelector('.launcher-wallpaper img')?.naturalWidth>0);
+    assert.match(await page.locator('.launcher-wallpaper img').getAttribute('src'),/hero\.webp$/);
     const actual=await board.locator('.instances-card').evaluate(el=>({radius:parseFloat(getComputedStyle(el).borderTopLeftRadius),color:getComputedStyle(el).backgroundColor}));
     assert.equal(actual.radius,radius);assert.equal(actual.color.startsWith('rgba')?parseFloat(actual.color.split(',').at(-1)):1,alpha);
     await capture('themes-'+id+'-home');
   }
-  await settings();await page.getByRole('button',{name:'使用小镇微光'}).click();await after(()=>document.documentElement.dataset.skin==='town');
+  await settings();await panel('颜色与窗格');await page.getByRole('button',{name:'使用小镇微光'}).click();await after(()=>document.documentElement.dataset.skin==='town');
   await page.getByRole('button',{name:'另存方案'}).click();await dialog.getByLabel('方案名称').fill('验收方案');await dialog.getByRole('button',{name:'保存方案'}).click();
   await dialog.waitFor({state:'hidden'});await page.getByLabel('窗格圆角',{exact:true}).focus();await page.keyboard.press('Home');await page.keyboard.press('ArrowRight');
   await page.waitForFunction(()=>document.documentElement.style.getPropertyValue('--pane-radius')==='5px');
-  await page.getByRole('button',{name:'海松绿'}).click();await page.getByRole('button',{name:'纯色',exact:true}).click();
+  await page.getByRole('button',{name:'海松绿'}).click();await panel('壁纸');await page.getByRole('button',{name:'纯色',exact:true}).click();
+  await after(()=>!document.querySelector('.launcher-wallpaper img,.launcher-wallpaper video'));await panel('颜色与窗格');
   await page.reload();await page.getByRole('button',{name:'另存方案'}).waitFor();
-  const copied=await snapshot();assert.equal(copied.cardStyle.radius,5);assert.equal(copied.accentColor,'#37887a');assert.equal(copied.desktopBackdrop,'plain');
+  const copied=await snapshot();assert.equal(copied.cardStyle.radius,5);assert.equal(copied.accentColor,'#37887a');assert.equal(copied.wallpaperMode,'plain');
   await page.getByRole('button',{name:'使用小镇微光'}).click();await after(()=>document.documentElement.style.getPropertyValue('--pane-radius')==='20px');
   await home.click();await board.getByRole('button',{name:'游戏实例卡片选项'}).click();await dialog.getByLabel('游戏实例宽度').selectOption('12');
   await flow(()=>dialog.getByLabel('显示默认服务器').click());await page.waitForFunction(()=>!document.querySelector('input[aria-label="显示默认服务器"]').checked);await dialog.getByRole('button',{name:'上移实例详情'}).click();

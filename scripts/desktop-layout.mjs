@@ -9,6 +9,7 @@ const routes=[
   ['/workshop/sources','.standard-page'],['/workshop/blueprints','.preference-section'],['/music','.player-now'],
   ['/playtime','.playtime-summary'],['/account','.preference-section'],['/check','.check-list'],['/support','.feedback-center'],
   ['/updates','.launcher-updates'],['/settings','.memory-setting'],['/settings?section=appearance','select[aria-label="界面字号"]'],
+  ['/settings?section=appearance&panel=surface','.design-options'],['/settings?section=appearance&panel=wallpaper','.wallpaper-modes'],
   ['/settings?section=downloads','select[aria-label="下载总限速"]'],['/settings?section=network','input[type=url]'],
   ['/settings?section=migration','.preference-section'],['/settings/extensions','.extension-actions'],
   ['/community','.chat-main'],['/community/forum','.forum-page'],['/community/voice','.voice-workspace'],
@@ -109,9 +110,11 @@ export async function verifyDesktopLayout(page,native,directory){
   const output=path.join(directory,'layout');await fs.mkdir(output,{recursive:true});
   const observations=[],overlays=[],failures=[];
   const windows=[[1360,880,16,'light','town'],[1250,825,16,'light','paper'],[1920,1080,16,'light','town'],[1000,660,22,'dark','observatory'],[780,540,16,'light','paper'],[780,540,22,'dark','observatory']];
-  for(const [width,height,font,theme,skin] of windows){
+  const layouts=['classic','library','journal','library','journal','classic'];
+  for(const [index,[width,height,font,theme,skin]] of windows.entries()){
+    const workspace=layouts[index];
     assert.equal((await native('settings.save',{themeChange:{op:'select',id:skin}})).ok,true);
-    assert.equal((await native('settings.save',{fontSize:font,theme,animationSpeed:0})).ok,true);
+    assert.equal((await native('settings.save',{fontSize:font,theme,animationSpeed:0,workspaceLayout:workspace})).ok,true);
     await page.setViewportSize({width,height});await page.reload();
     await page.waitForFunction(([n,mode,design])=>getComputedStyle(document.documentElement).getPropertyValue('--font-size').trim()===n+'px'&&document.documentElement.dataset.theme===mode&&document.documentElement.dataset.skin===design,[font,theme,skin]);
     let firstHome;
@@ -134,7 +137,7 @@ export async function verifyDesktopLayout(page,native,directory){
         }
       }catch(e){issues=['页面未挂载 '+selector];}
       const reader=route==='/community/linking'?await page.locator('.archive-viewport iframe').evaluateAll(frames=>frames.length?frames[0].getBoundingClientRect().height:0):0;
-      const record={route,width,height,font,theme,skin,issues,...(reader?{readerHeight:Math.round(reader)}:{})};observations.push(record);
+      const record={route,width,height,font,theme,skin,workspace,issues,...(reader?{readerHeight:Math.round(reader)}:{})};observations.push(record);
       if(issues.length)failures.push(record);
       if(width===1360||issues.length||['/','/music','/settings','/community/voice','/community/linking'].includes(route)){
         const name=route.replace(/[^a-z0-9-]/gi,'_')||'home';

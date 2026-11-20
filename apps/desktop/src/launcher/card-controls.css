@@ -6,8 +6,8 @@
 .board-actions,.board-toolbar,.board-card-heading,.board-editor-tools,.board-away {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .board-toolbar {justify-content:flex-end;margin:0 0 9px;min-width:0}
 .board-toolbar>strong,.board-card-heading>h2,.board-editor-tools>span,.board-away>span {margin-right:auto}
-.game-board>.desk-card>header {gap:8px}
-.game-board>.desk-card>header>h2 {margin-right:auto}
+.game-board .desk-card>header {gap:8px}
+.game-board .desk-card>header>h2 {margin-right:auto}
 .card-options {display:inline-grid;place-items:center;flex:none;border:0;background:transparent;color:var(--desk-muted);width:26px;height:26px;padding:0;border-radius:var(--control-radius);cursor:pointer}
 .card-options:hover {background:var(--accent-soft);color:var(--accent-text)}
 .board-card-heading {flex-wrap:nowrap;padding:9px var(--panel-pad);border-bottom:1px solid var(--edge);min-width:0}

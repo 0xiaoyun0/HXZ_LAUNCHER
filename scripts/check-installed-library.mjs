@@ -60,14 +60,19 @@ try{
   await page.locator('.home-server-list a').last().click();
   await page.locator('.default-server-card').first().waitFor();
   await page.screenshot({path:'.preview/installed-library-servers.png',animations:'disabled'});
+  const {verifyWorkspaces}=await import('./desktop-workspaces.mjs');await verifyWorkspaces(page,'.preview');
   const {verifyCustomization}=await import('./desktop-customization.mjs');await verifyCustomization(page,'.preview');
   const oldLook=await page.evaluate(async()=>(await window.launcher.invoke('profile.look')).value);
   if(oldLook?.available){
-    await page.getByRole('link',{name:'外观',exact:true}).click();await page.getByRole('button',{name:'接回旧版外观'}).click();await page.getByRole('button',{name:'应用旧版外观'}).click();
+    await page.getByRole('link',{name:'外观',exact:true}).click();await page.getByRole('button',{name:'壁纸',exact:true}).click();await page.getByRole('button',{name:'接回旧版壁纸'}).click();await page.getByRole('button',{name:'应用旧版壁纸'}).click();
     await page.waitForFunction(()=>document.documentElement.style.getPropertyValue('--pane-radius')!=='');
     if(oldLook.kind==='动态壁纸'){
       await page.waitForFunction(()=>document.querySelector('.launcher-wallpaper video')?.videoWidth>0);
       const video=page.locator('.launcher-wallpaper video');assert.ok(await video.evaluate(el=>el.muted));
+      const originalVideo=await video.getAttribute('src');await page.getByRole('button',{name:'颜色与窗格',exact:true}).click();
+      await page.getByRole('button',{name:'使用纸上工坊'}).click();await page.getByRole('button',{name:'工作台',exact:true}).click();await page.getByRole('button',{name:'使用实例控制台'}).click();
+      await page.reload();await page.waitForFunction(()=>document.querySelector('.launcher-wallpaper video')?.videoWidth>0);assert.equal(await video.getAttribute('src'),originalVideo);
+      await page.getByRole('button',{name:'使用经典工作台'}).click();
       await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.launcher-wallpaper video')?.paused);
     }
     console.log('本机旧版外观',oldLook.kind,oldLook.radius+'px',oldLook.opacity+'%');

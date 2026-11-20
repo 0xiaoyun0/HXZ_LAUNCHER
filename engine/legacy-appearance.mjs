@@ -21,7 +21,9 @@ export async function legacyCardPackage(appData){
   const layout=readLayoutPackage({format:'hxz-card-layout',version:1,name:'本机 0.9.2 卡片布局',appearance:false,layout:{cardLayouts,cardPlacements,widgets}});
   return layout.counts.pages||layout.counts.widgets||layout.counts.moved?layout:null;
 }
-export async function legacyAppearance(appData,home,service,apply=false){
+export async function legacyAppearance(appData,home,service,apply=false,scope='all'){
+  if(!['all','surface','wallpaper'].includes(scope))throw Error('请选择要接回的外观项目');
+  const copyWallpaper=apply&&scope!=='surface';
   const source=await readOld(appData);if(!source)return {available:false};
   const {old,dir}=source;
   if(!old||typeof old!=='object'||!['theme','cardStyle','backgroundImage','backgroundVideo'].some(k=>Object.hasOwn(old,k)))return {available:false};
@@ -37,13 +39,18 @@ export async function legacyAppearance(appData,home,service,apply=false){
     const stat=await fs.lstat(source).catch(()=>null);
     if(stat?.isFile()&&stat.size>0&&stat.size<=(video?50:8)*1024*1024){
       await noLinks(source);kind=video?'动态壁纸':'图片壁纸';missing=false;
-      if(apply)appearance[video?'backgroundVideo':'backgroundImage']=await cacheWallpaper(home,await fs.readFile(source),ext);
+      if(copyWallpaper)appearance[video?'backgroundVideo':'backgroundImage']=await cacheWallpaper(home,await fs.readFile(source),ext);
     }
   }else if(typeof ref==='string'&&ref.length<=12*1024*1024){
     const match=/^data:image\/(png|jpeg|webp);base64,([a-z0-9+/=]+)$/i.exec(ref);
-    if(match){kind='图片壁纸';missing=false;if(apply)appearance.backgroundImage=await cacheWallpaper(home,Buffer.from(match[2],'base64'),match[1]);}
+    if(match){kind='图片壁纸';missing=false;if(copyWallpaper)appearance.backgroundImage=await cacheWallpaper(home,Buffer.from(match[2],'base64'),match[1]);}
   }
   const preview={available:true,kind,missing,radius:card.radius,opacity:Math.round(card.opacity*100)};
-  if(apply)await service.invoke('settings.save',{themeChange:{op:'legacy',appearance}});
+  if(apply){
+    const {theme,accentColor,cardStyle,desktopBackdrop,...background}=appearance;
+    const patch=scope==='wallpaper'?{}:{themeChange:{op:'legacy',appearance:{theme,accentColor,cardStyle}}};
+    if(copyWallpaper&&!missing)Object.assign(patch,background,{wallpaperMode:background.backgroundVideo?'video':background.backgroundImage?'image':'plain',wallpaperImageSource:'file'});
+    if(Object.keys(patch).length)await service.invoke('settings.save',patch);
+  }
   return preview;
 }

@@ -40,7 +40,7 @@ const updater=Promise.all([engine,fs.access(path.join(resources,'../../installed
 const extension=communityExtension({home,choose,resources,definition:__HXZ_COMMUNITY_EXTENSION__,emit});
 const local={
   'profile.cards':()=>legacyCardPackage(previousAppData),
-  'profile.look':async input=>legacyAppearance(previousAppData,home,await engine,input?.apply===true),
+  'profile.look':async input=>legacyAppearance(previousAppData,home,await engine,input?.apply===true,input?.scope),
   'launcher.releases':()=>launcherReleases(),
   'support.ticket':async input=>supportRequest(async()=>(await engine).invoke('community.connect'),input),
   'external.open':input=>host('url.open',input),

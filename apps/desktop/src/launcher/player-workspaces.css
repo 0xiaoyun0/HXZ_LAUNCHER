@@ -1,0 +1,122 @@
+/* Workspace geometry, materials and media can each be changed on their own. */
+.launcher-content {scrollbar-gutter:stable}
+[data-skin] .launcher-wallpaper {background-image:none}
+.launcher-wallpaper:has(:is(img,video))::after {background:rgba(var(--canvas-rgb),var(--wall-protection,.13))}
+.launcher-frame .launcher-brand {gap:10px}
+.launcher-content .launch-title h1,.launcher-content .library-location h1 {letter-spacing:-.035em}
+.launcher-content .game-home .launch-title h1 {font-size:clamp(1.5rem,2vw,1.95rem);line-height:1.25}
+.game-home .launch-title {margin-bottom:clamp(15px,1.5vw,24px)}
+.game-board .desk-card>header h2 {font-size:.96rem;line-height:1.5;font-weight:680}
+.game-board .desk-card>header h2 svg {color:var(--pane-link,var(--accent-text))}
+.game-board .desk-card>header {margin-bottom:13px}
+.game-board .home-role {margin-block:16px}
+.game-board .time-periods dd {font-size:clamp(1.05rem,1.45vw,1.4rem)}
+.home-quick-links {display:flex;flex-wrap:wrap;gap:7px;margin:0 0 var(--desk-gap)}
+.home-quick-links a {display:flex;align-items:center;gap:8px;min-height:var(--control-height);padding:5px 12px;background:var(--theme-pane);
+  color:var(--pane-fg,var(--desk-ink));border:1px solid var(--edge);border-radius:var(--control-radius);text-decoration:none;font-size:.82rem}
+.home-quick-links a:hover {border-color:var(--accent-text)}
+.home-quick-links a svg:last-child {color:var(--pane-link,var(--accent-text))}
+[data-skin] .game-board .featured-game,[data-skin] .launcher-frame .featured-game.focused:hover {
+  position:relative;isolation:isolate;overflow:hidden;margin:0 0 13px;min-height:90px;gap:12px;padding:14px clamp(12px,1.6vw,24px);
+  border:1px solid var(--accent-border);border-radius:var(--desk-radius);box-shadow:none;
+  background:linear-gradient(110deg,color-mix(in srgb,var(--accent) 14%,var(--solid)),color-mix(in srgb,var(--accent) 4%,var(--solid)))}
+.featured-game::after {content:"";position:absolute;right:4%;top:-74px;width:180px;height:180px;transform:rotate(-28deg);border:1px solid var(--accent-border);opacity:.32;border-radius:30px;pointer-events:none;z-index:-1}
+.featured-game .instance-info {flex:1 1 6rem;gap:clamp(8px,1.1vw,16px);min-width:0;text-align:left}
+.game-board .featured-game .pack-emblem {width:clamp(36px,4.1vw,56px);height:auto;aspect-ratio:1;flex:none}
+.game-board .featured-game .pack-emblem svg {width:100%;height:100%}
+.game-board .featured-game .instance-info strong {font-size:clamp(1.04rem,1.65vw,1.5rem);line-height:1.35}
+.featured-game .instance-info .resume-caption {display:flex;align-items:center;gap:5px;font-size:.73rem;color:var(--accent-text);font-weight:600;margin-bottom:3px}
+.game-board .featured-game .launch-primary {min-height:38px;flex:none}
+.game-board .featured-game .instance-info :is(strong,small) {color:var(--desk-ink)}
+.game-board .featured-game .instance-info small {color:var(--desk-muted)}
+[data-workspace=library] .launcher-bar nav a.active {border-radius:6px;box-shadow:inset 0 -2px var(--accent)}
+[data-workspace=library] .desk-instance-list {gap:0}
+[data-workspace=library] .desk-instance-list .home-instance-row {min-height:43px;padding-block:5px;border-bottom:1px solid var(--edge);border-radius:0}
+.instance-filters {display:flex;flex-wrap:wrap;gap:4px;margin-top:12px}
+.instance-filters button,.appearance-navigation button {background:transparent;color:var(--desk-muted);font:inherit;cursor:pointer;border:1px solid transparent}
+.instance-filters button {padding:4px 10px;font-size:.79rem;border-radius:var(--control-radius)}
+.instance-filters button[aria-pressed=true] {color:var(--pane-link,var(--accent-text));background:var(--accent-soft);border-color:var(--accent-border)}
+[data-workspace=journal] .game-home .launch-title h1,[data-workspace=journal] .time-periods dd {font-family:Georgia,"Songti SC","SimSun",serif}
+[data-workspace=journal] .calendar-chart {--day-height:clamp(10px,1.05vw,17px)}
+.journal-entries {margin-top:15px;border-top:1px solid var(--edge);padding-top:12px}
+.journal-entries h3 {font-size:.86rem;margin:0 0 6px}
+.journal-entries a {display:flex;gap:10px;align-items:center;padding:7px 0;color:var(--pane-fg,var(--desk-ink));font-size:.8rem;text-decoration:none}
+.journal-entries a time {margin-right:auto;font-variant-numeric:tabular-nums}
+.journal-entries a:hover {text-decoration:underline}
+.game-board[data-columns] {grid-template-areas:none}
+.board-column {min-width:0;display:flex;flex-direction:column;gap:var(--desk-gap)}
+@container workspace (min-width:54.01em) {
+  [data-workspace=library] .game-board[data-columns] {grid-template-columns:minmax(0,1.85fr) minmax(16rem,1fr);grid-template-areas:none}
+  [data-workspace=journal] .game-board[data-columns] {grid-template-columns:minmax(18rem,.88fr) minmax(0,1.12fr);grid-template-areas:none}
+}
+@container workspace (max-width:54em) {
+  .game-board .featured-game {min-height:72px}
+}
+@container (max-width:460px) {
+  .game-board .featured-game {gap:6px;padding:9px}
+  .game-board .featured-game .instance-info {gap:6px}
+  .game-board .featured-game .launch-primary {padding-inline:8px}
+}
+.launcher-frame .library-view {min-height:var(--control-height);max-width:100%;font:inherit;font-size:.82rem;color:var(--foreground);background:var(--solid);border:1px solid var(--edge);border-radius:var(--control-radius);padding:4px 7px}
+.launcher-frame .direct-game-grid[data-view=list] {display:flex;flex-direction:column;gap:6px}
+.direct-game-grid[data-view=list] .direct-game-card {display:grid;grid-template-columns:minmax(0,1fr) minmax(8rem,.46fr) auto auto;grid-template-areas:"identity status actions menu";align-items:center;gap:8px 14px;min-height:0;height:auto;padding:8px 12px}
+.direct-game-grid[data-view=list] .game-card-head {grid-area:menu;display:flex;justify-content:flex-end;margin:0;padding:0}
+.direct-game-grid[data-view=list] .game-source {display:none}
+.direct-game-grid[data-view=list] .game-identity {grid-area:identity;min-height:0;padding:0;text-align:left;gap:10px;display:flex;flex-direction:row;align-items:center}
+.direct-game-grid[data-view=list] .game-identity .pack-emblem,.direct-game-grid[data-view=list] .pack-emblem svg {width:38px;height:38px;margin:0;flex:none}
+.direct-game-grid[data-view=list] .game-identity h2 {margin:0;font-size:.98rem}
+.direct-game-grid[data-view=list] .game-version-tags {margin:2px 0 0}
+.direct-game-grid[data-view=list] .game-card-status {grid-area:status;margin:0;font-size:.78rem}
+.direct-game-grid[data-view=list] .game-card-bottom {grid-area:actions;display:flex;align-items:center;gap:5px;margin:0;padding:0;border:0;background:transparent}
+.direct-game-grid[data-view=list] .add-game-card {min-height:var(--control-height);padding:8px 12px;display:flex;align-items:center;flex-direction:row;gap:8px}
+.direct-game-grid[data-view=list] .add-game-card>span {width:auto;height:auto}
+@container workspace (max-width:57em) {
+  .direct-game-grid[data-view=list] .direct-game-card {grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:"identity actions menu" "status actions menu";gap:3px 8px}
+}
+.music-page .desktop-panel:has(.player-now) {container-type:inline-size}
+.music-page .player-now>svg {padding:7px;width:40px;height:40px;border-radius:var(--control-radius);background:var(--accent-soft);color:var(--accent-text)}
+@container (max-width:470px) {
+  .music-page .player-now {grid-template-columns:auto minmax(0,1fr)}
+  .music-page .player-now .play-buttons {grid-column:1/-1;justify-content:center}
+}
+.appearance-navigation {position:static;display:flex;flex-wrap:wrap;align-items:center;gap:5px;width:fit-content;max-width:100%;padding:4px;border:1px solid var(--edge);border-radius:var(--desk-radius);background:var(--chrome)}
+.appearance-navigation button {display:flex;align-items:center;justify-content:center;gap:6px;padding:7px 13px;min-height:34px;border-radius:var(--control-radius);font-size:.87rem}
+.appearance-navigation button[aria-current=page] {color:var(--accent-text);background:var(--solid);border-color:var(--accent-border);box-shadow:0 1px 3px var(--shade);font-weight:650}
+.workspace-picker>h2 {display:flex;align-items:center;justify-content:space-between;gap:10px}
+.workspace-picker>h2 .text-action {color:var(--pane-link,var(--accent-text));min-height:30px}
+.workspace-choices {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10.2rem),1fr));gap:10px;padding:var(--panel-pad)}
+.workspace-choice {min-width:0;text-align:left;cursor:pointer;color:var(--desk-ink);font:inherit;border:1px solid var(--edge);border-radius:var(--control-radius);padding:8px 8px 12px;background:var(--solid)}
+.workspace-choice[aria-pressed=true],.artwork-shelf button[aria-pressed=true],.wallpaper-modes button[aria-pressed=true] {border-color:var(--accent-text);box-shadow:0 0 0 1px var(--accent-border)}
+.workspace-choice:hover,.wallpaper-modes button:hover,.artwork-shelf button:hover {border-color:var(--accent-border)}
+.workspace-choice .choice-title {display:flex;align-items:center;gap:6px;padding:10px 4px 0;font-size:.92rem}
+.choice-title svg:first-child {color:var(--accent-text);flex:none}
+.choice-title svg:last-child:not(:first-child) {margin-left:auto;color:var(--accent-text);flex:none}
+.workspace-choice small {display:block;padding:4px 4px 0;color:var(--desk-muted);font-size:.76rem;line-height:1.55}
+.workspace-diagram {display:flex;flex-direction:column;margin:auto;height:81px;max-width:100%;border-radius:4px;padding:8px 10px;background:color-mix(in srgb,var(--accent) 8%,var(--solid));border:1px solid var(--edge)}
+.diagram-chrome {height:9px;display:flex;align-items:start;gap:3px}
+.diagram-chrome i {width:3px;height:3px;border-radius:50%;background:var(--accent-text);opacity:.55}
+.diagram-grid {flex:1;display:grid;grid-template-columns:1fr 2fr;grid-template-rows:repeat(3,1fr);gap:3px;grid-template-areas:"role games" "servers games" "detail days"}
+.diagram-grid i {background:var(--solid);border:1px solid var(--edge);border-radius:3px}
+.diagram-grid i:nth-child(1) {grid-area:games;background:color-mix(in srgb,var(--accent) 24%,var(--solid));border-color:var(--accent-border)}
+.diagram-grid i:nth-child(2) {grid-area:role}.diagram-grid i:nth-child(3) {grid-area:servers}.diagram-grid i:nth-child(4) {grid-area:detail}.diagram-grid i:nth-child(5) {grid-area:days}
+[data-layout=library] .diagram-grid {grid-template-columns:1.85fr 1fr;grid-template-areas:"games detail" "games role" "days servers"}
+[data-layout=journal] .diagram-grid {grid-template-columns:.88fr 1.12fr;grid-template-areas:"games days" "role detail" "servers detail"}
+[data-layout=journal] .diagram-grid i:nth-child(5) {background:color-mix(in srgb,var(--accent) 18%,var(--solid))}
+.module-options {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr));gap:0 22px;padding:0 var(--panel-pad)}
+.module-setting {display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px 0;border-bottom:1px solid var(--edge);font-size:.87rem;cursor:pointer}
+.module-setting small {display:block;margin-top:3px;color:var(--pane-muted,var(--desk-muted));font-size:.78rem;line-height:1.5}
+.module-setting input {appearance:none;flex:none;width:34px;height:20px;margin:0;border:1px solid var(--edge);border-radius:12px;background:var(--cell);cursor:pointer}
+.module-setting input::before {content:"";display:block;background:var(--desk-muted);width:12px;height:12px;margin:3px;border-radius:50%}
+.module-setting input:checked {background:var(--accent);border-color:var(--accent)}
+.module-setting input:checked::before {transform:translateX(13px);background:var(--accent-ink)}
+.wallpaper-modes,.artwork-shelf {display:flex;flex-wrap:wrap;gap:9px;padding:0 var(--panel-pad) var(--panel-pad)}
+.wallpaper-modes button,.artwork-shelf button {display:flex;align-items:center;gap:8px;font:inherit;font-size:.86rem;color:var(--desk-ink);background:var(--solid);border:1px solid var(--edge);border-radius:var(--control-radius);cursor:pointer}
+.wallpaper-modes button {min-height:38px;padding:7px 12px}
+.artwork-shelf button {min-width:0;width:clamp(95px,25%,165px);padding:4px;flex-direction:column;justify-content:center;gap:2px}
+.artwork-shelf img {width:100%;aspect-ratio:2.5;object-fit:cover;border-radius:3px}
+.artwork-shelf span {display:flex;align-items:center;gap:6px;padding:5px}
+.wallpaper-recovery {display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px var(--panel-pad);padding:10px;border:1px solid var(--accent-border);border-radius:var(--control-radius);font-size:.85rem}
+.design-choice[data-design=town] .design-sample {background:linear-gradient(130deg,#b6c2ea,#e9eef9)}
+.design-choice[data-design=observatory] .design-sample {background:linear-gradient(130deg,#172f3d,#35605f)}
+.launcher-frame :is(.workspace-choice,.module-setting input,.wallpaper-modes button,.appearance-navigation button,.artwork-shelf button,.instance-filters button):focus-visible {outline:2px solid var(--accent-text);outline-offset:2px}
+@media (forced-colors:active) {.module-setting input {appearance:auto}.module-setting input::before {display:none}.workspace-choice[aria-pressed=true],.appearance-navigation button[aria-current=page] {outline:2px solid Highlight}}

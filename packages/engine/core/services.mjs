@@ -1,4 +1,6 @@
 import {DEFAULT_DESKTOP_THEME,changeDesktopTheme,themeBook} from './desktop-themes.mjs';
+import {WALLPAPER_DEFAULTS,wallpaperPatch,wallpaperPreferences} from './desktop-wallpaper.mjs';
+import {workspaceLayout,workspacePatch} from './desktop-workspace.mjs';
 import {managedUpdateConfig} from './managed-update.mjs';
 import {installationRequest} from './install-request.mjs';
 import {downloadNodeStatus,probeDownloadNodes,cancelNodeProbe} from './source-health.mjs';
@@ -32,7 +34,7 @@ import {inspectWorldArchive,extractWorldArchive,exportWorld,putWorldReceipt} fro
 import {readLayoutPackage,exportLayoutPackage,applyLayoutPackage,LAYOUT_LIMIT} from './layout-package.mjs';
 import {addonWorlds,addonSearch,addonInstall,modDetails} from './addons.mjs';
 import {INSTANCE_FILE_TYPES,instanceFilePaths,listInstanceFiles,toggleInstanceFile,importInstanceFiles,removeInstanceFile} from './instance-files.mjs';
-import {cacheWallpaper,importMedia,mediaReference,mediaPath} from './media.mjs';
+import {importMedia,mediaReference,mediaPath} from './media.mjs';
 import {crashReport,diagnosticText,redactDiagnostic} from "./diagnostics.mjs";
 import {javaPathArgument, systemArchitecture} from "./platform.mjs";
 import {createPresetCatalog} from "./server-presets.mjs";
@@ -83,7 +85,7 @@ const SKIN = "https://skin.hxzmc.top/api/yggdrasil";
 const APPEARANCE_VERSION = 2;
 // Presentation and voice settings do not change files owned by the active task.
 const LIVE_SETTINGS = new Set([
-  'themeChange','desktopBackdrop',
+  'themeChange','desktopBackdrop','wallpaperMode','wallpaperImageSource','workspaceLayout','workspaceModules','workspaceShelf','libraryView',
   'keepLauncherAvailable','autoReportErrors','autoCheckUpdates','instancesCollapsed','theme','fontSize','accentColor',
   'backgroundColor','backgroundImage','backgroundOpacity','backgroundPositionX',
   'backgroundPositionY','backgroundFit','backgroundVideo','backgroundMusic',
@@ -125,16 +127,11 @@ export async function createServices({
     theme: "light",
     fontSize: 16,
     accentColor: DEFAULT_DESKTOP_THEME.accent,
-    desktopThemes: {active:DEFAULT_DESKTOP_THEME.id,entries:[]},desktopBackdrop:"scene",
+    desktopThemes: {active:DEFAULT_DESKTOP_THEME.id,entries:[]},desktopBackdrop:"plain",
+    ...WALLPAPER_DEFAULTS,workspaceLayout:'classic',workspaceModules:{},workspaceShelf:null,libraryView:'auto',
     cardLayouts: {},cardPlacements:{},widgets:[],shortcuts:{},shortcutEnabled:true,voiceOverlay:false,gameWindowAction:'minimize',gameSleep:true,memoryOptimization:true,onboardingDone:false,onboardingVersion:0,
     cardStyle: {color:'',opacity:DEFAULT_DESKTOP_THEME.opacity,gap:14,radius:DEFAULT_DESKTOP_THEME.radius},
-    backgroundColor: "",
-    blueprintInstance:"",showCover:true,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,musicPlayMode:"list",videoQuality:"balanced",animationSpeed:1,
-    backgroundImage: "",
-    backgroundOpacity: DEFAULT_DESKTOP_THEME.strength,
-    backgroundPositionX: 50,
-    backgroundPositionY: 50,
-    backgroundFit: "cover",
+    blueprintInstance:"",showCover:true,defaultCover:"",backgroundMusic:"",musicVolume:0.3,musicPlayMode:"list",videoQuality:"balanced",animationSpeed:1,
     layout: "standard",
     downloadMode: "official",
     fecEnabled: true,
@@ -168,8 +165,11 @@ export async function createServices({
     instanceSettings: {}
   };
   const preferenceKeys = new Set(Object.keys(settings));
-  if (await exists(configFile))
-    settings = { ...settings, ...(await json(configFile)) };
+  if (await exists(configFile)){
+    const prior=await json(configFile);
+    settings={...settings,...prior,...wallpaperPreferences({desktopBackdrop:prior.desktopThemes?'scene':'plain',...prior}),
+      workspaceLayout:workspaceLayout(prior.workspaceLayout).id};
+  }
   settings.shortcuts=migrateShortcuts(settings.shortcuts);
   if (!settings.gameRoot) {
     const installed=await initialLibrary?.();
@@ -1305,9 +1305,10 @@ export async function createServices({
       if(r.canceled)return null;return importMedia(data,r.filePaths[0],kind);
     },
     async "background.choose"(input={}) {
-      if(input.kind==='wallpaper'){
-        const result=await dialog.showOpenDialog(window(),{properties:['openFile'],filters:[{name:'桌面壁纸',extensions:['png','jpg','jpeg','webp','mp4','webm']}]});
-        return result.canceled?null:importMedia(data,result.filePaths[0],'visual');
+      if(['wallpaper','image','video'].includes(input.kind)){
+        const extensions=input.kind==='image'?['png','jpg','jpeg','webp']:input.kind==='video'?['mp4','webm']:['png','jpg','jpeg','webp','mp4','webm'];
+        const result=await dialog.showOpenDialog(window(),{properties:['openFile'],filters:[{name:input.kind==='video'?'动态壁纸':'桌面壁纸',extensions}]});
+        return result.canceled?null:importMedia(data,result.filePaths[0],input.kind);
       }
       const r = await dialog.showOpenDialog(window(), {
         properties: ["openFile"],
@@ -1362,11 +1363,9 @@ export async function createServices({
     async "settings.save"(input, imported, previousGame) {
       if (Object.keys(input).some(k => !LIVE_SETTINGS.has(k))) busy();
       const nextSettings={...settings,columns:Object.fromEntries(Object.entries(settings.columns).map(([key,value])=>[key,{...value}])),instanceSettings:{...settings.instanceSettings}};
+      Object.assign(nextSettings,workspacePatch(settings,input),wallpaperPatch(settings,input));
       if(input.themeChange){
-        let source=settings;
-        const inline=typeof settings.backgroundImage==='string'&&/^data:image\/(png|jpeg|webp);base64,([a-z0-9+/=]+)$/i.exec(settings.backgroundImage);
-        if(inline)source={...settings,backgroundImage:await cacheWallpaper(data,Buffer.from(inline[2],'base64'),inline[1])};
-        const look=changeDesktopTheme(source,input.themeChange);
+        const look=changeDesktopTheme(settings,input.themeChange);
         nextSettings.desktopThemes=look.desktopThemes;input={...input,...look};
       }
       if(input.desktopBackdrop!=null){
@@ -1394,8 +1393,7 @@ export async function createServices({
         }
       for(const key of ['backgroundVideo','defaultCover','backgroundMusic']){
         const value=input[key];if(value==null)continue;
-        const savedWallpaper=key==='backgroundVideo'&&input.themeChange?.op==='select';
-        if(value&&(!mediaReference(value)||(!savedWallpaper&&!await exists(mediaPath(data,value)))))throw Error('媒体文件无效或已删除');
+        if(value&&(!mediaReference(value)||(key==='backgroundVideo'&&!/\.(mp4|webm)$/i.test(value))||!await exists(mediaPath(data,value))))throw Error('媒体文件无效或已删除');
         nextSettings[key]=value;
       }
       if(['original','balanced','efficient'].includes(input.videoQuality))nextSettings.videoQuality=input.videoQuality;
@@ -1406,7 +1404,7 @@ export async function createServices({
         if (input.backgroundImage.length > 12 * 1024 * 1024)
           throw Error("背景图片过大");
         if (
-          input.backgroundImage && !mediaReference(input.backgroundImage)&&
+          input.backgroundImage && !(mediaReference(input.backgroundImage)&&/\.(png|jpe?g|webp)$/i.test(input.backgroundImage))&&
           !/^data:image\/(png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(
             input.backgroundImage
           )

@@ -29,9 +29,9 @@
 .game-board>.home-servers-card {grid-area: servers}
 .game-board>.calendar-card {grid-area: calendar}
 .game-board>.home-detail-card {grid-area: detail}
-.game-board>.desk-card {min-width: 0; margin: 0; padding: var(--panel-pad)}
-.game-board>.instances-card {padding-bottom: 0}
-.game-board>.desk-card>footer {margin-inline: calc(-1 * var(--panel-pad)); padding-inline: var(--panel-pad)}
+.game-board .desk-card {min-width: 0; margin: 0; padding: var(--panel-pad)}
+.game-board .instances-card {padding-bottom: 0}
+.game-board .desk-card>footer {margin-inline: calc(-1 * var(--panel-pad)); padding-inline: var(--panel-pad)}
 .settings-switch {display: none}
 .social-workspace {max-width: none}
 .social-sections,.social-connection {

@@ -12,7 +12,7 @@ const AddWidget=lazy(()=>import('./Widgets').then(m=>({default:m.AddWidget})));
 const Widget=lazy(()=>import('./Widgets').then(m=>({default:m.Widget})));
 export const desktopCardSources=[['home','启动游戏'],['music','音乐播放器'],['install','安装游戏']];
 export type CardSpec={id:string;title:string;content:ReactNode;w?:number;x?:number;y?:number;h?:number;minW?:number;minH?:number;maxH?:number;className?:string;plain?:boolean;fit?:boolean;native?:boolean;origin?:{source:string;card:string;title:string;w?:number;minW?:number;widget?:boolean}};
-type Props={id:string;cards:CardSpec[];label?:string;pageTitle?:boolean;className?:string;transient?:boolean;home?:boolean;actions?:ReactNode};
+type Props={id:string;cards:CardSpec[];label?:string;pageTitle?:boolean;className?:string;transient?:boolean;home?:boolean;layoutKey?:string;columns?:string[][];beforeCards?:ReactNode;actions?:ReactNode};
 const CardControls=createContext<{show:(id:string)=>void;id:string;title:string}|null>(null);
 export function CardMenu(){
   const card=useContext(CardControls);
@@ -25,7 +25,7 @@ export function CardBoard(props:Props){
   const harvest=useContext(CardHarvest);
   return harvest?<HarvestedCards source={props.id} cards={props.cards}/>:<PlayerBoard {...props}/>;
 }
-function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,actions,transient=false}:Props){
+function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,actions,beforeCards,columns,layoutKey=id,transient=false}:Props){
   const s=useSnapshot(state),root=useRef<HTMLDivElement>(null),[compact,setCompact]=useState(false);
   const [manage,setManage]=useState(false),[target,setTarget]=useState(''),[add,setAdd]=useState(false),[busy,setBusy]=useState(false);
   const [undo,setUndo]=useState<{key:string;value:any}|null>(null),[drag,setDrag]=useState(''),[local,setLocal]=useState<any>();
@@ -36,7 +36,7 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
     const measure=()=>setCompact(main.clientWidth<=54*parseFloat(getComputedStyle(main).fontSize)||el.clientWidth<=590);
     measure();const observer=new ResizeObserver(measure);observer.observe(el);observer.observe(main);return()=>observer.disconnect();
   },[s.settings.fontSize]);
-  const key=id+(compact?'.compact':'.wide'),stored=transient?local:s.settings.cardLayouts?.[key];
+  const key=layoutKey+(compact?'.compact':'.wide'),stored=transient?local:s.settings.cardLayouts?.[key];
   const transferable=desktopCardSources.some(([board])=>board===id),supportsWidgets=CARD_PAGES.some(([board])=>board===id);
   const canTravel=(source:string)=>desktopCardSources.some(([b])=>b===source);
   const placements=Object.values(normalizeCardPlacements(s.settings.cardPlacements)) as any[];
@@ -61,18 +61,22 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
   }
   const modify=(command:any)=>write(old=>updateBoard(specs,old,command));
   const open=<>{editing&&<button className="launch-primary" onClick={()=>perform(async()=>{await ui.layoutUnsaved?.save();setEditing(false);})}><Check size={15}/>完成整理</button>}<button className="small-action board-launch" onClick={()=>show()}><LayoutGrid size={15}/>卡片</button></>;
-  return <div ref={root} className={'desktop-panels '+className} data-board={id}>
-    {pageTitle?<header className="launch-title"><h1>{label}</h1><div className="board-actions">{actions}{open}</div></header>:
-      <div className="board-toolbar">{label&&<strong>{label}</strong>}{actions}{open}</div>}
-    <div className={home?'game-board':'desktop-panel-grid'} data-custom={custom||undefined} data-editing={editing||undefined}>
-      {visible.map(row=>{
+  const renderCard=(row:typeof rows[number])=>{
         const {id:cardId,title}=row,span=Math.max(row.minW||2,row.w);
         return <section key={cardId} data-card-id={cardId} data-size={span<=6?'narrow':'wide'} data-fixed={row.fixed||undefined} aria-label={title||undefined}
           className={(home?'desk-card ':'desktop-panel ')+(row.className||'')} style={{'--panel-span':span,'--card-height':Math.max(170,row.h*22)+'px'} as CSSProperties}>
           <CardControls.Provider value={{id:cardId,title,show}}>
             {row.native?row.content:<><header className="board-card-heading"><h2>{title}</h2><CardMenu/></header><div className="desktop-panel-body">{row.content}</div></>}
           </CardControls.Provider>{editing&&!row.locked&&<CardGestures id={cardId} title={title} compact={compact} onEdit={modify} onChoose={()=>show(cardId)}/>}</section>;
-      })}
+
+  };
+  const grouped=columns&&!compact&&!custom&&!editing;
+  return <div ref={root} className={'desktop-panels '+className} data-board={id}>
+    {pageTitle?<header className="launch-title"><h1>{label}</h1><div className="board-actions">{actions}{open}</div></header>:
+      <div className="board-toolbar">{label&&<strong>{label}</strong>}{actions}{open}</div>}
+    {beforeCards}
+    <div className={home?'game-board':'desktop-panel-grid'} data-columns={grouped||undefined} data-custom={custom||undefined} data-editing={editing||undefined}>
+      {grouped?columns.map(group=><div key={group[0]} className="board-column">{group.map(id=>{const row=visible.find(item=>item.id===id);return row&&renderCard(row);})}</div>):visible.map(renderCard)}
     </div>
     {failure&&!manage&&<p role="alert">{failure}</p>}
     {!visible.length&&<div className="empty-board"><span>本页暂未显示卡片</span><button className="small-action" onClick={()=>show()}>选择卡片</button></div>}

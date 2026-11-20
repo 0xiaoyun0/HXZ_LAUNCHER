@@ -1,9 +1,9 @@
 import {normalizeCardStyle} from './card-layout.mjs';
 
 export const DESKTOP_THEMES = [
-  {id:'town',name:'小镇微光',caption:'暮色城镇 · 轻雾窗格',scene:'hero.webp',theme:'light',accent:'#5769b7',radius:20,opacity:.70,strength:.77},
-  {id:'observatory',name:'星海观测站',caption:'深蓝星图 · 青绿微光',scene:'adventure.webp',theme:'dark',accent:'#64c8b4',radius:14,opacity:.78,strength:.82},
-  {id:'paper',name:'纸上工坊',caption:'暖白纸色 · 实底细线',scene:'',theme:'light',accent:'#9a532e',radius:8,opacity:1,strength:.65},
+  {id:'town',name:'小镇微光',caption:'鸢尾蓝 · 圆角雾面',scene:'hero.webp',theme:'light',accent:'#5769b7',radius:20,opacity:.70,strength:.77},
+  {id:'observatory',name:'星海观测站',caption:'松石绿 · 深色玻璃',scene:'adventure.webp',theme:'dark',accent:'#64c8b4',radius:14,opacity:.78,strength:.82},
+  {id:'paper',name:'纸上工坊',caption:'暖砂色 · 实底细线',scene:'',theme:'light',accent:'#9a532e',radius:8,opacity:1,strength:.65},
 ];
 export const DEFAULT_DESKTOP_THEME=DESKTOP_THEMES[0];
 const preset=id=>DESKTOP_THEMES.find(item=>item.id===id);
@@ -21,9 +21,7 @@ export function activeDesign(settings){
   return preset(book.entries.find(entry=>entry.id===book.active)?.base)||preset(book.active)||DEFAULT_DESKTOP_THEME;
 }
 export function presetAppearance(base=DEFAULT_DESKTOP_THEME){
-  return {theme:base.theme,accentColor:base.accent,cardStyle:{color:'',opacity:base.opacity,radius:base.radius},
-    desktopBackdrop:base.scene?'scene':'plain',backgroundColor:'',backgroundImage:'',backgroundVideo:'',
-    backgroundOpacity:base.strength,backgroundPositionX:50,backgroundPositionY:50,backgroundFit:'cover'};
+  return {theme:base.theme,accentColor:base.accent,cardStyle:{color:'',opacity:base.opacity,radius:base.radius}};
 }
 export function captureAppearance(settings){
   const base=presetAppearance(activeDesign(settings)),card=normalizeCardStyle(settings.cardStyle||base.cardStyle);
@@ -46,15 +44,15 @@ export function changeDesktopTheme(settings,command){
       const name=String(command.name||'').trim();
       if(!name||name.length>32)throw Error('方案名称需要 1 至 32 个字符');
       if([...entries.values(),...DESKTOP_THEMES].some(item=>item.name===name))throw Error('已有同名外观方案，请换个名字');
-      id='custom-'+crypto.randomUUID();entries.set(id,{id,base:base.id,name,appearance:previous.appearance});break;
+      id='custom-'+crypto.randomUUID();entries.set(id,{id,base:base.id,name,appearance:captureAppearance(settings)});break;
     }
     case 'delete':
       if(!custom(id)&&id!==legacyId)throw Error('内置风格可以恢复默认外观');
       entries.delete(id);id=base.id;break;
-    case 'reset': entries.set(id,{...previous,appearance:presetAppearance(base)});break;
+    case 'reset': entries.set(id,{...previous,appearance:{...previous.appearance,...presetAppearance(base)}});break;
     case 'legacy': {
       id=legacyId;
-      entries.set(id,{id,base:'town',name:'我的 0.9.2',appearance:captureAppearance(command.appearance||{})});
+      entries.set(id,{...entries.get(id),id,base:'town',name:'我的 0.9.2',appearance:{...entries.get(id)?.appearance,...captureAppearance(command.appearance||{})}});
       break;
     }
     default:throw Error('无法识别这个外观操作');
@@ -65,12 +63,4 @@ export function changeDesktopTheme(settings,command){
   const raw=settings.desktopThemes?.entries;
   const unknown=Array.isArray(raw)?raw.filter(item=>!book.entries.includes(item)):[];
   return {...look,cardStyle:{...settings.cardStyle,...look.cardStyle},desktopThemes:{...book,active:id,entries:[...entries.values(),...unknown]}};
-}
-
-export function wallpaperSource(settings){
-  const raw=settings.backgroundVideo||settings.backgroundImage;
-  if(typeof raw!=='string'||!raw)return null;
-  if(/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=]+$/i.test(raw))return {url:raw,video:false};
-  const file=/^(?:hxz-media:\/\/local|http:\/\/hxz-media\.localhost)\/([a-f0-9-]{36}\.(?:png|jpe?g|webp|mp4|webm))$/.exec(raw);
-  return file?{url:'http://hxz-media.localhost/'+file[1],video:/\.(mp4|webm)$/.test(file[1])}:null;
 }

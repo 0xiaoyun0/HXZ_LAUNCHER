@@ -10,11 +10,12 @@ export const CARD_PAGES = [
 ];
 export const WIDGET_TYPES = ['note','clock','calendar','search','assistant','workflow','extension'];
 // Move preferences as a unit; the destination grid still enforces measured content minima.
-export function placeTransferredCard(layouts,card,target,current,drop){
+export function placeTransferredCard(layouts,card,target,current,drop,homeBoard='home'){
  const result={...layouts},sourceId=card.widget?'widget.'+card.card:current===card.source?card.card:'moved.'+card.source+'.'+card.card;
+ const fromBoard=current==='home'?homeBoard:current,toBoard=target==='home'?homeBoard:target;
  const targetId=card.widget?'widget.'+card.card:target===card.source?card.card:'moved.'+card.source+'.'+card.card;
  for(const mode of ['wide','compact']){
-  const from=layouts?.[current+'.'+mode],key=target+'.'+mode,original=layouts?.[key],existing=original?.items?.find(v=>v.i===targetId);
+  const from=layouts?.[fromBoard+'.'+mode],key=toBoard+'.'+mode,original=layouts?.[key],existing=original?.items?.find(v=>v.i===targetId);
   const before=from?.items?.find(v=>v.i===sourceId),w=Math.max(card.minW||3,Math.min(12,before?.w||card.w||6));
   // Returning a card restores the original slot. A pointer drop explicitly chooses a new one.
   const point=drop?.mode===mode?drop:null;

@@ -79,10 +79,10 @@
 }
 [data-skin] .launcher-content :is(.desk-card,.desktop-panel,.preference-section) a:not(.small-action,.button) {color:var(--pane-link,var(--accent-text))}
 [data-skin] .launcher-frame .small-action {color:var(--foreground)}
-[data-skin] .game-board>.desk-card {
+[data-skin] .game-board .desk-card {
   backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
 }
-[data-skin=paper] .game-board>.desk-card {backdrop-filter: none; -webkit-backdrop-filter: none}
+[data-skin=paper] .game-board .desk-card {backdrop-filter: none; -webkit-backdrop-filter: none}
 [data-skin] .game-board h2 {display: inline-flex; align-items: center; gap: 8px; line-height: 1.4}
 [data-skin] .game-board h2 svg {color: var(--accent-text); flex: none; stroke-width: 1.65}
 [data-skin] .game-home .launch-title h1 {font-size: 1.48rem; font-weight: 680; letter-spacing: .01em}
@@ -149,7 +149,7 @@
 .theme-form button {justify-self: end}
 @media (prefers-reduced-transparency: reduce) {
   :root[data-skin] {--theme-pane: rgb(var(--pane-rgb)); --chrome: rgb(var(--chrome-rgb)); --control: var(--solid)}
-  [data-skin] :is(.game-board>.desk-card,.launcher-bar,.launcher-status,.social-sections) {backdrop-filter: none}
+  [data-skin] :is(.game-board .desk-card,.launcher-bar,.launcher-status,.social-sections) {backdrop-filter: none}
 }
 @media (forced-colors: active) {
   [data-skin] .launcher-wallpaper {display: none}

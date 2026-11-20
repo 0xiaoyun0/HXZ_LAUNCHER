@@ -51,7 +51,7 @@ export function InstanceSummary({game}:{game:any}){
       <div className="desk-actions"><button className="small-action" onClick={()=>{ui.instance=game.id;ui.dialog='instance';}}><Settings2 size={15}/>实例配置</button><Link className="small-action" to={'/check?id='+encodeURIComponent(game.id)}><Stethoscope size={15}/>启动前检查</Link></div></>:<p>选择游戏实例后可查看配置。</p>}
     </>;
 }
-export function PlayCalendar(){
+export function PlayCalendar({journal=false}:{journal?:boolean}={}){
   const s=useSnapshot(state),[days,setDays]=useState<{date:string;seconds:number}[]>(),[failed,setFailed]=useState(false),[weeks,setWeeks]=useState(26);
   const refresh=useCallback(async()=>{try{const result=await invoke('game.playtime');setDays(result.days);setFailed(false);}catch{setFailed(true);}},[]);
   useEffect(()=>{void refresh();if(s.running){const tick=setInterval(refresh,5000);return ()=>clearInterval(tick);}},[s.running,refresh]);
@@ -68,6 +68,7 @@ export function PlayCalendar(){
     if(index===0?monthDay>20:monthDay>7)return [];
     return [{column:1+index/7,month:Number(date.slice(5,7))}];
   });
+  const recent=journal?(days||[]).filter(d=>d.seconds>0&&d.date<=today).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,3):[];
   function move(event:React.KeyboardEvent<HTMLAnchorElement>){
     const delta={ArrowUp:-1,ArrowDown:1,ArrowLeft:-7,ArrowRight:7}[event.key];
     if(!delta)return;event.preventDefault();
@@ -88,6 +89,6 @@ export function PlayCalendar(){
         if(date>today)return <i key={date} data-level="future"/>;
         return <Link key={date} tabIndex={date===today?0:-1} aria-label={date+' · '+playDuration(seconds)} onKeyDown={move} to={'/playtime?date='+date} title={date+' · '+playDuration(seconds)}><i data-level={seconds>=7200?3:seconds>=1800?2:seconds>0?1:0}/></Link>;
       })}</div>
-    </div></>}
+    </div>{journal&&recent.length>0&&<div className="journal-entries"><h3>最近游玩</h3>{recent.map(day=><Link key={day.date} to={'/playtime?date='+day.date}><time dateTime={day.date}>{day.date}</time><strong>{playDuration(day.seconds)}</strong><ChevronRight size={14}/></Link>)}</div>}</>}
   </>;
 }

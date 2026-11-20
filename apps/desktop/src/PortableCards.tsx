@@ -6,6 +6,7 @@ import {MoveUpRight,Grip,X} from 'lucide-react';
 import {state,ui,saveSettings,notify} from './model';
 import {Button,Modal} from './ui';
 import {CARD_PAGES,normalizeCardPlacements,normalizeWidgets,placeTransferredCard} from '../../../packages/engine/core/card-extras.mjs';
+import {homeLayoutKey} from '../../../packages/engine/core/desktop-workspace.mjs';
 import type {CardSpec} from './CardBoard';
 export const CardHarvest=createContext(false);
 type Move={source:string;card:string;title:string;w?:number;minW?:number;widget?:boolean};
@@ -32,7 +33,7 @@ export async function moveCard(card:Move,target:string,drop?:{x:number;y:number;
  if(ui.unsaved||ui.layoutUnsaved)throw Error('请先保存正在编辑的内容，再移动卡片');
  await saveSettings((s:any)=>{
   const current=card.widget?s.widgets?.find((w:any)=>w.id===card.card)?.page||card.source:normalizeCardPlacements(s.cardPlacements)[card.source+'.'+card.card]?.target||card.source;
-  const cardLayouts=placeTransferredCard(s.cardLayouts||{},card,target,current,drop);
+  const cardLayouts=placeTransferredCard(s.cardLayouts||{},card,target,current,drop,homeLayoutKey(s.workspaceLayout));
   if(card.widget)return {cardLayouts,widgets:normalizeWidgets((s.widgets||[]).map((v:any)=>v.id===card.card?{...v,page:target}:v))};
   const placements=normalizeCardPlacements(s.cardPlacements),key=card.source+'.'+card.card;
   if(card.source===target)delete placements[key];else placements[key]={source:card.source,card:card.card,title:card.title,w:card.w,minW:card.minW,target};
