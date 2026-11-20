@@ -1,5 +1,6 @@
 import {Link,useSearchParams} from 'react-router-dom';
 import {ServerOnline} from '../ServerOnline';
+import {DetailDialog} from '../ui';
 import {ServerMonitor} from '../Monitor';
 import {invoke,reload} from '../model';
 import {useState} from 'react';
@@ -17,6 +18,6 @@ export function Servers(){
     {message&&<p role={failed?'alert':'status'} className={failed?'inline-error':'muted'}>{message}{failed&&<> <Link to="/settings?section=network">检查服务地址</Link></>}</p>}
     <ServerOnline preferred={query.get('id')||''}/>
     <div className="desk-actions"><Link className="small-action" to="/community/worlds?section=whitelist">入服申请与进度</Link><Link className="small-action" to="/multiplayer">联机大厅</Link></div>
-    <details className="preference-more"><summary>服务监控与本机延迟</summary><ServerMonitor/></details>
+    <DetailDialog title="服务监控与本机延迟" wide><ServerMonitor/></DetailDialog>
   </section>;
 }

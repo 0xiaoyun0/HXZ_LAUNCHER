@@ -1,7 +1,9 @@
-import {lazy,Suspense,useEffect} from 'react';
-import {Link,NavLink,Route,Routes,useLocation,useNavigate,useSearchParams} from 'react-router-dom';
+import {lazy,Suspense,useEffect,useState} from 'react';
+import {Link,NavLink,Route,Routes,useLocation,useSearchParams} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
 import {account,state,ui,watchSettings} from '../model';
+import {LayoutGrid} from 'lucide-react';
+import {Modal} from '../ui';
 import {IssueHelp} from '../IssueHelp';
 import {playerError} from '../../../../packages/engine/core/player-errors.mjs';
 import {community,connect,disconnect} from '../../../../packages/community/client';
@@ -24,15 +26,22 @@ const Inventory=lazy(()=>import('../Inventory').then(m=>({default:m.InventoryCon
 const Shop=lazy(()=>import('../Shop').then(m=>({default:m.Shop})));
 
 export function Social(){
-  const s=useSnapshot(state),c=useSnapshot(community),role=account(s),location=useLocation(),go=useNavigate(),[params]=useSearchParams();
+  const s=useSnapshot(state),c=useSnapshot(community),role=account(s),location=useLocation(),[params]=useSearchParams();
   const active=communityPages.find(p=>p.path===location.pathname)||(location.pathname.startsWith('/community/forum/')?communityPages[1]:undefined);
   const title=active?.path==='/community'?'社区聊天':active?.path==='/community/forum'?'社区论坛':active?.label||'社区';
   const member=role?.authenticated&&!!role.uuid;
   useEffect(()=>{if(member)void connect();},[member,role?.id,role?.uuid,s.settings.communityUrl]);
-  const frequent=communityPages.slice(0,4),more=communityPages.slice(4);
+  const [directory,setDirectory]=useState(false);
+  const frequent=communityPages.filter(p=>p.group==='常用');
+  const groups=['交流与活动','记录与收藏','账户与服务'] as const;
+  const secondary=active&&!frequent.some(p=>p.path===active.path);
   return <section className={'social-workspace'+(active?.path==='/community/linking'?' social-archive':'')}>
     <nav className="social-sections" aria-label="社区导航">{frequent.map(p=><NavLink key={p.path} to={p.path} end={p.path==='/community'}><p.icon size={16} aria-hidden/>{p.label}</NavLink>)}
-      <select aria-label="更多社区功能" value={more.some(p=>p.path===active?.path)?active!.path:''} onChange={e=>go(e.target.value)}><option value="" disabled>更多社区功能</option>{more.map(p=><option key={p.path} value={p.path}>{p.label}</option>)}</select></nav>
+      <button type="button" className="small-action directory-launch" aria-haspopup="dialog" onClick={()=>setDirectory(true)}><LayoutGrid size={16}/>全部栏目</button>
+      {secondary&&<span className="social-current" aria-current="page"><active.icon size={16}/>{active.label}</span>}</nav>
+    <Modal open={directory} onClose={()=>setDirectory(false)} title="社区栏目">
+      <div className="community-directory">{groups.map(name=><section key={name}><h3>{name}</h3><div>{communityPages.filter(p=>p.group===name).map(p=><NavLink key={p.path} to={p.path} onClick={()=>setDirectory(false)}><p.icon size={16}/>{p.label}</NavLink>)}</div></section>)}</div>
+    </Modal>
     {!member?<div className="launch-page login-gate"><h1>{title}</h1><p>{role?.authenticated?'请先选择游戏角色。':'使用幻想镇账号登录后即可参与社区。'}</p>{role?.authenticated?<Link to="/account" className="small-action">选择角色</Link>:<button className="launch-primary" onClick={()=>ui.dialog='account'}>登录账号</button>}</div>:
     <>{!c.connected&&<div className="social-connection" role="status">{c.connecting?'正在连接社区…':<><IssueHelp issue={playerError(c.error||'社区连接已断开','community.connect')}/><button className="small-action" onClick={()=>void connect()}>重新连接</button></>}</div>}
       <Suspense fallback={<p className="launch-page" role="status">正在打开…</p>}>

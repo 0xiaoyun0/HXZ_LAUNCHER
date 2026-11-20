@@ -1391,12 +1391,12 @@ button {
 .motion-advanced {
   border-top: 1px solid #c1b8a7;
 }
-.motion-advanced summary {
-  cursor: pointer;
+.motion-advanced h4 {
+  margin: 0;
   font-size: 13px;
   padding: 15px 0;
 }
-.motion-advanced summary span {
+.motion-advanced h4 span {
   margin-left: 16px;
   font-size: 11px;
   color: #807866;

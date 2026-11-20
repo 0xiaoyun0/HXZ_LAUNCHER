@@ -10,7 +10,7 @@ export function projectUI(ctx,parent,value,change){
   const d=dialog(task?'更新任务':'新建任务'),canEdit=value.editable;
   const title=field(d.content,'任务或材料',task?.title||''),grid=el('div','','hub-form-grid');d.content.append(grid);title.disabled=!canEdit;
   const quantity=field(grid,'所需数量',task?.quantity||1,'number'),done=field(grid,'已完成数量',task?.done||0,'number'),assignee=select(grid,'负责人',[['','未分配'],...members.map(m=>[m.uid,m.name])],task?.assignee||'');
-  quantity.min='1';quantity.max='1000000';done.min='0';done.max=String(task?.quantity||1000000);quantity.disabled=!canEdit;grid.querySelector('.hub-select').disabled=!canEdit;
+  quantity.min='1';quantity.max='1000000';done.min='0';done.max=String(task?.quantity||1000000);quantity.disabled=!canEdit;assignee.disabled=!canEdit;
   const requestId=task?.id||crypto.randomUUID();
   d.footer.append(button('取消',d.close),button('保存任务',async()=>{await change('tasks',{id:requestId,revision:task?.revision||0,title:title.value,quantity:Number(quantity.value),done:Number(done.value),assignee:assignee.value});d.close();},true));
  }

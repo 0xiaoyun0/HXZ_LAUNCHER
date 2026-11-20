@@ -11,7 +11,7 @@ import {isActiveHubSection} from '../../server/shared/hub-visibility.mjs';
 const groups=[['游戏与活动',[['event','活动与赛事'],['servers','服务器服务'],['world','世界体验'],['program','一起看视频']]],['我的社区',[['space','玩家空间'],['saved','收藏与订阅'],['trades','玩家交易'],['whitelist','入服申请'],['appeal','申诉']]]];
 export const hubSectionName=section=>section==='workbench'?'社区管理':groups.flatMap(g=>g[1]).find(([key])=>key===section)?.[1]||'活动与赛事';
 export function mountHub(root,options){
- const cleanups=new Set();let alive=true,sequence=0,section=options.section||'event';const surface=createSurface({alive:()=>alive});
+ const cleanups=new Set();let alive=true,sequence=0,section=options.section||'event';const surface=createSurface({alive:()=>alive,inlineChoices:options.platform==='desktop'});
  const regions=options.regions||{board:root,nav:el('div'),summary:el('div')};let filter={query:'',scope:'public',offset:0};
  const ctx={...options,addCleanup:fn=>{cleanups.add(fn);return()=>cleanups.delete(fn);},copy:options.copy||((text)=>navigator.clipboard.writeText(text)),surface,alive:()=>alive,manager:false,api:(p,method='GET',input)=>options.request('/api/hub/'+p,method,input),refresh:()=>load()};
  const records=recordUI(ctx);ctx.openRecord=records.detail;const social=socialUI(ctx),game=gameUI(ctx);

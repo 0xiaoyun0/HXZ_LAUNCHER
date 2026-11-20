@@ -13,7 +13,7 @@ import {BookOpen,FolderOpen,ChevronRight,LifeBuoy} from 'lucide-react';
 import {account,chooseRoot,invoke,notify,perform,reload,saveSettings,state,ui} from '../model';
 import {DownloadPolicy,NetworkPreferences,RemovedInstances,RuntimePreferences} from './GamePreferences';
 import {LauncherUpdate} from '../LauncherUpdate';
-import {Avatar} from '../ui';
+import {Avatar,Select} from '../ui';
 export function Preferences(){
  const s=useSnapshot(state),settings=s.settings,[busy,setBusy]=useState(false);
  const action=(fn:()=>Promise<unknown>)=>perform(async()=>{setBusy(true);try{await fn();}finally{setBusy(false);}});
@@ -41,6 +41,6 @@ export function Preferences(){
 export function Identity(){
  const s=useSnapshot(state),selected=account(s);
  return <section className="launch-page"><header className="launch-title"><h1>账号与角色</h1><button className="small-action" onClick={()=>ui.dialog='account'}>{selected?'添加账号':'登录账号'}</button></header><div className="instance-lines">
- {s.accounts.map((a:any)=><div className="setting-line" key={a.id}><Avatar name={a.name||a.username} image={a.avatar} size={38}/><span><strong>{a.name||a.username}</strong><small>{a.id===selected?.id?'当前账号':'已保存的账号'}</small></span>{a.id!==selected?.id&&<button className="small-action" onClick={()=>perform(()=>saveSettings({selectedAccount:a.id}))}>切换账号</button>}{a.id===selected?.id&&a.profiles?.length>0&&<select aria-label="选择角色" value={a.uuid} onChange={e=>{const uuid=e.target.value;void perform(async()=>{await invoke('account.profile',{id:a.id,uuid});await reload();});}}>{!a.uuid&&<option value="" disabled>选择角色</option>}{a.profiles.map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select>}<button className="small-action" onClick={()=>{ui.confirm={title:'退出这个账号？',message:'此设备上的登录状态将被移除。',action:async()=>{await invoke('account.remove',{id:a.id});await reload();}};}}>退出</button></div>)}
+ {s.accounts.map((a:any)=><div className="setting-line" key={a.id}><Avatar name={a.name||a.username} image={a.avatar} size={38}/><span><strong>{a.name||a.username}</strong><small>{a.id===selected?.id?'当前账号':'已保存的账号'}</small></span>{a.id!==selected?.id&&<button className="small-action" onClick={()=>perform(()=>saveSettings({selectedAccount:a.id}))}>切换账号</button>}{a.id===selected?.id&&a.profiles?.length>0&&<Select label="选择角色" value={a.uuid} options={a.profiles.map((p:any)=>({value:p.id,label:p.name}))} onChange={async(uuid:string)=>{await invoke('account.profile',{id:a.id,uuid});await reload();}}/>}<button className="small-action" onClick={()=>{ui.confirm={title:'退出这个账号？',message:'此设备上的登录状态将被移除。',action:async()=>{await invoke('account.remove',{id:a.id});await reload();}};}}>退出</button></div>)}
  {!selected&&<div className="setting-line">使用幻想镇皮肤站账号登录，并选择游戏角色。</div>}</div><SkinConnection/><div className="desk-actions"><Link className="small-action" to="/support">我的工单</Link>{selected?.authenticated&&<><Link className="small-action" to="/community/wallet">我的积分</Link><Link className="small-action" to="/community/backpack">我的背包</Link></>}</div></section>;
 }

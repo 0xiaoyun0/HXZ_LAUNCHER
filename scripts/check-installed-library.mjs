@@ -105,6 +105,18 @@ try{
     await open.click();await preview.getByText('本机 0.9.2 卡片布局',{exact:true}).waitFor();await page.keyboard.press('Escape');assert.deepEqual(await readLayouts(),original);
     await open.click();await preview.getByRole('button',{name:'应用布局'}).click();await preview.waitFor({state:'hidden'});
     const merged=await readLayouts();for(const [key,layout] of Object.entries(oldCards.layout.cardLayouts))assert.deepEqual(merged[key],layout);
+    const appearancePath=await page.evaluate(()=>location.hash);
+    for(const [route,card] of [['/workshop/sources','nodes'],['/multiplayer','network']]){
+      await page.evaluate(route=>{location.hash=route;},route);
+      if(card==='network'){await page.locator('.login-gate').getByRole('button',{name:'登录账号'}).waitFor();continue;}
+      const panel=page.locator('[data-card-id="'+card+'"]');await panel.waitFor();await panel.locator('.desktop-panel-body').waitFor();
+      assert.equal(await panel.getAttribute('data-fixed'),null);
+      if(card==='nodes')await panel.locator('.source-pages').waitFor();
+      assert.ok(await panel.evaluate(el=>{const body=el.querySelector('.desktop-panel-body');return Math.abs(el.getBoundingClientRect().bottom-body.getBoundingClientRect().bottom)<5;}),'旧布局不应在新内容下方预留空板');
+      await (card==='nodes'?panel.locator('.source-pages'):panel).evaluate(el=>el.scrollIntoView({block:'center'}));
+      await page.screenshot({path:path.join('.preview','installed-'+card+'.png'),animations:'disabled'});
+    }
+    await page.evaluate(route=>{location.hash=route;},appearancePath);
     await page.getByRole('button',{name:'撤销本次导入'}).click();await page.getByRole('button',{name:'撤销本次导入'}).waitFor({state:'hidden'});assert.deepEqual(await readLayouts(),original);
     assert.deepEqual(await page.evaluate(async()=>(await window.launcher.invoke('state',{localOnly:true})).value.settings.widgets),widgets);
     console.log('本机旧版卡片布局预览、取消、合并和撤销通过',oldCards.counts);

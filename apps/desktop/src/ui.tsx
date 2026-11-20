@@ -1,31 +1,54 @@
-import React,{useState} from 'react';import * as Dialog from '@radix-ui/react-dialog';import * as Menu from '@radix-ui/react-dropdown-menu';import {X,ChevronDown,Check,LoaderCircle,ArrowUpRight} from 'lucide-react';import {perform,notify,errorMessage,reportFailure} from './model';
-import {createPortal} from 'react-dom';
+import React,{useState} from 'react';import * as Dialog from '@radix-ui/react-dialog';import {X,ListFilter,Check,LoaderCircle,Search,ArrowUpRight} from 'lucide-react';import {perform,notify,errorMessage,reportFailure} from './model';
+import {ChoiceGroup} from './launcher/ChoiceControls';
 export function DialogSections({children,actions}:{children:React.ReactNode;actions:React.ReactElement}){
  return <div className="dialog-sections"><div className="dialog-scroll">{children}</div>{actions}</div>;
 }
 export function Button({children,icon:Icon,onClick,tone='',className='',disabled=false,...props}:any){const [busy,setBusy]=useState(false);return <button {...props} disabled={disabled||busy} className={`button ${tone} ${className}`} onClick={async e=>{if(!onClick)return;setBusy(true);try{await onClick(e);}catch(error:any){reportFailure(error);}finally{setBusy(false);}}}>{busy?<LoaderCircle className="spin" size={17}/>:Icon?<Icon size={17}/>:null}{children}</button>}
 export function IconButton({icon:Icon,label,...props}:any){return <Button {...props} className={'icon-button '+(props.className||'')} icon={Icon} title={label} aria-label={label}/>}
-export function Modal({open,onClose,title,children,wide=false,description}:any){return <Dialog.Root open={open} onOpenChange={v=>!v&&onClose?.()}><Dialog.Portal><Dialog.Overlay className="modal-backdrop"/><Dialog.Content className={'modal '+(wide?'wide':'')} aria-describedby={description?'modal-description':undefined}><header><div><Dialog.Title>{title}</Dialog.Title>{description&&<Dialog.Description id="modal-description">{description}</Dialog.Description>}</div><Dialog.Close asChild><IconButton icon={X} label="关闭"/></Dialog.Close></header><div className="modal-body">{children}</div></Dialog.Content></Dialog.Portal></Dialog.Root>}
+export function Modal({open,onClose,title,children,wide=false,description}:any){const origin=React.useRef<HTMLElement|null>(null),descriptionId=React.useId();return <Dialog.Root open={open} onOpenChange={v=>!v&&onClose?.()}><Dialog.Portal><Dialog.Overlay className="modal-backdrop"/><Dialog.Content className={'modal '+(wide?'wide':'')} aria-describedby={description?descriptionId:undefined} onOpenAutoFocus={()=>{origin.current=document.activeElement as HTMLElement;}} onCloseAutoFocus={e=>{if(origin.current?.isConnected){e.preventDefault();origin.current.focus({preventScroll:true});}}}><header><div><Dialog.Title>{title}</Dialog.Title>{description&&<Dialog.Description id={descriptionId}>{description}</Dialog.Description>}</div><Dialog.Close asChild><IconButton icon={X} label="关闭"/></Dialog.Close></header><div className="modal-body">{children}</div></Dialog.Content></Dialog.Portal></Dialog.Root>}
 export function Select({value,onChange,options,label,disabled=false}:any){
- const selected=options.find((o:any)=>String(o.value??o)===String(value));
- const text=selected?.label??selected??value??'请选择';
- return <Menu.Root><Menu.Trigger className="select" disabled={disabled} aria-label={label} title={String(text)}><span className="select-label">{text}</span><ChevronDown size={15}/></Menu.Trigger><Menu.Portal><Menu.Content className="menu select-menu" align="start" sideOffset={5} collisionPadding={12}><Menu.RadioGroup value={String(value??'')} onValueChange={v=>void perform(()=>onChange(options.find((o:any)=>String(o.value??o)===v)?.value??v))}>{options.map((o:any)=><Menu.RadioItem className="menu-item" key={String(o.value??o)} value={String(o.value??o)}><span className="menu-label">{o.label??o}</span><Menu.ItemIndicator className="menu-check"><Check size={14}/></Menu.ItemIndicator></Menu.RadioItem>)}</Menu.RadioGroup></Menu.Content></Menu.Portal></Menu.Root>;
+ const [open,setOpen]=useState(false),[query,setQuery]=useState(''),[title,setTitle]=useState('');
+ const entries=options.map((o:any)=>typeof o==='object'?o:{value:o,label:String(o)});
+ const selected=entries.find((o:any)=>String(o.value)===String(value));
+ const choose=(v:any)=>{setOpen(false);void perform(()=>onChange(v));};
+ if(entries.length>=2&&entries.length<=3&&entries.every((o:any)=>String(o.label).length<=10&&!o.disabled)){
+   return <ChoiceGroup label={label||entries.map((o:any)=>o.label).join(' / ')} value={value} options={entries.map((o:any)=>[o.value,o.label])} disabled={disabled}
+     onChange={v=>choose(entries.find((o:any)=>String(o.value)===v)!.value)}/>;
+ }
+ const matches=entries.filter((o:any)=>!query.trim()||String(o.label).toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+ return <><button type="button" className="small-action choice-launch" aria-label={label} aria-haspopup="dialog" disabled={disabled||!entries.length}
+   onClick={e=>{setTitle(label||e.currentTarget.closest('label')?.querySelector(':scope>span')?.textContent||'选择项目');setQuery('');setOpen(true);}}>
+   <span>{selected?.label||value||'请选择'}</span><ListFilter size={15} aria-hidden/></button>
+   <Modal open={open} onClose={()=>setOpen(false)} title={title}><div className="picker-panel">
+     {entries.length>6&&<label className="picker-search"><Search size={16}/><input aria-label="搜索选项" placeholder="搜索选项" value={query} onChange={e=>setQuery(e.target.value)}/></label>}
+     <div className="picker-options">{matches.map((o:any)=><button type="button" key={o.value} aria-pressed={String(o.value)===String(value)} disabled={o.disabled} onClick={()=>choose(o.value)}><span>{o.label}</span>{String(o.value)===String(value)&&<Check size={16}/>}</button>)}
+       {!matches.length&&<p role="status">没有匹配的选项</p>}</div></div></Modal></>;
 }
-export function Dropdown({trigger,items}:any){return <Menu.Root><Menu.Trigger asChild>{trigger}</Menu.Trigger><Menu.Portal><Menu.Content className="menu" sideOffset={5} collisionPadding={12}>{items.map((i:any,n:number)=>{
- if(i.separator)return <Menu.Separator className="menu-separator" key={n}/>;
- const content=<>{i.icon&&<i.icon size={16}/>}<span className="menu-label">{i.label}</span>{i.detail&&<small>{i.detail}</small>}</>;
- return typeof i.checked==='boolean'?<Menu.CheckboxItem key={i.label} className="menu-item" checked={i.checked} disabled={i.disabled} onCheckedChange={()=>void perform(i.action)}>{content}<Menu.ItemIndicator className="menu-check"><Check size={14}/></Menu.ItemIndicator></Menu.CheckboxItem>:<Menu.Item key={i.label} className={'menu-item '+(i.danger?'danger':'')} disabled={i.disabled} onSelect={()=>void perform(i.action)}>{content}</Menu.Item>;
- })}</Menu.Content></Menu.Portal></Menu.Root>}
+export function DetailDialog({title,children,wide=false}:{title:string;children:React.ReactNode;wide?:boolean}){
+ const [open,setOpen]=useState(false);
+ return <><button type="button" className="small-action detail-launch" aria-haspopup="dialog" onClick={()=>setOpen(true)}>{title}<ArrowUpRight size={14}/></button>
+   <Modal open={open} title={title} onClose={()=>setOpen(false)} wide={wide}><div className="detail-dialog-content">{children}</div></Modal></>;
+}
+function ActionList({items,close}:{items:any[];close:()=>void}){
+ return <div className="picker-options">{items.filter(i=>!i.separator).map(i=><button type="button" key={i.label} className={i.danger?'danger':''} disabled={i.disabled} aria-pressed={i.checked} onClick={()=>{close();void perform(i.action);}}>
+   {i.icon&&<i.icon size={16}/>}<span>{i.label}{i.detail&&<small>{i.detail}</small>}</span>{i.checked&&<Check size={16}/>}</button>)}</div>;
+}
+export function Dropdown({trigger,items}:any){
+ const [open,setOpen]=useState(false);
+ return <>{React.cloneElement(trigger,{'aria-haspopup':'dialog',onClick:()=>setOpen(true)})}<Modal open={open} onClose={()=>setOpen(false)} title={trigger.props['aria-label']||'可用操作'}>
+   <ActionList items={items} close={()=>setOpen(false)}/></Modal></>;
+}
 export function Toggle({checked,onChange,label,description,disabled=false}:any){return <label className="toggle-row"><span><strong>{label}</strong>{description&&<small>{description}</small>}</span><button role="switch" aria-checked={checked} aria-label={label} disabled={disabled} onClick={()=>void perform(()=>onChange(!checked))} className={'toggle '+(checked?'on':'')}><i/></button></label>}
 export function ContextMenu({children,items}:any){
- const [point,setPoint]=useState<{x:number;y:number}|null>(null),target=React.useRef<HTMLElement|null>(null);
- const open=(e:any)=>{if(children.props.disabled)return;e.preventDefault();e.stopPropagation();target.current=e.currentTarget;const r=e.currentTarget.getBoundingClientRect(),keyboard=e.type==='keydown';setPoint({x:keyboard?r.left+Math.min(20,r.width/2):e.clientX,y:keyboard?r.top+Math.min(20,r.height/2):e.clientY});};
- React.useEffect(()=>{if(!point)return;const dismiss=(e:Event)=>{if(e.target instanceof Element&&e.target.closest('.context-menu'))return;setPoint(null);};window.addEventListener('resize',dismiss);window.addEventListener('scroll',dismiss,true);return()=>{window.removeEventListener('resize',dismiss);window.removeEventListener('scroll',dismiss,true);};},[point]);
- // A fixed anchor inside a transformed card uses the card's coordinate space.
- // Portal both anchor and content to the viewport so drag/resize never offsets it.
- return <Menu.Root modal={false} open={!!point} onOpenChange={v=>!v&&setPoint(null)}>{React.cloneElement(children,{onContextMenu:open,onKeyDown:(e:any)=>{children.props.onKeyDown?.(e);if(!e.defaultPrevented&&(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10'))open(e);}})}{point&&createPortal(<Menu.Trigger tabIndex={-1} aria-hidden style={{position:'fixed',left:point.x,top:point.y,width:1,height:1,minWidth:0,minHeight:0,margin:0,opacity:0,pointerEvents:'none',padding:0,border:0}}/>,document.body)}<Menu.Portal><Menu.Content className="menu context-menu" align="start" sideOffset={4} collisionPadding={12} onCloseAutoFocus={e=>{e.preventDefault();target.current?.focus({preventScroll:true});}}>{items.map((item:any,i:number)=>item.separator?<Menu.Separator key={i} className="menu-separator"/>:<Menu.Item key={item.label} className={'menu-item '+(item.danger?'danger':'')} disabled={item.disabled} onSelect={()=>void perform(item.action)}>{item.icon&&<item.icon size={16}/>}<span className="menu-label">{item.label}</span></Menu.Item>)}</Menu.Content></Menu.Portal></Menu.Root>;
+ const [open,setOpen]=useState(false);
+ const show=(e:any)=>{if(!children.props.disabled){e.preventDefault();e.stopPropagation();setOpen(true);}};
+ return <>{React.cloneElement(children,{onContextMenu:show,onKeyDown:(e:any)=>{children.props.onKeyDown?.(e);if(!e.defaultPrevented&&(e.key==='ContextMenu'||e.shiftKey&&e.key==='F10'))show(e);}})}
+   <Modal open={open} onClose={()=>setOpen(false)} title="实例操作"><ActionList items={items} close={()=>setOpen(false)}/></Modal></>;
 }
-export function Field({label,hint,children}:any){return <label className="field"><span>{label}</span>{children}{hint&&<small>{hint}</small>}</label>}
+export function Field({label,hint,children}:any){
+ if(React.isValidElement<any>(children)&&children.type===Select)return <div className="field"><span>{label}</span>{React.cloneElement(children,{label:children.props.label||label})}{hint&&<small>{hint}</small>}</div>;
+ return <label className="field"><span>{label}</span>{children}{hint&&<small>{hint}</small>}</label>;
+}
 export function Empty({icon:Icon,title,children,action}:any){return <div className="empty">{Icon&&<Icon size={35} strokeWidth={1.4}/>}<h3>{title}</h3>{children&&<p>{children}</p>}{action}</div>}
 export function PageTitle({eyebrow,title,children,actions,tabs}:any){return <header className="page-title page-header"><div className="page-header-row"><div className="page-header-title">{eyebrow&&<span className="eyebrow">{eyebrow}</span>}<h1>{title}</h1>{children&&<p>{children}</p>}</div><div className="actions page-header-actions">{actions}<div className="page-header-card-tools"/></div></div>{tabs&&<nav className="workspace-tabs page-header-tabs" aria-label={title+'栏目'}>{tabs}</nav>}</header>}
 export function Avatar({name='',image,size=32}:any){const [failed,setFailed]=useState('');return <span className="avatar" style={{width:size,height:size}}>{image&&image!==failed?<img src={image} alt={name+'的头像'} onError={()=>setFailed(image)}/>:(name?.slice(0,1)||'旅')}</span>}

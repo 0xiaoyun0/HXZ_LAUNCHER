@@ -86,3 +86,21 @@
 .settings-status small {margin-top:4px}
 .settings-results {display:grid;gap:8px;margin:0;padding-left:1.3em;font-size:.85rem;overflow-wrap:anywhere}
 .settings-content details p {overflow-wrap:anywhere}
+.picker-panel,.detail-dialog-content,.community-directory {display:grid;gap:16px;min-width:0}
+.picker-search {display:flex;align-items:center;gap:10px;padding:0 12px;border:1px solid var(--edge);border-radius:var(--control-radius);background:var(--control)}
+.picker-search input {border:0;background:transparent;min-width:0;flex:1;padding:8px 0}
+.picker-options,.community-directory section>div {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr));align-content:start;gap:8px}
+.picker-options>button,.community-directory a {display:flex;align-items:center;gap:9px;min-width:0;padding:10px 13px;text-align:left;overflow-wrap:anywhere;border:1px solid var(--edge);border-radius:var(--control-radius);color:var(--foreground);background:var(--control);font:inherit;font-size:.875rem;text-decoration:none;cursor:pointer}
+.picker-options>button>span {flex:1;min-width:0}.picker-options>button small {display:block}
+.picker-options>button[aria-pressed=true],.community-directory a.active {background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent-border)}
+.picker-options>button:hover,.community-directory a:hover {border-color:var(--accent-border)}
+.choice-launch {max-width:100%;justify-content:space-between}.choice-launch>span {overflow-wrap:anywhere;min-width:0}.choice-launch svg,.social-current svg {flex:none}
+.detail-launch {justify-self:start}.detail-dialog-content pre {max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+.social-current {display:inline-flex;align-items:center;gap:7px;border-left:1px solid var(--edge);padding:5px 12px;color:var(--accent-text);font-size:.84rem;font-weight:600}
+.community-directory h3 {margin:0 0 8px;font-size:.87rem;color:var(--secondary)}
+.launcher-content .extension-help {margin:0}.launcher-content .extension-help summary {padding:var(--inset-row) var(--panel-pad);cursor:pointer;font-weight:600}
+.launcher-content .extension-help>p {margin:0;padding:0 var(--panel-pad) var(--inset-row)}
+.task-section>h3 {margin:0 0 10px;font-size:.9rem}
+.launcher-content .hub-list {max-height:none;overflow:visible}
+.lobby-form>.detail-launch {align-self:flex-start}
+[data-skin] .hub-select::after {content:'↗';width:auto;height:auto;border:0;transform:none;color:var(--desk-muted)}

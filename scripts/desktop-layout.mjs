@@ -176,11 +176,18 @@ export async function verifyDesktopLayout(page,native,directory){
           await search.fill('');
           await page.getByText('没有匹配的实例。',{exact:true}).waitFor({state:'hidden'});
         }
-        if(route==='/support'){
-          const summary=page.locator('summary').filter({hasText:'错误报告'});
-          await summary.click();
-          issues.push(...(await page.evaluate(measureInsets)).issues);
-          await summary.click();
+        if(!route.startsWith('/settings')){
+          const disallowed='select,details,[role="combobox"],[aria-haspopup="menu"],[aria-haspopup="listbox"]';
+          if(await page.locator('main').locator(disallowed).count())issues.push('设置以外的页面含下拉式控件');
+          if(route==='/community/linking'&&await page.frameLocator('.archive-viewport iframe').locator(disallowed).count())issues.push('档案馆内含下拉式控件');
+        }
+        if(route==='/support')await page.getByRole('checkbox',{name:'自动提交脱敏的错误报告'}).waitFor();
+        if(route==='/workshop/sources'){
+          const list=page.locator('.download-source-grid');await list.locator('article').first().waitFor();
+          if(await list.evaluate(el=>el.scrollHeight>el.clientHeight+2))issues.push('下载节点有第二条滚动条');
+          const next=page.getByRole('navigation',{name:'下载节点分页'}).getByRole('button',{name:'下一页'});const first=await list.locator('strong').first().innerText();
+          await next.click();assert.notEqual(await list.locator('strong').first().innerText(),first);
+          await page.getByRole('button',{name:'元数据',exact:true}).click();assert.ok(await next.isDisabled());await page.getByRole('button',{name:'全部',exact:true}).click();
         }
         const bottom=await page.locator('main').evaluate(el=>el.scrollHeight-el.clientHeight);
         if(bottom>2){

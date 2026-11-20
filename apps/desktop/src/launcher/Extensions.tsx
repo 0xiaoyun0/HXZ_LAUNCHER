@@ -45,7 +45,8 @@ export function Extensions(){
         {pending&&!e.safeMode&&<button className="launch-primary" disabled={busy||s.running||t.busy} onClick={()=>change('restart')}><RotateCcw size={15}/>重启启动器</button>}
       </div>{pending&&(s.running||t.busy)&&<p className="setting-line">游戏或任务正在运行，结束后即可重启。</p>}
       {e.safeMode&&e.installed&&<p>退出后正常打开启动器，即可启用已安装的社区插件。</p>}
-      <details className="preference-more"><summary>社区打不开</summary><p>使用启动参数 <code>--disable-plugins</code> 可以临时跳过社区，随后可在这里停用或重新安装。</p></details>
       {error&&<div className="setting-line"><IssueHelp issue={error}/></div>}
-    </section></SettingsLayout>;
+    </section>
+    <details className="preference-section extension-help"><summary>社区打不开</summary><p>使用启动参数 <code>--disable-plugins</code> 可以临时跳过社区，随后可在这里停用或重新安装。</p></details>
+  </SettingsLayout>;
 }

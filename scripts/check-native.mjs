@@ -139,10 +139,10 @@ try {
    await page.getByRole('textbox',{name:'搜索游戏',exact:true}).fill(searchedInstance);
    await page.getByRole('heading',{name:searchedInstance}).waitFor();assert.equal(await cards.count(),1);
    const menu=()=>page.getByRole('button',{name:searchedInstance+'的更多操作'}).click();
-   await menu();await page.getByRole('menuitem',{name:'收藏',exact:true}).click();
-   await menu();await page.getByRole('menuitem',{name:'取消收藏',exact:true}).waitFor();await page.keyboard.press('Escape');
+   await menu();await page.getByRole('dialog').getByRole('button',{name:'收藏',exact:true}).click();
+   await menu();await page.getByRole('dialog').getByRole('button',{name:'取消收藏',exact:true}).waitFor();await page.keyboard.press('Escape');
    await page.getByRole('button',{name:'管理 '+searchedInstance,exact:true}).click();await page.getByRole('dialog').waitFor();await page.keyboard.press('Escape');
-   await menu();await page.getByRole('menuitem',{name:'启动前检查',exact:true}).click();
+   await menu();await page.getByRole('dialog').getByRole('button',{name:'启动前检查',exact:true}).click();
    await page.getByText('没有找到客户端 JAR，清单也没有下载地址',{exact:true}).waitFor();
    await page.getByRole('button',{name:'查看实例'}).click();await page.getByRole('heading',{name:searchedInstance}).waitFor();
    await nav.getByRole('link',{name:'游戏',exact:true}).click();await resume.getByText(names[0],{exact:true}).waitFor();
@@ -168,7 +168,7 @@ try {
    await speed.waitFor();assert.equal(await speed.getAttribute('aria-valuetext'),'2 MiB/s');
    {
      const versionActions=page.locator('.settings-block').filter({has:page.getByRole('heading',{name:'启动器版本'})});
-     for(const [name,ready] of [['启动器更新公告','.launcher-updates'],['帮助与反馈','details.preference-section']]){
+     for(const [name,ready] of [['启动器更新公告','.launcher-updates'],['帮助与反馈','.support-reports']]){
        await versionActions.getByRole('link',{name,exact:true}).click();
        await page.locator(ready).first().waitFor();await page.goBack();
        await versionActions.waitFor();
@@ -207,7 +207,22 @@ try {
      await nav.getByRole('link',{name:'联机大厅'}).click();await page.getByRole('navigation',{name:'房间操作'}).waitFor();
      await page.getByRole('button',{name:'创建房间',exact:true}).first().click();
      await page.getByRole('button',{name:'加入伙伴',exact:true}).click();await page.getByPlaceholder('粘贴房主发来的 hxz-room:// 邀请').waitFor();
+     await page.getByRole('button',{name:'连接方式与旧版邀请'}).click();const joinSettings=page.getByRole('dialog',{name:'连接方式与旧版邀请'});
+     await joinSettings.getByRole('button',{name:'联机游戏实例'}).click();const picker=page.getByRole('dialog',{name:'联机游戏实例'});
+     const query=picker.getByRole('textbox',{name:'搜索选项'});await query.fill('not-an-installed-id');await picker.getByText('没有匹配的选项').waitFor();
+     await query.fill(searchedInstance);await picker.getByRole('button',{name:new RegExp(searchedInstance)}).click();
+     await joinSettings.getByRole('button',{name:'联机游戏实例'}).getByText(searchedInstance,{exact:false}).waitFor();
+     await page.keyboard.press('Escape');await joinSettings.waitFor({state:'hidden'});
      await capture('launcher-lobby');
+     const originalBoards=(await native('state',{localOnly:true})).value.settings.cardLayouts;
+     const oldPackage=(await native('profile.cards')).value;
+     const oldLobby=oldPackage?.layout?.cardLayouts?.['multiplayer.wide']||{items:[{i:'network',x:0,y:69,w:6,h:20}],fixed:['network'],hidden:[],locked:[]};
+     assert.ok((await native('settings.save',{cardLayouts:{...originalBoards,'multiplayer.wide':oldLobby}})).ok);await page.reload();
+     const diagnostics=page.locator('[data-card-id="network"]');await diagnostics.getByRole('button',{name:'测试本机 P2P'}).waitFor();await diagnostics.scrollIntoViewIfNeeded();
+     assert.equal(await diagnostics.getAttribute('data-fixed'),null);
+     assert.ok(await diagnostics.evaluate(el=>Math.abs(el.getBoundingClientRect().bottom-el.querySelector('.desktop-panel-body').getBoundingClientRect().bottom)<5));
+     await capture('legacy-lobby-diagnostics');
+     assert.ok((await native('settings.save',{cardLayouts:originalBoards})).ok);await page.reload();await page.getByRole('navigation',{name:'房间操作'}).waitFor();
      const timeline=await native('game.playtime');assert.ok(timeline.value.totalSeconds>=previousSeconds+1);
      await page.getByRole('button',{name:'账号与角色',exact:true}).click();await page.getByRole('button',{name:'检测连接'}).click();await page.getByText(/当前角色验证成功/).waitFor();
      const avatar=await page.locator('.setting-line > .avatar').first().boundingBox();
@@ -277,8 +292,8 @@ try {
      assert.ok(await roleText.evaluate(el=>getComputedStyle(el).whiteSpace==='nowrap'&&el.scrollWidth<=el.clientWidth+1),'four-character player name should fit on one line');
      await capture('launcher-enabled-home');await fixture.exercise(page,capture);
      const social=page.getByRole('navigation',{name:'社区导航'});
-     await social.getByRole('combobox',{name:'更多社区功能'}).selectOption('/community/guild');await page.getByRole('heading',{name:'委托广场'}).waitFor();await capture('launcher-guild');
-     await social.getByRole('combobox',{name:'更多社区功能'}).selectOption('/community/linking');await page.frameLocator('iframe[title*="档案探索"]').locator('body').waitFor();
+     await social.getByRole('button',{name:'全部栏目'}).click();await page.getByRole('dialog',{name:'社区栏目'}).getByRole('link',{name:'冒险者协会'}).click();await page.getByRole('heading',{name:'委托广场'}).waitFor();await capture('launcher-guild');
+     await social.getByRole('button',{name:'全部栏目'}).click();await page.getByRole('dialog',{name:'社区栏目'}).getByRole('link',{name:'LINKING 档案馆'}).click();await page.frameLocator('iframe[title*="档案探索"]').locator('body').waitFor();
      await page.waitForFunction(()=>document.querySelector('iframe')?.contentDocument?.title.includes('LINKING'),{},{timeout:25000});await capture('launcher-linking');
      if(process.argv.includes('--layout')){
        const {verifyDesktopLayout}=await import('./desktop-layout.mjs');await verifyDesktopLayout(page,native,artifacts);

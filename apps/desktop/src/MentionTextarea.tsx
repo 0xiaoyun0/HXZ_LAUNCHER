@@ -1,19 +1,38 @@
-import {forwardRef,useCallback,useEffect,useLayoutEffect,useRef,useState,type TextareaHTMLAttributes} from 'react';
-import {createPortal} from 'react-dom';
+import {forwardRef,useCallback,useEffect,useRef,useState,type TextareaHTMLAttributes} from 'react';
 import {useSnapshot} from 'valtio';
 import {community,communityAvatar} from '../../../packages/community/client';
 import {request} from './data';
-import {Avatar} from './ui';
+import {Avatar,Modal} from './ui';
 type Props=Omit<TextareaHTMLAttributes<HTMLTextAreaElement>,'value'>&{value:string;onValueChange:(value:string)=>void};
-/** Inline mentions never participate in the card's measurements or steal composer focus. */
-export const MentionTextarea=forwardRef<HTMLTextAreaElement,Props>(function MentionTextarea({value,onValueChange,onKeyDown,onChange,onSelect,onBlur,...props},forwarded){
- const c=useSnapshot(community),el=useRef<HTMLTextAreaElement|null>(null),menu=useRef<HTMLDivElement>(null),[cursor,setCursor]=useState(0),[focused,setFocused]=useState(false),[dismissed,setDismissed]=useState(''),[items,setItems]=useState<any[]>([]),[index,setIndex]=useState(0),[loading,setLoading]=useState(false),[error,setError]=useState(''),[bounds,setBounds]=useState({left:0,top:0,width:320});
- const match=value.slice(0,cursor).match(/(?:^|\s)@([^\s@]{0,40})$/u),query=match?.[1]??'',start=match?cursor-query.length-1:-1,signature=value+'|'+cursor;
- const open=focused&&c.connected&&start>=0&&dismissed!==signature;
+
+export const MentionTextarea=forwardRef<HTMLTextAreaElement,Props>(function MentionTextarea({value,onValueChange,onKeyDown,onChange,onSelect,...props},forwarded){
+ const c=useSnapshot(community),el=useRef<HTMLTextAreaElement|null>(null);
+ const [cursor,setCursor]=useState(0),[range,setRange]=useState<{start:number;end:number}|null>(null),[query,setQuery]=useState('');
+ const [items,setItems]=useState<any[]>([]),[loading,setLoading]=useState(false),[error,setError]=useState('');
+ const match=value.slice(0,cursor).match(/(?:^|\s)@([^\s@]{0,40})$/u);
  const ref=useCallback((node:HTMLTextAreaElement|null)=>{el.current=node;if(typeof forwarded==='function')forwarded(node);else if(forwarded)forwarded.current=node;},[forwarded]);
- useEffect(()=>{if(!open)return;let active=true;setIndex(0);setItems([]);setError('');setLoading(true);const timer=setTimeout(()=>{void request('/api/members/search?q='+encodeURIComponent(query)).then(r=>{if(active)setItems([...(c.user?.admin&&('全体'.includes(query)||!query)?[{uid:'@all',name:'全体',all:true}]:[]),...r.items]);}).catch(e=>active&&setError(e.message)).finally(()=>active&&setLoading(false));},100);return()=>{active=false;clearTimeout(timer);};},[open,query,c.user?.admin]);
- useLayoutEffect(()=>{if(!open)return;const align=()=>{const r=el.current?.getBoundingClientRect();if(!r)return;const width=Math.min(Math.max(280,r.width*.55),380,innerWidth-24),height=Math.min(menu.current?.offsetHeight||240,300),above=r.top-10-height;setBounds({left:Math.max(12,Math.min(r.left,innerWidth-width-12)),top:above>=12?above:Math.min(innerHeight-height-12,r.bottom+8),width});};align();const observer=new ResizeObserver(align);if(menu.current)observer.observe(menu.current);window.addEventListener('resize',align);window.addEventListener('scroll',align,true);return()=>{observer.disconnect();window.removeEventListener('resize',align);window.removeEventListener('scroll',align,true);};},[open,items.length,loading,error]);
- useEffect(()=>{menu.current?.querySelector('[aria-selected=true]')?.scrollIntoView({block:'nearest'});},[index]);
- function pick(item:any){const next=value.slice(0,start)+'@'+item.name+' '+value.slice(cursor),position=start+item.name.length+2;if(props.maxLength&&next.length>props.maxLength)return;onValueChange(next);setDismissed(next+'|'+position);requestAnimationFrame(()=>{el.current?.focus({preventScroll:true});el.current?.setSelectionRange(position,position);setCursor(position);});}
- return <><textarea {...props} ref={ref} value={value} role="combobox" aria-autocomplete="list" aria-expanded={open} aria-controls={open?'mention-menu':undefined} aria-activedescendant={open&&items[index]?'mention-option-'+index:undefined} onFocus={e=>{setFocused(true);setCursor(e.target.selectionStart);props.onFocus?.(e);}} onBlur={e=>{setFocused(false);onBlur?.(e);}} onSelect={e=>{setCursor(e.currentTarget.selectionStart);onSelect?.(e);}} onChange={e=>{setCursor(e.target.selectionStart);setDismissed('');onValueChange(e.target.value);onChange?.(e);}} onKeyDown={e=>{if(open&&!e.nativeEvent.isComposing){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();setDismissed(signature);return;}if(items.length&&['ArrowUp','ArrowDown','Enter','Tab'].includes(e.key)){e.preventDefault();if(e.key==='ArrowUp'||e.key==='ArrowDown')setIndex(v=>(v+(e.key==='ArrowDown'?1:-1)+items.length)%items.length);else pick(items[index]||items[0]);return;}}onKeyDown?.(e);}}/>{open&&createPortal(<div ref={menu} className="mention-suggestions" style={bounds} id="mention-menu" role="listbox" aria-label="提及成员" onMouseDown={e=>e.preventDefault()}><small>提及成员 · ↑↓ 选择，Enter 确认</small><div className="mention-options">{items.map((item,i)=><button key={item.uid} id={'mention-option-'+i} type="button" role="option" aria-selected={i===index} onPointerMove={()=>setIndex(i)} onClick={()=>pick(item)}><Avatar size={27} name={item.all?'全':item.name} image={item.all?'':communityAvatar(item.uid,item.avatarVersion)}/><span>{item.all?'全体成员':item.name}</span></button>)}{loading?<p>查找成员中…</p>:error?<p>{error}</p>:!items.length?<p>没有匹配的成员</p>:null}</div></div>,document.body)}</>;
+ function open(){
+   if(!match||!c.connected)return;
+   setQuery(match[1]);setRange({start:cursor-match[1].length-1,end:cursor});
+ }
+ useEffect(()=>{
+   if(!range||!c.connected)return;
+   let current=true;setError('');setLoading(true);setItems([]);
+   const timer=setTimeout(()=>{void request('/api/members/search?q='+encodeURIComponent(query)).then(r=>{
+     if(current)setItems([...(c.user?.admin&&('全体'.includes(query)||!query)?[{uid:'@all',name:'全体',all:true}]:[]),...r.items]);
+   }).catch(e=>{if(current)setError(e.message);}).finally(()=>{if(current)setLoading(false);});},100);
+   return ()=>{current=false;clearTimeout(timer);};
+ },[range,query,c.connected,c.user?.admin]);
+ function pick(item:any){
+   if(!range)return;
+   const next=value.slice(0,range.start)+'@'+item.name+' '+value.slice(range.end),position=range.start+item.name.length+2;
+   if(props.maxLength&&next.length>props.maxLength){setError('这条消息已达到字数上限');return;}
+   onValueChange(next);setRange(null);requestAnimationFrame(()=>{el.current?.focus({preventScroll:true});el.current?.setSelectionRange(position,position);setCursor(position);});
+ }
+ return <><textarea {...props} ref={ref} value={value} onSelect={e=>{setCursor(e.currentTarget.selectionStart);onSelect?.(e);}} onChange={e=>{setCursor(e.target.selectionStart);onValueChange(e.target.value);onChange?.(e);}}
+   onKeyDown={e=>{if(match&&c.connected&&e.key==='ArrowDown'&&!e.nativeEvent.isComposing){e.preventDefault();open();}else onKeyDown?.(e);}}/>
+   {match&&c.connected&&<button type="button" className="small-action mention-browse" onClick={open} aria-haspopup="dialog">选择提及成员</button>}
+   <Modal open={!!range} title="提及成员" onClose={()=>setRange(null)}><div className="picker-panel"><input aria-label="搜索成员" placeholder="搜索成员" value={query} onChange={e=>setQuery(e.target.value)}/>
+     <div className="picker-options">{items.map(item=><button type="button" key={item.uid} onClick={()=>pick(item)}><Avatar size={27} name={item.name} image={item.all?'':communityAvatar(item.uid,item.avatarVersion)}/>{item.all?'全体成员':item.name}</button>)}</div>
+     {error?<p role="alert">{error}</p>:loading||!items.length?<p role="status">{!c.connected?'社区连接已断开':loading?'查找成员中…':'没有匹配的成员'}</p>:null}</div></Modal></>;
 });
