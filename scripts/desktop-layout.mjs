@@ -40,6 +40,10 @@ function measure(){
       if(main.scrollTop<2&&resume&&bounds(resume).bottom>view.bottom-4)errors.push('继续游玩不在首屏');
     }
   }
+  if(compact)for(const grid of main.querySelectorAll('.desktop-panels>.desktop-panel-grid')){
+    const children=[...grid.children].filter(el=>el.hasAttribute('data-card-id'));
+    if(children.some(el=>bounds(el).width<bounds(grid).width-2))errors.push('窄窗卡片未占满一行 '+grid.parentElement.dataset.board);
+  }
   const rail=main.querySelector('.settings-rail');
   if(rail){
     const select=rail.querySelector('select'),form=main.querySelector('.settings-sections');
@@ -64,7 +68,7 @@ function measure(){
   if(pageTitle&&[...main.querySelectorAll('h2')].some(h=>h.getBoundingClientRect().height&&h.textContent.trim()===pageTitle))errors.push('页面标题重复 '+pageTitle);
   const archive=main.querySelector('.archive-viewport iframe');
   if(archive&&bounds(archive).height<view.height*.55)errors.push('档案阅读区域仅有 '+Math.round(bounds(archive).height)+' px');
-  for(const panel of main.querySelectorAll('.wallet-layout>.desktop-panel,.social-content>.inventory-ui,.social-content>.play-calendar,.launch-page>.launcher-updates')){
+  for(const panel of main.querySelectorAll('.catalog-panel,.forum-page,.wallet-layout>.desktop-panel,.social-content>.inventory-ui,.social-content>.play-calendar,.launch-page>.launcher-updates')){
     const style=getComputedStyle(panel);
     if(parseFloat(style.borderTopWidth)<1||style.backgroundColor==='rgba(0, 0, 0, 0)')errors.push('工作区缺少可见边界 '+panel.className);
   }
@@ -104,11 +108,12 @@ function homeGeometry(){
 export async function verifyDesktopLayout(page,native,directory){
   const output=path.join(directory,'layout');await fs.mkdir(output,{recursive:true});
   const observations=[],overlays=[],failures=[];
-  const windows=[[1360,880,16,'light'],[1250,825,16,'light'],[1920,1080,16,'light'],[1000,660,22,'dark'],[780,540,16,'light'],[780,540,22,'dark']];
-  for(const [width,height,font,theme] of windows){
+  const windows=[[1360,880,16,'light','town'],[1250,825,16,'light','paper'],[1920,1080,16,'light','town'],[1000,660,22,'dark','observatory'],[780,540,16,'light','paper'],[780,540,22,'dark','observatory']];
+  for(const [width,height,font,theme,skin] of windows){
+    assert.equal((await native('settings.save',{themeChange:{op:'select',id:skin}})).ok,true);
     assert.equal((await native('settings.save',{fontSize:font,theme,animationSpeed:0})).ok,true);
     await page.setViewportSize({width,height});await page.reload();
-    await page.waitForFunction(([n,mode])=>getComputedStyle(document.documentElement).getPropertyValue('--font-size').trim()===n+'px'&&document.documentElement.dataset.theme===mode,[font,theme]);
+    await page.waitForFunction(([n,mode,design])=>getComputedStyle(document.documentElement).getPropertyValue('--font-size').trim()===n+'px'&&document.documentElement.dataset.theme===mode&&document.documentElement.dataset.skin===design,[font,theme,skin]);
     let firstHome;
     for(const [route,selector] of routes){
       await page.evaluate(value=>{location.hash=value;},route);
@@ -129,7 +134,7 @@ export async function verifyDesktopLayout(page,native,directory){
         }
       }catch(e){issues=['页面未挂载 '+selector];}
       const reader=route==='/community/linking'?await page.locator('.archive-viewport iframe').evaluateAll(frames=>frames.length?frames[0].getBoundingClientRect().height:0):0;
-      const record={route,width,height,font,theme,issues,...(reader?{readerHeight:Math.round(reader)}:{})};observations.push(record);
+      const record={route,width,height,font,theme,skin,issues,...(reader?{readerHeight:Math.round(reader)}:{})};observations.push(record);
       if(issues.length)failures.push(record);
       if(width===1360||issues.length||['/','/music','/settings','/community/voice','/community/linking'].includes(route)){
         const name=route.replace(/[^a-z0-9-]/gi,'_')||'home';
@@ -139,7 +144,7 @@ export async function verifyDesktopLayout(page,native,directory){
     for(const [route,control] of [['/','实例配置'],['/community/playtime','每周时长榜']]){
       await page.evaluate(value=>{location.hash=value;},route);
       const dialog=page.getByRole('dialog');
-      const record={control,width,height,font,theme,issues:[]};
+      const record={control,width,height,font,theme,skin,issues:[]};
       try{
         await page.getByRole('button',{name:control,exact:true}).click({timeout:8000});
         await dialog.waitFor({state:'visible',timeout:8000});

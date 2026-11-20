@@ -16,7 +16,7 @@
 .game-board[data-custom]>.desk-card {grid-area:auto;grid-column:span var(--panel-span,12)}
 @container workspace (max-width:54em) {
   .game-board[data-custom] {grid-template-columns:minmax(0,1fr)}
-  .game-board[data-custom]>.desk-card {grid-column:1/-1}
+  .game-board[data-custom]>.desk-card,.desktop-panels>.desktop-panel-grid>[data-card-id] {grid-column:1/-1}
 }
 [data-skin] .desktop-panel-grid {gap:var(--desk-gap)}
 [data-skin] .desktop-panel.lobby-block {padding:0;margin:0}
