@@ -25,7 +25,7 @@ export function Home(){
       <section className="desk-card instances-card"><header><h2>游戏实例</h2>{!s.settings.gameRoot&&<button className="text-action" onClick={()=>perform(chooseRoot)}><FolderOpen size={15}/>选择游戏目录</button>}</header>
         <div className="instance-toolbar"><label><Search size={16}/><input aria-label="搜索实例" placeholder="搜索实例" value={query} onChange={event=>setQuery(event.target.value)}/></label>
           <button className="small-action" onClick={()=>perform(()=>importPack())}><FileUp size={15}/>导入</button><Link className="small-action" to="/workshop/install"><Download size={15}/>下载</Link></div>
-        <div className="home-instance-list">{matches.slice(0,4).map(game=>{
+        <div className="desk-instance-list">{matches.slice(0,4).map(game=>{
           const isLast=game.id===last?.id,running=s.sessions?.some((r:any)=>r.instance===game.id&&r.root===s.settings.gameRoot);
           return <article key={game.id} className={'home-instance-row'+(focused?.id===game.id?' focused':'')+(isLast?' resume-panel':'')}>
             <button className="instance-info" aria-label={'查看 '+game.name+' 的详情'} onClick={()=>setFocus(game.id)}><PackIcon game={game}/><span><strong>{game.name}</strong>
