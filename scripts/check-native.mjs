@@ -96,7 +96,12 @@ try {
    await page.getByRole('button',{name:'登录账号',exact:true}).click();await page.getByRole('dialog').waitFor();await page.keyboard.press('Escape');
    await nav.getByRole('link',{name:'游戏库'}).click();
    const cards=page.locator('.direct-game-card');await cards.first().waitFor();assert.equal(await cards.count(),24);
-   await page.getByRole('button',{name:'默认服务器',exact:true}).click();await capture('launcher-library');
+   await page.getByRole('button',{name:'默认服务器',exact:true}).click();const installLink=page.getByRole('link',{name:'安装游戏',exact:true});
+   assert.ok(await installLink.evaluate(el=>{
+     const luminance=color=>color.match(/[\d.]+/g).slice(0,3).reduce((sum,n,i)=>{const c=Number(n)/255;return sum+[.2126,.7152,.0722][i]*(c<=.04045?c/12.92:((c+.055)/1.055)**2.4);},0);
+     const style=getComputedStyle(el),fg=luminance(style.color),bg=luminance(style.backgroundColor);
+     return (Math.max(fg,bg)+.05)/(Math.min(fg,bg)+.05)>=4.5;
+   }),'library install label must have readable contrast');await capture('launcher-library');
    await page.getByRole('button',{name:/全部游戏/}).click();await page.getByRole('button',{name:'下一页',exact:true}).click();
    await page.getByRole('textbox',{name:'搜索游戏',exact:true}).fill(searchedInstance);
    await page.getByRole('heading',{name:searchedInstance}).waitFor();assert.equal(await cards.count(),1);
@@ -121,7 +126,9 @@ try {
    await page.reload();await page.getByRole('heading',{name:'设置',exact:true}).waitFor();await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'游戏与 Java'}).click();assert.equal(await amount.inputValue(),'768');await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
    await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'外观与启动器'}).click();await page.getByLabel('外观',{exact:true}).selectOption('light');await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'游戏与 Java'}).click();await capture('launcher-settings');
    await page.locator('footer').getByRole('link',{name:'音乐播放器',exact:true}).click();await page.getByRole('button',{name:'播放 小镇晨间',exact:true}).click();
-   await page.getByRole('button',{name:'暂停',exact:true}).waitFor();await page.waitForFunction(()=>Number(document.querySelector('input[aria-label="播放进度"]').value)>0);await capture('launcher-music');await nav.getByRole('link',{name:'游戏库'}).click();await page.locator('footer').getByRole('button',{name:'暂停当前音乐'}).click();
+   await page.getByRole('button',{name:'暂停',exact:true}).waitFor();await page.waitForFunction(()=>Number(document.querySelector('input[aria-label="播放进度"]').value)>0);const volumeName=page.locator('.volume-line label>span');
+   assert.ok(await volumeName.evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);return range.getClientRects().length===1;}),'volume label should remain on one line');
+   await capture('launcher-music');await nav.getByRole('link',{name:'游戏库'}).click();await page.locator('footer').getByRole('button',{name:'暂停当前音乐'}).click();
    await nav.getByRole('link',{name:'游戏',exact:true}).click();await page.getByRole('link',{name:'游玩记录'}).click();await page.getByRole('heading',{name:'游玩记录',exact:true}).waitFor();
    await nav.getByRole('link',{name:'游戏',exact:true}).click();await page.setViewportSize({width:800,height:565});await resume.getByText(names[0],{exact:true}).waitFor();
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth&&Array.from(document.querySelectorAll('.launcher-bar nav[aria-label="主导航"] a,.window-buttons button,.home-instance-row>button')).every(el=>{const box=el.getBoundingClientRect();return box.left>=0&&box.right<=window.innerWidth;})),true);await capture('launcher-compact');
@@ -142,6 +149,8 @@ try {
      await capture('launcher-lobby');
      const timeline=await native('game.playtime');assert.ok(timeline.value.totalSeconds>=previousSeconds+1);
      await page.getByRole('button',{name:'账号与角色',exact:true}).click();await page.getByRole('button',{name:'检测连接'}).click();await page.getByText(/当前角色验证成功/).waitFor();
+     const avatar=await page.locator('.setting-line > .avatar').first().boundingBox();
+     assert.ok(avatar&&Math.abs(avatar.width-avatar.height)<1&&avatar.width>=32,'account avatar should be square');
      fixture.skinOffline(true);await page.getByRole('button',{name:'重新检测'}).click();await page.locator('.issue-help').getByRole('heading',{name:/皮肤站/}).waitFor();
      await capture('skin-recovery');fixture.skinOffline(false);await page.getByRole('button',{name:'重新检测'}).click();await page.getByText(/当前角色验证成功/).waitFor();
      const pluginSettings=async()=>{await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'扩展',exact:true}).click();await page.getByRole('heading',{name:'社区插件',exact:true}).waitFor();};
