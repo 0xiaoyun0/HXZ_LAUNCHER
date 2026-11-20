@@ -4,7 +4,7 @@ import {spawnSync} from 'node:child_process';
 import {archive,filesUnder} from './archive.mjs';
 import {architecture} from './worker-runtime.mjs';
 const {version}=JSON.parse(await fs.readFile('package.json','utf8'));
-const release=path.resolve('release',version),dir=path.join(release,'windows-'+architecture);
+const release=path.resolve('release',version),dir=path.resolve(process.env.HXZ3_DESKTOP_DIST||path.join(release,'windows-'+architecture));
 await archive(dir,path.join(release,'HXZ-3rd-'+version+'-windows-'+architecture+'.zip'));
 if(process.argv.includes('--installer')) {
   const files=await filesUnder(dir);

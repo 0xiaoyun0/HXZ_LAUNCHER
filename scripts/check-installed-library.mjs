@@ -90,6 +90,13 @@ try{
     assert.deepEqual(await page.evaluate(async()=>(await window.launcher.invoke('state',{localOnly:true})).value.settings.widgets),widgets);
     console.log('本机旧版卡片布局预览、取消、合并和撤销通过',oldCards.counts);
   }
+  const localPlugin=path.resolve(path.dirname(exe),'../extensions','HXZ-Community-Plugin-'+version+'.zip');
+  if(await fs.stat(localPlugin).then(s=>s.isFile(),()=>false)){
+    await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'扩展',exact:true}).click();
+    await page.getByRole('button',{name:'下载社区插件'}).click();await page.getByText('已下载 · 重启后启用').waitFor({timeout:65000});
+    const status=await page.evaluate(async()=>(await window.launcher.invoke('extension.status')).value);assert.ok(status.installed);assert.equal(status.active,false);
+    console.log('实际交付目录的本地社区包已校验并进入待重启状态');
+  }
   assert.deepEqual(await fingerprint(),before);
   console.log(JSON.stringify({instances:state.instances.length,installed:state.instances.filter(i=>i.installed).length,
     servers:servers.map(({name,version,loader,installed})=>({name,version,loader,installed})),calendarDays:Object.keys(library.playtime?.days||{}).length,sourceFilesUnchanged:true}));

@@ -11,7 +11,7 @@ if(extension.version!==pkg.version||!extension.files[extension.entry])throw Erro
 const result=spawnSync('cargo',['build','--release',...(triple?['--target',triple]:[]),'--locked','--manifest-path','native/Cargo.toml'],{stdio:'inherit',windowsHide:true});
 if(result.error)throw result.error;
 if(result.status!==0)process.exit(result.status??1);
-const target=path.resolve('release',pkg.version,'windows-'+architecture);
+const target=path.resolve(process.env.HXZ3_DESKTOP_DIST||path.join('release',pkg.version,'windows-'+architecture));
 await fs.mkdir(target,{recursive:true});
 await fs.copyFile(path.join('native/target',triple,'release/hxz-launcher.exe'),path.join(target,'幻想镇 3rd.exe'));
 const engine=path.join(target,'engine');
