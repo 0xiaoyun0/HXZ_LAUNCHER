@@ -60,7 +60,7 @@ await fs.writeFile(path.join(home,'settings.json'),JSON.stringify({gameRoot,java
 }
 const server=net.createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const port=server.address().port;await new Promise(resolve=>server.close(resolve));
 const nativeLog=openSync(path.join(artifacts,'native-qa.log'),'w');
-const proc=spawn(exe,[],{windowsHide:true,stdio:['ignore',nativeLog,nativeLog],env:{...process.env,HXZ3_QA_INSTANCE:'1',HXZ3_HOME:home,APPDATA:path.join(home,'roaming'),WEBVIEW2_USER_DATA_FOLDER:path.join(home,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port='+port+' --remote-debugging-address=127.0.0.1'}});
+const proc=spawn(exe,[],{windowsHide:true,stdio:['ignore',nativeLog,nativeLog],env:{...process.env,HXZ3_QA_INSTANCE:'1',HXZ3_QA_BACKGROUND:'1',HXZ3_HOME:home,APPDATA:path.join(home,'roaming'),WEBVIEW2_USER_DATA_FOLDER:path.join(home,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port='+port+' --remote-debugging-address=127.0.0.1 --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling'}});
 closeSync(nativeLog);let browser,page;const errors=[];
 proc.on('exit',(code,signal)=>console.log('QA launcher exit',code,signal||''));
 try {
@@ -199,12 +199,31 @@ try {
      await ticket.getByText('补充操作已经验证。',{exact:true}).waitFor();await page.keyboard.press('Escape');
      const pluginSettings=async()=>{await page.getByRole('button',{name:'设置',exact:true}).click();await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'扩展',exact:true}).click();await page.getByRole('heading',{name:'社区插件',exact:true}).waitFor();};
      const restart=async()=>{
-       const closing=new Promise((done,fail)=>{const timer=setTimeout(()=>fail(Error('原 WebView2 未在重启时退出')),25000);browser.once('disconnected',()=>{clearTimeout(timer);done();});});
-       await page.getByRole('button',{name:'重启启动器',exact:true}).click().catch(()=>{});await closing;
-       browser=undefined;page=undefined;const timeout=Date.now()+60000;
-       while(!page&&Date.now()<timeout){try{browser=await chromium.connectOverCDP('http://127.0.0.1:'+port,{timeout:1200});page=browser.contexts().flatMap(c=>c.pages()).find(p=>p.url().includes('tauri.localhost'));}catch{}if(!page)await wait(250);}
+       const base='http://127.0.0.1:'+port,expected=(await native('extension.status')).value.installed;
+       const session=await page.context().newCDPSession(page);
+       const previous=(await session.send('Target.getTargetInfo')).targetInfo.targetId;
+       await session.detach();
+       await page.getByRole('button',{name:'重启启动器',exact:true}).click().catch(()=>{});
+       page=undefined;const timeout=Date.now()+60000;
+       while(!page&&Date.now()<timeout){
+         try{
+           const targets=await (await fetch(base+'/json/list',{signal:AbortSignal.timeout(1200)})).json();
+           const next=targets.find(t=>t.id!==previous&&t.type==='page'&&t.url.includes('tauri.localhost'));
+           if(next){
+             browser=await chromium.connectOverCDP(base,{timeout:1200});
+             for(const candidate of browser.contexts().flatMap(c=>c.pages())){
+               if(!candidate.url().includes('tauri.localhost'))continue;
+               const child=await candidate.context().newCDPSession(candidate);
+               const {targetInfo}=await child.send('Target.getTargetInfo');await child.detach();
+               if(targetInfo.targetId===next.id){page=candidate;break;}
+             }
+           }
+         }catch{}
+         if(!page)await wait(250);
+       }
        assert.ok(page,'restart should reopen native launcher');page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(15000);
        await page.getByRole('navigation',{name:'主导航'}).waitFor();await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor();
+       assert.equal((await native('extension.status')).value.active,expected);
      };
      await pluginSettings();await capture('launcher-extensions');
      fixture.delivery('offline');await page.getByRole('button',{name:'下载社区插件'}).click();await page.getByText('社区插件下载暂时不可用').waitFor();await page.getByRole('button',{name:'复制给管理员的摘要'}).click();await page.getByText(/已复制脱敏摘要|请选择下方摘要并复制/).waitFor();await capture('extension-recovery');

@@ -25,8 +25,8 @@ if(mediaReference(oldWallpaper))tracked.push(mediaPath(old,oldWallpaper));
 const fingerprint=()=>Promise.all(tracked.map(file=>fs.readFile(file).then(bytes=>createHash('sha256').update(bytes).digest('hex'),e=>{if(e.code==='ENOENT')return null;throw e;})));
 const before=await fingerprint(),listener=net.createServer();
 listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(r=>listener.close(r));
-const proc=spawn(exe,[],{windowsHide:true,stdio:'ignore',env:{...process.env,HXZ3_QA_INSTANCE:'1',HXZ3_HOME:home,
-  WEBVIEW2_USER_DATA_FOLDER:path.join(home,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port='+port+' --remote-debugging-address=127.0.0.1'}});
+const proc=spawn(exe,[],{windowsHide:true,stdio:'ignore',env:{...process.env,HXZ3_QA_INSTANCE:'1',HXZ3_QA_BACKGROUND:'1',HXZ3_HOME:home,
+  WEBVIEW2_USER_DATA_FOLDER:path.join(home,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port='+port+' --remote-debugging-address=127.0.0.1 --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling'}});
 let browser,page;
 try{
   const until=Date.now()+45000;

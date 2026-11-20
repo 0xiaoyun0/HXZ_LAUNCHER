@@ -184,7 +184,7 @@ fn main() {
             let engine = ctx.app_handle().state::<Arc<Engine>>();
             media::response(&engine.home, &req)
         })
-        .setup(|app| {
+        .setup(move |app| {
             let home = std::env::var_os("HXZ3_HOME")
                 .map(PathBuf::from)
                 .unwrap_or(app.path().app_local_data_dir()?);
@@ -201,12 +201,23 @@ fn main() {
             let extension = Arc::new(extension::Extension::open(&home));
             app.manage(extension.clone());
             app.manage(Engine::new(home, bin)?);
-            tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
+            let mut window = app.config().app.windows[0].clone();
+            let background_test = isolated_test
+                && std::env::var_os("HXZ3_QA_BACKGROUND").as_deref()
+                    == Some(std::ffi::OsStr::new("1"));
+            if background_test {
+                window.visible = false;
+                window.focus = false;
+                window.skip_taskbar = true;
+            }
+            tauri::WebviewWindowBuilder::from_config(app, &window)?
                 .on_web_resource_request(move |request, response| {
                     extension.respond(request, response)
                 })
                 .build()?;
-            game_window::install_tray(app)?;
+            if !background_test {
+                game_window::install_tray(app)?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![launcher_request])
