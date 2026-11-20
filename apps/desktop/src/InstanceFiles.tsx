@@ -10,13 +10,20 @@ export function InstanceFileManager({id}:{id:string}){const [kind,setKind]=useSt
 export function InstanceFiles({id,kind='mods'}:{id:string;kind?:string}){
  const s=useSnapshot(state),t=useSnapshot(task),spec=fileSections.find(v=>v.id===kind)!;
  const [items,setItems]=useState<any[]>([]),[shared,setShared]=useState(false),[loading,setLoading]=useState(true),[working,setWorking]=useState(false),[error,setError]=useState(''),[query,setQuery]=useState(''),[drag,setDrag]=useState(false),[removing,setRemoving]=useState<any>(null);
+ const fileArea=useRef<HTMLElement>(null);
  const generation=useRef(0),inFlight=useRef(false),depth=useRef(0),locked=(!!s.running&&s.settings.keepLauncherAvailable===false)||!!t.busy||working;
  const load=async()=>{const current=++generation.current;setLoading(true);setError('');try{const result=await invoke('instance.files.list',{id,kind});if(current===generation.current){setItems(result.items);setShared(result.shared);}}catch(e:any){if(current===generation.current)setError(e.message);}finally{if(current===generation.current)setLoading(false);}};
  useEffect(()=>{setItems([]);setQuery('');setRemoving(null);void load();return()=>{generation.current++;};},[id,kind]);
- const mutate=async(action:string,input:any={})=>{if(inFlight.current||locked)return;inFlight.current=true;setWorking(true);setError('');try{const result=await invoke('instance.files.'+action,{id,kind,...input});if(action==='import'&&result.count)notify('已导入 '+result.count+' 个文件');await load();}catch(e:any){setError(e.message);await load().catch(()=>{});setError(e.message);}finally{inFlight.current=false;setWorking(false);}};
+ const mutate=async(action:string,input:any={})=>{if(inFlight.current||locked)return;inFlight.current=true;setWorking(true);setError('');try{const result=action==='drop'?await invoke('drop.apply',{id,kind,target:'instance',ticket:input.ticket}):await invoke('instance.files.'+action,{id,kind,...input});if((action==='import'||action==='drop')&&result.count)notify('已导入 '+result.count+' 个文件');await load();}catch(e:any){setError(e.message);await load().catch(()=>{});setError(e.message);}finally{inFlight.current=false;setWorking(false);}};
+ useEffect(()=>{
+   const area=fileArea.current;
+   const drop=(event:Event)=>{setDrag(false);depth.current=0;void mutate('drop',{ticket:(event as CustomEvent).detail});};
+   area?.addEventListener('instance-file-drop',drop);
+   return ()=>area?.removeEventListener('instance-file-drop',drop);
+ });
  const list=items.filter(v=>v.name.toLowerCase().includes(query.toLowerCase()));
  const dragFiles=(e:React.DragEvent)=>Array.from(e.dataTransfer.types).includes('Files');
- return <section className={'instance-files'+(drag?' drag-over':'')} aria-label={spec.title+'文件管理'}
+ return <section ref={fileArea} className={'instance-files'+(drag?' drag-over':'')} aria-label={spec.title+'文件管理'}
   onDragEnter={e=>{if(dragFiles(e)){e.preventDefault();e.stopPropagation();depth.current++;setDrag(true);}}}
   onDragOver={e=>{if(dragFiles(e)){e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect=locked?'none':'copy';}}}
   onDragLeave={e=>{e.preventDefault();e.stopPropagation();if(--depth.current<=0){depth.current=0;setDrag(false);}}}

@@ -30,7 +30,7 @@ export function Home(){
           return <article key={game.id} className={'home-instance-row'+(focused?.id===game.id?' focused':'')+(isLast?' resume-panel':'')}>
             <button className="instance-info" aria-label={'查看 '+game.name+' 的详情'} onClick={()=>setFocus(game.id)}><PackIcon game={game}/><span><strong>{game.name}</strong>
             <small>{[game.version===game.id?'本地实例':game.version,game.loader,isLast&&previous?.reason==='last'?'上次游玩':game.installed?'已安装':'待安装'].filter(Boolean).join(' · ')}</small></span></button>
-            <button className={isLast?'launch-primary':'small-action'} disabled={t.busy} onClick={()=>perform(()=>start(game))}>{running?<Square size={15}/>:<Play size={15}/>}
+            <button className={isLast?'launch-primary':'small-action'} disabled={t.busy||game.placeholder} onClick={()=>perform(()=>start(game))}>{running?<Square size={15}/>:<Play size={15}/>}
               {running?'停止游戏':game.installed?(isLast&&previous?.reason==='last'?'继续游玩':'启动'):'安装并启动'}</button></article>;
         })}{!matches.length&&<p className="desk-empty">{term?'没有匹配的实例。':'还没有可用实例。可以选择游戏目录，或下载第一个游戏。'}</p>}</div>
         <footer><small>{term?'找到 '+matches.length+' 个匹配实例':games.filter(g=>g.installed).length+' 个已安装'}</small><Link to={'/library'+(term?'?q='+encodeURIComponent(query):'')}>管理实例 <ArrowRight size={14}/></Link></footer>

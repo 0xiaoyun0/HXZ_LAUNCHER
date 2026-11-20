@@ -1,3 +1,5 @@
+import {ArchiveSignalMark} from '../ArchiveSignal';
+import {useArchiveSignal} from '../linking-effects';
 import {WindowButtons} from './WindowButtons';
 import {lazy,Suspense,useEffect,useRef,useState} from 'react';
 import {createHashRouter,RouterProvider,Routes,Route,Navigate,NavLink,Link,useLocation,useNavigate} from 'react-router-dom';
@@ -16,6 +18,9 @@ import {CommunitySlot,extension,Extensions,refreshExtension} from './Extensions'
 import {MiniPlayer} from './MiniPlayer';
 import {IssueHelp} from '../IssueHelp';
 import {playerError} from '../../../../packages/engine/core/player-errors.mjs';
+const Support=lazy(()=>import('./Support').then(m=>({default:m.Support})));
+const Updates=lazy(()=>import('../LauncherNews').then(m=>({default:m.LauncherUpdates})));
+const Servers=lazy(()=>import('./Servers').then(m=>({default:m.Servers})));
 const Player=lazy(()=>import('./Player').then(m=>({default:m.Player})));
 const Playtime=lazy(()=>import('./Playtime').then(m=>({default:m.Playtime})));
 const Library=lazy(()=>import('../GameLibrary').then(m=>({default:m.GameLibrary})));
@@ -38,19 +43,26 @@ function Frame(){
  useAppearance(s,(s.settings.animationSpeed??1)===0,s.settings.animationSpeed??1);const asleep=useGameSleep();
  useEffect(()=>{void perform(reload);const onKey=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();setFinder(v=>!v);}};window.addEventListener('keydown',onKey);return()=>window.removeEventListener('keydown',onKey);},[]);
  useEffect(()=>{main.current?.scrollTo(0,0);},[location.pathname]);
- useEffect(()=>{if(!desktop)return;const take=()=>{void invoke('lobby.invitation.take').then(url=>{if(url){ui.roomInvite=url;navigate('/multiplayer');}}).catch(()=>{});};take();return window.launcher?.subscribe(e=>{if(e.type==='room-link')take();if(e.type==='close-busy')notify('游戏或下载正在运行，启动器已最小化。');if(e.type==='pack-drop')void perform(async()=>{const p=await invoke('pack.inspect',{file:e.file});if(p){ui.pack=p;ui.dialog='import';}});});},[navigate]);
- const ext=useSnapshot(extension);
+ useEffect(()=>{if(!desktop)return;const take=()=>{void invoke('lobby.invitation.take').then(url=>{if(url){ui.roomInvite=url;navigate('/multiplayer');}}).catch(()=>{});};take();return window.launcher?.subscribe(e=>{if(e.type==='room-link')take();if(e.type==='close-busy')notify('游戏或下载正在运行，启动器已最小化。');if(e.type==='file-drop'){
+    const target=document.elementFromPoint(e.x/window.devicePixelRatio,e.y/window.devicePixelRatio)?.closest('.instance-files');
+    if(target){target.dispatchEvent(new CustomEvent('instance-file-drop',{detail:e.ticket}));return;}
+    if(document.querySelector('[role="dialog"]')||!['/','/library','/workshop','/workshop/install'].includes(location.pathname))return;
+    void perform(async()=>{const p=await invoke('drop.apply',{ticket:e.ticket,target:'pack'});if(p){ui.pack=p;ui.dialog='import';}});
+  }});},[navigate,location.pathname]);
+ const ext=useSnapshot(extension),archiveSignal=useArchiveSignal();
  useEffect(()=>{void perform(refreshExtension);},[]);
  const visible=pages.filter(p=>ext.active||!p.path.startsWith('/community'));
  const destination=pages.find(p=>p.path===location.pathname);
  const gate=location.pathname==='/multiplayer'&&!role?.authenticated;
+ const shortcutPage=['/community/guild','/community/linking','/music'].includes(location.pathname);
+ const selectedTop=shortcutPage?'':location.pathname.startsWith('/community')?'/community':location.pathname.startsWith('/workshop')?'/workshop':location.pathname==='/servers'?'/multiplayer':location.pathname;
  const roleName=role?.name||'账号';
  return <div className="launcher-frame"><header className="launcher-bar" data-tauri-drag-region>
-   <Link to="/" className="launcher-brand" aria-label="幻想镇首页"><img src="./media/brand/launcher.svg" alt=""/><span><strong>幻想镇</strong><small>FANTASY TOWN</small></span></Link>
+   <Link to="/" className="launcher-brand" aria-label="幻想镇首页">{ext.active&&archiveSignal.enabled?<ArchiveSignalMark/>:<img src="./media/brand/launcher.svg" alt=""/>}<span><strong>幻想镇</strong><small>FANTASY TOWN</small></span></Link>
    <nav aria-label="主导航">{visible.filter(p=>p.primary).map(p=>
-     <NavLink key={p.path} to={p.path} end={p.path==='/'} aria-label={p.label} title={p.label}>
+     <Link key={p.path} to={p.path} aria-current={selectedTop===p.path?'page':undefined} className={selectedTop===p.path?'active':''} aria-label={p.label} title={p.label}>
        <p.icon size={17} strokeWidth={1.75} aria-hidden/><span>{p.label}</span>
-     </NavLink>)}</nav>
+     </Link>)}</nav>
    <nav className="bar-shortcuts" aria-label="快捷导航">{visible.filter(p=>['/community/guild','/music','/community/linking'].includes(p.path)).map(p=>
      <NavLink key={p.path} to={p.path} aria-label={p.label} title={p.label}>
        <p.icon size={16} strokeWidth={1.75} aria-hidden/><span>{p.path.endsWith('linking')?'LINKING':p.label}</span>
@@ -67,7 +79,7 @@ function Frame(){
  </header>
  {typeof s.settings.backgroundImage==='string'&&/^(?:data:image\/(?:png|jpeg|webp);base64,|http:\/\/hxz-media\.localhost\/)/i.test(s.settings.backgroundImage)&&<div className="launcher-wallpaper" aria-hidden="true" style={{backgroundImage:'url('+JSON.stringify(s.settings.backgroundImage)+')',opacity:Math.max(.05,Math.min(.85,Number(s.settings.backgroundOpacity)||.4))}}/>}
  <main ref={main} className="launcher-content" id="workspace-main"><PageBoundary key={location.pathname.startsWith('/community')?'/community':location.pathname}>{s.error?<section className="launch-page"><h1>无法读取本机资料</h1><IssueHelp issue={playerError(s.error,'state')}/><button onClick={()=>perform(reload)}>重试</button></section>:!s.ready?<p className="launch-page" role="status">正在读取本机游戏…</p>:asleep?<section className="launch-page"><h1>游戏运行中</h1></section>:gate?<section className="launch-page login-gate"><h1>{destination?.label}</h1><p>{location.pathname==='/multiplayer'?'登录幻想镇账号后，可以创建房间或加入伙伴。':location.pathname==='/guild'?'登录后查看委托与协会进度。':'登录后可以继续阅读和同步档案进度。'}</p><button className="launch-primary" onClick={()=>ui.dialog='account'}>登录账号 <ArrowRight size={16}/></button></section>:
- <Suspense fallback={<p className="launch-page" role="status">正在打开…</p>}><Routes><Route index element={<Home/>}/><Route path="/community/*" element={<CommunitySlot/>}/><Route path="/town" element={<Navigate replace to="/community"/>}/><Route path="/playtime" element={<Playtime/>}/><Route path="/music" element={<Player/>}/><Route path="/guild" element={<Navigate replace to="/community/guild"/>}/><Route path="/linking" element={<Navigate replace to="/community/linking"/>}/><Route path="/library" element={<Library/>}/><Route path="/workshop/*" element={<Resources/>}/><Route path="/multiplayer" element={<Lobby/>}/><Route path="/settings/extensions" element={<Extensions/>}/><Route path="/settings" element={<Settings/>}/><Route path="/account" element={<Identity/>}/><Route path="/check" element={<Preflight/>}/><Route path="*" element={<section className="launch-page"><h1>找不到这个页面</h1><Link to="/">返回首页</Link></section>}/></Routes></Suspense>}</PageBoundary></main>
+ <Suspense fallback={<p className="launch-page" role="status">正在打开…</p>}><Routes><Route index element={<Home/>}/><Route path="/community/*" element={<CommunitySlot/>}/><Route path="/town" element={<Navigate replace to="/community"/>}/><Route path="/playtime" element={<Playtime/>}/><Route path="/music" element={<Player/>}/><Route path="/guild" element={<Navigate replace to="/community/guild"/>}/><Route path="/linking" element={<Navigate replace to="/community/linking"/>}/><Route path="/library" element={<Library/>}/><Route path="/workshop/*" element={<Resources/>}/><Route path="/servers" element={<Servers/>}/><Route path="/support" element={<Support/>}/><Route path="/updates" element={<section className="launch-page"><header className="launch-title"><h1>更新公告</h1></header><Updates/></section>}/><Route path="/multiplayer" element={<Lobby/>}/><Route path="/settings/extensions" element={<Extensions/>}/><Route path="/settings" element={<Settings/>}/><Route path="/account" element={<Identity/>}/><Route path="/check" element={<Preflight/>}/><Route path="*" element={<section className="launch-page"><h1>找不到这个页面</h1><Link to="/">返回首页</Link></section>}/></Routes></Suspense>}</PageBoundary></main>
  <footer className="launcher-status"><span className="status-connection"><i/>{s.running?'游戏运行中':role?.authenticated?'当前角色已登录':'本地工作台'}</span><MiniPlayer/><button onClick={()=>ui.tasks=true}><Layers3 size={14}/>{t.busy?t.phase:'任务与日志'}</button><span>{version}</span></footer><Dialogs/><TaskDrawer/><Modal open={!!u.issueOpen&&!!u.issue} title="处理建议" onClose={()=>ui.issueOpen=false}>{u.issue&&<IssueHelp issue={u.issue}/>}</Modal>{finder&&<Finder close={()=>setFinder(false)}/>}
  {u.toast&&<div className={'third-toast '+(u.toastError?'error':'')} role="status">{u.toastError?<AlertCircle size={16}/>:<Check size={15}/>}<span>{u.toast}</span>{u.toastError&&u.issue&&<button onClick={()=>{ui.issueOpen=true;ui.toast='';}}>处理方法</button>}<button aria-label="关闭提示" onClick={()=>ui.toast=''}><X size={14}/></button></div>}</div>;
 }

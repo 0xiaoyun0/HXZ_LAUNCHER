@@ -17,6 +17,6 @@ export function GuildPage(){
  const regions=useMemo(()=>Object.fromEntries(['overview','ongoing','board'].map(key=>{const node=document.createElement('section');node.className='guild-workspace';node.dataset.region=key;return [key,node];})) as Record<string,HTMLElement>,[]);
  useEffect(()=>mountGuild(regions.board,{request,uid:c.user?.uid,initialTask:id,regions}),[regions,c.user?.uid,c.connected,id]);
  return <section className="launch-page guild-page"><header className="launch-title"><h1>冒险者协会</h1></header>
- <div className="guild-columns"><section><h2>协会概览</h2><Region node={regions.overview}/></section><section><h2>我的进行中</h2><Region node={regions.ongoing}/></section></div>
+ <div className="guild-columns"><section className="desk-card"><h2>协会概览</h2><Region node={regions.overview}/></section><section className="desk-card"><h2>我的进行中</h2><Region node={regions.ongoing}/></section></div>
  <section className="lobby-block"><h2>委托广场</h2><Region node={regions.board}/></section></section>;
 }

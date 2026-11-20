@@ -5,7 +5,7 @@ const when = time => new Date(time).toLocaleString('zh-CN', {hour12: false});
 const description = item => item.kind === 'voucher' ? (labels[item.permission] || item.permission) + ' · ' + item.duration + (item.unit === 'months' ? ' 个月' : ' 天') : item.kind === 'material' ? item.commission ? '材料 · 可用于委托' : '材料' : '纪念收藏';
 
 /** Shared, text-only DOM renderer used by Electron, Android and the admin console. */
-export function mountInventory(root, {request, management = false, canManage = false, dialogHost = () => {}}) {
+export function mountInventory(root, {request, management = false, canManage = false, embedded = false, dialogHost = () => {}}) {
   let alive = true, generation = 0, data, query = '', tab = 'items'; const dialogs = new Set();
   const el = (tag, value = '', cls = '') => {const node = document.createElement(tag); node.textContent = value; node.className = cls; return node;};
   const report = error => {if (!alive) return; const host = [...dialogs].at(-1) || root; let node = host.querySelector('.inventory-error'); if (!node) {node = el('p', '', 'inventory-error'); node.setAttribute('role', 'alert'); host.prepend(node);} node.textContent = error.message || String(error);};
@@ -72,7 +72,7 @@ export function mountInventory(root, {request, management = false, canManage = f
   }
   function redeem() {const dialog = modal('兑换道具'), code = field(dialog.contents, '道具兑换码'); code.maxLength = 64; dialog.contents.append(button('领取', async () => {await request('/api/inventory/redeem', 'POST', {code: code.value}); dialog.close(); await load();}, true));}
   function draw() {
-    root.replaceChildren(); const head = el('header', '', 'inventory-header'), actions = el('div', '', 'inventory-actions'); head.append(el('h2', management ? '物品与凭证管理' : '我的背包'), actions); root.append(head);
+    root.replaceChildren(); const head = el('header', '', 'inventory-header'), actions = el('div', '', 'inventory-actions'); if(!embedded||management)head.append(el('h2',management?'物品与凭证管理':'我的背包'));head.append(actions); root.append(head);
     if (management) actions.append(button('新建道具', () => edit(), true), button('邮寄道具', () => distribute()), button('创建兑换码', () => distribute(true)));
     else actions.append(button('兑换道具', redeem, true));
     actions.append(button('刷新', load)); if (canManage && !management) actions.append(button('管理物品', () => {management = true; tab = 'items'; return load();})); if (canManage && management) actions.append(button('返回背包', () => {management = false; tab = 'items'; return load();}));

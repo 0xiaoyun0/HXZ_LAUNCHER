@@ -1,5 +1,5 @@
 import {proxy} from 'valtio';
-import {invoke,state,notify,saveSettings} from './model';
+import {account,invoke,state,notify,saveSettings,watchSettings} from './model';
 import {community,shareRoomMusic} from '../../../packages/community/client';
 
 export const music=proxy<any>({lyrics:[],lyricError:'',lyricCandidates:[],lyricLoading:false,lyricsFloating:false,items:[],current:null,playing:false,loading:false,position:0,duration:0,error:'',notice:'',mode:'list',ready:false});
@@ -17,7 +17,7 @@ function player(){
  return audio;
 }
 const fail=(e:any)=>{music.error=e?.message||String(e);notify(music.error,true);};
-export async function loadMusic(){const result=await invoke('music.list');music.items=result.items;music.ready=true;}
+export async function loadMusic(){const result=await invoke('music.list');music.items=result.items;music.mode=state.settings.musicPlayMode||'list';music.ready=true;}
 async function attemptTrack(track:any,run:PlaybackRun,resume=false):Promise<void>{
  const token=++generation,el=player();detachMediaHandlers();el.pause();
  if(!resume){el.removeAttribute('src');el.load();}
@@ -72,4 +72,7 @@ export async function shareMusic(enabled:boolean){
 }
 export async function removeTrack(id:string){if(music.current?.id===id){stopMusic();player().removeAttribute('src');player().load();music.current=null;music.position=0;music.duration=0;music.error='';music.notice='';}await invoke('music.remove',{id});await loadMusic();}
 export function stopMusic(){generation++;detachMediaHandlers();audio?.pause();music.loading=false;music.playing=false;shareRoomMusic(null);}
+watchSettings(()=>[state.settings.selectedAccount,account()?.uuid,state.settings.communityUrl],()=>{
+ if(music.current?.privateAudio){stopMusic();audio?.removeAttribute('src');audio?.load();music.current=null;music.position=0;music.duration=0;}
+});
 window.addEventListener('beforeunload',()=>{audio?.pause();void context?.close();});
