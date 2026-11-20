@@ -1,7 +1,7 @@
 import {proxy as reactive} from "valtio";
 import {watchSettings as watch} from "../../apps/desktop/src/model";
 import { createRelayVoice } from "./voice-relay.mjs";
-import { invoke, errorMessage, loadNotices, state } from "../../apps/desktop/src/model";
+import { account, invoke, errorMessage, loadNotices, state } from "../../apps/desktop/src/model";
 import {requestFailureMessage} from './request-errors.mjs';
 export interface Member {
   platform?: string;
@@ -501,6 +501,7 @@ window.addEventListener("online", () => {
     void connect();
   }
 });
+watch(() => [state.settings.selectedAccount, account()?.uuid, account()?.authenticated, state.settings.communityUrl], disconnect);
 window.addEventListener("beforeunload", disconnect);
 
 // Compare against the authenticated request destination without exposing a token.

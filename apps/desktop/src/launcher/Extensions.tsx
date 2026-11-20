@@ -1,7 +1,8 @@
 import {lazy,Suspense,useEffect,useState} from 'react';
-import {Link} from 'react-router-dom';
+import {Link,useLocation} from 'react-router-dom';
 import {proxy,useSnapshot} from 'valtio';
 import {ChevronLeft,Download,Package,RotateCcw} from 'lucide-react';
+import {communityPages} from './community-pages';
 import {SettingsLayout} from './SettingsLayout';
 import {desktop,invoke,state,task} from '../model';
 import {IssueHelp} from '../IssueHelp';
@@ -22,9 +23,10 @@ const Community=lazy(async()=>{
   return import(/* @vite-ignore */ entry);
 });
 export function CommunitySlot(){
-  const e=useSnapshot(extension);
+  const e=useSnapshot(extension),{pathname}=useLocation();
+  const page=communityPages.find(p=>p.path===pathname);
   if(!e.ready)return <p className="launch-page">正在读取扩展…</p>;
-  if(!e.active)return <section className="launch-page"><h1>社区插件</h1><p>{e.installed?'插件已下载，重启启动器后可以打开。':'在扩展设置里安装并重启，即可打开语音、论坛、入服申请、背包、协会与 LINKING。'}</p><Link className="small-action" to="/settings/extensions">打开扩展设置</Link></section>;
+  if(!e.active)return <section className="launch-page"><h1>{page?.path==='/community'?'社区':page?.label||'社区插件'}</h1><div className="desktop-panel"><div className="desktop-panel-body"><p>{e.safeMode?'本次启动跳过了社区插件，正常重启后可以使用。':e.incompatible?'社区插件需要更新，请在扩展设置里安装匹配的版本。':e.installed?'社区插件已下载，重启启动器后可以打开。':'此功能由社区插件提供，在扩展设置中安装并重启后即可使用。'}</p><div className="arcade-links"><Link className="small-action" to="/settings/extensions">打开扩展设置</Link>{(pathname.includes('/arcade/')||['/community/wallet','/community/shop','/community/ranking'].includes(pathname))&&<Link className="small-action" to="/arcade">返回小游戏厅</Link>}</div></div></div></section>;
   return <Suspense fallback={<p className="launch-page">正在打开社区…</p>}><Community/></Suspense>;
 }
 export function Extensions(){
@@ -39,7 +41,7 @@ export function Extensions(){
   }
   const status=!e.available?'当前构建未配置扩展包':e.incompatible?'需要安装与本版本匹配的插件':e.safeMode&&e.installed?'本次已跳过社区插件':pending?(e.installed?'已下载 · 重启后启用':'已停用 · 重启后生效'):e.active?'已启用':'未安装';
   return <SettingsLayout current="extensions">
-    <section className="preference-section"><h2><Package size={17}/> 社区插件</h2><div className="setting-line"><span><strong>{status}</strong><small>聊天、论坛、冒险者协会和 LINKING · {e.version||'—'}{e.size?' · '+(e.size/1048576).toFixed(1)+' MB':''}</small></span></div>
+    <section className="preference-section"><h2><Package size={17}/> 社区插件</h2><div className="setting-line"><span><strong>{status}</strong><small>聊天、论坛、冒险者协会、LINKING、小游戏联机、积分与排行榜 · {e.version||'—'}{e.size?' · '+(e.size/1048576).toFixed(1)+' MB':''}</small></span></div>
       <div className="setting-line extension-actions">
         {e.installed?<button className="small-action" disabled={busy} onClick={()=>change('disable')}>{pending?'取消启用':'停用插件'}</button>:<><button className="small-action" disabled={busy||!e.available} onClick={()=>change('install')}><Download size={15}/>{busy?'正在处理 '+percent+'%':e.active?'重新启用':'下载社区插件'}</button><button className="small-action" disabled={busy||!e.available} onClick={()=>change('import')}>从本地安装</button></>}
         {pending&&!e.safeMode&&<button className="launch-primary" disabled={busy||s.running||t.busy} onClick={()=>change('restart')}><RotateCcw size={15}/>重启启动器</button>}

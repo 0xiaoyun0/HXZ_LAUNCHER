@@ -1,26 +1,53 @@
-import {Shop} from './Shop';
-import {HubPage} from './Hub';
-import {Link} from 'react-router-dom';
+import {useEffect,useRef,useState,useSyncExternalStore} from 'react';
+import {Link,Route,Routes,useNavigate,useParams} from 'react-router-dom';
+import {useSnapshot} from 'valtio';
+import {ArrowLeft,Coins,Gamepad2,Heart,Pause,Play,ShoppingBag,Trophy,Volume2,VolumeX,Users} from 'lucide-react';
 import {flightUpgrade} from '../../../server/shared/arcade-upgrades.mjs';
-import {TankRoom} from './TankRoom';
-import {Werewolf} from './Werewolf';
+import {GAMES} from '../../../server/shared/arcade-engine.mjs';
+import {community,connect} from '../../../packages/community/client';
+import {createArcade} from '../../../packages/games/arcade-controller.mjs';
 import {mountGameControls} from '../../../packages/games/game-controls.mjs';
 import '../../../packages/games/game-controls.css';
 import '../../../packages/games/game-session.css';
-import {CardCollection,ContentCard} from './CardPrimitives';
 import {GameShelf} from './GameShelf';
-import {PanelGroup} from './CardBoard';
-import {useEffect,useRef,useState,useSyncExternalStore} from 'react';import {useSnapshot} from 'valtio';import {NavLink,Navigate,Routes,Route,useNavigate,useParams,useSearchParams} from 'react-router-dom';import {Gamepad2,ArrowLeft,Play,Pause,Volume2,VolumeX,Trophy,ShoppingBag,Coins,ArrowUpRight,RotateCcw,Heart,Send} from 'lucide-react';import {createArcade} from '../../../packages/games/arcade-controller.mjs';import {BOARD_GAMES,DIFFICULTIES} from '../../../server/shared/board-catalog.mjs';import {GAMES} from '../../../server/shared/arcade-engine.mjs';import {community,communityAssetURL} from '../../../packages/community/client';import {ui,perform,notify} from './model';import {request,useData} from './data';import {PageTitle,Button,IconButton,Select,Segments,Field,Empty,Modal,date} from './ui';
-export function ArcadePage(){return <div className="standard-page arcade-page"><PageTitle title="小游戏" tabs={<><NavLink to="/arcade" end>游戏厅</NavLink><NavLink to="/arcade/ranking"><Trophy size={17}/>积分榜</NavLink><NavLink to="/arcade/shop"><ShoppingBag size={17}/>积分商城</NavLink></>}/><Routes><Route index element={<GameShelf/>}/><Route path="social/werewolf" element={<Werewolf/>}/><Route path="play/:id" element={<ArcadeRoute/>}/><Route path="board/:id" element={<BoardRoute/>}/><Route path="ranking" element={<Ranking/>}/><Route path="shop" element={<><div className="hub-context-links"><Link className="button" to="/arcade/shop/trades">玩家交易</Link></div><Shop/></>}/><Route path="shop/trades" element={<><div className="hub-context-links"><Link className="button" to="/arcade/shop">返回积分商城</Link></div><HubPage area="trades"/></>}/><Route path="workshop" element={<Navigate to="/arcade" replace/>}/><Route path="*" element={<Navigate to="/arcade" replace/>}/></Routes></div>}
-function RankList({data,error}:any){return <>{error&&<p className="inline-error">{error}</p>}<small>{data?.label}</small><ol className="rank-list">{data?.items?.map((r:any,i:number)=><li key={r.uid||i}><b>{r.rank||i+1}</b><span>{r.name}</span><strong>{r.score??r.points??0}</strong></li>)}</ol>{!data?.items?.length&&!error&&<p className="muted">还没有成绩，期待你的名字。</p>}<div className="my-rank">我的排名 <strong>{data?.self?.rank||'暂未上榜'}</strong><span>{data?.self?.score??data?.self?.points??0} 分</span></div></>}
+import {account,state,ui} from './model';
+import {request} from './data';
+import {Button,IconButton,Segments,Empty} from './ui';
+import {extension} from './launcher/Extensions';
+import {RankList} from './launcher/RankList';
+
+export function ArcadePage(){return <section className="launch-page arcade-page">
+  <header className="launch-title arcade-heading"><h1><Link to="/arcade">小游戏</Link></h1><nav className="arcade-links" aria-label="小游戏与积分">
+    <Link className="small-action" to="/community/ranking"><Trophy size={16}/>积分排行榜</Link>
+    <Link className="small-action" to="/community/wallet"><Coins size={16}/>我的积分</Link>
+    <Link className="small-action" to="/community/shop"><ShoppingBag size={16}/>积分商城</Link>
+  </nav></header>
+  <Routes><Route index element={<GameShelf/>}/><Route path="play/:id" element={<ArcadeRoute/>}/><Route path="*" element={<Empty title="未找到这个游戏"><Link className="small-action" to="/arcade">返回游戏厅</Link></Empty>}/></Routes>
+</section>}
 function TouchControls({api,id}:any){const el=useRef<HTMLDivElement>(null);useEffect(()=>mountGameControls(el.current,api,id),[api,id]);return <div ref={el}/>;}
-function ArcadeRoute(){const {id}=useParams();return id==='tanks'?<TankEntry/>:<ArcadeGame key={id}/>;}
-function TankEntry(){const [solo,setSolo]=useState(false);return solo?<><Button onClick={()=>setSolo(false)}>返回合作大厅</Button><ArcadeGame key="solo-tanks"/></>:<TankRoom solo={()=>setSolo(true)}/>;}
+function ArcadeRoute(){
+ const {id}=useParams(),s=useSnapshot(state),e=useSnapshot(extension),role=account(s);
+ return <ArcadeGame key={[id,role?.id,role?.uuid,s.settings.communityUrl,e.active].join(':')}/>;
+}
 function ArcadeGame(){
- const {id}=useParams(),navigate=useNavigate(),[a]=useState(()=>createArcade(request)),[focused,setFocused]=useState(false),[screenControls,setScreenControls]=useState(()=>matchMedia('(pointer:coarse)').matches);
+ const {id}=useParams(),navigate=useNavigate(),s=useSnapshot(state),e=useSnapshot(extension),c=useSnapshot(community),role=account(s);
+ const member=e.active&&!!role?.authenticated&&!!role.uuid;
+ const [a]=useState(()=>createArcade(request,{},()=>extension.active&&!!account()?.authenticated&&!!account()?.uuid&&community.connected)),[focused,setFocused]=useState(false),[screenControls,setScreenControls]=useState(()=>matchMedia('(pointer:coarse)').matches);
  useSyncExternalStore(a.subscribe,a.getVersion,a.getVersion);
  const canvas=useRef<HTMLCanvasElement>(null),main=useRef<HTMLElement>(null),game=GAMES.find((g:any)=>g.id===id),puzzle=['merge','snake','mines'].includes(id||'');
- useEffect(()=>{a.mount();if(game)void a.select(game);return()=>a.dispose();},[]);
+ useEffect(()=>{if(member)void connect();},[member]);
+ useEffect(()=>{
+  a.mount();
+  if(game)void a.select(game);
+  ui.arcadeRound={
+   hasProgress:()=>a.playing.value||!!a.pendingScore.value,
+   pause:()=>{if(a.playing.value&&!a.paused.value)a.pause();},
+   ranked:()=>a.ranked.value,
+   finish:async()=>{if(a.playing.value)await a.finish();else if(a.pendingScore.value)await a.submit();return !a.pendingScore.value;}
+  };
+  return()=>{ui.arcadeRound=null;a.dispose();};
+ },[a,game]);
+ useEffect(()=>{if(c.connected&&member)void a.changeRank(a.rankPeriod.value);},[c.connected,member]);
  useEffect(()=>{a.canvas.value=canvas.current;if(canvas.current&&!a.game.value&&game)a.thumbnail(canvas.current,game);});
  useEffect(()=>{
   const el=main.current;if(!el)return;let frame=0;
@@ -33,9 +60,9 @@ function ArcadeGame(){
   const observer=new ResizeObserver(fit);observer.observe(el);Array.from(el.children).forEach(c=>observer.observe(c));window.addEventListener('resize',fit);fit();
   return()=>{observer.disconnect();cancelAnimationFrame(frame);window.removeEventListener('resize',fit);};
  },[focused,screenControls,a.playing.value,!!a.detail.value,!!a.message.value,id]);
- if(!game)return <Empty title="未找到这个游戏"/>;
- const back=()=>{if(a.playing.value){if(!a.paused.value)a.pause();ui.confirm={title:'结束这一局？',message:'将按当前进度结算成绩，然后返回游戏厅。',action:async()=>{await a.finish();navigate('/arcade');}};}else navigate('/arcade');};
- const end=()=>{if(!a.paused.value)a.pause();ui.confirm={title:'结束本局？',message:'将保存当前成绩，结束后可以重新开始。',action:a.finish};};
+ if(!game)return <Empty title="未找到这个游戏"><Link className="small-action" to="/arcade">返回游戏厅</Link></Empty>;
+ const back=()=>navigate('/arcade');
+ const end=()=>{if(!a.paused.value)a.pause();ui.confirm={title:'结束本局？',message:'计分对局将提交成绩，本机练习会记录个人最好成绩。',action:a.finish};};
  const stage=id==='runner'||id==='danmaku'?'无尽挑战':id==='blocks'?'等级 '+a.level.value:puzzle?'经典挑战':'第 '+a.level.value+' 关';
  return <div className={'game-workspace arcade-session game-session-'+id+(focused?' game-focused':'')}><section ref={main} className="game-session-main" aria-label={game.name}>
   {a.choices.value?.length>0&&a.playing.value&&!a.paused.value&&<section className="game-upgrade-panel" role="dialog" aria-modal="true" aria-label="选择本局增益"><div className="game-upgrade-dialog"><small>第 {a.level.value} 阶段</small><h3>选择本局增益</h3><p>增益在本局持续生效</p><div className="choices">{a.choices.value.map((key:any)=><button key={key} onClick={()=>a.input('upgrade:'+key)}><strong>{flightUpgrade(key).title}</strong><small>{flightUpgrade(key).description}</small></button>)}</div></div></section>}
@@ -43,30 +70,15 @@ function ArcadeGame(){
   <div className="game-session-metrics"><span className={a.ranked.value?'is-ranked':''}>{a.playing.value||a.finished.value?a.ranked.value?'社区计分':'本机练习':'准备开始'}</span><span>用时 <b>{a.time.value}</b></span><span>{stage}</span>{['breakout','danmaku','maze','fighter'].includes(id||'')&&<span className="game-lives"><Heart size={14}/>{a.lives.value} / 3</span>}</div>
   <div className={'canvas-stage '+(['runner','deck','dice','caravan'].includes(id||'')?'landscape':'')}><canvas ref={canvas} tabIndex={0} aria-label={game.name+' 游戏画面'} onPointerDown={a.pointer} onPointerMove={a.pointer} onPointerUp={a.pointer} onPointerCancel={a.pointer} onLostPointerCapture={a.pointer} onContextMenu={e=>e.preventDefault()}/>
    {(!a.playing.value||a.paused.value||a.countdown.value>0)&&<div className={'game-overlay '+(a.countdown.value>0&&!a.paused.value?'countdown':'')}>
-    {a.playing.value&&a.countdown.value>0&&!a.paused.value?<><strong>{a.countdown.value}</strong><small>准备出发</small></>:<><small>{a.paused.value?'进度已保留':a.finished.value?a.game.value?.won?'挑战通关':'本局结束':game.tag}</small><h2>{a.paused.value?'已暂停':a.finished.value?a.score.value.toLocaleString()+' 分':game.name}</h2><p>{a.paused.value?'休息一下，随时继续':a.finished.value?'用时 '+a.time.value:game.keys}</p><Button tone="solid" icon={Play} disabled={a.busy.value} onClick={()=>a.paused.value?a.pause():a.start()}>{a.busy.value?'准备中…':a.paused.value?'继续游戏':a.finished.value?'再来一局':'开始游戏'}</Button>{a.paused.value&&<Button onClick={end}>结束本局</Button>}</>}
+    {a.playing.value&&a.countdown.value>0&&!a.paused.value?<><strong>{a.countdown.value}</strong><small>准备出发</small></>:<><small>{a.paused.value?'进度已保留':a.finished.value?a.game.value?.won?'挑战通关':'本局结束':game.tag}</small><h2>{a.paused.value?'已暂停':a.finished.value?a.score.value.toLocaleString()+' 分':game.name}</h2><p>{a.paused.value?'休息一下，随时继续':a.finished.value?'用时 '+a.time.value:game.keys}</p><Button tone="solid" icon={Play} disabled={a.busy.value||!!a.pendingScore.value} onClick={()=>a.paused.value?a.pause():a.start()}>{a.busy.value?'准备中…':a.paused.value?'继续游戏':a.finished.value?'再来一局':'开始游戏'}</Button>{a.paused.value&&<Button onClick={end}>结束本局</Button>}</>}
    </div>}
   </div>
   {a.detail.value&&<p className="game-detail" role="status">{a.detail.value}</p>}
 
   <div className="game-controls"><Button onClick={()=>setFocused(v=>!v)}>{focused?'退出专注':'专注游玩'}</Button><span>{a.paused.value?'已暂停':a.playing.value?'游戏进行中':a.finished.value?'本局已结算':'操作区'}</span><Button icon={a.paused.value?Play:Pause} disabled={!a.playing.value} onClick={a.pause}>{a.paused.value?'继续':'暂停'}</Button><IconButton icon={Gamepad2} label={screenControls?'隐藏屏幕按键':'显示屏幕按键'} onClick={()=>setScreenControls(v=>!v)}/><IconButton icon={a.sound.value?Volume2:VolumeX} label="游戏音效" onClick={a.toggleSound}/></div>
   {(screenControls||['garden','mines','deck','dice','caravan'].includes(id||''))&&a.playing.value&&!a.paused.value&&<TouchControls api={a} id={id}/>}
+  {a.syncPaused.value&&<Button disabled={a.busy.value} onClick={a.retrySync}>重试同步</Button>}
   {a.message.value&&<p className="game-message">{a.message.value}</p>}{a.pendingScore.value&&<Button disabled={a.busy.value} onClick={a.submit}>重试提交成绩</Button>}
- </section><aside className="game-aside"><section className="game-help-card"><h3>操作指南</h3><p>{game.keys}</p><small>Esc / P 暂停 · 离开窗口自动暂停</small>{id==='garden'&&<p>先建塔，再开始下一波。点击“升级”后选择已有炮塔。霜花减速、莓果范围伤害。</p>}{id==='tanks'&&<p>守住下方星灯。砖墙可击碎，钢墙会挡住双方子弹。每波结束恢复生命；单个玩家阵亡后，伙伴可守到下一波救回。</p>}{id==='mines'&&<p>数字表示相邻八格的雷数。插旗数与数字一致时，可点击数字快速展开。</p>}</section><section className="game-rank-card"><h3>社区排行榜</h3><Segments value={a.rankPeriod.value} onChange={a.changeRank} items={[{id:'week',label:'本周'},{id:'all',label:'长期'}]}/><RankList data={{items:a.ranking.value,self:a.rankSelf.value,label:a.rankLabel.value}} error={a.rankError.value}/></section></aside></div>;
+ </section><aside className="game-aside"><section className="game-help-card"><h3>操作指南</h3>{id==='tanks'&&<Link className="small-action" to="/community/arcade/coop/tanks"><Users size={16}/>进入双人合作大厅</Link>}<p>{game.keys}</p><small>Esc / P 暂停 · 离开窗口自动暂停</small>{id==='garden'&&<p>先建塔，再开始下一波。点击“升级”后选择已有炮塔。霜花减速、莓果范围伤害。</p>}{id==='tanks'&&<p>守住下方星灯。砖墙可击碎，钢墙会挡住双方子弹。每波结束恢复生命；单个玩家阵亡后，伙伴可守到下一波救回。</p>}{id==='mines'&&<p>数字表示相邻八格的雷数。插旗数与数字一致时，可点击数字快速展开。</p>}</section><section className="game-rank-card"><h3>单项成绩榜</h3>{member&&c.connected?<><Segments value={a.rankPeriod.value} onChange={a.changeRank} items={[{id:'week',label:'本周'},{id:'all',label:'长期'}]}/><RankList data={a.rankReady.value?{items:a.ranking.value,self:a.rankSelf.value,label:a.rankLabel.value}:null} error={a.rankError.value} onRetry={()=>a.changeRank(a.rankPeriod.value)}/></>:<><p>{!e.active?'启用社区插件后可以参加排名。':!role?.authenticated||!role.uuid?'登录并选择角色后可以参加排名。':c.connecting?'正在连接社区，现在可以开始本机练习。':'社区未连接，现在可以开始本机练习。'}</p>{!e.active?<Link className="small-action" to="/settings/extensions">打开扩展设置</Link>:!member?<Link className="small-action" to="/account">账号与角色</Link>:!c.connecting&&<Button onClick={()=>void connect()}>重新连接</Button>}</>}
+    <p className="arcade-personal-best">本机最好成绩 <b>{a.best.value[id||'']??'—'}</b></p></section></aside></div>;
 }
-const chessSymbols:any={ak:'♔',aq:'♕',ar:'♖',ab:'♗',an:'♘',ap:'♙',bk:'♚',bq:'♛',br:'♜',bb:'♝',bn:'♞',bp:'♟'},xiangqiSymbols:any={ak:'帥',aa:'仕',ae:'相',ah:'馬',ar:'車',ac:'炮',ap:'兵',bk:'將',ba:'士',be:'象',bh:'馬',br:'車',bc:'砲',bp:'卒'};
-function BoardRoute(){const {id}=useParams();return <BoardGame key={id}/>;}
-function BoardGame(){const [params]=useSearchParams();const {id}=useParams(),c=useSnapshot(community);const game=BOARD_GAMES.find((g:any)=>g.id===id);const [match,setMatch]=useState<any>(null),[selection,setSelection]=useState(-1),[level,setLevel]=useState(1),[period,setPeriod]=useState('week'),[promotion,setPromotion]=useState('q'),[comment,setComment]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false),[now,setNow]=useState(Date.now());const matchRef=useRef<any>(null),busyRef=useRef(false),generation=useRef(0);matchRef.current=match;busyRef.current=busy;useEffect(()=>{let active=true;const target=params.get('match');if(target&&c.connected)void request('/api/boards/'+encodeURIComponent(target)).then(v=>{if(active&&v.game===id)setMatch(v);}).catch(e=>{if(active)setError(e.message);});return()=>{active=false;};},[params,id,c.connected]);const lobby=useData(()=>request('/api/boards'),[id,c.connected]),ranking=useData(()=>request('/api/arcade/'+id+'?period='+period),[id,period,c.connected]);useEffect(()=>{
- let loading=false,alive=true,pending=false,lastPoll=0;
- const refresh=async()=>{
-  if(document.hidden)return;if(busyRef.current||loading){pending=true;return;}
-  loading=true;pending=false;lastPoll=Date.now();const m=matchRef.current,gen=generation.current;
-  try{if(m&&!m.state.winner){const value=await request('/api/boards/'+m.id);if(alive&&!busyRef.current&&generation.current===gen&&matchRef.current?.id===m.id&&matchRef.current.state.ply<=value.state.ply)setMatch(value);}
-  else if(!m)await lobby.reload();}catch(e:any){if(alive)setError(e.message);}finally{loading=false;if(pending&&alive&&!busyRef.current)queueMicrotask(refresh);}
- };
- const onChange=(event:any)=>{if(!event.detail||event.detail.game===id||event.detail.id===matchRef.current?.id)void refresh();};
- const onVisible=()=>{if(!document.hidden)void refresh();};
- window.addEventListener('hxz-board',onChange);document.addEventListener('visibilitychange',onVisible);
- const timer=setInterval(()=>{setNow(Date.now());if(pending||Date.now()-lastPoll>6000)void refresh();},1000);
- return()=>{alive=false;clearInterval(timer);window.removeEventListener('hxz-board',onChange);document.removeEventListener('visibilitychange',onVisible);};
-},[id]);const run=async(fn:()=>Promise<any>)=>{if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');generation.current++;try{await fn();}catch(e:any){setError(e.message);}finally{busyRef.current=false;setBusy(false);window.dispatchEvent(new CustomEvent('hxz-board',{detail:{game:id}}));}};if(!game)return <Empty title="未找到这个游戏"/>;const width=id==='gomoku'?15:id==='xiangqi'?9:8,height=id==='xiangqi'?10:width;const myTurn=match?.side===match?.state.turn&&!match?.state.winner&&!!match?.b;const dest=new Set((match?.legal||[]).filter((m:any)=>id==='gomoku'||m.from===selection).map((m:any)=>m.to));const cells=(match?.state.board||Array(width*height).fill('')).map((piece:any,i:number)=>({piece,i})).sort((a:any,b:any)=>match?.side==='b'?b.i-a.i:a.i-b.i);const status=!match?'选择模式，开始一局':match.state.winner?match.state.winner==='draw'?'和棋':match.state.winner===match.side?'你赢了':'本局结束':!match.b?'等待另一位旅人':match.thinking?'机器人正在思考':(match[match.state.turn]?.name||'玩家')+' 行棋'+(myTurn?' · 轮到你':'');const click=async(i:number)=>{if(!myTurn||busy)return;const p=match.state.board[i];if(id!=='gomoku'&&p?.[0]===match.side){setSelection(i);return;}const moves=match.legal.filter((m:any)=>m.to===i&&(id==='gomoku'||m.from===selection));if(!moves.length)return;await run(async()=>{setMatch(await request('/api/boards/'+match.id,'POST',{action:'move',ply:match.state.ply,move:moves.find((m:any)=>m.promotion===promotion)||moves[0]}));setSelection(-1);});};return <div className="game-workspace board-workspace"><section className="board-main"><div className="game-heading"><div><small>{game.tag}</small><h2>{game.name}</h2></div><strong className="turn-status" aria-live="polite">{status}</strong></div>{match&&<div className="board-players"><span className={match.state.turn==='a'?'active':''}>{match.a.name}</span><span>{match.state.ply} 手</span><span className={match.state.turn==='b'?'active':''}>{match.b?.name||'空席'}</span></div>}<div className={'strategy-board '+id} style={{'--columns':width,'--rows':height} as any}>{cells.map(({piece,i}:any)=><button key={i} className={'board-cell '+((i%width+Math.floor(i/width))%2?'dark ':'')+(selection===i?'chosen ':'')+(match?.state.last?.to===i?'last ':'')+(piece?.[0]==='a'?'side-a':'side-b')} disabled={!myTurn||busy} aria-label={(id==='chess'?chessSymbols[piece]:id==='xiangqi'?xiangqiSymbols[piece]:piece?'棋子':'空位')+' '+(i%width+1)+','+(Math.floor(i/width)+1)} onClick={()=>click(i)}>{piece?<span className="piece" key={piece+':'+(match?.state.last?.to===i?match.state.ply:0)}>{id==='chess'?chessSymbols[piece]:id==='xiangqi'?xiangqiSymbols[piece]:''}</span>:myTurn&&dest.has(i)&&selection>=0?<i/>:null}</button>)}{!match&&<div className="board-intro"><img src={'./media/games/'+id+'.webp'} alt=""/><b>{game.symbol}</b><span>落子之间，各有天地</span></div>}{match?.spectator&&<div className="spectator-overlay">{(match.comments||[]).filter((v:any)=>now-v.created<8000).slice(-4).map((v:any,i:number)=><span key={v.id} style={{top:12+i*16+'%'}}>{v.name}：{v.text}</span>)}</div>}</div>{match&&<div className="board-footer"><small>{match.state.winner?'对局结束':match.b?'每步剩余 '+Math.max(0,Math.ceil(((match.deadline||0)-now)/1000))+' 秒':'等待加入'}</small><Button onClick={()=>{if(match.spectator||match.state.winner){setMatch(null);void lobby.reload();void ranking.reload();}else ui.confirm={title:match.b?'确认认输？':'关闭房间？',message:match.b?'本局会判定对手获胜。':'其他玩家将无法加入。',action:()=>run(async()=>setMatch(await request('/api/boards/'+match.id,'POST',{action:'resign'})))};}}>{match.spectator?'退出观战':match.state.winner?'再来一局':match.b?'认输':'关闭房间'}</Button></div>}{match?.spectator&&<div className="input-action"><input value={comment} maxLength={120} onChange={e=>setComment(e.target.value)} placeholder="观众弹幕，对局玩家不可见"/><Button icon={Send} disabled={!comment.trim()||busy} onClick={()=>run(async()=>{setMatch(await request('/api/boards/'+match.id,'POST',{action:'comment',text:comment}));setComment('');})}>发送</Button></div>}{match?.engineError&&<p className="inline-error" role="alert">{match.engineError} <Button disabled={busy} onClick={()=>run(async()=>setMatch(await request('/api/boards/'+match.id,'POST',{action:'retry'})))}>重试机器人</Button></p>}{match?.practice&&<p className="muted">挑战练习 · 不计积分</p>}{error&&<p className="inline-error">{error}</p>}</section><aside className="game-aside">{!match||match.state.winner?<><h3>开启对局</h3><div className="difficulty">{DIFFICULTIES.map((d:string,i:number)=><button key={d} className={level===i+1?'selected':''} onClick={()=>setLevel(i+1)}><b>{i+1}</b><small>{d}</small></button>)}</div><Button tone="solid" disabled={!c.connected||busy} onClick={()=>run(async()=>setMatch(await request('/api/boards','POST',{game:id,mode:'bot',level})))}>挑战机器人 · {DIFFICULTIES[level-1]}</Button><Button disabled={!c.connected||busy} onClick={()=>run(async()=>setMatch(await request('/api/boards','POST',{game:id,mode:'online',level})))}>创建联机房间</Button><h3>社区棋桌</h3>{lobby.data?.items?.filter((m:any)=>m.game===id).map((m:any)=><Button key={m.id} disabled={busy} onClick={()=>run(async()=>setMatch(await request('/api/boards/'+m.id,m.side||m.b?'GET':'POST',m.side||m.b?undefined:{action:'join'})))}>{m.a.name} · {m.side?'继续':m.b?'观战':'入座'}</Button>)}</>:<p>{game.description}</p>}{id==='chess'&&match?.side&&<Field label="兵升变"><Select value={promotion} onChange={setPromotion} options={[{value:'q',label:'后'},{value:'r',label:'车'},{value:'b',label:'象'},{value:'n',label:'马'}]}/></Field>}<h3>机器人挑战榜</h3><Segments value={period} onChange={setPeriod} items={[{id:'week',label:'本周'},{id:'all',label:'长期'}]}/><RankList data={ranking.data} error={ranking.error}/></aside></div>}
-function Ranking(){const [period,setPeriod]=useState('week'),[offset,setOffset]=useState(0);const r=useData(()=>request('/api/points/leaderboard?period='+period+'&offset='+offset),[period,offset]);return <PanelGroup id="ranking" names={["积分规则","社区榜单"]} widths={[4,8]} heights={[24,30]}><section className="ranking-intro"><Trophy size={64} strokeWidth={1}/><h2>每一种热爱，都值得上榜。</h2><p>周榜汇总各个小游戏积分，年度总榜累计每周结算。消费不影响已经获得的排名积分。</p><Segments value={period} onChange={(p:string)=>{setPeriod(p);setOffset(0);}} items={[{id:'week',label:'本周积分'},{id:'annual',label:'年度总榜'}]}/></section><section className="ranking-table"><RankList data={r.data} error={r.error}/><div className="pagination"><Button disabled={!offset} onClick={()=>setOffset(o=>Math.max(0,o-50))}>上一页</Button><Button disabled={period==='week'||offset+50>=(r.data?.total||0)} onClick={()=>setOffset(o=>o+50)}>下一页</Button></div></section></PanelGroup>}

@@ -8,6 +8,8 @@ const routes=[
   ['/', '.game-home'],['/library','.play-library'],['/servers','.default-server-card'],['/multiplayer','.lobby-block'],
   ['/workshop','.standard-page'],['/workshop/install','.desktop-panel'],['/workshop/addons','.list-toolbar'],
   ['/workshop/sources','.standard-page'],['/workshop/blueprints','.preference-section'],['/music','.player-now'],
+  ['/arcade','.game-catalog-grid'],['/arcade/play/runner','.canvas-stage'],['/community/ranking','.points-ranking'],
+  ['/community/arcade/board/gomoku','.strategy-board'],['/community/arcade/social/werewolf','.wolf-layout'],['/community/arcade/coop/tanks','.coop-mode-toolbar'],
   ['/playtime','.playtime-summary'],['/playtime?date=2025-01-01','.panel-value'],['/account','.preference-section'],['/check','.check-list'],['/support','.feedback-center'],
   ['/updates','.launcher-updates'],['/settings','.memory-setting'],['/settings?section=appearance','input[aria-label="界面字号"]'],
   ['/settings?section=appearance&panel=surface','.design-options'],['/settings?section=appearance&panel=wallpaper','.wallpaper-modes'],

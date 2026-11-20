@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import http from 'node:http';
 import {once} from 'node:events';
-import {createHash,randomUUID} from 'node:crypto';
+import {createHash,randomBytes,randomUUID} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {createCommunity} from '../apps/community-server/src/server.mjs';
 
@@ -52,6 +52,17 @@ export async function communityFixture(temp, dist, title) {
   return {
     url:'http://127.0.0.1:'+service.server.address().port,exe:path.join(bin,title),
     delivery(mode){delivery=mode;},skinOffline(value){skinOffline=value;},
+    seedAnnualBoard(){
+      const year=Number(new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Asia/Shanghai'}).format(Date.now()));
+      const save=service.db.prepare('INSERT INTO points_annual(year,uid,name,points) VALUES(?,?,?,?)');
+      for(let i=0;i<50;i++)save.run(year,'fixture-'+i,'往期旅人 '+(i+1),String(500-i));
+      save.run(year,profile.id,profile.name,'17');
+    },
+    rewardCode(){
+      const code=randomBytes(20).toString('hex');
+      service.db.prepare('INSERT INTO points_codes(hash,amount,created,actor) VALUES(?,?,?,?)').run(createHash('sha256').update(code).digest('hex'),'12',Date.now(),'fixture');
+      return code;
+    },
     async login(page){
       const dialog=page.getByRole('dialog');
       await dialog.locator('input').first().fill('test-player');

@@ -1,4 +1,4 @@
-import {Play,MessagesSquare,MessageCircle,Music2,BookOpen,ScrollText,Clock3,LibraryBig,PackageOpen,Network,Settings2,Stethoscope,UserRound} from 'lucide-react';
+import {Gamepad2,Play,MessagesSquare,MessageCircle,Music2,BookOpen,ScrollText,Clock3,LibraryBig,PackageOpen,Network,Settings2,Stethoscope,UserRound} from 'lucide-react';
 import {communityPages} from './community-pages';
 export const pages=[
  {path:'/',label:'游戏',terms:'首页 继续 上次 游玩 启动',icon:Play,primary:true,member:false},
@@ -7,6 +7,7 @@ export const pages=[
  {path:'/servers',label:'默认服务器',terms:'原版生存群组服 模组一服 模组二服 人数 名单 更新 入服 状态 监控',icon:Network,primary:false,member:false},
  {path:'/multiplayer',label:'联机大厅',terms:'邀请 房间 P2P 直连',icon:Network,primary:true,member:true},
  ...communityPages.map(p=>({...p,label:p.path==='/community'?'社区':p.label,primary:p.path==='/community',member:true})),
+ {path:'/arcade',label:'小游戏',terms:'游戏厅 小游戏厅 单人练习 街机 益智 肉鸽 棋类 狼人杀 积分榜 排行榜',icon:Gamepad2,primary:true,member:false},
  {path:'/music',label:'音乐播放器',terms:'歌曲 歌单 音量 本地 音乐',icon:Music2,primary:false,member:false},
  {path:'/support',label:'帮助与反馈',terms:'工单 管理员 错误诊断 求助 AI',icon:MessagesSquare,primary:false,member:false},
  {path:'/updates',label:'更新公告',terms:'版本 历史 发布说明',icon:BookOpen,primary:false,member:false},

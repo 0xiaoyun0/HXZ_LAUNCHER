@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {checkLocalGames,checkCommunityGames,checkGuestCatalog} from './check-desktop-arcade.mjs';
 import {scan as measureInsets} from './desktop-insets.mjs';
 import fs from 'node:fs/promises';
 import net from 'node:net';
@@ -85,15 +86,21 @@ try {
  const denied=async action=>{const result=await native(action);assert.equal(result.ok,false,action);assert.match(result.error,/登录|未在本应用/);};
  if(layoutOnly){
    await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor();
+   await checkGuestCatalog(page);
+   await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'小游戏'}).click();
+   await page.getByRole('link',{name:'积分排行榜'}).click();
+   await page.locator('.login-gate').getByRole('heading',{name:'积分排行榜'}).waitFor();
+   assert.equal(await page.locator('.points-ranking').count(),0);
    await page.getByRole('button',{name:'登录账号',exact:true}).click();await fixture.login(page);
    const {verifyDesktopLayout}=await import('./desktop-layout.mjs');await verifyDesktopLayout(page,native,artifacts);
  }else{
    const nav=page.getByRole('navigation',{name:'主导航'});
    await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor({timeout:40000});
-   assert.deepEqual(await nav.getByRole('link').allTextContents(),['游戏','游戏库','资源','联机大厅']);
+   assert.deepEqual(await nav.getByRole('link').allTextContents(),['游戏','游戏库','资源','联机大厅','小游戏']);
    for(const link of await nav.getByRole('link').all())assert.equal(await link.locator('svg').count(),1);
    assert.equal((await native('extension.status')).value.active,false);
    assert.match((await native('community.connect')).error,/社区插件/);
+   await checkLocalGames(page,capture);
    const state=await native('state',{localOnly:true});assert.equal(state.ok,true,state.error);assert.equal(state.value.instances.length,328);
    assert.equal(state.value.settings.selectedInstance,names[1]);
    const presets=page.locator('.home-server-list');
@@ -290,7 +297,7 @@ try {
      }
      const roleText=page.locator('.bar-role-name');
      assert.ok(await roleText.evaluate(el=>getComputedStyle(el).whiteSpace==='nowrap'&&el.scrollWidth<=el.clientWidth+1),'four-character player name should fit on one line');
-     await capture('launcher-enabled-home');await fixture.exercise(page,capture);
+     await capture('launcher-enabled-home');await checkCommunityGames(page,capture,fixture);await fixture.exercise(page,capture);
      const social=page.getByRole('navigation',{name:'社区导航'});
      await social.getByRole('button',{name:'全部栏目'}).click();await page.getByRole('dialog',{name:'社区栏目'}).getByRole('link',{name:'冒险者协会'}).click();await page.getByRole('heading',{name:'委托广场'}).waitFor();await capture('launcher-guild');
      await social.getByRole('button',{name:'全部栏目'}).click();await page.getByRole('dialog',{name:'社区栏目'}).getByRole('link',{name:'LINKING 档案馆'}).click();await page.frameLocator('iframe[title*="档案探索"]').locator('body').waitFor();
