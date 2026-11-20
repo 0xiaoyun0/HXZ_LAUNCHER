@@ -61,7 +61,7 @@ public final class BridgeTransport implements AutoCloseable {
         try{
             persistOutbox();
             JsonObject snapshot=status.get();if(snapshot==null)return;
-            JsonObject poll=new JsonObject();poll.add("status",snapshot);poll.addProperty("protocol",2);poll.addProperty("bridgeVersion","0.9.2");poll.addProperty("session",session);poll.addProperty("sequence",++sequence);
+            JsonObject poll=new JsonObject();poll.add("status",snapshot);poll.addProperty("protocol",2);poll.addProperty("bridgeVersion",BridgeTransport.class.getPackage().getImplementationVersion());poll.addProperty("session",session);poll.addProperty("sequence",++sequence);
             JsonObject result=send("/api/game-bridge/poll",poll);
             if(result.has("protocol")&&result.get("protocol").getAsInt()==2&&(!session.equals(result.get("session").getAsString())||result.get("sequence").getAsLong()!=sequence))throw new IOException("Bridge response receipt mismatch");
             chatAllowed=result.getAsJsonObject("access").get("chat").getAsBoolean();
@@ -130,7 +130,7 @@ public final class BridgeTransport implements AutoCloseable {
         Properties config=new Properties();
         if(!Files.exists(file)){
             Files.createDirectories(file.toAbsolutePath().getParent());
-            Files.writeString(file,"# HXZ Community Bridge 0.9.2\n# Get a separate token per server from the community administrator.\nenabled=false\ncommunity=https://qqbot.hxzmc.top\nserver=mod-1\ntoken=\nchat=false\nwhitelist=false\n",StandardCharsets.UTF_8,StandardOpenOption.CREATE_NEW);
+            Files.writeString(file,"# HXZ Community Bridge\n# Get a separate token per server from the community administrator.\nenabled=false\ncommunity=https://qqbot.hxzmc.top\nserver=mod-1\ntoken=\nchat=false\nwhitelist=false\n",StandardCharsets.UTF_8,StandardOpenOption.CREATE_NEW);
         }
         try(var reader=Files.newBufferedReader(file,StandardCharsets.UTF_8)){config.load(reader);}return config;
     }

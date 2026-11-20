@@ -3,7 +3,8 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.148'
 }
 group = 'top.hxzmc'
-version = '0.9.2'
+version = new groovy.json.JsonSlurper().parse(file('../../../package.json')).version
+tasks.named('processResources').configure { inputs.property 'productVersion', project.version; filesMatching('META-INF/neoforge.mods.toml'){ expand(productVersion:project.version) } }
 base { archivesName = 'hxz-community-bridge-neoforge-1.21.1' }
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
 neoForge {

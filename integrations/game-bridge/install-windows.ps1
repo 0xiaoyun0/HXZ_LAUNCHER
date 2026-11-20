@@ -8,7 +8,7 @@ param(
     [switch]$EnableWhitelist
 )
 $ErrorActionPreference='Stop'
-$release='0.9.2'
+$release=(Get-Content -LiteralPath (Join-Path $PSScriptRoot 'release.json') -Raw | ConvertFrom-Json).version
 $root=(Resolve-Path -LiteralPath $ServerRoot).ProviderPath.TrimEnd('\')
 if ($root.Length -lt 4 -or !(Test-Path -LiteralPath $root -PathType Container)) { throw 'Choose the existing server directory, not a drive root.' }
 $uri=[Uri]$Community

@@ -11,6 +11,8 @@ import urllib.parse
 import urllib.request
 import uuid
 
+BRIDGE_VERSION = 'development'
+
 DEFAULT = dict(enabled=False, community='https://qqbot.hxzmc.top', server='survival',
                token='', server_directory='server', world='world', game_version='26.2',
                chat=False, whitelist=False, interval=5)
@@ -240,7 +242,7 @@ class Runtime:
                     online = len(self.players)
                 caps = ['status', 'statistics'] + (['chat'] if self.config['chat'] else []) + (['whitelist'] if self.config['whitelist'] else [])
                 self.sequence += 1
-                response = self.send('/api/game-bridge/poll', dict(protocol=2, bridgeVersion='0.9.2', session=self.session, sequence=self.sequence, status=dict(version=self.version, loader='mcdr', running=self.running,
+                response = self.send('/api/game-bridge/poll', dict(protocol=2, bridgeVersion=BRIDGE_VERSION, session=self.session, sequence=self.sequence, status=dict(version=self.version, loader='mcdr', running=self.running,
                     online=online if self.running else 0, max=self.max_players, players=players[:1000] if self.running else [], capabilities=caps)))
                 if response.get('protocol') == 2 and (response.get('session') != self.session or response.get('sequence') != self.sequence):
                     raise ValueError('Bridge response receipt mismatch')
