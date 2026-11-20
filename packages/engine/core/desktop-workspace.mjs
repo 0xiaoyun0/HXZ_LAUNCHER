@@ -5,6 +5,7 @@ export const WORKSPACES = [
 ];
 export const WORKSPACE_MODULES = [
   {id:'featured',name:'上次游玩焦点',caption:'在实例列表前突出显示上次的游戏。',on:true},
+  {id:'coverArt',name:'焦点卡封面',caption:'显示实例封面，未设置时使用幻想镇插画。',on:true},
   {id:'quickLinks',name:'首页快捷入口',caption:'直接打开安装游戏、联机大厅和音乐。',on:false},
   {id:'shortcuts',name:'顶栏快捷导航',caption:'显示音乐和已安装社区扩展的快捷入口。',on:true},
   {id:'miniPlayer',name:'底栏音乐控制',caption:'在其他页面也能控制播放。',on:true}

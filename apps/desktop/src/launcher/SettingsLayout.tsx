@@ -1,5 +1,5 @@
 import type {ReactNode} from 'react';
-import {Link,useNavigate} from 'react-router-dom';
+import {Link} from 'react-router-dom';
 import {Download,FolderClock,LifeBuoy,Monitor,Network,Palette,Puzzle} from 'lucide-react';
 export const settingsTabs=[
   {key:'game',path:'/settings',label:'游戏与 Java',icon:Monitor},
@@ -10,8 +10,8 @@ export const settingsTabs=[
   {key:'extensions',path:'/settings/extensions',label:'扩展',icon:Puzzle}
 ];
 export function SettingsLayout({current,children}:{current:string;children:ReactNode}){
- const navigate=useNavigate();
+
  return <section className="launch-page"><header className="launch-title"><h1>设置</h1></header><div className="settings-layout">
-  <nav className="settings-rail" aria-label="设置分类"><label className="settings-switch">设置分类<select value={settingsTabs.find(tab=>tab.key===current)?.path||'/settings'} onChange={e=>navigate(e.target.value)}>{settingsTabs.map(tab=><option key={tab.key} value={tab.path}>{tab.label}</option>)}<option value="/support">帮助与反馈</option></select></label>{settingsTabs.map(tab=><Link key={tab.key} to={tab.path} aria-current={current===tab.key?'page':undefined}><tab.icon size={16}/>{tab.label}</Link>)}<Link to="/support"><LifeBuoy size={16}/>帮助与反馈</Link></nav>
+  <nav className="settings-rail" aria-label="设置分类">{settingsTabs.map(tab=><Link key={tab.key} to={tab.path} aria-current={current===tab.key?'page':undefined}><tab.icon size={16}/>{tab.label}</Link>)}<Link to="/support"><LifeBuoy size={16}/>帮助与反馈</Link></nav>
   <div className="settings-sections">{children}</div></div></section>;
 }

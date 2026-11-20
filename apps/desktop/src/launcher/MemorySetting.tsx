@@ -1,6 +1,7 @@
 import {useEffect,useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {playerError} from '../../../../packages/engine/core/player-errors.mjs';
+import {ChoiceGroup} from './ChoiceControls';
 import {state,saveSettings} from '../model';
 
 export function MemorySetting(){
@@ -17,7 +18,7 @@ export function MemorySetting(){
   }
   return <form noValidate className="memory-setting" onSubmit={e=>{e.preventDefault();void save();}}>
     <div><strong>默认游戏内存</strong><small>跟随全局的实例使用此值。「启动前检查」可查看实际内存上限。</small></div>
-    <div className="memory-controls"><select aria-label="内存分配方式" value={mode} disabled={busy} onChange={e=>{setMode(e.target.value);setMessage('');}}><option value="auto">自动分配</option><option value="manual">手动设置</option></select>
+    <div className="memory-controls"><ChoiceGroup label="内存分配方式" value={mode} disabled={busy} options={[['auto','自动分配'],['manual','手动设置']]} onChange={value=>{setMode(value);setMessage('');}}/>
     {mode==='manual'&&<label><input aria-label="最大内存 MB" type="number" value={amount} min={512} max={131072} onChange={e=>{setAmount(e.target.value);setMessage('');}}/> MB</label>}
     <button className="small-action" type="submit" disabled={busy}>保存内存</button></div>
     {message&&<small className={error?'inline-error':'saved-note'} role={error?'alert':'status'}>{message}</small>}</form>;

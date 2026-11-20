@@ -3,6 +3,7 @@ import {Link} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
 import {ArrowRight,Download,FileUp,FolderOpen,History,Layers3,Music2,Network,Palette,Play,Search,Square} from 'lucide-react';
 import {resumeTarget} from '../../../../packages/engine/core/resume.mjs';
+import {wallpaperSource} from '../../../../packages/engine/core/desktop-wallpaper.mjs';
 import {homeLayoutKey,workspaceLayout,workspaceModules} from '../../../../packages/engine/core/desktop-workspace.mjs';
 import {chooseRoot,importPack,invoke,launch,perform,selectInstance,state,task} from '../model';
 import {CardBoard,CardMenu} from '../CardBoard';
@@ -32,7 +33,9 @@ export function Home(){
     const isLast=game.id===last?.id,running=s.sessions?.some((r:any)=>r.instance===game.id&&r.root===s.settings.gameRoot);
     const version=game.version===game.id?'本地实例':game.version;
     const meta=[version,game.loader,game.installed?'已安装':'可安装'].filter(Boolean).join(' · ');
-    return <article key={game.id} className={['home-instance-row',focused?.id===game.id?'focused':'',isLast?'resume-panel':'',feature?'featured-game':''].join(' ')}>
+    const cover=feature&&modules.coverArt&&s.settings.showCover!==false&&(wallpaperSource({wallpaperMode:'image',backgroundImage:s.settings.instanceSettings[game.id]?.coverMedia||s.settings.defaultCover})?.url||'./media/hero.webp');
+    return <article data-cover={cover?true:undefined} key={game.id} className={['home-instance-row',focused?.id===game.id?'focused':'',isLast?'resume-panel':'',feature?'featured-game':''].join(' ')}>
+      {cover&&<img className="feature-illustration" alt="" src={cover} onError={e=>{e.currentTarget.hidden=true;}}/>}
       <button className="instance-info" aria-label={'查看 '+game.name+' 的详情'} onClick={()=>setFocus(game.id)}>
         <PackIcon game={game}/><span>{feature&&<span className="resume-caption"><History size={13}/>{previous?.reason==='last'?'上次游玩':'当前实例'}</span>}
           <strong>{game.name}</strong><small>{meta}</small></span></button>

@@ -4,6 +4,7 @@ import {Check,Clapperboard,FileImage,FolderOpen,Image as ImageIcon,PaintBucket,R
 import {ILLUSTRATIONS,wallpaperPreferences,wallpaperSource} from '../../../../packages/engine/core/desktop-wallpaper.mjs';
 import {desktop,invoke,perform,saveSettings,state} from '../model';
 import {retryWallpaper,wallpaperHealth} from './Wallpaper';
+import {ChoiceGroup} from './ChoiceControls';
 import {AppearanceSlider} from './AppearanceSlider';
 
 const modes=[{id:'plain',label:'纯色',icon:PaintBucket},{id:'image',label:'静态图片',icon:ImageIcon},{id:'video',label:'动态视频',icon:Clapperboard}] as const;
@@ -43,7 +44,7 @@ export function WallpaperSettings(){
     </section><section className="preference-section"><h2>{mode==='plain'?'工作台底色':'壁纸显示'}</h2>
     <div className="setting-line"><span><strong>底色</strong></span><label className="native-color">自选底色<input type="color" aria-label="工作台底色" value={s.backgroundColor||'#e5eaf1'} onChange={e=>{const backgroundColor=e.target.value;void perform(()=>saveSettings({backgroundColor}));}}/></label>
       <button className="small-action" onClick={()=>perform(()=>saveSettings({backgroundColor:''}))}>自动底色</button></div>
-    {mode!=='plain'&&<><div className="setting-line"><strong>图片与视频适配</strong><select aria-label="壁纸适配" value={s.backgroundFit||'cover'} onChange={e=>{const backgroundFit=e.target.value;void perform(()=>saveSettings({backgroundFit}));}}><option value="cover">铺满窗口</option><option value="contain">完整显示</option><option value="100% 100%">拉伸填充</option></select></div>
+    {mode!=='plain'&&<><div className="setting-line"><strong>图片与视频适配</strong><ChoiceGroup label="壁纸适配" value={s.backgroundFit||'cover'} options={[['cover','铺满窗口'],['contain','完整显示'],['100% 100%','拉伸填充']]} onChange={backgroundFit=>perform(()=>saveSettings({backgroundFit}))}/></div>
       <div className="appearance-sliders"><AppearanceSlider label="壁纸浓度" value={Math.round(s.backgroundOpacity*100)} min={20} max={100} unit="%" preview="--preview-strength" save={n=>saveSettings({backgroundOpacity:n/100})}/>
         {(['X','Y'] as const).map(axis=><AppearanceSlider key={axis} label={axis==='X'?'水平位置':'垂直位置'} value={s['backgroundPosition'+axis]??50} min={0} max={100} unit="%" save={n=>saveSettings({['backgroundPosition'+axis]:n})}/>)}</div></>}
     </section></>;

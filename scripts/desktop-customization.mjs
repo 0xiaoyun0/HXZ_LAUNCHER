@@ -33,7 +33,7 @@ export async function verifyCustomization(page,directory){
   await page.reload();await page.getByRole('button',{name:'另存方案'}).waitFor();
   const copied=await snapshot();assert.equal(copied.cardStyle.radius,5);assert.equal(copied.accentColor,'#37887a');assert.equal(copied.wallpaperMode,'plain');
   await page.getByRole('button',{name:'使用小镇微光'}).click();await after(()=>document.documentElement.style.getPropertyValue('--pane-radius')==='20px');
-  await home.click();await board.getByRole('button',{name:'游戏实例卡片选项'}).click();await dialog.getByLabel('游戏实例宽度').selectOption('12');
+  await home.click();await board.getByRole('button',{name:'游戏实例卡片选项'}).click();assert.equal(await dialog.locator('select').count(),0);assert.equal(await dialog.locator('.board-card-settings').count(),1);await dialog.getByRole('radiogroup',{name:'游戏实例宽度'}).getByRole('radio',{name:'整行'}).click();
   await flow(()=>dialog.getByLabel('显示默认服务器').click());await page.waitForFunction(()=>!document.querySelector('input[aria-label="显示默认服务器"]').checked);await dialog.getByRole('button',{name:'上移实例详情'}).click();
   await dialog.getByRole('button',{name:'锁定我的角色'}).click();await page.waitForFunction(()=>document.querySelector('input[aria-label="显示我的角色"]').disabled);
   await capture('card-editor');await dialog.getByRole('button',{name:'完成'}).click();await page.reload();await board.locator('.instances-card').waitFor();
@@ -51,7 +51,7 @@ export async function verifyCustomization(page,directory){
   await board.getByLabel('便利贴内容').fill('整理桌面的测试笔记');await page.getByRole('link',{name:'音乐播放器',exact:true}).first().click();
   await dialog.getByRole('button',{name:'继续编辑'}).click();await page.getByRole('link',{name:'音乐播放器',exact:true}).first().click();await dialog.getByRole('button',{name:'保存并离开'}).click();
   await page.locator('[data-board=music]').waitFor();await home.click();await board.getByText('整理桌面的测试笔记',{exact:true}).waitFor();
-  await board.getByRole('button',{name:'我的角色卡片选项'}).click();await dialog.getByLabel('移动我的角色到页面').selectOption('music');await dialog.getByRole('button',{name:'移回本页'}).waitFor();
+  await board.getByRole('button',{name:'我的角色卡片选项'}).click();await dialog.getByRole('button',{name:'音乐播放器',exact:true}).click();await dialog.getByRole('button',{name:'移回本页'}).waitFor();
   await page.keyboard.press('Escape');await page.getByRole('link',{name:'音乐播放器',exact:true}).first().click();
   await page.locator('[data-board=music] [data-card-source="home.roles"] .home-role').waitFor();
   await home.click();await board.getByRole('button',{name:'卡片',exact:true}).click();await dialog.getByRole('button',{name:'移回本页'}).click();await dialog.getByLabel('显示我的角色').waitFor();

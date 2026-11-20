@@ -4,16 +4,10 @@ import {useSnapshot} from 'valtio';
 import {WORKSPACES,WORKSPACE_MODULES,workspaceLayout,workspaceModules,workspaceShelf} from '../../../../packages/engine/core/desktop-workspace.mjs';
 import {perform,saveSettings,state} from '../model';
 import {LayoutSharing} from '../LayoutSharing';
+import {PreferenceSwitch} from './ChoiceControls';
 import {Modal} from '../ui';
 
 const icons=[LayoutGrid,LibraryBig,NotebookPen];
-function ModuleSwitch({name,caption,checked,disabled=false,change}:{name:string;caption:string;checked:boolean;disabled?:boolean;change:(on:boolean)=>Promise<unknown>}){
-  const [pending,setPending]=useState<boolean|null>(null);
-  return <label className="module-setting"><span><strong>{name}</strong><small>{caption}</small></span>
-    <input type="checkbox" role="switch" aria-label={name} checked={pending??checked} disabled={disabled||pending!==null} onChange={e=>{
-      const next=e.target.checked;setPending(next);void perform(async()=>{try{await change(next);}finally{setPending(null);}});
-    }}/></label>;
-}
 export function Workspaces(){
   const s=useSnapshot(state).settings,active=workspaceLayout(s.workspaceLayout),modules=workspaceModules(s.workspaceModules);
   const shelf=workspaceShelf(s.workspaceShelf),[organize,setOrganize]=useState(false);
@@ -30,12 +24,12 @@ export function Workspaces(){
       })}</div>
     </section>
     <section className="preference-section"><h2>界面模块</h2><div className="module-options">
-      {WORKSPACE_MODULES.map(item=><ModuleSwitch key={item.id} name={item.name} caption={item.caption} checked={modules[item.id]}
+      {WORKSPACE_MODULES.map(item=><PreferenceSwitch key={item.id} name={item.name} caption={item.caption} checked={modules[item.id]}
         change={on=>saveSettings({workspaceModules:{[item.id]:on}})}/>)}
     </div></section>
     <section className="preference-section"><h2>卡片布局</h2><div className="setting-line"><span><strong>备份与分享</strong><small>在各页的「卡片」菜单调整顺序、大小和显隐。三套首页分别记住你的排布。</small></span><LayoutSharing/></div></section>
     <Modal open={organize} title="整理工作台布局" onClose={()=>setOrganize(false)}><p>选择布局列表里保留的界面。再次添加时会恢复之前整理的卡片。至少保留一套。</p>
-      {WORKSPACES.map(item=><ModuleSwitch key={item.id} name={'保留'+item.name} caption={item.caption} checked={shelf.includes(item.id)} disabled={shelf.length===1&&shelf[0]===item.id}
+      {WORKSPACES.map(item=><PreferenceSwitch key={item.id} name={'保留'+item.name} caption={item.caption} checked={shelf.includes(item.id)} disabled={shelf.length===1&&shelf[0]===item.id}
         change={on=>saveSettings((current:any)=>{const ids=workspaceShelf(current.workspaceShelf);return {workspaceShelf:on?[...ids,item.id]:ids.filter(id=>id!==item.id)};})}/>)}
       <footer className="modal-actions"><button className="launch-primary" onClick={()=>setOrganize(false)}>完成</button></footer></Modal>
   </>;

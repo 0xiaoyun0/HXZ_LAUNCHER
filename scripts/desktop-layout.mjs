@@ -8,9 +8,9 @@ const routes=[
   ['/workshop','.standard-page'],['/workshop/install','.desktop-panel'],['/workshop/addons','.list-toolbar'],
   ['/workshop/sources','.standard-page'],['/workshop/blueprints','.preference-section'],['/music','.player-now'],
   ['/playtime','.playtime-summary'],['/account','.preference-section'],['/check','.check-list'],['/support','.feedback-center'],
-  ['/updates','.launcher-updates'],['/settings','.memory-setting'],['/settings?section=appearance','select[aria-label="界面字号"]'],
+  ['/updates','.launcher-updates'],['/settings','.memory-setting'],['/settings?section=appearance','input[aria-label="界面字号"]'],
   ['/settings?section=appearance&panel=surface','.design-options'],['/settings?section=appearance&panel=wallpaper','.wallpaper-modes'],
-  ['/settings?section=downloads','select[aria-label="下载总限速"]'],['/settings?section=network','input[type=url]'],
+  ['/settings?section=downloads','input[aria-label="下载总限速"]'],['/settings?section=network','input[type=url]'],
   ['/settings?section=migration','.preference-section'],['/settings/extensions','.extension-actions'],
   ['/community','.chat-main'],['/community/forum','.forum-page'],['/community/voice','.voice-workspace'],
   ['/community/inbox','.inbox-page'],['/community/guild','.guild-columns'],['/community/linking','.archive-viewport iframe'],
@@ -30,6 +30,9 @@ function measure(){
     const panels=['.instances-card','.home-role-card','.home-servers-card','.calendar-card','.home-detail-card'].map(s=>board.querySelector(s));
     const tools=[...board.querySelectorAll('.instance-toolbar>label,.instance-toolbar>button,.instance-toolbar>a')].map(el=>bounds(el).height);
     if(Math.max(...tools)-Math.min(...tools)>2)errors.push('首页搜索框和同排操作高度不一致');
+    for(const col of board.querySelectorAll('.board-column')){
+      const cards=[...col.children];for(let i=1;i<cards.length;i++)if(bounds(cards[i]).top-bounds(cards[i-1]).bottom<7)errors.push('独立卡片间距不足');
+    }
     if(panels.some(p=>!p))errors.push('首页缺少约定的任务分区');
     else if(compact){
       for(let i=1;i<panels.length;i++){
@@ -47,8 +50,9 @@ function measure(){
   }
   const rail=main.querySelector('.settings-rail');
   if(rail){
-    const select=rail.querySelector('select'),form=main.querySelector('.settings-sections');
-    if(compact&&(!select||!bounds(select).width||bounds(rail).bottom>bounds(form).top+1))errors.push('窄窗分类占用了表单侧栏');
+    const category=rail.querySelector('a[aria-current=page]'),form=main.querySelector('.settings-sections');
+    if(rail.querySelector('select'))errors.push('设置分类没有直接显示');
+    if(compact&&(!category||!bounds(category).width||bounds(rail).bottom>bounds(form).top+1))errors.push('窄窗分类占用了表单侧栏');
     if(!compact&&bounds(rail).right>bounds(form).left+1)errors.push('宽窗分类和表单重叠');
   }
   for(const page of main.querySelectorAll(':scope>.launch-page,:scope>.standard-page,:scope>.play-library,.social-workspace .social-content')){
@@ -86,7 +90,7 @@ function measure(){
     }
     if(!insideScroller)errors.push('控件超出工作区或所属卡片 '+(el.ariaLabel||el.innerText||el.name||el.tagName).slice(0,30));
   }
-  for(const group of main.querySelectorAll('.desk-actions,.instance-toolbar,.memory-controls,.card-actions,.lobby-tabs,.social-sections,.desktop-panel-grid')){
+  for(const group of main.querySelectorAll('.choice-group,.desk-actions,.instance-toolbar,.memory-controls,.card-actions,.lobby-tabs,.social-sections,.desktop-panel-grid')){
     const children=[...group.children].filter(el=>{const r=bounds(el);return r.width>2&&r.height>2;});
     children.forEach((element,i)=>{const box=bounds(element);
       for(const other of children.slice(i+1)){const r=bounds(other);
@@ -166,9 +170,9 @@ export async function verifyDesktopLayout(page,native,directory){
     }
     if(width<=54*font){
       await page.evaluate(()=>{location.hash='/settings';});
-      const categories=page.getByRole('combobox',{name:'设置分类',exact:true});
-      await categories.selectOption('/settings?section=downloads');
-      await page.getByRole('combobox',{name:'下载并发数'}).waitFor();
+      const categories=page.getByRole('navigation',{name:'设置分类',exact:true});
+      await categories.getByRole('link',{name:'下载与更新'}).click();
+      await page.getByRole('radiogroup',{name:'下载并发数'}).waitFor();
     }
     await page.evaluate(()=>{location.hash='/';});
     await page.locator('.resume-panel .launch-primary').waitFor();

@@ -1,0 +1,87 @@
+/* Shared desktop surfaces, text and input states. Keep player-defined materials and colours. */
+:root[data-skin=town][data-theme=light] {
+  --canvas-rgb:241,243,247;--chrome-rgb:253,253,254;--pane-rgb:255,255,255;
+  --solid:#fff;--foreground:#20283a;--secondary:#546073;--edge:rgba(53,66,91,.15);--cell:rgba(85,101,136,.10);
+  --shade:rgba(39,49,71,.09);--rim:transparent
+}
+.launcher-frame {--panel-pad:clamp(17px,1.7vw,26px);--desk-inset:clamp(18px,2.45vw,38px);--page-top:clamp(20px,2vw,32px);--control-height:max(36px,2.3rem)}
+.launcher-content {font-family:"Segoe UI Variable Text","Microsoft YaHei UI","Segoe UI",sans-serif}
+.launcher-frame .launcher-bar {box-shadow:none;gap:12px}
+.launcher-bar nav>a,.launcher-bar .toolbar-settings {font-size:.875rem}
+[data-skin] .launcher-bar nav>a.active,[data-skin] .launcher-bar .toolbar-settings.active {box-shadow:none;border-color:transparent;background:var(--accent-soft)}
+.launcher-content :is(.launch-title,.play-library-toolbar,.page-header) {margin-bottom:clamp(16px,1.6vw,25px)}
+.launcher-content :is(.launch-title,.page-header-title,.library-location)>h1 {font-size:clamp(1.48rem,2.1vw,2rem);letter-spacing:-.035em;line-height:1.25}
+[data-skin] .launcher-content :is(.desk-card,.desktop-panel,.preference-section,.settings-rail,.direct-game-card,.default-server-card,.forum-page,.catalog-panel) {
+  box-shadow:0 2px 9px -5px var(--shade);border-color:var(--edge)
+}
+.launcher-content :is(.preference-section>h2,.desktop-panel>h2,.board-card-heading) {padding:15px var(--panel-pad);font-size:1rem;font-weight:660;line-height:1.45}
+.launcher-content :is(.setting-line,.memory-setting) {padding:15px var(--panel-pad);gap:10px 18px;align-items:center}
+.launcher-content .setting-line small,.launcher-content .memory-setting>div>small,.module-setting small {line-height:1.6}
+.launcher-content .desk-actions,.launcher-content .instance-toolbar,.launcher-content .board-actions,.modal-actions,.board-destinations {display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.launcher-content :is(.small-action,.button:not(.solid,.danger)),.modal .small-action {background:color-mix(in srgb,var(--solid) 93%,var(--foreground));border-color:transparent;box-shadow:none;color:var(--foreground)}
+.launcher-content :is(.small-action,.button):hover:not(:disabled),.modal .small-action:hover:not(:disabled) {border-color:var(--accent-border)}
+.launcher-content .settings-rail {padding:8px;gap:4px}
+.launcher-content .settings-rail>a {padding:10px 12px;line-height:1.5;border-radius:var(--control-radius)}
+.launcher-content .settings-sections,.desktop-panel-grid {gap:var(--desk-gap)}
+.launcher-content .module-options {grid-template-columns:repeat(2,minmax(0,1fr));column-gap:clamp(18px,2vw,34px)}
+.launcher-content .module-setting {padding-block:15px}
+.game-board .desk-card>header {margin-bottom:16px}
+.game-board .desk-card h2 {font-size:1rem}
+.game-board .home-instance-row:not(.featured-game) {min-height:55px;padding:9px 10px}
+.game-board .home-instance-row .instance-info strong {font-weight:640}
+.game-board .instance-toolbar>label {flex:1 1 8rem}
+.game-board .instance-toolbar {align-items:stretch}
+[data-skin] .launcher-frame .featured-game,[data-skin] .launcher-frame .featured-game.focused:hover {
+  isolation:isolate;position:relative;overflow:hidden;min-height:106px;padding:15px clamp(15px,1.8vw,27px);margin-bottom:16px;
+  background:var(--accent-soft);border:0;box-shadow:none
+}
+.featured-game::after {content:none}
+[data-skin] .launcher-frame .featured-game[data-cover],[data-skin] .launcher-frame .featured-game.focused[data-cover]:hover {background:#202d44}
+.featured-game[data-cover]::before {content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,rgba(15,24,42,.95),rgba(16,26,45,.85) 32%,rgba(15,22,36,.31) 74%,rgba(13,21,35,.44))}
+.featured-game .feature-illustration {position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:67% 55%;z-index:-2}
+.featured-game .instance-info {align-items:center}
+.game-board .featured-game[data-cover] .instance-info strong {color:white;font-size:clamp(1.18rem,1.8vw,1.68rem)}
+.game-board .featured-game[data-cover] .instance-info :is(small,.resume-caption) {color:#e4e9f4}
+.game-board .featured-game[data-cover] .pack-emblem {display:grid;place-items:center;padding:6px;background:rgba(246,249,255,.94);border-radius:var(--control-radius)}
+[data-skin] .game-board .featured-game[data-cover] .launch-primary {background:#f8faff;color:#19243a;border-color:transparent;box-shadow:0 2px 6px #10203722}
+.launcher-content .game-home .featured-game .launch-primary {min-height:39px;padding-inline:14px}
+.appearance-navigation {gap:12px;width:auto;border:0;border-bottom:1px solid var(--edge);border-radius:0;background:transparent;padding:0}
+.appearance-navigation button {border:0;border-radius:0;padding:9px 4px 11px;position:relative}
+.appearance-navigation button[aria-current=page] {background:transparent;box-shadow:inset 0 -2px var(--accent);color:var(--accent-text)}
+.choice-group {display:inline-flex;flex-wrap:wrap;gap:2px;min-width:0;max-width:100%;padding:3px;border:1px solid var(--edge);border-radius:var(--control-radius,8px);background:color-mix(in srgb,var(--solid) 94%,var(--foreground));vertical-align:middle}
+.choice-option,.music-page .volume-line .choice-option {position:relative;display:inline-flex;flex:0 1 auto;align-items:stretch;max-width:100%;min-width:0;margin:0;cursor:pointer}
+.choice-option input[type=radio] {position:absolute;inset:0;width:100%;height:100%;opacity:0;margin:0;cursor:pointer}
+.choice-option>span {display:flex;align-items:center;justify-content:center;min-height:29px;padding:4px 10px;border-radius:max(3px,calc(var(--control-radius,8px) - 3px));font:inherit;font-size:.81rem;font-weight:500;line-height:1.4;color:var(--secondary);white-space:normal}
+.choice-option input:checked+span {background:var(--solid);color:var(--accent-text);box-shadow:0 1px 3px rgba(45,60,83,.19);font-weight:680}
+.choice-option input:focus-visible+span {outline:2px solid var(--accent-text);outline-offset:-2px}
+.choice-option input:disabled+span {opacity:.65}
+.step-choice {display:flex;align-items:center;gap:14px;max-width:100%;width:min(100%,17rem);min-width:0}
+.step-choice input {flex:1;min-width:0;accent-color:var(--accent)}
+.step-choice output {min-width:4.6em;text-align:right;font-variant-numeric:tabular-nums;font-size:.86rem}
+.board-card-settings {flex-basis:100%;display:grid;gap:10px;padding:12px 0 4px;border-top:1px solid var(--edge)}
+.board-card-settings>div {display:flex;align-items:center;flex-wrap:wrap;gap:7px 15px}
+.board-card-settings>div>strong {min-width:3em;font-size:.85rem;font-weight:600}
+.board-destinations {gap:6px}.board-row-controls .board-size-toggle {width:auto;padding-inline:9px}
+.launcher-content .play-library-filter {display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center}
+.launcher-content .play-library-actions {flex-wrap:wrap;gap:8px}
+.launcher-content .play-library-actions>.choice-group {flex:none}
+.direct-game-grid[data-view=list] .game-identity {flex-direction:row}
+.direct-game-grid[data-view=list] .game-card-head {padding:0}
+.launcher-frame :is(button,a,input,select,summary):focus-visible,.modal :is(button,a,input,select):focus-visible {outline:2px solid var(--accent-text);outline-offset:2px}
+@container workspace (max-width:54em) {
+  .launcher-content :is(.launch-page,.standard-page,.play-library,.social-content) {--panel-pad:clamp(14px,2.4vw,19px);--desk-inset:clamp(15px,2vw,22px)}
+  .launcher-content .settings-rail {display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:6px;width:100%}
+  .launcher-content .settings-rail>a {display:inline-flex;min-height:32px;align-items:center;padding:6px 9px;font-size:.81rem}
+  .launcher-content .game-home .featured-game {min-height:84px}
+  .launcher-content .module-options {grid-template-columns:repeat(auto-fit,minmax(min(100%,14rem),1fr))}
+}
+@container desktop-window (max-width:83em) {
+  .launcher-frame .launcher-bar {gap:7px}
+  .launcher-bar:has(.bar-shortcuts a:nth-child(2)) .bar-shortcuts a {width:34px;padding:0}
+  .launcher-bar:has(.bar-shortcuts a:nth-child(2)) .bar-shortcuts a span {display:none}
+}
+@container desktop-window (max-width:62em) {.launcher-frame .launcher-bar {gap:4px}}
+@media (forced-colors:active) {
+  .choice-option input:checked+span,.appearance-navigation button[aria-current=page] {outline:2px solid Highlight}
+  .featured-game .feature-illustration,.featured-game[data-cover]::before {display:none}
+}

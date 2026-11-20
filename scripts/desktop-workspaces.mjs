@@ -32,9 +32,9 @@ export async function verifyWorkspaces(page,directory){
     if(id==='library'){
       await page.getByRole('link',{name:'游戏库',exact:true}).first().click();
       await page.locator('.direct-game-grid[data-view=list] .direct-game-card').first().waitFor();
-      await shot('library-list');await page.getByLabel('游戏库视图').selectOption('cards');
+      await shot('library-list');await page.getByRole('radiogroup',{name:'游戏库视图'}).getByRole('radio',{name:'卡片',exact:true}).click();
       await page.locator('.direct-game-grid[data-view=cards]').waitFor();await page.reload();
-      await page.locator('.direct-game-grid[data-view=cards]').waitFor();await page.getByLabel('游戏库视图').selectOption('auto');
+      await page.locator('.direct-game-grid[data-view=cards]').waitFor();await page.getByRole('radiogroup',{name:'游戏库视图'}).getByRole('radio',{name:'自动',exact:true}).click();
       await page.locator('.direct-game-grid[data-view=list]').waitFor();await home.click();
     }
     await page.setViewportSize({width:780,height:540});
@@ -56,6 +56,8 @@ export async function verifyWorkspaces(page,directory){
   await board.getByRole('button',{name:'卡片',exact:true}).click();await dialog.getByRole('button',{name:'恢复默认布局'}).click();await dialog.getByLabel('显示我的角色').check();await dialog.getByRole('button',{name:'完成'}).click();
   await settings();await select('classic','经典工作台');
   const toggle=name=>page.getByRole('switch',{name,exact:true});
+  await toggle('焦点卡封面').uncheck();await home.click();await board.locator('.featured-game').waitFor();
+  assert.equal(await board.locator('.feature-illustration').count(),0);await settings();await toggle('焦点卡封面').check();
   for(const name of ['上次游玩焦点','顶栏快捷导航','底栏音乐控制'])await toggle(name).uncheck();
   await toggle('首页快捷入口').check();await page.reload();await home.click();
   assert.equal(await board.locator('.featured-game').count(),0);await board.locator('.resume-panel .launch-primary').waitFor();

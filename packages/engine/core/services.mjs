@@ -130,7 +130,7 @@ export async function createServices({
     desktopThemes: {active:DEFAULT_DESKTOP_THEME.id,entries:[]},desktopBackdrop:"plain",
     ...WALLPAPER_DEFAULTS,workspaceLayout:'classic',workspaceModules:{},workspaceShelf:null,libraryView:'auto',
     cardLayouts: {},cardPlacements:{},widgets:[],shortcuts:{},shortcutEnabled:true,voiceOverlay:false,gameWindowAction:'minimize',gameSleep:true,memoryOptimization:true,onboardingDone:false,onboardingVersion:0,
-    cardStyle: {color:'',opacity:DEFAULT_DESKTOP_THEME.opacity,gap:14,radius:DEFAULT_DESKTOP_THEME.radius},
+    cardStyle: {color:'',opacity:DEFAULT_DESKTOP_THEME.opacity,gap:20,radius:DEFAULT_DESKTOP_THEME.radius},
     blueprintInstance:"",showCover:true,defaultCover:"",backgroundMusic:"",musicVolume:0.3,musicPlayMode:"list",videoQuality:"balanced",animationSpeed:1,
     layout: "standard",
     downloadMode: "official",

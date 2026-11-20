@@ -3,6 +3,7 @@ import {ArrowDown,ArrowUp,Check,Ellipsis,GripVertical,LayoutGrid,LockKeyhole,Plu
 import {useSnapshot} from 'valtio';
 import {boardCards,updateBoard} from '../../../packages/engine/core/board-preferences.mjs';
 import {CARD_PAGES,normalizeCardPlacements,isPortableCard} from '../../../packages/engine/core/card-extras.mjs';
+import {ChoiceGroup} from './launcher/ChoiceControls';
 import {CardGestures} from './CardGestures';
 import {CardHarvest,ForeignCard,HarvestedCards,moveCard} from './PortableCards';
 import {state,ui,saveSettings,perform} from './model';
@@ -92,16 +93,18 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
           <div className="board-row-title"><span className="drag-grip" draggable={!busy&&!row.locked} title="拖动排序" onDragStart={e=>{e.dataTransfer.setData('text/plain',row.id);e.dataTransfer.effectAllowed='move';setDrag(row.id);}} onDragEnd={()=>setDrag('')}><GripVertical size={16}/></span>
             <label><input type="checkbox" aria-label={'显示'+row.title} checked={row.visible} disabled={busy||row.locked} onChange={e=>void cmd('visible',e.target.checked)}/>{row.title||'面板'}</label></div>
           <div className="board-row-controls">
-            <select aria-label={row.title+'宽度'} value={row.w} disabled={busy||row.locked||compact} onChange={e=>void cmd('width',Number(e.target.value))}>
-              {[...new Set([4,6,8,12,row.w])].sort((a,b)=>a-b).map(w=><option key={w} value={w}>{({4:'三分之一宽',6:'半宽',8:'三分之二宽',12:'整行'} as any)[w]||w+'/12 宽'}</option>)}</select>
-            <select aria-label={row.title+'高度'} value={row.fixed?row.h:0} disabled={busy||row.locked} onChange={e=>void cmd('height',Number(e.target.value))}>
-              {[...new Set([0,10,16,22,...(row.fixed?[row.h]:[])])].sort((a,b)=>a-b).map(h=><option key={h} value={h}>{h===0?'随内容增高':h*22+' px 高'}</option>)}</select>
+            <button type="button" className="board-size-toggle" aria-expanded={target===row.id} aria-label={'调整'+row.title+'的尺寸与位置'} onClick={()=>setTarget(target===row.id?'':row.id)}>尺寸与位置</button>
             <button aria-label={'上移'+row.title} disabled={busy||row.locked||!index||rows[index-1].locked} onClick={()=>modify({id:row.id,op:'move',to:rows[index-1].id})}><ArrowUp size={15}/></button>
             <button aria-label={'下移'+row.title} disabled={busy||row.locked||index===rows.length-1||rows[index+1].locked} onClick={()=>modify({id:row.id,op:'move',to:rows[index+1].id})}><ArrowDown size={15}/></button>
             <button aria-label={(row.locked?'解锁':'锁定')+row.title} aria-pressed={row.locked} disabled={busy} onClick={()=>cmd('lock',!row.locked)}>{row.locked?<LockKeyhole size={15}/>:<UnlockKeyhole size={15}/>}</button>
-            {origin&&transferable&&<select aria-label={'移动'+row.title+'到页面'} disabled={busy||row.locked} value="" onChange={e=>{const dest=e.target.value;void perform(()=>moveCard(origin,dest));}}><option value="" disabled>移动到…</option>{desktopCardSources.filter(([board])=>board!==id).map(([b,n])=><option key={b} value={b}>{n}</option>)}</select>}
+
             {row.origin?.widget&&<button onClick={()=>{setManage(false);setEditing(true);requestAnimationFrame(()=>root.current?.querySelector('[data-card-id="'+row.id+'"]')?.scrollIntoView({block:'nearest'}));}}>编辑内容</button>}
-            {row.origin?.widget&&<button aria-label={'移除'+row.title} disabled={busy||row.locked} onClick={()=>{const widget=row.origin!.card;setManage(false);ui.confirm={title:'移除这张通用卡片？',message:'这张卡片及其内容将从本机移除。',action:()=>saveSettings((settings:any)=>({widgets:settings.widgets.filter((w:any)=>w.id!==widget)}))};}}>移除</button>}</div></div>;
+            {row.origin?.widget&&<button aria-label={'移除'+row.title} disabled={busy||row.locked} onClick={()=>{const widget=row.origin!.card;setManage(false);ui.confirm={title:'移除这张通用卡片？',message:'这张卡片及其内容将从本机移除。',action:()=>saveSettings((settings:any)=>({widgets:settings.widgets.filter((w:any)=>w.id!==widget)}))};}}>移除</button>}</div>
+          {target===row.id&&<div className="board-card-settings">
+            <div><strong>宽度</strong><ChoiceGroup label={row.title+'宽度'} value={row.w} disabled={busy||row.locked||compact} options={[...new Set([4,6,8,12,row.w])].sort((a,b)=>a-b).map(w=>[w,({4:'三分之一',6:'半宽',8:'三分之二',12:'整行'} as Record<number,string>)[w]||w+'/12'])} onChange={v=>cmd('width',Number(v))}/></div>
+            <div><strong>高度</strong><ChoiceGroup label={row.title+'高度'} value={row.fixed?row.h:0} disabled={busy||row.locked} options={[...new Set([0,10,16,22,...(row.fixed?[row.h]:[])])].sort((a,b)=>a-b).map(h=>[h,h?h*22+' px':'随内容'])} onChange={v=>cmd('height',Number(v))}/></div>
+            {origin&&transferable&&<div><strong>移动到</strong><div className="board-destinations">{desktopCardSources.filter(([board])=>board!==id).map(([dest,title])=><button className="small-action" key={dest} disabled={busy||row.locked} onClick={()=>perform(()=>moveCard(origin,dest))}>{title}</button>)}</div></div>}
+          </div>}</div>;
       })}</div>
       {away.map(item=><div className="board-away" key={item.card}><span>{item.title} · {desktopCardSources.find(([board])=>board===item.target)?.[1]}</span><button className="small-action" onClick={()=>perform(()=>moveCard(item,id))}>移回本页</button></div>)}
       {failure&&<p role="alert">{failure}</p>}

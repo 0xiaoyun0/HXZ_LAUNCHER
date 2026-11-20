@@ -2,12 +2,13 @@ import {useEffect,useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {DOWNLOAD_CONCURRENCY,DOWNLOAD_SPEED_STEPS} from '../../../../packages/engine/core/download-settings.mjs';
 import {invoke,notify,perform,reload,saveSettings,state} from '../model';
+import {ChoiceGroup,StepChoice,PreferenceSwitch} from './ChoiceControls';
 import {RunningGames} from '../RunningGames';
 import {HxzreRuntime} from '../HxzreRuntime';
 
 export function SettingSwitch({field,label}:{field:string;label:string}){
   const {settings}=useSnapshot(state);
-  return <label className="setting-line"><span>{label}</span><input type="checkbox" checked={!!settings[field]} onChange={e=>{const value=e.target.checked;void perform(()=>saveSettings({[field]:value}));}}/></label>;
+  return <PreferenceSwitch name={label} checked={!!settings[field]} change={value=>saveSettings({[field]:value})}/>;
 }
 
 export function RemovedInstances(){
@@ -29,16 +30,16 @@ export function RemovedInstances(){
 
 export function DownloadPolicy(){
   const {settings}=useSnapshot(state);
-  return <><label className="setting-line"><strong>默认下载来源</strong><select value={settings.downloadMode||'official'} onChange={e=>{const v=e.target.value;void perform(()=>saveSettings({downloadMode:v}));}}><option value="official">官方优先，失败后切换镜像</option><option value="domestic">国内镜像优先</option></select></label>
-    <label className="setting-line"><strong>下载并发数</strong><select value={settings.downloadConcurrency} onChange={e=>{const v=Number(e.target.value);void perform(()=>saveSettings({downloadConcurrency:v}));}}>{DOWNLOAD_CONCURRENCY.map((v:number)=><option key={v}>{v}</option>)}</select></label>
-    <label className="setting-line"><span><strong>下载总限速</strong><small>游戏文件及内置整合包更新共用，单位为 MiB/s。</small></span><select aria-label="下载总限速" value={settings.downloadSpeedMBps||0} onChange={e=>{const v=Number(e.target.value);void perform(()=>saveSettings({downloadSpeedMBps:v}));}}>{[0,...DOWNLOAD_SPEED_STEPS.filter((v:number)=>v>0)].map(v=><option key={v} value={v}>{v?v+' MiB/s':'不限速'}</option>)}</select></label></>;
+  return <><div className="setting-line"><span><strong>默认下载来源</strong><small>官方节点失败后会自动尝试镜像。</small></span><ChoiceGroup label="默认下载来源" value={settings.downloadMode||'official'} options={[['official','官方优先'],['domestic','国内镜像优先']]} onChange={downloadMode=>perform(()=>saveSettings({downloadMode}))}/></div>
+    <div className="setting-line"><strong>下载并发数</strong><ChoiceGroup label="下载并发数" value={settings.downloadConcurrency} options={DOWNLOAD_CONCURRENCY.map((n:number)=>[n,String(n)] as const)} onChange={v=>perform(()=>saveSettings({downloadConcurrency:Number(v)}))}/></div>
+    <div className="setting-line"><span><strong>下载总限速</strong><small>游戏文件与内置整合包更新共用这个上限。</small></span><StepChoice label="下载总限速" value={settings.downloadSpeedMBps||0} options={DOWNLOAD_SPEED_STEPS.map((n:number)=>[n,n?n+' MiB/s':'不限速'] as const)} onChange={v=>saveSettings({downloadSpeedMBps:Number(v)})}/></div></>;
 }
 
 export function RuntimePreferences(){
-  return <><details className="preference-section"><summary>游戏运行与兼容</summary>
+  return <><section className="preference-section"><h2>游戏运行与兼容</h2><div className="module-options">
     <SettingSwitch field="promptJavaDownload" label="缺少适配 Java 时询问下载"/><SettingSwitch field="chinesePaths" label="中文路径兼容"/>
     <SettingSwitch field="keepLauncherAvailable" label="游戏运行时继续操作启动器"/><SettingSwitch field="gameSleep" label="游戏时让启动器休眠"/>
-    <SettingSwitch field="memoryOptimization" label="休眠时释放界面缓存"/><button className="small-action" onClick={()=>perform(async()=>{await invoke('memory.compact');notify('已释放可回收的界面缓存');})}>立即释放界面缓存</button></details><RunningGames/></>;
+    <SettingSwitch field="memoryOptimization" label="休眠时释放界面缓存"/></div><button className="small-action" onClick={()=>perform(async()=>{await invoke('memory.compact');notify('已释放可回收的界面缓存');})}>立即释放界面缓存</button></section><RunningGames/></>;
 }
 
 export function NetworkPreferences(){
