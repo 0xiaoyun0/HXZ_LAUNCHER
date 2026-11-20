@@ -1,6 +1,6 @@
 {
   "name": "hxz-launcher-community",
-  "version": "1.0.0-beta.1",
+  "version": "0.10.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -9,7 +9,7 @@
   "packageManager": "pnpm@11.1.2",
   "scripts": {
     "start": "node --env-file-if-exists=.env supervisor.mjs",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test --test-concurrency=3 test/*.test.mjs"
   },
   "dependencies": {
     "chess.js": "1.4.0",
