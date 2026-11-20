@@ -10,8 +10,8 @@ export function playDuration(seconds:number){
   return seconds>=60?Math.floor(seconds/60)+' 分钟':seconds+' 秒';
 }
 
-export function HomeSidebar({game}:{game:any}){
-  const s=useSnapshot(state),role=account(s),settings=s.settings,options=game&&cfg(game.id,s);
+export function HomeServers(){
+  const s=useSnapshot(state),settings=s.settings;
   const [servers,setServers]=useState<any[]|null>(null),[loading,setLoading]=useState(false),[unavailable,setUnavailable]=useState(false);
   async function checkServers(refresh=true){
     setLoading(true);
@@ -20,29 +20,35 @@ export function HomeSidebar({game}:{game:any}){
   }
   useEffect(()=>{void checkServers(false);},[settings.communityUrl]);
   const online=servers?.filter(row=>row.available)||[];
-  const memory=options?.memoryMode==='manual'?options.memoryMB+' MB · 实例':options?.memoryMode==='auto'?'自动分配':
-    settings.memoryMode==='manual'?settings.defaultMemoryMB+' MB · 全局':'自动分配';
-  return <aside className="game-summary">
-    <section className="desk-card"><header><h2>我的角色</h2></header>
+  return <section className="desk-card home-servers-card"><header><h2>默认服务器</h2><button className="icon-plain" aria-label="刷新服务器状态" disabled={loading} onClick={()=>void checkServers()}><RefreshCw size={15}/></button></header>
+      <div className="home-server-list">{s.instances.filter((row:any)=>row.builtin).map((game:any)=>{
+        const status=servers?.find(row=>row.id===game.group);
+        return <Link key={game.id} to={'/servers?id='+encodeURIComponent(game.id)}><span>{game.name}</span><small>{game.placeholder?'尚未开放':status?.available?status.online+' 人在线':game.installed?'已安装':'可安装'}</small></Link>;
+      })}</div><div className="server-reading"><Activity size={17}/><span role="status">{loading?'正在读取在线状态…':unavailable?'暂时无法读取在线状态':servers?online.length+' 个服务器可查询 · '+online.reduce((sum,row)=>sum+(Number(row.online)||0),0)+' 人在线':'尚未查询在线状态'}</span><Link to="/servers">详情 <ChevronRight size={13}/></Link></div>
+    </section>;
+}
+
+export function HomeRole(){
+  const s=useSnapshot(state),role=account(s),settings=s.settings;
+  return <section className="desk-card home-role-card"><header><h2>我的角色</h2></header>
       <div className="home-role"><Avatar name={role?.name||'旅'} image={role?.avatar} size={44}/><div><strong>{role?.name||'本地游客'}</strong>
         <small>{role?.authenticated?(role.uuid?'已登录 · 当前游戏角色':'已登录 · 请选择角色'):'使用幻想镇皮肤站账号登录'}</small></div></div>
       {s.accounts.length>1&&<label className="home-picker">切换账号<select aria-label="切换当前账号" value={settings.selectedAccount} onChange={e=>{const id=e.target.value;void perform(()=>saveSettings({selectedAccount:id}));}}>{s.accounts.map((a:any)=><option key={a.id} value={a.id}>{a.name||a.username}</option>)}</select></label>}
       {role?.profiles?.length>1&&<label className="home-picker">当前角色<select aria-label="切换当前角色" value={role.uuid||''} onChange={e=>{const uuid=e.target.value;void perform(async()=>{await invoke('account.profile',{id:role.id,uuid});await reload();});}}>{!role.uuid&&<option value="" disabled>选择角色</option>}{role.profiles.map((p:any)=><option key={p.id} value={p.id}>{p.name}</option>)}</select></label>}
       <div className="desk-actions"><button className="small-action" onClick={()=>perform(()=>invoke('skin.open'))}><Globe size={15}/>管理皮肤站</button>
         <button className="small-action" onClick={()=>ui.dialog='account'}><UserRoundPlus size={15}/>{role?.authenticated?'添加账号':'登录账号'}</button></div>
-    </section>
-    <section className="desk-card"><header><h2>默认服务器</h2><button className="icon-plain" aria-label="刷新服务器状态" disabled={loading} onClick={()=>void checkServers()}><RefreshCw size={15}/></button></header>
-      <div className="home-server-list">{s.instances.filter((row:any)=>row.builtin).map((game:any)=>{
-        const status=servers?.find(row=>row.id===game.group);
-        return <Link key={game.id} to={'/servers?id='+encodeURIComponent(game.id)}><span>{game.name}</span><small>{game.placeholder?'尚未开放':status?.available?status.online+' 人在线':game.installed?'已安装':'可安装'}</small></Link>;
-      })}</div><div className="server-reading"><Activity size={17}/><span role="status">{loading?'正在读取在线状态…':unavailable?'暂时无法读取在线状态':servers?online.length+' 个服务器可查询 · '+online.reduce((sum,row)=>sum+(Number(row.online)||0),0)+' 人在线':'尚未查询在线状态'}</span><Link to="/servers">详情 <ChevronRight size={13}/></Link></div>
-    </section>
-    <section className="desk-card"><header><h2>实例详情</h2></header>{game?<><h3>{game.name||game.id}</h3><small>{[game.version===game.id?'本地实例':game.version,game.loader].filter(Boolean).join(' · ')}</small>
+    </section>;
+}
+
+export function InstanceSummary({game}:{game:any}){
+  const s=useSnapshot(state),settings=s.settings,options=game&&cfg(game.id,s);
+  const memory=options?.memoryMode==='manual'?options.memoryMB+' MB · 实例':options?.memoryMode==='auto'?'自动分配':
+    settings.memoryMode==='manual'?settings.defaultMemoryMB+' MB · 全局':'自动分配';
+  return <section className="desk-card home-detail-card"><header><h2>实例详情</h2></header>{game?<><h3>{game.name||game.id}</h3><small>{[game.version===game.id?'本地实例':game.version,game.loader].filter(Boolean).join(' · ')}</small>
       <dl className="detail-rows"><div><dt>状态</dt><dd>{game.error?'需要检查':game.installed?'已安装':'待安装'}</dd></div><div><dt>Java</dt><dd>{options.javaMode==='custom'||(options.javaMode==='inherit'&&settings.javaPath)?'指定运行环境':'自动匹配'}</dd></div><div><dt>最大内存</dt><dd>{memory}</dd></div></dl>
       {game.installed&&<details className="home-folders"><summary>常用文件夹</summary><div className="desk-actions">{[['versions','版本目录'],['screenshots','截图'],['saves','存档']].map(([kind,label])=><button className="small-action" key={kind} onClick={()=>perform(()=>invoke('instance.folder',{id:game.id,kind}))}>{label}</button>)}</div></details>}
       <div className="desk-actions"><button className="small-action" onClick={()=>{ui.instance=game.id;ui.dialog='instance';}}><Settings2 size={15}/>实例配置</button><Link className="small-action" to={'/check?id='+encodeURIComponent(game.id)}><Stethoscope size={15}/>启动前检查</Link></div></>:<p>选择游戏实例后可查看配置。</p>}
-    </section>
-  </aside>;
+    </section>;
 }
 export function PlayCalendar(){
   const s=useSnapshot(state),[days,setDays]=useState<{date:string;seconds:number}[]>(),[failed,setFailed]=useState(false),[weeks,setWeeks]=useState(26);

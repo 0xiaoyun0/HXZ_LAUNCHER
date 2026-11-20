@@ -1,5 +1,11 @@
 /* Shared dimensions for the desktop window, page headings, panels and controls. */
 .launcher-frame {
+  container: desktop-window / inline-size;
+  --titlebar-height: 70px;
+  --statusbar-height: 36px;
+  --desk-gap: 14px;
+  --desk-radius: 11px;
+  --desk-inset: clamp(16px, 2.1vw, 30px);
   --control-height: max(34px, 2.15rem);
   --panel-pad: clamp(14px, 1.25vw, 20px);
   --page-width: 1600px;
@@ -12,6 +18,37 @@
 .launcher-content :is(.launch-page,.standard-page,.play-library,.social-content) {
   width: 100%; max-width: var(--page-width); min-width: 0; margin: 0 auto;
   padding: var(--page-top) var(--desk-inset) 26px;
+}
+.game-board {
+  display: grid; grid-template-columns: minmax(14rem,32.4fr) minmax(0,67.6fr);
+  grid-template-areas: "role instances" "servers instances" "detail calendar";
+  gap: var(--desk-gap); align-items: start;
+}
+.game-board>.instances-card {grid-area: instances}
+.game-board>.home-role-card {grid-area: role}
+.game-board>.home-servers-card {grid-area: servers}
+.game-board>.calendar-card {grid-area: calendar}
+.game-board>.home-detail-card {grid-area: detail}
+.game-board>.desk-card {min-width: 0; margin: 0; padding: var(--panel-pad)}
+.game-board>.instances-card {padding-bottom: 0}
+.game-board>.desk-card>footer {margin-inline: calc(-1 * var(--panel-pad)); padding-inline: var(--panel-pad)}
+.settings-switch {display: none}
+.social-workspace {max-width: none}
+.social-sections,.social-connection {
+  padding-inline: max(var(--desk-inset),calc((100% - var(--page-width)) / 2 + var(--desk-inset)));
+}
+.launcher-bar nav a>svg,.launcher-status button>svg {flex: none}
+.launcher-status>button {min-width: 0; max-width: 35%}
+.launcher-status>button>span {overflow: hidden; text-overflow: ellipsis; white-space: nowrap}
+@container desktop-window (max-width: 70em) {
+  .launcher-bar .bar-shortcuts a span,.launcher-bar .bar-role-name {display: none}
+  .launcher-bar .bar-shortcuts a {width: 34px; padding: 0}
+}
+@container desktop-window (max-width: 62em) {
+  .launcher-bar {gap: 4px}
+  .launcher-bar nav[aria-label="主导航"] a:not(.active) {width: 34px; padding: 0}
+  .launcher-bar nav[aria-label="主导航"] a:not(.active) span {display: none}
+  .launcher-bar .toolbar-settings span,.launcher-brand small {display: none}
 }
 .launcher-content :is(.launch-title,.page-header,.play-library-toolbar) {
   margin: 0 0 var(--desk-gap); padding: 0; min-height: var(--control-height);
@@ -39,6 +76,9 @@
 }
 .launcher-content :is(.desk-actions,.music-find,.actions,.memory-controls,.card-actions) {min-width: 0; flex-wrap: wrap}
 .launcher-content :is(input,textarea,select),.modal :is(input,textarea,select) {max-width: 100%; min-width: 0}
+.launcher-content .instance-toolbar {align-items: stretch}
+.launcher-content .instance-toolbar>label {height: auto; min-height: var(--control-height)}
+.launcher-content .memory-controls :is(input,select),.launcher-content .setting-line>select {min-height: var(--control-height)}
 .launcher-content :is(.setting-line,.memory-setting) {flex-wrap: wrap}
 .launcher-content .setting-line>span:not(.avatar),.memory-setting>div:first-child {flex-basis: 12em; overflow-wrap: anywhere}
 .settings-sections>.preference-section {margin: 0}
@@ -124,6 +164,13 @@
   .voice-workspace {grid-template-columns: minmax(0,1fr)}
   .wallet-layout {grid-template-columns: minmax(0,1fr)}
   .guild-columns {grid-template-columns: minmax(0,1fr)}
-  .settings-layout {grid-template-columns: minmax(120px,9.5rem) minmax(0,1fr)}
 }
-@media (max-width: 690px) {.settings-layout {grid-template-columns: minmax(0,1fr)}}
+@container workspace (max-width: 54em) {
+  .launch-page,.standard-page,.play-library,.social-content {--desk-gap: 10px}
+  .game-board {grid-template-columns: minmax(0,1fr); grid-template-areas: "instances" "role" "servers" "calendar" "detail"}
+  .launcher-content .settings-layout {grid-template-columns: minmax(0,1fr); gap: var(--desk-gap)}
+  .settings-rail {display: block; position: static; padding: 8px var(--panel-pad)}
+  .settings-rail>a {display: none}
+  .settings-switch {display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--desk-muted); font-size: .875rem}
+  .settings-switch select {font: inherit; min-height: var(--control-height); min-width: 10em; max-width: 75%; padding: 4px 8px; border: 1px solid var(--desk-line); border-radius: 7px; color: var(--desk-ink); background: var(--desk-surface)}
+}

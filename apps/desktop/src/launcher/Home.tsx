@@ -5,7 +5,7 @@ import {ArrowRight,Download,FileUp,FolderOpen,Play,Search,Square} from 'lucide-r
 import {resumeTarget} from '../../../../packages/engine/core/resume.mjs';
 import {chooseRoot,importPack,invoke,launch,perform,selectInstance,state,task} from '../model';
 import {PackIcon} from '../GameLibrary';
-import {HomeSidebar,PlayCalendar} from './HomeSidebar';
+import {HomeRole,HomeServers,InstanceSummary,PlayCalendar} from './HomeSidebar';
 
 export function Home(){
   const s=useSnapshot(state),t=useSnapshot(task),[query,setQuery]=useState(''),[focus,setFocus]=useState('');
@@ -21,7 +21,7 @@ export function Home(){
     await selectInstance(game.id);await launch(game.id);
   }
   return <section className="launch-page game-home"><header className="launch-title"><h1>启动游戏</h1></header>
-    <div className="game-board"><HomeSidebar game={focused}/><div className="game-primary">
+    <div className="game-board">
       <section className="desk-card instances-card"><header><h2>游戏实例</h2>{!s.settings.gameRoot&&<button className="text-action" onClick={()=>perform(chooseRoot)}><FolderOpen size={15}/>选择游戏目录</button>}</header>
         <div className="instance-toolbar"><label><Search size={16}/><input aria-label="搜索实例" placeholder="搜索实例" value={query} onChange={event=>setQuery(event.target.value)}/></label>
           <button className="small-action" onClick={()=>perform(()=>importPack())}><FileUp size={15}/>导入</button><Link className="small-action" to="/workshop/install"><Download size={15}/>下载</Link></div>
@@ -34,5 +34,7 @@ export function Home(){
               {running?'停止游戏':game.installed?(isLast&&previous?.reason==='last'?'继续游玩':'启动'):'安装并启动'}</button></article>;
         })}{!matches.length&&<p className="desk-empty">{term?'没有匹配的实例。':'还没有可用实例。可以选择游戏目录，或下载第一个游戏。'}</p>}</div>
         <footer><small>{term?'找到 '+matches.length+' 个匹配实例':games.filter(g=>g.installed).length+' 个已安装'}</small><Link to={'/library'+(term?'?q='+encodeURIComponent(query):'')}>管理实例 <ArrowRight size={14}/></Link></footer>
-      </section><PlayCalendar/></div></div></section>;
+      </section>
+      <HomeRole/><HomeServers/><PlayCalendar/><InstanceSummary game={focused}/>
+    </div></section>;
 }

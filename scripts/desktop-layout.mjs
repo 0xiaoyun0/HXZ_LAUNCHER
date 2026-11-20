@@ -27,6 +27,8 @@ function measure(){
   const board=main.querySelector('.game-board');
   if(board){
     const panels=['.instances-card','.home-role-card','.home-servers-card','.calendar-card','.home-detail-card'].map(s=>board.querySelector(s));
+    const tools=[...board.querySelectorAll('.instance-toolbar>label,.instance-toolbar>button,.instance-toolbar>a')].map(el=>bounds(el).height);
+    if(Math.max(...tools)-Math.min(...tools)>2)errors.push('首页搜索框和同排操作高度不一致');
     if(panels.some(p=>!p))errors.push('首页缺少约定的任务分区');
     else if(compact){
       for(let i=1;i<panels.length;i++){
