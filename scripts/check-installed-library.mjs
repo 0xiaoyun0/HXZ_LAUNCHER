@@ -8,16 +8,20 @@ import {once} from 'node:events';
 import net from 'node:net';
 import {setTimeout as wait} from 'node:timers/promises';
 import {chromium} from 'playwright-core';
+import {mediaReference,mediaPath} from '../packages/engine/core/media.mjs';
 import {installedLibrary} from '../engine/installed-game-root.mjs';
 import {DEFAULT_SERVERS} from '../server/shared/server-presets.mjs';
 
 const library=await installedLibrary(process.env.APPDATA);
 assert.ok(library,'需要已安装的 0.9.2 和有效的游戏目录');
 const {version}=JSON.parse(await fs.readFile('package.json','utf8'));
-const exe=path.resolve('release',version,'windows-x64','幻想镇 3rd.exe');
+const exe=path.resolve(process.env.HXZ3_TEST_DIST||path.join('release',version,'windows-x64'),'幻想镇 3rd.exe');
 const old=path.join(process.env.APPDATA,'幻想镇启动器'),home=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-installed-check-'));
 const tracked=[...['settings.json','server-presets-cache.json','game-playtime.json','launch-history.json'].map(name=>path.join(old,name)),
   ...DEFAULT_SERVERS.map(p=>path.join(library.root,'versions',p.id,p.id+'.json'))];
+const oldSettings=JSON.parse((await fs.readFile(tracked[0],'utf8')).replace(/^\uFEFF/,''));
+const oldWallpaper=oldSettings.backgroundVideo||oldSettings.backgroundImage;
+if(mediaReference(oldWallpaper))tracked.push(mediaPath(old,oldWallpaper));
 const fingerprint=()=>Promise.all(tracked.map(file=>fs.readFile(file).then(bytes=>createHash('sha256').update(bytes).digest('hex'),e=>{if(e.code==='ENOENT')return null;throw e;})));
 const before=await fingerprint(),listener=net.createServer();
 listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(r=>listener.close(r));
@@ -56,6 +60,36 @@ try{
   await page.locator('.home-server-list a').last().click();
   await page.locator('.default-server-card').first().waitFor();
   await page.screenshot({path:'.preview/installed-library-servers.png',animations:'disabled'});
+  const {verifyCustomization}=await import('./desktop-customization.mjs');await verifyCustomization(page,'.preview');
+  const oldLook=await page.evaluate(async()=>(await window.launcher.invoke('profile.look')).value);
+  if(oldLook?.available){
+    await page.getByRole('link',{name:'外观',exact:true}).click();await page.getByRole('button',{name:'接回旧版外观'}).click();await page.getByRole('button',{name:'应用旧版外观'}).click();
+    await page.waitForFunction(()=>document.documentElement.style.getPropertyValue('--pane-radius')!=='');
+    if(oldLook.kind==='动态壁纸'){
+      await page.waitForFunction(()=>document.querySelector('.launcher-wallpaper video')?.videoWidth>0);
+      const video=page.locator('.launcher-wallpaper video');assert.ok(await video.evaluate(el=>el.muted));
+      await page.emulateMedia({reducedMotion:'reduce'});await page.waitForFunction(()=>document.querySelector('.launcher-wallpaper video')?.paused);
+    }
+    console.log('本机旧版外观',oldLook.kind,oldLook.radius+'px',oldLook.opacity+'%');
+  }
+  const oldCards=await page.evaluate(async()=>(await window.launcher.invoke('profile.cards')).value);
+  if(oldCards){
+    const widgets=await page.evaluate(async()=>{
+      const {settings}=(await window.launcher.invoke('state',{localOnly:true})).value;
+      const fixture={id:'local-checked-card',type:'extension',title:'每日清单',page:'home',checked:['ready'],extension:{format:'hxz-card-extension',version:1,id:'qa-daily',title:'每日清单',blocks:[{type:'check',id:'ready',label:'已经整理'}]}};
+      return (await window.launcher.invoke('settings.save',{widgets:[...settings.widgets,fixture]})).value.widgets;
+    });
+    await page.reload();
+    if(!await page.getByRole('button',{name:'接回旧版布局'}).count()){await page.getByRole('link',{name:'游戏',exact:true}).click();await page.getByRole('link',{name:'外观',exact:true}).click();}
+    const readLayouts=()=>page.evaluate(async()=>(await window.launcher.invoke('state',{localOnly:true})).value.settings.cardLayouts);
+    const original=await readLayouts(),open=page.getByRole('button',{name:'接回旧版布局'}),preview=page.getByRole('dialog');
+    await open.click();await preview.getByText('本机 0.9.2 卡片布局',{exact:true}).waitFor();await page.keyboard.press('Escape');assert.deepEqual(await readLayouts(),original);
+    await open.click();await preview.getByRole('button',{name:'应用布局'}).click();await preview.waitFor({state:'hidden'});
+    const merged=await readLayouts();for(const [key,layout] of Object.entries(oldCards.layout.cardLayouts))assert.deepEqual(merged[key],layout);
+    await page.getByRole('button',{name:'撤销本次导入'}).click();await page.getByRole('button',{name:'撤销本次导入'}).waitFor({state:'hidden'});assert.deepEqual(await readLayouts(),original);
+    assert.deepEqual(await page.evaluate(async()=>(await window.launcher.invoke('state',{localOnly:true})).value.settings.widgets),widgets);
+    console.log('本机旧版卡片布局预览、取消、合并和撤销通过',oldCards.counts);
+  }
   assert.deepEqual(await fingerprint(),before);
   console.log(JSON.stringify({instances:state.instances.length,installed:state.instances.filter(i=>i.installed).length,
     servers:servers.map(({name,version,loader,installed})=>({name,version,loader,installed})),calendarDays:Object.keys(library.playtime?.days||{}).length,sourceFilesUnchanged:true}));

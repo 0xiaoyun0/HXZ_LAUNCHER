@@ -15,7 +15,8 @@ export function LayoutSharing(){
  }finally{setBusy(false);}}
  async function apply(){
   setBusy(true);try{
-   const backup=exportLayoutPackage(state.settings,{includeNotes:true,appearance:true});
+   const {cardLayouts,cardPlacements,widgets,cardStyle,columns}=state.settings;
+   const backup=readLayoutPackage({format:'hxz-card-layout',version:1,name:'导入前的本机布局',appearance:incoming.appearance,layout:{cardLayouts,cardPlacements,widgets,cardStyle,columns}});
    if(desktop){await invoke('cards.apply',{package:incoming,mode:merge,confirmed:true});await reload();}
    else await saveSettings(applyLayoutPackage(state.settings,incoming,merge));
    ui.layoutUnsaved?.discard();setPrevious(backup);setMode('');notify('卡片布局已应用');
