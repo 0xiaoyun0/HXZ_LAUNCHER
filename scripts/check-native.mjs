@@ -156,7 +156,9 @@ try {
    await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'下载与更新'}).click();await page.getByRole('radiogroup',{name:'下载并发数'}).getByRole('radio',{name:'8',exact:true}).click();
    const speed=page.getByRole('slider',{name:'下载总限速'});await speed.focus();await speed.press('Home');for(let i=0;i<3;i++)await speed.press('ArrowRight');await page.getByRole('radio',{name:'国内镜像优先',exact:true}).click();
    await page.waitForFunction(async()=>{const r=await window.launcher.invoke('state',{localOnly:true});return r.value?.settings.downloadConcurrency===8&&r.value.settings.downloadSpeedMBps===2&&r.value.settings.downloadMode==='domestic';});
-   await page.reload();await page.getByRole('heading',{name:'设置',exact:true}).waitFor();await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'游戏与 Java'}).click();assert.equal(await amount.inputValue(),'768');await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
+   await page.reload();await page.getByRole('heading',{name:'设置',exact:true}).waitFor();
+   await speed.waitFor();assert.equal(await speed.getAttribute('aria-valuetext'),'2 MiB/s');
+   await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'游戏与 Java'}).click();assert.equal(await amount.inputValue(),'768');await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
    await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'外观与启动器'}).click();await page.getByRole('radio',{name:'浅色',exact:true}).click();await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'游戏与 Java'}).click();await capture('launcher-settings');
    await page.locator('footer').getByRole('link',{name:'音乐播放器',exact:true}).click();await page.getByRole('button',{name:'播放 小镇晨间',exact:true}).click();
    await page.getByRole('button',{name:'暂停',exact:true}).waitFor();await page.waitForFunction(()=>Number(document.querySelector('input[aria-label="播放进度"]').value)>0);const volumeName=page.locator(' .volume-line>label>span');
