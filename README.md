@@ -36,6 +36,7 @@
 | [本地工作进程](engine/main.mjs) · [游戏引擎](packages/engine/core) | Minecraft 准备、安装、角色会话、游戏进程事件、资料迁移与统计。沿用兼容的版本解析和社区协议 |
 | [社区服务端](apps/community-server) · [官网](apps/website) · [手机端](mobile) | 独立构建和部署 |
 | [功能和验收说明](docs/功能与验收.md) | 玩家可用的入口、验证方式与数据范围 |
+| [桌面界面约束](docs/桌面界面约束.md) | 窗口、卡片、搜索和操作区、窄窗顺序、阅读区及弹窗的边界 |
 
 ### 本地构建
 
@@ -49,6 +50,6 @@ npm run package:installer
 node scripts/package-desktop.mjs --installer --ia32
 ```
 
-安装包构建通过 `MAKENSIS` 查找 NSIS，也可从 PATH 运行 makensis。开发时使用 `npm run typecheck`、`npm test`、`npm run test:engine`、`npm run test:native` 和 `npm run test:community`。真实桌面流程使用 `node scripts/check-native.mjs --fixture-account` 或另加 `--ia32`，在独立临时资料中执行。
+安装包构建通过 `MAKENSIS` 查找 NSIS，也可从 PATH 运行 makensis。开发时使用 `npm run typecheck`、`npm test`、`npm run test:engine`、`npm run test:native` 和 `npm run test:community`。真实桌面流程使用 `node scripts/check-native.mjs --fixture-account` 或另加 `--ia32`，在独立临时资料中执行。构建当前桌面后可用 `npm run test:desktop:layout` 单独复查页面与弹窗边界，或给完整桌面流程附加 `--layout`。
 
 版本由根包清单维护。构建输出在 `release/<版本>/`。官网通过 `HXZ3_RELEASE_DIR` 或相邻版本目录发现实际交付文件。签名更新渠道使用构建时配置的 `HXZ3_UPDATE_URL` 和 `HXZ3_UPDATE_PUBLIC_KEY`，线上发布与本地打包独立。
