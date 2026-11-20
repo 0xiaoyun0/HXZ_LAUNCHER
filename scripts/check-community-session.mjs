@@ -77,6 +77,16 @@ export async function communityFixture(temp, dist, title) {
       const reply=page.locator('main textarea').last();await reply.fill('我来准备木材。');await page.getByRole('button',{name:'发布回复',exact:true}).click();
       await page.getByText('我来准备木材。',{exact:true}).first().waitFor();
       await page.reload();await page.getByText('我来准备木材。',{exact:true}).first().waitFor({timeout:22000});await capture('community-forum');
+      const more=nav.getByRole('combobox',{name:'更多社区功能'});
+      await more.selectOption('/community/playtime');await page.getByRole('button',{name:'服务器在线',exact:true}).waitFor();
+      assert.equal(await page.getByRole('button',{name:'服务器在线',exact:true}).getAttribute('aria-pressed'),'true');
+      await page.getByRole('button',{name:'每周时长榜'}).click();await page.getByRole('dialog').waitFor();await page.keyboard.press('Escape');
+      await more.selectOption('/community/wallet');await page.getByText('可用余额',{exact:true}).waitFor();
+      await page.getByRole('link',{name:'我的背包',exact:true}).click();await page.getByRole('heading',{name:'我的背包',exact:true}).waitFor();
+      await nav.getByRole('link',{name:'收件箱'}).click();await page.getByRole('button',{name:'全部已读'}).waitFor();
+      await more.selectOption('/community/worlds');await page.getByRole('heading',{name:'世界与入服',exact:true}).waitFor();
+      await nav.getByRole('link',{name:'语音房'}).click();await page.getByRole('heading',{name:'语音房',exact:true}).waitFor();
+      await capture('community-voice');
       const session=await page.evaluate(()=>window.launcher.invoke('state',{localOnly:true}));assert.equal(session.value.accounts.find(a=>a.id===session.value.settings.selectedAccount)?.uuid,profile.id);
       const top=page.getByRole('navigation',{name:'主导航'});
       await top.getByRole('link',{name:'游戏库'}).click();await top.getByRole('link',{name:'社区',exact:true}).click();

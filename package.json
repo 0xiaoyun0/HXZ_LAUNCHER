@@ -25,6 +25,7 @@
     "test:community": "npm --prefix apps/community-server test",
     "test:native": "cargo test --locked --manifest-path native/Cargo.toml --release",
     "test:desktop": "node scripts/check-native.mjs",
+    "test:desktop:layout": "node scripts/check-native.mjs --fixture-account --layout-only",
     "package:desktop": "node scripts/package-desktop.mjs",
     "package:installer": "node scripts/package-desktop.mjs --installer",
     "package:website": "npm run website:build && node scripts/package-website.mjs",
