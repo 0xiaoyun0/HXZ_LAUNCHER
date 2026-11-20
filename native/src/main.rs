@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod access;
 mod extension;
+mod dropped;
 mod game_window;
 mod host;
 mod library;
@@ -82,6 +83,9 @@ async fn launcher_request(
     if action == "community.connect" && !plugin.active() {
         return Err("请在设置中安装社区插件并重启".into());
     }
+    let (action,input) = if action == "drop.apply" {
+        window.state::<dropped::Dropped>().consume(&input)?
+    } else { (action,input) };
     if !access::included(&action) {
         return Err("此操作未在本应用中提供".into());
     }
@@ -193,6 +197,7 @@ fn main() {
                 std::env::args().skip(1).find_map(|v| invite(&v)),
             )));
             app.manage(game_window::GameWindow::default());
+            app.manage(dropped::Dropped::default());
             let extension = Arc::new(extension::Extension::open(&home));
             app.manage(extension.clone());
             app.manage(Engine::new(home, bin)?);
@@ -209,14 +214,9 @@ fn main() {
             if w.label() != "main" {
                 return;
             }
-            if let WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) = event {
-                if let Some(file) = paths.first().filter(|p| {
-                    p.extension().and_then(|s| s.to_str()).is_some_and(|ext| {
-                        matches!(ext.to_ascii_lowercase().as_str(), "zip" | "mrpack")
-                    })
-                }) {
-                    let _ = w.emit("engine-event", json!({"type":"pack-drop","file":file}));
-                }
+            if let WindowEvent::DragDrop(DragDropEvent::Drop { paths, position, .. }) = event {
+                let ticket = w.state::<dropped::Dropped>().remember(paths);
+                let _ = w.emit("engine-event", json!({"type":"file-drop","ticket":ticket,"x":position.x,"y":position.y}));
             }
             if let WindowEvent::CloseRequested { api, .. } = event {
                 let service = w.state::<Arc<Engine>>();

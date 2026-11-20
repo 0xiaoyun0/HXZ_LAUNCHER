@@ -1,3 +1,4 @@
+import {musicMigration} from './music-migration.mjs';
 import {lyricLines} from './lyrics.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -34,8 +35,9 @@ export function createMusicService({data,dialog,window,netease,identity}) {
    lyricsCache.set(netId,{at:Date.now(),value:result});if(lyricsCache.size>64)lyricsCache.delete(lyricsCache.keys().next().value);return result;
  }
  const file=path.join(data,'music-library.json'),pending=new Map();let queue=Promise.resolve();
- const read=async()=>{try{const value=JSON.parse(await fs.readFile(file,'utf8'));return Array.isArray(value.items)?value.items.slice(0,500):[];}catch(e){if(e.code==='ENOENT')return [];throw Error('音乐库读取失败，请保留 music-library.json 并重试');}};
- const mutate=operation=>{const result=queue.then(async()=>{const items=await read();const result=await operation(items);await writeJSON(file,{version:1,items});return result;});queue=result.catch(()=>{});return result;};
+ const readIndex=async()=>{try{const value=JSON.parse(await fs.readFile(file,'utf8'));if(!Array.isArray(value.items))throw Error();return value;}catch(e){if(e.code==='ENOENT')return {version:1,items:[]};throw Error('音乐库读取失败，请保留 music-library.json 并重试');}};
+ const read=async()=>(await readIndex()).items;
+ const mutate=operation=>{const result=queue.then(async()=>{const index=await readIndex();const result=await operation(index.items);await writeJSON(file,index);return result;});queue=result.catch(()=>{});return result;};
  async function addOnline(id){
   const netId=safeId(id),existing=(await read()).find(t=>t.id==='netease:'+netId);if(existing)return existing;
   const response=await cloudJSON('song/detail/?ids='+encodeURIComponent(JSON.stringify([netId])));if(!response.songs?.length)throw Error('未找到这首歌曲');const value=track(response.songs[0]);
@@ -89,6 +91,10 @@ export function createMusicService({data,dialog,window,netease,identity}) {
   'music.account.status':async()=>{const user=await userAccess(false);return {allowed:!!user.allowed,consented:await consent(user),...(user.allowed?await netease.status(user):{loggedIn:false})};},
   'music.account.login':async({accepted})=>{if(accepted!==true)throw Error('请先阅读并同意登录说明');const user=await userAccess();let record={};try{record=JSON.parse(await fs.readFile(consentFile,'utf8'));}catch{}record[identityKey(user)]=1;await writeJSON(consentFile,record);return netease.login(user);},
   'music.account.logout':async()=>{const user=await userAccess(false);return netease.logout(user);},
+  ...musicMigration({data,read,mutate,choose:async()=>{
+    const selected=await dialog.showOpenDialog(window(),{title:'选择 0.9.2 的 music-library.json',properties:['openFile'],defaultPath:path.join(process.env.APPDATA||data,'幻想镇启动器','music-library.json'),filters:[{name:'音乐库索引',extensions:['json']}]});
+    return selected.canceled?'':selected.filePaths?.[0];
+  }}),
   'music.list':async()=>({items:await read()}),
   'music.adopt':async({url})=>{await fs.access(mediaPath(data,url));return mutate(items=>{const old=items.find(t=>t.url===url);if(old)return old;const item={id:randomUUID(),title:'原背景音乐',artist:'本地音乐',source:'local',url};items.push(item);return item;});},
   'music.search':async({query})=>{const q=String(query||'').trim().slice(0,200);if(!q)return {items:[]};const response=await cloudJSON('search/get/web?s='+encodeURIComponent(q)+'&type=1&offset=0&limit=25');return {items:(response.result?.songs||[]).map(track)};},

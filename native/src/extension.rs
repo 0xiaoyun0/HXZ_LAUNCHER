@@ -22,6 +22,7 @@ pub struct Extension {
     catalog: Option<Manifest>,
     root: PathBuf,
     active: bool,
+    bypass: bool,
 }
 impl Extension {
     pub fn open(home: &Path) -> Self {
@@ -31,13 +32,15 @@ impl Extension {
             "/community-extension.json"
         )))
         .ok();
-        let active = catalog.as_ref().is_some_and(|c| {
+        let bypass = std::env::args_os().any(|arg| arg == "--disable-plugins");
+        let active = !bypass && catalog.as_ref().is_some_and(|c| {
             Self::selection(&root) == c.sha256 && Self::asset(&root, c, &c.entry).is_some()
         });
         Self {
             catalog,
             root,
             active,
+            bypass,
         }
     }
     fn selection(root: &Path) -> String {
@@ -60,7 +63,7 @@ impl Extension {
             return json!({"available":false,"active":false,"installed":false});
         };
         let selected = Self::selection(&self.root);
-        json!({"available":true,"active":self.active,"installed":selected==c.sha256,"entry":c.entry,"css":c.css,"version":c.version,"size":c.size,
+        json!({"available":true,"active":self.active,"safeMode":self.bypass,"installed":selected==c.sha256,"entry":c.entry,"css":c.css,"version":c.version,"size":c.size,
             "incompatible":!selected.is_empty()&&selected!=c.sha256})
     }
     pub fn respond(&self, req: Request<Vec<u8>>, response: &mut Response<Cow<'static, [u8]>>) {

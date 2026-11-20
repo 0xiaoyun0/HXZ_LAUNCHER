@@ -85,7 +85,7 @@ const LIVE_SETTINGS = new Set([
   'keepLauncherAvailable','autoReportErrors','autoCheckUpdates','instancesCollapsed','theme','fontSize','accentColor',
   'backgroundColor','backgroundImage','backgroundOpacity','backgroundPositionX',
   'backgroundPositionY','backgroundFit','backgroundVideo','backgroundMusic',
-  'defaultCover','musicVolume','videoQuality','linkingDiscovered','showLinking',
+  'defaultCover','musicVolume','musicPlayMode','videoQuality','linkingDiscovered','showLinking',
   'cardPlacements','widgets','layout','cardLayouts','cardStyle','columns','hiddenLinks','pinnedLinks','animationSpeed',
   'shortcuts','shortcutEnabled','voiceOverlay','gameWindowAction','onboardingDone','gameSleep','memoryOptimization','showCover','voiceMode','voiceKey','voiceSounds','chatHistoryDays','downloadSpeedMBps','fecEnabled','communityRelayEnabled'
 ]);
@@ -104,7 +104,7 @@ export async function createServices({
   skinPanel,
   netease,
   p2pRuntime
-, version, scanInstances=scanOnDisk, spawnGame=spawn, initialRoot=defaultGameRoot
+, version, scanInstances=scanOnDisk, spawnGame=spawn, initialRoot=defaultGameRoot, initialLibrary, initialServerCache
 }) {
   await fs.mkdir(data, { recursive: true });
   const dependencies=await dependencyStore(dependencyRoot,data);
@@ -126,7 +126,7 @@ export async function createServices({
     cardLayouts: {},cardPlacements:{},widgets:[],shortcuts:{},shortcutEnabled:true,voiceOverlay:false,gameWindowAction:'minimize',gameSleep:true,memoryOptimization:true,onboardingDone:false,onboardingVersion:0,
     cardStyle: {color:'',opacity:1,gap:14,radius:10},
     backgroundColor: "",
-    blueprintInstance:"",showCover:true,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,videoQuality:"balanced",animationSpeed:1,
+    blueprintInstance:"",showCover:true,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,musicPlayMode:"list",videoQuality:"balanced",animationSpeed:1,
     backgroundImage: "",
     backgroundOpacity: 0.4,
     backgroundPositionX: 50,
@@ -169,11 +169,20 @@ export async function createServices({
     settings = { ...settings, ...(await json(configFile)) };
   settings.shortcuts=migrateShortcuts(settings.shortcuts);
   if (!settings.gameRoot) {
-    settings.gameRoot = await initialRoot();
-    if (settings.gameRoot) await writeJSON(configFile, settings);
+    const installed=await initialLibrary?.();
+    settings.gameRoot=installed?.root||await initialRoot();
+    if(installed){
+      if(!settings.selectedInstance)settings.selectedInstance=installed.selected;
+      if(!settings.lastPlayed&&installed.lastPlayed)settings.lastPlayed=installed.lastPlayed;
+      if(installed.playtime){
+        try{await personalPlaytime.importHistory(installed.playtime);}
+        catch{/* Keep the game library available; the migration page allows an explicit retry. */}
+      }
+    }
+    if(settings.gameRoot)await writeJSON(configFile,settings);
   }
   if (!Array.isArray(settings.hiddenInstances)) settings.hiddenInstances = [];
-  const presetCatalog = await createPresetCatalog(data,()=>settings.communityUrl);
+  const presetCatalog = await createPresetCatalog(data,()=>settings.communityUrl,initialServerCache);
   const serverConnection=createServerConnection({presets:()=>presetCatalog.list(),remote:route=>remoteJSON(endpoint(settings.communityUrl)+route,{signal:AbortSignal.timeout(2500)})});
   // Refresh server presets on demand. Opening the local library only reads disk.
   // Extend old settings without resetting the player's appearance.
@@ -1309,6 +1318,7 @@ export async function createServices({
         (await fs.readFile(file)).toString("base64")
       );
     },
+    async 'server.refresh'(){await presetCatalog.refresh({force:true,strict:true});return true;},
     async 'monitor.targets'() {
       // Read the catalog without rescanning the player's instances or disk.
       await presetCatalog.refresh();
@@ -1364,6 +1374,7 @@ export async function createServices({
         }
       for(const key of ['backgroundVideo','defaultCover','backgroundMusic'])if(input[key]!=null){if(input[key]&&(!mediaReference(input[key])||!await exists(mediaPath(data,input[key]))))throw Error('媒体文件无效或已删除');nextSettings[key]=input[key];}
       if(['original','balanced','efficient'].includes(input.videoQuality))nextSettings.videoQuality=input.videoQuality;
+      if(input.musicPlayMode!=null){if(!['list','single','shuffle'].includes(input.musicPlayMode))throw Error('播放模式无效');nextSettings.musicPlayMode=input.musicPlayMode;}
       if(input.musicVolume!=null)nextSettings.musicVolume=Math.max(0,Math.min(1,Number(input.musicVolume)||0));
       if(input.animationSpeed!=null){if(![0,.5,1,1.5,2].includes(input.animationSpeed))throw Error('动画速度无效');nextSettings.animationSpeed=input.animationSpeed;}
       if (input.backgroundImage != null) {
@@ -1603,7 +1614,10 @@ export async function createServices({
     },
     async "instance.deleted"() {
       const prefix = instanceKey(settings.gameRoot, '');
-      return settings.hiddenInstances.filter(k=>k.startsWith(prefix)).map(k=>({id:k.slice(prefix.length)})).filter(i=>!presetCatalog.list().some(p=>p.id===i.id));
+      const hidden=new Set(settings.hiddenInstances.filter(k=>k.startsWith(prefix)));
+      if(!hidden.size)return [];
+      const local=await scanInstances(settings.gameRoot);
+      return local.filter(i=>hidden.has(instanceKey(settings.gameRoot,i.id))&&!presetCatalog.list().some(p=>p.id===i.id)).map(({id})=>({id}));
     },
     async 'cards.export'(input){
       const value=exportLayoutPackage(settings,input),picked=await dialog.showSaveDialog(window(),{defaultPath:'幻想镇卡片布局.json',filters:[{name:'卡片布局',extensions:['json']}]});
@@ -1624,8 +1638,9 @@ export async function createServices({
     },
     async "instance.restore"({id}) {
       busy();
-      settings.hiddenInstances = settings.hiddenInstances.filter(k=>k!==instanceKey(settings.gameRoot,id));
-      await writeJSON(configFile,settings);
+      if(!(await scanInstances(settings.gameRoot)).some(i=>i.id===id))throw Error('这个实例的文件已移走，请重新选择游戏目录');
+      const next={...settings,hiddenInstances:settings.hiddenInstances.filter(k=>k!==instanceKey(settings.gameRoot,id))};
+      await writeJSON(configFile,next);settings=next;
       return {ok:true};
     },
     async "instance.delete"({id, mode, confirmed}) {

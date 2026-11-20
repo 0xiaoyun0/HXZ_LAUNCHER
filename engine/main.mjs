@@ -4,8 +4,11 @@ import {connectHost} from './wire.mjs';
 import {createServices} from '../packages/engine/core/services.mjs';
 import {createLatencyMonitor} from '../packages/engine/core/monitor-latency.mjs';
 import {monitorStatus,monitorEndpoints} from './monitor.mjs';
+import {installedLibrary,installedServerCache} from './installed-game-root.mjs';
 import {importPreferences} from './profile-import.mjs';
 import {checkAccess} from './access.mjs';
+import {launcherReleases} from '../packages/engine/core/app-update.mjs';
+import {supportRequest} from './support.mjs';
 import {updates} from './updates.mjs';
 import {musicAccount} from './music-account.mjs';
 import {communityExtension} from './community-extension.mjs';
@@ -19,9 +22,10 @@ const wire=connectHost(dispatch),{host,emit}=wire;
 const choose=options=>host('dialog.open',options);
 const vault=async(action,bytes)=>Buffer.from(await host(action,{bytes:Buffer.from(bytes).toString('base64')}),'base64');
 const rtc=createPeerTransport(emit);
+const previousAppData=process.env.APPDATA;
 const engine=createServices({
   data:home,dependencyRoot:path.join(home,'cache'),resources,version:pkg.version,emit,
-  initialRoot:async()=>'',scanInstances:root=>host('library.scan',{root}),spawnGame:wire.spawnGame,
+  initialRoot:async()=>'',initialLibrary:()=>installedLibrary(previousAppData),initialServerCache:()=>installedServerCache(previousAppData),scanInstances:root=>host('library.scan',{root}),spawnGame:wire.spawnGame,
   window:()=>null,dialog:{showOpenDialog:(_,options)=>choose(options),showSaveDialog:(_,options)=>host('dialog.save',options)},
   shell:{openPath:path=>host('file.open',{path}),showItemInFolder:path=>host('file.reveal',{path}),trashItem:path=>host('file.trash',{path}),openExternal:url=>host('url.open',{url})},
   safeStorage:{isEncryptionAvailable:()=>true,decryptString:async bytes=>(await vault('vault.open',bytes)).toString('utf8'),encryptString:text=>vault('vault.seal',text)},
@@ -34,12 +38,13 @@ const latency=createLatencyMonitor({targets:async()=>monitorEndpoints(await (awa
 const updater=Promise.all([engine,fs.access(path.join(resources,'../../installed.flag')).then(()=>true,()=>false)]).then(([service,installed])=>updates({home,version:pkg.version,architecture:process.arch,installed,channel:__HXZ_UPDATE_CHANNEL__,emit,isBusy:()=>service.isBusy(),launch:input=>host('update.install',input)}));
 const extension=communityExtension({home,choose,resources,definition:__HXZ_COMMUNITY_EXTENSION__,emit});
 const local={
+  'launcher.releases':()=>launcherReleases(),
+  'support.ticket':async input=>supportRequest(async()=>(await engine).invoke('community.connect'),input),
   'external.open':input=>host('url.open',input),
   'window.control':input=>host('window.control',input),
   'renderer.diagnostic':async input=>(await engine).invoke('errors.report',{category:'interface',message:String(input.message||'').slice(0,1000)}),
   'instance.preflight':async({id})=>preflight(await (await engine).invoke('state',{localOnly:true}),id,{roots:[path.join(home,'runtimes'),path.join(resources,'runtime')]}),
   'profile.import':async()=>importPreferences(home,choose,await engine),
-  'server.refresh':async()=>(await engine).invoke('state',{localOnly:false}),
   'monitor.status':()=>monitorStatus(),'monitor.latency':input=>latency.measure('main',input),'monitor.cancel':input=>latency.cancel('main',input.requestId),
   'rtc.event':input=>rtc.event(input),
 
