@@ -2,14 +2,14 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import {connectHost} from './wire.mjs';
 import {createServices} from '../packages/engine/core/services.mjs';
-import {remoteJSON} from '../packages/engine/core/io.mjs';
 import {createLatencyMonitor} from '../packages/engine/core/monitor-latency.mjs';
 import {monitorStatus,monitorEndpoints} from './monitor.mjs';
-import {cardPlugins} from './plugins.mjs';
 import {importPreferences} from './profile-import.mjs';
 import {checkAccess} from './access.mjs';
 import {updates} from './updates.mjs';
 import {musicAccount} from './music-account.mjs';
+import {communityExtension} from './community-extension.mjs';
+import {preflight} from './preflight.mjs';
 import {createPeerTransport} from './rtc.mjs';
 import pkg from '../package.json';
 
@@ -30,17 +30,14 @@ const engine=createServices({
 });
 const identity=service=>emit({type:'identity-changed',authenticated:service.hasAuthenticatedAccount()});
 engine.then(identity).catch(()=>{}); // The local UI receives initialization errors through the request that triggered it.
-async function communityRequest(route,method='GET',body){
-  const identity=await (await engine).invoke('community.connect');
-  return remoteJSON(identity.base+route,{method,headers:{Authorization:'Bearer '+identity.token,'Content-Type':'application/json'},...(body===undefined?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(20000)});
-}
-const plugins=cardPlugins({home,choose,request:communityRequest,emit,safeMode:process.env.HXZ3_SAFE_MODE==='1'});
 const latency=createLatencyMonitor({targets:async()=>monitorEndpoints(await (await engine).invoke('monitor.targets'))});
 const updater=Promise.all([engine,fs.access(path.join(resources,'../../installed.flag')).then(()=>true,()=>false)]).then(([service,installed])=>updates({home,version:pkg.version,architecture:process.arch,installed,channel:__HXZ_UPDATE_CHANNEL__,emit,isBusy:()=>service.isBusy(),launch:input=>host('update.install',input)}));
+const extension=communityExtension({home,choose,resources,definition:__HXZ_COMMUNITY_EXTENSION__,emit});
 const local={
   'external.open':input=>host('url.open',input),
   'window.control':input=>host('window.control',input),
   'renderer.diagnostic':async input=>(await engine).invoke('errors.report',{category:'interface',message:String(input.message||'').slice(0,1000)}),
+  'instance.preflight':async({id})=>preflight(await (await engine).invoke('state',{localOnly:true}),id,{roots:[path.join(home,'runtimes'),path.join(resources,'runtime')]}),
   'profile.import':async()=>importPreferences(home,choose,await engine),
   'server.refresh':async()=>(await engine).invoke('state',{localOnly:false}),
   'monitor.status':()=>monitorStatus(),'monitor.latency':input=>latency.measure('main',input),'monitor.cancel':input=>latency.cancel('main',input.requestId),
@@ -49,8 +46,8 @@ const local={
 };
 async function dispatch(action,input){
   const service=await engine;checkAccess(action,service.hasAuthenticatedAccount());
+  if(action.startsWith('extension.'))return extension(action);
   if(action.startsWith('app-update.'))return (await updater).invoke(action);
-  if(action.startsWith('plugins.'))return plugins(action,input);
   if(Object.hasOwn(local,action))return local[action](input);
   const value=await service.invoke(action,input);
   if(action==='state'||action==='settings.save')(await updater).autoCheck((action==='state'?value.settings:value).autoCheckUpdates!==false);

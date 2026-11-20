@@ -76,7 +76,16 @@ impl Engine {
         }))
     }
     pub fn shutdown(&self) {
-        self.connection.lock().unwrap().take();
+        if let Some(mut connected) = self.connection.lock().unwrap().take() {
+            let _ = connected.wire.send(&json!({"kind":"shutdown"}));
+            let until = std::time::Instant::now() + std::time::Duration::from_secs(3);
+            while std::time::Instant::now() < until {
+                if !matches!(connected.child.try_wait(), Ok(None)) {
+                    break;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(25));
+            }
+        }
     }
     fn connect(self: &Arc<Self>, app: &AppHandle) -> Result<Arc<Wire>, String> {
         let mut slot = self.connection.lock().unwrap();
@@ -141,8 +150,8 @@ impl Engine {
                         let ev = &frame["value"];
                         if ev["type"] == "game-window" {
                             if let Some(action) = ev["action"].as_str() {
-                                app.state::<crate::panels::Panels>()
-                                    .auto_window(&app, action);
+                                app.state::<crate::game_window::GameWindow>()
+                                    .follow(&app, action);
                             }
                             continue;
                         }

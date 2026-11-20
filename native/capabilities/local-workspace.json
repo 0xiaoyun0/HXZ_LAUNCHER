@@ -1,11 +1,8 @@
 {
   "identifier": "local-workspace",
-  "description": "Allow bundled launcher and local companion panels to receive their own events and move their windows.",
+  "description": "Bundled main window events and native window movement.",
   "windows": [
-    "main",
-    "lyrics",
-    "voice",
-    "chat"
+    "main"
   ],
   "permissions": [
     "core:event:allow-listen",

@@ -20,6 +20,7 @@ export function connectHost(onRequest) {
     let frame;
     try { frame=JSON.parse(line); } catch { return; }
     const {kind,id,action,input} = frame;
+    if (kind==='shutdown'){lines.close();return;}
     if (kind==='hostReply') {
       const request=pending.get(id);
       if (!request) return;

@@ -46,7 +46,7 @@ async function attemptTrack(track:any,run:PlaybackRun,resume=false):Promise<void
   el.onerror=()=>{if(el.error)void failed(Error(el.error.code===2?'音频读取失败，请检查网络或本地文件。':'音频损坏或格式不受支持。'));};
   // Keep failed IDs until audio actually advances; play/error can occur in the same turn.
   el.ontimeupdate=()=>{if(token===generation&&!el.paused&&el.currentTime>0){run.failed.clear();run.skipped=0;}};
-  if(!resume)el.src=prepared.url;
+  if(!resume)el.src=prepared.url.replace(/^hxz-media:\/\/local\//,'http://hxz-media.localhost/');
   if(context?.state==='suspended')await context.resume();if(token!==generation)return;
   await el.play();if(token!==generation)return;
   if(run.skipped)music.notice=`已跳过 ${run.skipped} 首无法播放的歌曲。`;

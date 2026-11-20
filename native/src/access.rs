@@ -6,10 +6,17 @@ pub fn guest(action: &str) -> bool {
             .expect("valid guest action list")
     });
     allowed.contains(action)
-        || (action.starts_with("music.") && !action.starts_with("music.account."))
+}
+pub fn included(action: &str) -> bool {
+    !["plugins.", "companion.", "lyrics.", "music.web."]
+        .iter()
+        .any(|prefix| action.starts_with(prefix))
 }
 #[test]
 fn identity_is_required_for_launch_and_remote_mutation() {
+    assert!(included("community.connect"));
+    assert!(included("game.launch"));
+    assert!(!included("lyrics.update"));
     assert!(guest("state"));
     assert!(guest("settings.save"));
     assert!(!guest("game.launch"));

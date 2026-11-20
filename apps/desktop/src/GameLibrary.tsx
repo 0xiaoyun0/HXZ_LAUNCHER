@@ -1,12 +1,12 @@
 import {useDeferredValue,useMemo,useState} from 'react';
 import {useSnapshot} from 'valtio';
-import {Link,useSearchParams} from 'react-router-dom';
+import {Link,useSearchParams,useNavigate} from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import {Play, Plus, Search, Settings2, FolderOpen, Star, MoreHorizontal, PackageOpen, RefreshCw, Square, Layers, Download, FileUp, Trash2, ChevronDown, X, UserRound, ArrowDownToLine, ListFilter, Check, ArrowUpRight} from 'lucide-react';
 import {state,ui,task,account,selected,cfg,perform,invoke,saveSettings,selectInstance,launch,importPack,reload,chooseRoot,bytes} from './model';
 import {Avatar,Button,IconButton,Dropdown,Select,Empty} from './ui';
 import {InstanceManager} from './InstanceManager';
-import {disconnect,connect} from '../../../packages/community/client';
+
 
 const ready=(game:any)=>game.installed??(!game.builtin&&!game.error);
 const version=(game:any)=>game.version==='跟随整合包'?'跟随整合包':game.version;
@@ -23,7 +23,7 @@ export function PackIcon({game}:any){
 
 export function GameLibrary(){
  const s=useSnapshot(state),t=useSnapshot(task),role=account(s);
- const [params]=useSearchParams();
+ const [params]=useSearchParams(),navigate=useNavigate();
  const [page,setPage]=useState(0);
  const [query,setQuery]=useState(params.get('q')||''),[filter,setFilter]=useState('all'),[manager,setManager]=useState(false),[order,setOrder]=useState('default');
  const locked=t.busy||(s.running&&s.settings.keepLauncherAvailable===false);
@@ -37,6 +37,7 @@ export function GameLibrary(){
  const openManager=async(game:any)=>{await selectInstance(game.id);setManager(true);};
  const start=async(game:any)=>{if(locked){ui.tasks=true;return;}await selectInstance(game.id);await launch(game.id);};
  const menu=(game:any)=>[
+  {label:'启动前检查',icon:Search,action:()=>navigate('/check?id='+encodeURIComponent(game.id))},
   {label:'管理实例',icon:Settings2,disabled:locked,action:()=>openManager(game)},
   {label:'打开版本文件夹',icon:FolderOpen,disabled:!ready(game),action:()=>invoke('instance.folder',{id:game.id,kind:'versions'})},
   {label:cfg(game.id,s).favorite?'取消收藏':'收藏',icon:Star,disabled:locked,action:async()=>{await invoke('instance.favorite',{id:game.id,favorite:!cfg(game.id,s).favorite});await reload();}},
@@ -44,8 +45,8 @@ export function GameLibrary(){
   {separator:true},{label:game.builtin?'默认服务器不可删除':'删除实例',icon:Trash2,danger:true,disabled:game.builtin||locked,action:()=>{ui.instance=game.id;ui.dialog='delete';}}
  ];
  return <div className="play-library">
-  <header className="play-library-toolbar"><div className="library-location"><h1>我的游戏</h1><Link className="button" to="/library/worlds">世界与入服</Link><button onClick={()=>perform(chooseRoot)} title={s.settings.gameRoot||'选择游戏目录'}><FolderOpen size={15}/><span>{s.settings.gameRoot||'选择已有游戏目录'}</span><ChevronDown size={12}/></button></div>
-   <div className="library-profile">{role?<Dropdown trigger={<button className="library-account"><Avatar name={role.name} image={role.avatar} size={33}/><span><small>当前角色</small><strong>{role.name||role.username}</strong></span><ChevronDown size={14}/></button>} items={[...s.accounts.map((a:any)=>({label:a.name||a.username,detail:a.id===role.id?'当前':'',action:async()=>{disconnect();await saveSettings({selectedAccount:a.id});void connect();}})),{separator:true},{label:'管理账号与角色',action:()=>location.hash='/account'},{label:'添加账号',icon:Plus,action:()=>ui.dialog='account'}]}/>:<Button icon={UserRound} onClick={()=>ui.dialog='account'}>登录角色</Button>}</div>
+  <header className="play-library-toolbar"><div className="library-location"><h1>我的游戏</h1><button onClick={()=>perform(chooseRoot)} title={s.settings.gameRoot||'选择游戏目录'}><FolderOpen size={15}/><span>{s.settings.gameRoot||'选择已有游戏目录'}</span><ChevronDown size={12}/></button></div>
+   <div className="library-profile">{role?<Dropdown trigger={<button className="library-account"><Avatar name={role.name} image={role.avatar} size={33}/><span><small>当前角色</small><strong>{role.name||role.username}</strong></span><ChevronDown size={14}/></button>} items={[...s.accounts.map((a:any)=>({label:a.name||a.username,detail:a.id===role.id?'当前':'',action:async()=>{await saveSettings({selectedAccount:a.id});}})),{separator:true},{label:'管理账号与角色',action:()=>location.hash='/account'},{label:'添加账号',icon:Plus,action:()=>ui.dialog='account'}]}/>:<Button icon={UserRound} onClick={()=>ui.dialog='account'}>登录角色</Button>}</div>
   </header>
   <div className="play-library-filter"><nav aria-label="游戏分类">{[{id:'all',label:'全部游戏'},{id:'official',label:'默认服务器'},{id:'local',label:'本地实例'},{id:'favorites',label:'收藏'}].map(f=><button key={f.id} aria-pressed={filter===f.id} className={filter===f.id?'active':''} onClick={()=>{setFilter(f.id);setPage(0);}}>{f.label}{f.id==='all'&&<small>{s.instances.length}</small>}</button>)}</nav><div className="play-library-actions"><div className="search"><Search size={16}/><input placeholder="搜索游戏" aria-label="搜索游戏" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/></div><Dropdown trigger={<button className="button icon-button" aria-label="排序与刷新"><ListFilter size={17}/></button>} items={[{label:'默认顺序',detail:order==='default'?'✓':'',action:()=>setOrder('default')},{label:'按名称排序',detail:order==='name'?'✓':'',action:()=>setOrder('name')},{separator:true},{label:'刷新游戏库',icon:RefreshCw,disabled:locked,action:reload}]}/><Button icon={PackageOpen} disabled={locked} onClick={()=>importPack()}>导入</Button><Link className="button solid" to="/workshop/install"><Plus size={16}/>安装游戏</Link></div></div>
   <div className="play-library-scroll">

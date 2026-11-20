@@ -4,7 +4,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {useNavigate} from 'react-router-dom';
 import {Play,Settings2,FolderOpen,ArrowRight,Square,Layers,Search,Star,PackageOpen,Download,Globe,UserPlus} from 'lucide-react';
-import {state,ui,task,account,selected,cfg,perform,invoke,selectInstance,launch,importPack,reload,mediaFor,desktop,saveSettings} from './model';
+import {state,ui,task,account,selected,cfg,perform,invoke,selectInstance,launch,importPack,reload,desktop,saveSettings} from './model';
 import {connect,disconnect} from '../../../packages/community/client';
 import {CardBoard,type CardSpec} from './CardBoard';
 import {CardActions} from './CardPrimitives';

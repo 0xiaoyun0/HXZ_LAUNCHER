@@ -1,10 +1,11 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 mod access;
+mod extension;
+mod game_window;
 mod host;
 mod library;
 mod media;
 mod music_login;
-mod panels;
 mod processes;
 mod vault;
 mod worker;
@@ -63,6 +64,27 @@ async fn launcher_request(
     {
         return Err("请求来源或操作无效".into());
     }
+    let plugin = window.state::<Arc<extension::Extension>>();
+    if action == "extension.status" {
+        return Ok(plugin.status());
+    }
+    if action == "extension.restart" {
+        let status = plugin.status();
+        if status["active"] == status["installed"] {
+            return Err("没有等待重启的扩展变更".into());
+        }
+        if engine.busy.load(Ordering::Acquire) || engine.games.active() {
+            return Err("游戏或任务正在运行，结束后即可重启".into());
+        }
+        window.app_handle().request_restart();
+        return Ok(Value::Null);
+    }
+    if action == "community.connect" && !plugin.active() {
+        return Err("请在设置中安装社区插件并重启".into());
+    }
+    if !access::included(&action) {
+        return Err("此操作未在本应用中提供".into());
+    }
     if !engine.authenticated.load(Ordering::Acquire) && !access::guest(&action) {
         return Err("请先登录幻想镇账号".into());
     }
@@ -76,13 +98,6 @@ async fn launcher_request(
             .lock()
             .unwrap()
             .take()));
-    }
-    if action.starts_with("lyrics.") || action.starts_with("companion.") {
-        return window.app_handle().state::<panels::Panels>().action(
-            window.app_handle(),
-            &action,
-            &input,
-        );
     }
     if action == "window.sleep" || action == "memory.compact" {
         use webview2_com::Microsoft::Web::WebView2::Win32::{
@@ -139,9 +154,14 @@ async fn launcher_request(
         .map_err(|e| e.to_string())?
 }
 fn main() {
-    let app = tauri::Builder::default()
-        .plugin(tauri_plugin_global_shortcut::Builder::new().build())
-        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+    let builder = tauri::Builder::default();
+    let isolated_test = std::env::var_os("HXZ3_QA_INSTANCE").as_deref()
+        == Some(std::ffi::OsStr::new("1"))
+        && std::env::var_os("HXZ3_HOME").is_some();
+    let builder = if isolated_test {
+        builder
+    } else {
+        builder.plugin(tauri_plugin_single_instance::init(|app, args, _| {
             if let Some(w) = app.get_webview_window("main") {
                 let _ = w.unminimize();
                 let _ = w.show();
@@ -154,6 +174,8 @@ fn main() {
                 let _ = app.emit_to("main", "engine-event", json!({"type":"room-link"}));
             }
         }))
+    };
+    let app = builder
         .register_uri_scheme_protocol("hxz-media", |ctx, req| {
             let engine = ctx.app_handle().state::<Arc<Engine>>();
             media::response(&engine.home, &req)
@@ -170,15 +192,19 @@ fn main() {
             app.manage(Invitations(std::sync::Mutex::new(
                 std::env::args().skip(1).find_map(|v| invite(&v)),
             )));
-            app.manage(panels::Panels::new(&home));
+            app.manage(game_window::GameWindow::default());
+            let extension = Arc::new(extension::Extension::open(&home));
+            app.manage(extension.clone());
             app.manage(Engine::new(home, bin)?);
-            panels::install_tray(app)?;
+            tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
+                .on_web_resource_request(move |request, response| {
+                    extension.respond(request, response)
+                })
+                .build()?;
+            game_window::install_tray(app)?;
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![
-            launcher_request,
-            panels::panel_request
-        ])
+        .invoke_handler(tauri::generate_handler![launcher_request])
         .on_window_event(|w, event| {
             if w.label() != "main" {
                 return;
@@ -193,11 +219,6 @@ fn main() {
                 }
             }
             if let WindowEvent::CloseRequested { api, .. } = event {
-                if w.state::<panels::Panels>().playing_on_close() {
-                    api.prevent_close();
-                    let _ = w.hide();
-                    return;
-                }
                 let service = w.state::<Arc<Engine>>();
                 if service.busy.load(Ordering::Acquire) || service.games.active() {
                     api.prevent_close();

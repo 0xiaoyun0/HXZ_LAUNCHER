@@ -1,0 +1,67 @@
+import fs from 'node:fs/promises';
+import {createReadStream,createWriteStream} from 'node:fs';
+import path from 'node:path';
+import {randomUUID,createHash} from 'node:crypto';
+import {Transform,Readable} from 'node:stream';
+import {pipeline} from 'node:stream/promises';
+import {extractNative} from '../packages/engine/core/io.mjs';
+
+export function communityExtension({home,resources,definition,choose,emit=()=>{},fetcher=fetch}){
+  const base=path.join(home,'extensions','community'),marker=path.join(base,'enabled.json');
+  const final=path.join(base,definition.sha256);
+  let busy=false;
+  async function mark(hash){
+    const tmp=path.join(base,'.enabled-'+randomUUID());
+    try{await fs.writeFile(tmp,JSON.stringify({sha256:hash}));await fs.rename(tmp,marker);}
+    finally{await fs.rm(tmp,{force:true});}
+  }
+  async function source(action){
+    if(action==='extension.import'){
+      const result=await choose({title:'选择幻想镇社区插件',properties:['openFile'],filters:[{name:'社区插件',extensions:['zip']}]});
+      const file=result.filePaths?.[0];return file?createReadStream(file):null;
+    }
+    // A local release directory can supply the same pinned package before the website is deployed.
+    const sibling=path.resolve(resources,'../../../extensions',definition.name);
+    if((await fs.stat(sibling).catch(()=>null))?.isFile())return createReadStream(sibling);
+    const response=await fetcher(definition.url,{signal:AbortSignal.timeout(120000),redirect:'error'});
+    if(!response.ok){await response.body?.cancel();throw Error('社区插件下载 HTTP '+response.status);}
+    if(!response.body)throw Error('社区插件下载中断');
+    return Readable.fromWeb(response.body);
+  }
+  return async action=>{
+    if(busy)throw Error('正在处理社区插件，请稍候');
+    busy=true;let staging;
+    try{
+      await fs.mkdir(base,{recursive:true});
+      if(action==='extension.disable'){await mark('');return {changed:true};}
+      if(!['extension.install','extension.import'].includes(action))throw Error('未知扩展操作');
+      const input=await source(action);if(!input)return {changed:false};
+      staging=await fs.mkdtemp(path.join(base,'stage-'));
+      const archive=path.join(staging,'package.zip'),folder=path.join(staging,'assets'),hash=createHash('sha256');
+      let count=0,percent=-1;
+      await pipeline(input,new Transform({transform(chunk,_encoding,done){
+        count+=chunk.length;
+        if(count>definition.size){done(Error('社区插件校验失败'));return;}
+        hash.update(chunk);const next=Math.floor(count/definition.size*100);
+        if(next!==percent){percent=next;emit({type:'extension-progress',percent});}
+        done(null,chunk);
+      }}),createWriteStream(archive,{flags:'wx'}));
+      if(count!==definition.size||hash.digest('hex')!==definition.sha256)throw Error('社区插件校验失败，请下载与当前启动器匹配的插件');
+      await extractNative(archive,folder);
+      // The marker is committed last. Any cancellation, failed transfer or extraction leaves the previous choice intact.
+      if(!(await fs.stat(final).catch(()=>null))?.isDirectory())await fs.rename(folder,final);
+      else{
+        // Restore damaged cached assets atomically, even when re-enabling a previously disabled plugin.
+        const restore=async(relative='')=>{for(const item of await fs.readdir(path.join(folder,relative),{withFileTypes:true})){
+          const name=path.join(relative,item.name),to=path.join(final,name);
+          if(item.isDirectory()){await fs.mkdir(to,{recursive:true});await restore(name);}
+          else await fs.rename(path.join(folder,name),to);
+        }};await restore();
+      }
+      await mark(definition.sha256);return {changed:true};
+    }finally{
+      if(staging&&path.dirname(staging)===base)await fs.rm(staging,{recursive:true,force:true,maxRetries:4}).catch(()=>{});
+      busy=false;
+    }
+  };
+}

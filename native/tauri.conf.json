@@ -18,7 +18,8 @@
         "minHeight": 540,
         "center": true,
         "decorations": false,
-        "dragDropEnabled": true
+        "dragDropEnabled": true,
+        "create": false
       }
     ],
     "security": {

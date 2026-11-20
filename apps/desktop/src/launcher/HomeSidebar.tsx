@@ -1,0 +1,59 @@
+import {useCallback,useEffect,useState} from 'react';
+import {Link} from 'react-router-dom';
+import {useSnapshot} from 'valtio';
+import {Activity,ArrowRight,ChevronRight,Globe,RefreshCw,Settings2,Stethoscope,UserRoundPlus} from 'lucide-react';
+import {account,cfg,invoke,perform,state,ui} from '../model';
+import {Avatar} from '../ui';
+
+export function playDuration(seconds:number){
+  if(seconds>=3600)return Math.floor(seconds/3600)+' 小时 '+Math.floor(seconds%3600/60)+' 分钟';
+  return seconds>=60?Math.floor(seconds/60)+' 分钟':seconds+' 秒';
+}
+
+export function HomeSidebar({game}:{game:any}){
+  const s=useSnapshot(state),role=account(s),settings=s.settings,options=game&&cfg(game.id,s);
+  const [servers,setServers]=useState<any[]|null>(null),[loading,setLoading]=useState(false),[unavailable,setUnavailable]=useState(false);
+  async function checkServers(){
+    setLoading(true);
+    try{const result=await invoke('servers.status',{refresh:true});setServers(result.items||[]);setUnavailable(!(result.items||[]).some((item:any)=>item.available));}
+    catch{setUnavailable(true);}finally{setLoading(false);}
+  }
+  const online=servers?.filter(row=>row.available)||[];
+  const memory=options?.memoryMode==='manual'?options.memoryMB+' MB · 实例':options?.memoryMode==='auto'?'自动分配':
+    settings.memoryMode==='manual'?settings.defaultMemoryMB+' MB · 全局':'自动分配';
+  return <aside className="game-summary">
+    <section className="desk-card"><header><h2>我的角色</h2></header>
+      <div className="home-role"><Avatar name={role?.name||'旅'} image={role?.avatar} size={44}/><div><strong>{role?.name||'本地游客'}</strong>
+        <small>{role?.authenticated?(role.uuid?'已登录 · 当前游戏角色':'已登录 · 请选择角色'):'使用幻想镇皮肤站账号登录'}</small></div></div>
+      <div className="desk-actions"><Link to="/account" className="small-action"><Globe size={15}/>管理皮肤站</Link>
+        <button className="small-action" onClick={()=>ui.dialog='account'}><UserRoundPlus size={15}/>{role?.authenticated?'添加账号':'登录账号'}</button></div>
+    </section>
+    <section className="desk-card"><header><h2>服务器状态</h2><button className="icon-plain" aria-label="刷新服务器状态" disabled={loading} onClick={checkServers}><RefreshCw size={15}/></button></header>
+      <div className="server-reading"><Activity size={17}/><span role="status">{loading?'正在读取在线状态…':unavailable?'暂时无法读取在线状态':servers?online.length+' 个服务器可查询 · '+online.reduce((sum,row)=>sum+(Number(row.online)||0),0)+' 人在线':'尚未查询在线状态'}</span><Link to="/multiplayer">详情 <ChevronRight size={13}/></Link></div>
+    </section>
+    <section className="desk-card"><header><h2>实例详情</h2></header>{game?<><h3>{game.name||game.id}</h3><small>{[game.version===game.id?'本地实例':game.version,game.loader].filter(Boolean).join(' · ')}</small>
+      <dl className="detail-rows"><div><dt>状态</dt><dd>{game.error?'需要检查':game.installed?'已安装':'待安装'}</dd></div><div><dt>Java</dt><dd>{options.javaMode==='custom'||(options.javaMode==='inherit'&&settings.javaPath)?'指定运行环境':'自动匹配'}</dd></div><div><dt>最大内存</dt><dd>{memory}</dd></div></dl>
+      <div className="desk-actions"><button className="small-action" onClick={()=>{ui.instance=game.id;ui.dialog='instance';}}><Settings2 size={15}/>实例配置</button><Link className="small-action" to={'/check?id='+encodeURIComponent(game.id)}><Stethoscope size={15}/>启动前检查</Link></div></>:<p>选择游戏实例后可查看配置。</p>}
+    </section>
+  </aside>;
+}
+export function PlayCalendar(){
+  const s=useSnapshot(state),[days,setDays]=useState<{date:string;seconds:number}[]>(),[failed,setFailed]=useState(false),[weeks,setWeeks]=useState(26);
+  const refresh=useCallback(async()=>{try{const result=await invoke('game.playtime');setDays(result.days);setFailed(false);}catch{setFailed(true);}},[]);
+  useEffect(()=>{void refresh();if(s.running){const tick=setInterval(refresh,5000);return ()=>clearInterval(tick);}},[s.running,refresh]);
+  const day=86400000,now=new Date(Date.now()+8*3600000),today=now.toISOString().slice(0,10),midnight=Date.parse(today+'T00:00:00Z');
+  const weekday=(now.getUTCDay()+6)%7,monday=new Date(midnight-weekday*day).toISOString().slice(0,10);
+  const sum=(start:string)=>(days||[]).reduce((n,d)=>n+(d.date>=start&&d.date<=today?d.seconds:0),0);
+  const byDate=new Map(days?.map(d=>[d.date,d.seconds]));
+  const first=midnight-(7*(weeks-1)+weekday)*day;
+  const squares=Array.from({length:weeks*7},(_,i)=>new Date(first+i*day).toISOString().slice(0,10));
+  return <section className="desk-card calendar-card"><header><h2>游玩日历</h2><Link to="/playtime">游玩记录 <ArrowRight size={14}/></Link></header>
+    {failed?<p role="alert">本机记录读取失败。<button className="small-action" onClick={refresh}>重试</button></p>:!days?<p>正在读取本机记录…</p>:<>
+    <dl className="time-periods">{[['今天',sum(today)],['本周',sum(monday)],['本月',sum(today.slice(0,7)+'-01')]].map(([label,seconds])=><div key={label}><dt>{label}</dt><dd>{playDuration(Number(seconds))}</dd></div>)}</dl>
+    <div className="calendar-tools"><small>最近 {weeks} 周 · 本机游玩</small><div className="segmented" aria-label="日历范围">{[[26,'半年'],[52,'一年']].map(([count,text])=><button key={count} aria-pressed={weeks===count} onClick={()=>setWeeks(Number(count))}>{text}</button>)}</div></div>
+    <div className="calendar-grid" style={{gridTemplateColumns:'repeat('+weeks+',minmax(0,1fr))'}} aria-label="本机游玩日历">{squares.map(date=>{
+      const seconds=byDate.get(date)||0;
+      return <i key={date} data-level={date>today?'future':seconds>=7200?3:seconds>=1800?2:seconds>0?1:0} title={date+' · '+playDuration(seconds)}/>;
+    })}</div></>}
+  </section>;
+}

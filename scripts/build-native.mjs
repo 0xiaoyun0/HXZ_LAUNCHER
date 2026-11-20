@@ -1,0 +1,23 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
+import {createReadStream} from 'node:fs';
+import {architecture,workerDirectory} from './worker-runtime.mjs';
+const triple=architecture==='ia32'?'i686-pc-windows-msvc':'';
+const pkg=JSON.parse(await fs.readFile('package.json','utf8'));
+const extension=JSON.parse(await fs.readFile('.runtime/community-extension.json','utf8'));
+if(extension.version!==pkg.version||!extension.files[extension.entry])throw Error('请先构建当前版本的桌面界面与社区插件');
+const result=spawnSync('cargo',['build','--release',...(triple?['--target',triple]:[]),'--locked','--manifest-path','native/Cargo.toml'],{stdio:'inherit',windowsHide:true});
+if(result.error)throw result.error;
+if(result.status!==0)process.exit(result.status??1);
+const target=path.resolve('release',pkg.version,'windows-'+architecture);
+await fs.mkdir(target,{recursive:true});
+await fs.copyFile(path.join('native/target',triple,'release/hxz-launcher.exe'),path.join(target,'幻想镇 3rd.exe'));
+const engine=path.join(target,'engine');
+await fs.cp(workerDirectory,engine,{recursive:true});
+await fs.copyFile('LICENSE',path.join(target,'LICENSE'));
+const lines=[];
+async function record(dir){for(const file of await fs.readdir(dir,{withFileTypes:true})){const full=path.join(dir,file.name);if(file.isDirectory())await record(full);else if(file.name!=='SHA256SUMS.txt'){const hash=createHash('sha256');for await(const part of createReadStream(full))hash.update(part);lines.push(hash.digest('hex')+'  '+path.relative(target,full).split(path.sep).join('/'));}}}
+await record(target);await fs.writeFile(path.join(target,'SHA256SUMS.txt'),lines.sort().join('\n')+'\n');
+console.log(target);

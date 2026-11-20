@@ -13,7 +13,7 @@ try{
  await assert.rejects(service.invoke('community.connect'),/网络|连接|fetch/i);assert.equal(service.hasAuthenticatedAccount(),true);assert.equal((await service.invoke('state')).accounts[0].authenticated,true);
  await service.invoke('settings.save',{selectedAccount:'no-role'});assert.equal(service.hasAuthenticatedAccount(),true);assert.equal((await service.invoke('state')).accounts[1].authenticated,true);await assert.rejects(service.invoke('community.connect'),/选择游戏角色/);assert.equal(service.hasAuthenticatedAccount(),true);
  await service.invoke('account.remove',{id:'no-role'});assert.equal(service.hasAuthenticatedAccount(),true);await service.invoke('account.remove',{id:'old-cache'});assert.equal(service.hasAuthenticatedAccount(),false);assert.equal((await service.invoke('state')).accounts.length,0);
- for(const action of ['state','account.login','settings.save','music.list','window.control','app-update.check'])assert.doesNotThrow(()=>checkAccess(action,false));
+ for(const action of ['state','account.login','settings.save','music.list','mods.list','window.control','app-update.check'])assert.doesNotThrow(()=>checkAccess(action,false));
  for(const action of ['game.launch','community.connect','lobby.host','music.account.login','companion.chat','vault.open'])assert.throws(()=>checkAccess(action,false),/请先登录/);
  assert.doesNotThrow(()=>checkAccess('game.launch',true));
 }finally{service?.dispose();globalThis.fetch=originalFetch;assert.equal(path.dirname(path.resolve(root)),path.resolve(os.tmpdir()));assert.ok(path.basename(root).startsWith('hxz-auth-audit-'));await fs.rm(root,{recursive:true,force:true});}
