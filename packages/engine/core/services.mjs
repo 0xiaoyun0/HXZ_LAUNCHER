@@ -1,3 +1,4 @@
+import {DEFAULT_DESKTOP_THEME,changeDesktopTheme,themeBook} from './desktop-themes.mjs';
 import {managedUpdateConfig} from './managed-update.mjs';
 import {installationRequest} from './install-request.mjs';
 import {downloadNodeStatus,probeDownloadNodes,cancelNodeProbe} from './source-health.mjs';
@@ -31,7 +32,7 @@ import {inspectWorldArchive,extractWorldArchive,exportWorld,putWorldReceipt} fro
 import {readLayoutPackage,exportLayoutPackage,applyLayoutPackage,LAYOUT_LIMIT} from './layout-package.mjs';
 import {addonWorlds,addonSearch,addonInstall,modDetails} from './addons.mjs';
 import {INSTANCE_FILE_TYPES,instanceFilePaths,listInstanceFiles,toggleInstanceFile,importInstanceFiles,removeInstanceFile} from './instance-files.mjs';
-import {importMedia,mediaReference,mediaPath} from './media.mjs';
+import {cacheWallpaper,importMedia,mediaReference,mediaPath} from './media.mjs';
 import {crashReport,diagnosticText,redactDiagnostic} from "./diagnostics.mjs";
 import {javaPathArgument, systemArchitecture} from "./platform.mjs";
 import {createPresetCatalog} from "./server-presets.mjs";
@@ -82,6 +83,7 @@ const SKIN = "https://skin.hxzmc.top/api/yggdrasil";
 const APPEARANCE_VERSION = 2;
 // Presentation and voice settings do not change files owned by the active task.
 const LIVE_SETTINGS = new Set([
+  'themeChange','desktopBackdrop',
   'keepLauncherAvailable','autoReportErrors','autoCheckUpdates','instancesCollapsed','theme','fontSize','accentColor',
   'backgroundColor','backgroundImage','backgroundOpacity','backgroundPositionX',
   'backgroundPositionY','backgroundFit','backgroundVideo','backgroundMusic',
@@ -122,13 +124,14 @@ export async function createServices({
     selectedAccount: "",
     theme: "light",
     fontSize: 16,
-    accentColor: "#5668bc",
+    accentColor: DEFAULT_DESKTOP_THEME.accent,
+    desktopThemes: {active:DEFAULT_DESKTOP_THEME.id,entries:[]},desktopBackdrop:"scene",
     cardLayouts: {},cardPlacements:{},widgets:[],shortcuts:{},shortcutEnabled:true,voiceOverlay:false,gameWindowAction:'minimize',gameSleep:true,memoryOptimization:true,onboardingDone:false,onboardingVersion:0,
-    cardStyle: {color:'',opacity:1,gap:14,radius:10},
+    cardStyle: {color:'',opacity:DEFAULT_DESKTOP_THEME.opacity,gap:14,radius:DEFAULT_DESKTOP_THEME.radius},
     backgroundColor: "",
     blueprintInstance:"",showCover:true,backgroundVideo:"",defaultCover:"",backgroundMusic:"",musicVolume:0.3,musicPlayMode:"list",videoQuality:"balanced",animationSpeed:1,
     backgroundImage: "",
-    backgroundOpacity: 0.4,
+    backgroundOpacity: DEFAULT_DESKTOP_THEME.strength,
     backgroundPositionX: 50,
     backgroundPositionY: 50,
     backgroundFit: "cover",
@@ -189,7 +192,9 @@ export async function createServices({
   settings.appearanceVersion = APPEARANCE_VERSION;
   settings.cardLayouts = normalizeCardLayouts(settings.cardLayouts);
   settings.cardPlacements=normalizeCardPlacements(settings.cardPlacements);settings.widgets=normalizeWidgets(settings.widgets);
-  settings.cardStyle = normalizeCardStyle(settings.cardStyle);
+  settings.cardStyle = {...settings.cardStyle,...normalizeCardStyle(settings.cardStyle)};
+  const book=themeBook(settings);
+  settings.desktopThemes={...book,entries:Array.isArray(settings.desktopThemes?.entries)?settings.desktopThemes.entries:[]};
   settings.hiddenLinks = Array.isArray(settings.hiddenLinks)
     ? settings.hiddenLinks.filter(
         value =>
@@ -1299,7 +1304,11 @@ export async function createServices({
       const r=await dialog.showOpenDialog(window(),{properties:['openFile'],filters:[{name:kind==='music'?'背景音乐':'图片或视频',extensions:kind==='music'?['mp3','ogg','wav','m4a']:['png','jpg','jpeg','webp','mp4','webm']}]});
       if(r.canceled)return null;return importMedia(data,r.filePaths[0],kind);
     },
-    async "background.choose"() {
+    async "background.choose"(input={}) {
+      if(input.kind==='wallpaper'){
+        const result=await dialog.showOpenDialog(window(),{properties:['openFile'],filters:[{name:'桌面壁纸',extensions:['png','jpg','jpeg','webp','mp4','webm']}]});
+        return result.canceled?null:importMedia(data,result.filePaths[0],'visual');
+      }
       const r = await dialog.showOpenDialog(window(), {
         properties: ["openFile"],
         filters: [
@@ -1353,10 +1362,21 @@ export async function createServices({
     async "settings.save"(input, imported, previousGame) {
       if (Object.keys(input).some(k => !LIVE_SETTINGS.has(k))) busy();
       const nextSettings={...settings,columns:Object.fromEntries(Object.entries(settings.columns).map(([key,value])=>[key,{...value}])),instanceSettings:{...settings.instanceSettings}};
+      if(input.themeChange){
+        let source=settings;
+        const inline=typeof settings.backgroundImage==='string'&&/^data:image\/(png|jpeg|webp);base64,([a-z0-9+/=]+)$/i.exec(settings.backgroundImage);
+        if(inline)source={...settings,backgroundImage:await cacheWallpaper(data,Buffer.from(inline[2],'base64'),inline[1])};
+        const look=changeDesktopTheme(source,input.themeChange);
+        nextSettings.desktopThemes=look.desktopThemes;input={...input,...look};
+      }
+      if(input.desktopBackdrop!=null){
+        if(!['scene','plain'].includes(input.desktopBackdrop))throw Error('背景类型无效');
+        nextSettings.desktopBackdrop=input.desktopBackdrop;
+      }
       if(input.cardPlacements!=null)nextSettings.cardPlacements=normalizeCardPlacements(input.cardPlacements);
       if(input.widgets!=null)nextSettings.widgets=normalizeWidgets(input.widgets);
       if(input.cardLayouts!=null)nextSettings.cardLayouts=normalizeCardLayouts(input.cardLayouts);
-      if(input.cardStyle!=null){nextSettings.cardStyle=normalizeCardStyle(input.cardStyle);nextSettings.columns.workspace.opacity=nextSettings.cardStyle.opacity;}
+      if(input.cardStyle!=null){nextSettings.cardStyle={...settings.cardStyle,...normalizeCardStyle(input.cardStyle)};nextSettings.columns.workspace.opacity=nextSettings.cardStyle.opacity;}
       if (input.fontSize != null) {
         if (
           !Number.isInteger(input.fontSize) ||
@@ -1372,7 +1392,12 @@ export async function createServices({
             throw Error("颜色格式无效");
           nextSettings[key] = input[key];
         }
-      for(const key of ['backgroundVideo','defaultCover','backgroundMusic'])if(input[key]!=null){if(input[key]&&(!mediaReference(input[key])||!await exists(mediaPath(data,input[key]))))throw Error('媒体文件无效或已删除');nextSettings[key]=input[key];}
+      for(const key of ['backgroundVideo','defaultCover','backgroundMusic']){
+        const value=input[key];if(value==null)continue;
+        const savedWallpaper=key==='backgroundVideo'&&input.themeChange?.op==='select';
+        if(value&&(!mediaReference(value)||(!savedWallpaper&&!await exists(mediaPath(data,value)))))throw Error('媒体文件无效或已删除');
+        nextSettings[key]=value;
+      }
       if(['original','balanced','efficient'].includes(input.videoQuality))nextSettings.videoQuality=input.videoQuality;
       if(input.musicPlayMode!=null){if(!['list','single','shuffle'].includes(input.musicPlayMode))throw Error('播放模式无效');nextSettings.musicPlayMode=input.musicPlayMode;}
       if(input.musicVolume!=null)nextSettings.musicVolume=Math.max(0,Math.min(1,Number(input.musicVolume)||0));
@@ -1633,7 +1658,7 @@ export async function createServices({
     async 'cards.apply'(input){
       if(input.confirmed!==true)throw Error('请先预览并确认卡片布局');
       const patch=applyLayoutPackage(settings,input.package,input.mode),next={...settings,...patch};
-      if(patch.cardStyle)next.columns.workspace.opacity=patch.cardStyle.opacity;
+      if(patch.cardStyle){next.cardStyle={...settings.cardStyle,...patch.cardStyle};next.columns={...next.columns,workspace:{...next.columns.workspace,opacity:patch.cardStyle.opacity}};}
       await writeJSON(configFile,next);settings=next;return settings;
     },
     async "instance.restore"({id}) {

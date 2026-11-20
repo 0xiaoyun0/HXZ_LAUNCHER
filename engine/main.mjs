@@ -5,6 +5,7 @@ import {createServices} from '../packages/engine/core/services.mjs';
 import {createLatencyMonitor} from '../packages/engine/core/monitor-latency.mjs';
 import {monitorStatus,monitorEndpoints} from './monitor.mjs';
 import {installedLibrary,installedServerCache} from './installed-game-root.mjs';
+import {legacyAppearance,legacyCardPackage} from './legacy-appearance.mjs';
 import {importPreferences} from './profile-import.mjs';
 import {checkAccess} from './access.mjs';
 import {launcherReleases} from '../packages/engine/core/app-update.mjs';
@@ -38,6 +39,8 @@ const latency=createLatencyMonitor({targets:async()=>monitorEndpoints(await (awa
 const updater=Promise.all([engine,fs.access(path.join(resources,'../../installed.flag')).then(()=>true,()=>false)]).then(([service,installed])=>updates({home,version:pkg.version,architecture:process.arch,installed,channel:__HXZ_UPDATE_CHANNEL__,emit,isBusy:()=>service.isBusy(),launch:input=>host('update.install',input)}));
 const extension=communityExtension({home,choose,resources,definition:__HXZ_COMMUNITY_EXTENSION__,emit});
 const local={
+  'profile.cards':()=>legacyCardPackage(previousAppData),
+  'profile.look':async input=>legacyAppearance(previousAppData,home,await engine,input?.apply===true),
   'launcher.releases':()=>launcherReleases(),
   'support.ticket':async input=>supportRequest(async()=>(await engine).invoke('community.connect'),input),
   'external.open':input=>host('url.open',input),

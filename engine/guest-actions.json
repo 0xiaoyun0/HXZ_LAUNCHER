@@ -121,5 +121,10 @@
   "blueprints.instances",
   "blueprints.download",
   "blueprints.cancel",
+  "profile.look",
+  "profile.cards",
+  "cards.export",
+  "cards.import",
+  "cards.apply",
   "background.choose"
 ]
