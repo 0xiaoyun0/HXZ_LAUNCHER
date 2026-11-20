@@ -7,7 +7,7 @@ import {ChoiceGroup} from './launcher/ChoiceControls';
 import {CardGestures} from './CardGestures';
 import {CardHarvest,ForeignCard,HarvestedCards,moveCard} from './PortableCards';
 import {state,ui,saveSettings,perform} from './model';
-import {Modal} from './ui';
+import {DialogSections,Modal} from './ui';
 
 const AddWidget=lazy(()=>import('./Widgets').then(m=>({default:m.AddWidget})));
 const Widget=lazy(()=>import('./Widgets').then(m=>({default:m.Widget})));
@@ -81,7 +81,10 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
     </div>
     {failure&&!manage&&<p role="alert">{failure}</p>}
     {!visible.length&&<div className="empty-board"><span>本页暂未显示卡片</span><button className="small-action" onClick={()=>show()}>选择卡片</button></div>}
-    <Modal open={manage} title={'整理'+(label||'本页')+'卡片'} onClose={()=>setManage(false)} wide><div className="board-editor">
+    <Modal open={manage} title={'整理'+(label||'本页')+'卡片'} onClose={()=>setManage(false)} wide>
+      <DialogSections actions={<footer className="board-editor-tools"><button className="small-action" disabled={busy||!stored} onClick={()=>write(()=>undefined)}><RotateCcw size={15}/>恢复默认布局</button>
+        {undo?.key===key&&<button className="small-action" disabled={busy} onClick={()=>write(()=>undo.value,false)}><Undo2 size={15}/>撤销</button>}
+        <button className="launch-primary" onClick={()=>setManage(false)}><Check size={15}/>完成</button></footer>}><div className="board-editor">
       <div className="board-editor-tools"><span>{compact?'窄窗布局':'宽窗布局'} · 已显示 {visible.length} 张</span>
         <button className="small-action" onClick={()=>{setEditing(true);setManage(false);}}><GripVertical size={15}/>在页面上拖动</button>
         {supportsWidgets&&<button className="small-action" onClick={()=>{setManage(false);setAdd(true);}}><Plus size={15}/>添加卡片</button>}</div>
@@ -108,9 +111,7 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
       })}</div>
       {away.map(item=><div className="board-away" key={item.card}><span>{item.title} · {desktopCardSources.find(([board])=>board===item.target)?.[1]}</span><button className="small-action" onClick={()=>perform(()=>moveCard(item,id))}>移回本页</button></div>)}
       {failure&&<p role="alert">{failure}</p>}
-      <footer className="board-editor-tools"><button className="small-action" disabled={busy||!stored} onClick={()=>write(()=>undefined)}><RotateCcw size={15}/>恢复默认布局</button>
-        {undo?.key===key&&<button className="small-action" disabled={busy} onClick={()=>write(()=>undo.value,false)}><Undo2 size={15}/>撤销</button>}
-        <button className="launch-primary" onClick={()=>setManage(false)}><Check size={15}/>完成</button></footer></div></Modal>
+      </div></DialogSections></Modal>
     {add&&<Suspense fallback={null}><AddWidget page={id} onClose={()=>{setAdd(false);setManage(true);}}/></Suspense>}
   </div>;
 }

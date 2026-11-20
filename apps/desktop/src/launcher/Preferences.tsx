@@ -1,5 +1,6 @@
 import {Link,useSearchParams} from 'react-router-dom';
 import {settingsTabs,SettingsLayout} from './SettingsLayout';
+import {SettingsSection} from './SettingsSection';
 import {ArchiveSignalPreference} from '../ArchiveSignal';
 import {AppearanceSettings} from './AppearanceSettings';
 import {ChoiceGroup,StepChoice} from './ChoiceControls';
@@ -8,7 +9,7 @@ import {MemorySetting} from './MemorySetting';
 import {SkinConnection} from './SkinConnection';
 import {useState} from 'react';
 import {useSnapshot} from 'valtio';
-import {FolderOpen,ChevronRight} from 'lucide-react';
+import {BookOpen,FolderOpen,ChevronRight,LifeBuoy} from 'lucide-react';
 import {account,chooseRoot,invoke,notify,perform,reload,saveSettings,state,ui} from '../model';
 import {DownloadPolicy,NetworkPreferences,RemovedInstances,RuntimePreferences} from './GamePreferences';
 import {LauncherUpdate} from '../LauncherUpdate';
@@ -27,9 +28,12 @@ export function Preferences(){
   <div className="setting-line"><strong>动画速度</strong><StepChoice label="动画速度" value={settings.animationSpeed??1} options={[[0,'减少动效'],[.5,'舒缓'],[1,'标准'],[1.5,'敏捷'],[2,'快速']]} onChange={v=>saveSettings({animationSpeed:Number(v)})}/></div>
 
   <div className="setting-line"><strong>启动游戏后</strong><ChoiceGroup label="启动游戏后" value={settings.gameWindowAction||'minimize'} options={[['minimize','最小化'],['keep','保留窗口'],['hide','隐藏到托盘']]} onChange={gameWindowAction=>action(()=>saveSettings({gameWindowAction}))}/></div></section></>}
- {current==='downloads'&&<section className="preference-section"><h2>下载与更新</h2>
-  <DownloadPolicy/><div className="desk-actions"><Link to="/updates">启动器更新公告</Link><Link to="/support">帮助与反馈</Link></div>
-  <LauncherUpdate enabled={settings.autoCheckUpdates!==false} onChange={v=>void action(()=>saveSettings({autoCheckUpdates:v}))}/></section>}
+ {current==='downloads'&&<>
+   <SettingsSection title="下载策略"><DownloadPolicy/></SettingsSection>
+   <LauncherUpdate enabled={settings.autoCheckUpdates!==false} onChange={v=>saveSettings({autoCheckUpdates:v})}
+     links={<><Link className="small-action" to="/updates"><BookOpen size={16}/>启动器更新公告</Link>
+       <Link className="small-action" to="/support"><LifeBuoy size={16}/>帮助与反馈</Link></>}/>
+ </>}
  {current==='network'&&<NetworkPreferences/>}
  {current==='migration'&&<section className="preference-section"><h2>资料迁移</h2><div className="setting-line"><span><strong>导入 0.9.2 的设置与游玩记录</strong><small>选择旧资料中的 settings.json，启动器会保留原文件和导入前的备份。</small></span><button className="small-action" disabled={busy} onClick={()=>action(async()=>{const result=await invoke('profile.import');if(!result.cancelled){await reload();notify('已导入 '+result.count+' 项偏好');}})}>导入设置</button></div><MusicMigration/></section>}
  </SettingsLayout>;

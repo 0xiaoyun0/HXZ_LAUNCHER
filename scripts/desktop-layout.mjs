@@ -1,13 +1,14 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {scan as measureInsets} from './desktop-insets.mjs';
 
 // Exercise the installed WebView. Routes with their own content surface declare its selector.
 const routes=[
   ['/', '.game-home'],['/library','.play-library'],['/servers','.default-server-card'],['/multiplayer','.lobby-block'],
   ['/workshop','.standard-page'],['/workshop/install','.desktop-panel'],['/workshop/addons','.list-toolbar'],
   ['/workshop/sources','.standard-page'],['/workshop/blueprints','.preference-section'],['/music','.player-now'],
-  ['/playtime','.playtime-summary'],['/account','.preference-section'],['/check','.check-list'],['/support','.feedback-center'],
+  ['/playtime','.playtime-summary'],['/playtime?date=2025-01-01','.panel-value'],['/account','.preference-section'],['/check','.check-list'],['/support','.feedback-center'],
   ['/updates','.launcher-updates'],['/settings','.memory-setting'],['/settings?section=appearance','input[aria-label="界面字号"]'],
   ['/settings?section=appearance&panel=surface','.design-options'],['/settings?section=appearance&panel=wallpaper','.wallpaper-modes'],
   ['/settings?section=downloads','input[aria-label="下载总限速"]'],['/settings?section=network','input[type=url]'],
@@ -54,6 +55,31 @@ function measure(){
     if(rail.querySelector('select'))errors.push('设置分类没有直接显示');
     if(compact&&(!category||!bounds(category).width||bounds(rail).bottom>bounds(form).top+1))errors.push('窄窗分类占用了表单侧栏');
     if(!compact&&bounds(rail).right>bounds(form).left+1)errors.push('宽窗分类和表单重叠');
+  }
+  const sections=main.querySelector('.settings-sections');
+  if(sections){
+    const groups=[...sections.querySelectorAll(':scope>.settings-block')];
+    for(const [index,group] of groups.entries()){
+      if(group.querySelector('.settings-block,.setting-group,.preference-section'))errors.push('设置分组内重复嵌套卡片');
+      if(index&&bounds(group).top-bounds(groups[index-1]).bottom<15.5)errors.push('独立设置分组之间不足 16 px');
+      for(const row of group.querySelectorAll('.settings-actions')){
+        const controls=[...row.children].filter(el=>bounds(el).width);
+        for(const [i,el] of controls.entries()){
+          const r=bounds(el),prev=i?bounds(controls[i-1]):null;
+          if(r.height<35.5)errors.push('设置操作的点击高度不足 36 px');
+          if(prev&&(Math.abs(r.top-prev.top)<1?r.left-prev.right:r.top-prev.bottom)<7.5)errors.push('设置操作之间不足 8 px');
+        }
+      }
+      for(const field of group.querySelectorAll('.settings-field')){
+        const label=bounds(field.querySelector('label')),input=bounds(field.querySelector('input')),button=bounds(field.querySelector('button'));
+        if(input.top-label.bottom<7.5)errors.push('字段名称距输入框不足 8 px');
+        if(input.width<Math.min(240,field.clientWidth-42))errors.push('服务地址输入区域过窄');
+        if(button.left>=input.right-1&&(Math.abs(input.top-button.top)>1||Math.abs(input.bottom-button.bottom)>1))errors.push('同一行的输入框和操作按钮没有对齐');
+      }
+    }
+    const tab=new URLSearchParams(location.hash.split('?')[1]).get('section');
+    const expected=tab==='downloads'?['下载策略','启动器版本']:tab==='network'?['联机连接','HXZRE 运行时']:null;
+    if(expected&&groups.map(group=>group.querySelector('h2')?.textContent).join('|')!==expected.join('|'))errors.push('主要设置任务缺少独立分组');
   }
   for(const page of main.querySelectorAll(':scope>.launch-page,:scope>.standard-page,:scope>.play-library,.social-workspace .social-content')){
     const rect=bounds(page);
@@ -124,12 +150,38 @@ export async function verifyDesktopLayout(page,native,directory){
     let firstHome;
     for(const [route,selector] of routes){
       await page.evaluate(value=>{location.hash=value;},route);
-      let issues;
+      let issues, textInsets;
       try{
         await page.locator(selector).first().waitFor({state:'attached',timeout:8000});
+        if(route==='/settings?section=network')await page.locator('.settings-status').getByText(/已内嵌并通过校验|状态暂不可用|模块校验未通过/).waitFor();
+        await page.evaluate(()=>document.fonts.ready);
         await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
         if(route==='/')firstHome=await page.evaluate(homeGeometry);
-        issues=await page.evaluate(measure);
+        textInsets=await page.evaluate(measureInsets);
+        assert.ok(textInsets.inspected,'页面应具有可测量的文字');
+        issues=[...await page.evaluate(measure),...textInsets.issues];
+        if(route==='/community/linking'){
+          const archive=await page.locator('.archive-viewport iframe').elementHandle();
+          const frame=await archive.contentFrame();
+          await frame.locator('.activity-card').first().waitFor({state:'visible'});
+          const reader=await frame.evaluate(measureInsets,'body');
+          assert.ok(reader.inspected,'档案目录应具有可测量的正文');
+          issues.push(...reader.issues.map(issue=>'LINKING '+issue));
+        }
+        if(route==='/'){
+          const search=page.getByRole('textbox',{name:'搜索实例'});
+          await search.fill('no-such-instance-for-inset-check');
+          await page.getByText('没有匹配的实例。',{exact:true}).waitFor();
+          issues.push(...(await page.evaluate(measureInsets)).issues);
+          await search.fill('');
+          await page.getByText('没有匹配的实例。',{exact:true}).waitFor({state:'hidden'});
+        }
+        if(route==='/support'){
+          const summary=page.locator('summary').filter({hasText:'错误报告'});
+          await summary.click();
+          issues.push(...(await page.evaluate(measureInsets)).issues);
+          await summary.click();
+        }
         const bottom=await page.locator('main').evaluate(el=>el.scrollHeight-el.clientHeight);
         if(bottom>2){
           for(const y of [Math.round(bottom/2),bottom]){
@@ -139,16 +191,17 @@ export async function verifyDesktopLayout(page,native,directory){
           await page.locator('main').evaluate(el=>{el.scrollTop=0;});
           issues=[...new Set(issues)];
         }
-      }catch(e){issues=['页面未挂载 '+selector];}
+      }catch(e){issues=['无法检查 '+selector+' '+e.message];}
       const reader=route==='/community/linking'?await page.locator('.archive-viewport iframe').evaluateAll(frames=>frames.length?frames[0].getBoundingClientRect().height:0):0;
-      const record={route,width,height,font,theme,skin,workspace,issues,...(reader?{readerHeight:Math.round(reader)}:{})};observations.push(record);
+      const record={route,width,height,font,theme,skin,workspace,issues,textInsets,...(reader?{readerHeight:Math.round(reader)}:{})};observations.push(record);
       if(issues.length)failures.push(record);
-      if(width===1360||issues.length||['/','/music','/settings','/community/voice','/community/linking'].includes(route)){
+      const settingsExample=['/settings?section=downloads','/settings?section=network'].includes(route)&&(width===1250||width===780&&font===22);
+      if(width===1360||issues.length||settingsExample||['/','/music','/settings','/community/voice','/community/linking'].includes(route)){
         const name=route.replace(/[^a-z0-9-]/gi,'_')||'home';
         await page.screenshot({path:path.join(output,name+'-'+width+'-'+font+'.png'),animations:'disabled'});
       }
     }
-    for(const [route,control] of [['/','实例配置'],['/community/playtime','每周时长榜']]){
+    for(const [route,control] of [['/','实例配置'],['/','卡片'],['/community/playtime','每周时长榜']]){
       await page.evaluate(value=>{location.hash=value;},route);
       const dialog=page.getByRole('dialog');
       const record={control,width,height,font,theme,skin,issues:[]};
@@ -162,8 +215,37 @@ export async function verifyDesktopLayout(page,native,directory){
           if(el.scrollWidth>el.clientWidth+2||!el.contains(document.activeElement))issues.push('弹窗横向溢出或焦点仍在背景');
           return issues;
         });
+        const body=dialog.locator('.dialog-scroll,.modal-body:not(:has(.dialog-scroll))');
+        for(const end of [false,true]){
+          await body.evaluate((el,end)=>{el.scrollTop=end?el.scrollHeight:0;},end);
+          const {inspected,issues}=await page.evaluate(measureInsets,'[role=dialog][data-state=open]');
+          assert.ok(inspected,'弹窗应具有可测量的文字');
+          record.issues.push(...issues);
+          const footer=dialog.locator('.dialog-sections>footer');
+          if(await footer.count()){
+            const fits=await footer.evaluate(el=>{
+              const panel=el.closest('[role=dialog]').getBoundingClientRect(),scroll=el.previousElementSibling.getBoundingClientRect();
+              return [...el.querySelectorAll('button')].every(button=>{
+                const r=button.getBoundingClientRect();
+                return r.top>=scroll.bottom && r.bottom<=panel.bottom-12;
+              });
+            });
+            if(!fits)record.issues.push('弹窗底部操作未完整显示');
+          }
+        }
+        await body.evaluate(el=>{el.scrollTop=0;});
         if(width===780&&font===22)await page.screenshot({path:path.join(output,control+'-780-22.png'),animations:'disabled'});
-      }catch(e){record.issues.push('无法通过页面打开弹窗 '+control);}
+        if(width===780&&font===22&&control==='实例配置'){
+          const field=dialog.getByRole('spinbutton',{name:'窗口宽度'}),save=dialog.getByRole('button',{name:'保存配置'});
+          const previous=await field.inputValue(),updated=String(Number(previous)+2);
+          for(const value of [updated,previous]){
+            await field.fill(value);
+            await save.click();await dialog.waitFor({state:'hidden'});
+            await page.getByRole('button',{name:control,exact:true}).click();
+            assert.equal(await field.inputValue(),value);
+          }
+        }
+      }catch(e){record.issues.push('无法检查弹窗 '+control+' '+e.message);}
       await page.keyboard.press('Escape');
       await dialog.waitFor({state:'hidden',timeout:3000}).catch(()=>record.issues.push('Esc 无法关闭弹窗'));
       overlays.push(record);if(record.issues.length)failures.push(record);
@@ -180,6 +262,6 @@ export async function verifyDesktopLayout(page,native,directory){
   }
   await fs.writeFile(path.join(output,'results.json'),JSON.stringify(observations,null,2));
   await fs.writeFile(path.join(output,'dialogs.json'),JSON.stringify(overlays,null,2));
-  assert.deepEqual(failures,[],JSON.stringify(failures));
+  assert.equal(failures.length,0,JSON.stringify(failures.map(({route,control,width,font,issues})=>({route,control,width,font,issues}))));
   console.log(routes.length+' desktop routes × '+windows.length+' window and font combinations, '+overlays.length+' dialogs passed.');
 }

@@ -59,7 +59,7 @@
 }
 .launcher-frame .library-view {min-height:var(--control-height);max-width:100%;font:inherit;font-size:.82rem;color:var(--foreground);background:var(--solid);border:1px solid var(--edge);border-radius:var(--control-radius);padding:4px 7px}
 .launcher-frame .direct-game-grid[data-view=list] {display:flex;flex-direction:column;gap:6px}
-.direct-game-grid[data-view=list] .direct-game-card {display:grid;grid-template-columns:minmax(0,1fr) minmax(8rem,.46fr) auto auto;grid-template-areas:"identity status actions menu";align-items:center;gap:8px 14px;min-height:0;height:auto;padding:8px 12px}
+.direct-game-grid[data-view=list] .direct-game-card {display:grid;grid-template-columns:minmax(0,1fr) minmax(8rem,.46fr) auto auto;grid-template-areas:"identity status actions menu";align-items:center;gap:8px 14px;min-height:0;height:auto;padding:var(--inset-row) var(--inset-group)}
 .direct-game-grid[data-view=list] .game-card-head {grid-area:menu;display:flex;justify-content:flex-end;margin:0;padding:0}
 .direct-game-grid[data-view=list] .game-source {display:none}
 .direct-game-grid[data-view=list] .game-identity {grid-area:identity;min-height:0;padding:0;text-align:left;gap:10px;display:flex;flex-direction:row;align-items:center}

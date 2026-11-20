@@ -1,10 +1,11 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useId,useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {DOWNLOAD_CONCURRENCY,DOWNLOAD_SPEED_STEPS} from '../../../../packages/engine/core/download-settings.mjs';
 import {invoke,notify,perform,reload,saveSettings,state} from '../model';
 import {ChoiceGroup,StepChoice,PreferenceSwitch} from './ChoiceControls';
 import {RunningGames} from '../RunningGames';
 import {HxzreRuntime} from '../HxzreRuntime';
+import {SettingsSection} from './SettingsSection';
 
 export function SettingSwitch({field,label}:{field:string;label:string}){
   const {settings}=useSnapshot(state);
@@ -44,10 +45,24 @@ export function RuntimePreferences(){
 
 export function NetworkPreferences(){
   const {settings}=useSnapshot(state);
+  const addressId=useId();
   const [url,setUrl]=useState(String(settings.communityUrl));
   useEffect(()=>setUrl(String(settings.communityUrl)),[settings.communityUrl]);
-  async function save(value:string){await saveSettings({communityUrl:value});notify('社区地址已保存');}
-  return <section className="preference-section"><h2>联机连接</h2>
-    <form className="setting-line" onSubmit={e=>{e.preventDefault();void perform(()=>save(url.trim()));}}><label>社区服务地址<input type="url" aria-label="社区服务地址" required value={url} onChange={e=>setUrl(e.target.value)}/></label><button className="small-action" disabled={!url.trim()||url===settings.communityUrl}>保存地址</button><button type="button" className="small-action" onClick={()=>perform(()=>save('https://qqbot.hxzmc.top'))}>恢复官方地址</button></form><SettingSwitch field="communityRelayEnabled" label="允许社区中继作为备用通道"/>
-    <HxzreRuntime enabled={settings.fecEnabled!==false} onChange={v=>void perform(()=>saveSettings({fecEnabled:v}))}/></section>;
+  async function save(value:string){await saveSettings({communityUrl:value});setUrl(String(state.settings.communityUrl));notify('社区地址已保存');}
+  return <>
+    <SettingsSection title="联机连接">
+      <form className="setting-line settings-field" onSubmit={e=>{e.preventDefault();void perform(()=>save(url.trim()));}}>
+        <label htmlFor={addressId}>社区服务地址</label>
+        <div className="settings-control-line">
+          <input id={addressId} type="url" required value={url} onChange={e=>setUrl(e.target.value)}/>
+          <div className="settings-actions">
+            <button className="small-action" disabled={!url.trim()||url.trim()===settings.communityUrl}>保存地址</button>
+            <button type="button" className="small-action" onClick={()=>perform(()=>save('https://qqbot.hxzmc.top'))}>恢复官方地址</button>
+          </div>
+        </div>
+      </form>
+      <SettingSwitch field="communityRelayEnabled" label="允许社区中继作为备用通道"/>
+    </SettingsSection>
+    <HxzreRuntime enabled={settings.fecEnabled!==false} onChange={v=>saveSettings({fecEnabled:v})}/>
+  </>;
 }

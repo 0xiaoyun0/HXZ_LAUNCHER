@@ -61,7 +61,7 @@
 .board-card-settings {flex-basis:100%;display:grid;gap:10px;padding:12px 0 4px;border-top:1px solid var(--edge)}
 .board-card-settings>div {display:flex;align-items:center;flex-wrap:wrap;gap:7px 15px}
 .board-card-settings>div>strong {min-width:3em;font-size:.85rem;font-weight:600}
-.board-destinations {gap:6px}.board-row-controls .board-size-toggle {width:auto;padding-inline:9px}
+.board-destinations {gap:6px}.board-row-controls .board-size-toggle {width:auto;padding:var(--inset-control-y) var(--inset-control-x)}
 .launcher-content .play-library-filter {display:flex;flex-wrap:wrap;gap:10px 20px;align-items:center}
 .launcher-content .play-library-actions {flex-wrap:wrap;gap:8px}
 .launcher-content .play-library-actions>.choice-group {flex:none}

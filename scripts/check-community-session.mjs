@@ -46,6 +46,7 @@ export async function communityFixture(temp, dist, title) {
   const bin=path.join(temp,'community-bin'),worker=path.join(bin,'engine');
   await fs.mkdir(worker,{recursive:true});await fs.copyFile(path.join(dist,title),path.join(bin,title));
   await fs.copyFile(path.join(dist,'engine/node.exe'),path.join(worker,'node.exe'));
+  await fs.cp(path.join(dist,'engine/resources/hxzre'),path.join(worker,'resources/hxzre'),{recursive:true});
   const code=await fs.readFile(path.join(dist,'engine/engine.cjs'),'utf8'),upstream='https://skin.hxzmc.top/api/yggdrasil';
   assert.ok(code.includes(upstream));assert.ok(code.includes(definition.url));await fs.writeFile(path.join(worker,'engine.cjs'),code.replaceAll(definition.url,skinUrl+'/downloads/community.zip').replaceAll(upstream,skinUrl).replaceAll('https://authlib-injector.yushi.moe/artifact/latest.json',skinUrl+'/artifact/latest.json'));
   return {

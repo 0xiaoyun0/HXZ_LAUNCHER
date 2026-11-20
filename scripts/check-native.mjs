@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {scan as measureInsets} from './desktop-insets.mjs';
 import fs from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
@@ -73,7 +74,14 @@ try {
  page.on('pageerror',e=>errors.push(e.message));page.on('crash',()=>console.log('QA WebView crashed'));
  page.setDefaultTimeout(10000);
  const native=(action,input={})=>page.evaluate(([a,i])=>window.launcher.invoke(a,i),[action,input]);
- const capture=async name=>{await page.evaluate(()=>document.fonts.ready);await page.screenshot({path:path.join(artifacts,name+'.png'),animations:'disabled'});};
+ const capture=async name=>{
+   await page.evaluate(()=>document.fonts.ready);
+   if(['skin-recovery','extension-recovery'].includes(name)){
+     const {issues}=await page.evaluate(measureInsets);
+     assert.deepEqual(issues,[],name+' '+issues.join(' / '));
+   }
+   await page.screenshot({path:path.join(artifacts,name+'.png'),animations:'disabled'});
+ };
  const denied=async action=>{const result=await native(action);assert.equal(result.ok,false,action);assert.match(result.error,/登录|未在本应用/);};
  if(layoutOnly){
    await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor();
@@ -158,6 +166,24 @@ try {
    await page.waitForFunction(async()=>{const r=await window.launcher.invoke('state',{localOnly:true});return r.value?.settings.downloadConcurrency===8&&r.value.settings.downloadSpeedMBps===2&&r.value.settings.downloadMode==='domestic';});
    await page.reload();await page.getByRole('heading',{name:'设置',exact:true}).waitFor();
    await speed.waitFor();assert.equal(await speed.getAttribute('aria-valuetext'),'2 MiB/s');
+   {
+     const versionActions=page.locator('.settings-block').filter({has:page.getByRole('heading',{name:'启动器版本'})});
+     for(const [name,ready] of [['启动器更新公告','.launcher-updates'],['帮助与反馈','details.preference-section']]){
+       await versionActions.getByRole('link',{name,exact:true}).click();
+       await page.locator(ready).first().waitFor();await page.goBack();
+       await versionActions.waitFor();
+     }
+     await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'联机连接'}).click();
+     const address=page.getByRole('textbox',{name:'社区服务地址'}),save=page.getByRole('button',{name:'保存地址'});
+     const original=await address.inputValue();
+     await address.fill('invalid-address');await save.click();
+     assert.equal(await address.evaluate(el=>el.validity.typeMismatch),true);
+     assert.equal((await native('state',{localOnly:true})).value.settings.communityUrl,original);
+     for(const value of [original+'/settings-check',original]){
+       await address.fill(value);await save.click();
+       await page.waitForFunction(async expected=>(await window.launcher.invoke('state',{localOnly:true})).value.settings.communityUrl===expected,value);
+     }
+   }
    await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'游戏与 Java'}).click();assert.equal(await amount.inputValue(),'768');await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
    await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'外观与启动器'}).click();await page.getByRole('radio',{name:'浅色',exact:true}).click();await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'游戏与 Java'}).click();await capture('launcher-settings');
    await page.locator('footer').getByRole('link',{name:'音乐播放器',exact:true}).click();await page.getByRole('button',{name:'播放 小镇晨间',exact:true}).click();

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {scan as measureInsets} from './desktop-insets.mjs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -56,10 +57,23 @@ try{
     assert.equal(time.totalSeconds,Math.floor(Object.values(library.playtime.days).reduce((n,v)=>n+v,0)/1000));
   }
   await page.evaluate(()=>document.fonts.ready);
+  assert.deepEqual((await page.evaluate(measureInsets)).issues,[],'本机实例和角色的文字超出了首页留白');
   await fs.mkdir('.preview',{recursive:true});await page.screenshot({path:'.preview/installed-library-home.png',animations:'disabled'});
   await page.locator('.home-server-list a').last().click();
   await page.locator('.default-server-card').first().waitFor();
+  assert.deepEqual((await page.evaluate(measureInsets)).issues,[],'默认服务器的文字超出了卡片留白');
   await page.screenshot({path:'.preview/installed-library-servers.png',animations:'disabled'});
+  await page.setViewportSize({width:1250,height:825});
+  await page.getByRole('button',{name:'设置',exact:true}).click();
+  const categories=page.getByRole('navigation',{name:'设置分类'});
+  for(const [name,file] of [['下载与更新','downloads'],['联机连接','network']]){
+    await categories.getByRole('link',{name,exact:true}).click();
+    if(file==='network')await page.locator('.settings-status').getByText('HXZRE 已内嵌并通过校验').waitFor();
+    else await page.getByRole('heading',{name:'启动器版本',exact:true}).waitFor();
+    assert.deepEqual((await page.evaluate(measureInsets)).issues,[],name+' 文字越过边界');
+    await page.screenshot({path:'.preview/installed-settings-'+file+'.png',animations:'disabled'});
+  }
+  await page.setViewportSize({width:1360,height:880});
   const {verifyWorkspaces}=await import('./desktop-workspaces.mjs');await verifyWorkspaces(page,'.preview');
   const {verifyCustomization}=await import('./desktop-customization.mjs');await verifyCustomization(page,'.preview');
   const oldLook=await page.evaluate(async()=>(await window.launcher.invoke('profile.look')).value);

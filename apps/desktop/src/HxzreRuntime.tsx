@@ -1,13 +1,47 @@
 import {useEffect,useState} from 'react';
-import {RefreshCw,ShieldCheck,AlertTriangle} from 'lucide-react';
-import {invoke,perform} from './model';
-import {Button,Toggle} from './ui';
+import {AlertTriangle,Network,RefreshCw,ShieldCheck} from 'lucide-react';
+import {invoke} from './model';
+import {Button} from './ui';
+import {PreferenceSwitch} from './launcher/ChoiceControls';
+import {SettingsSection} from './launcher/SettingsSection';
 
-export function HxzreRuntime({enabled,onChange,cardTitle}:{enabled:boolean;onChange:(value:boolean)=>void;cardTitle?:string}){
- const [status,setStatus]=useState<any>({phase:'等待检查'});
- const [tests,setTests]=useState<any[]>([]),[testing,setTesting]=useState(false);
- const read=async()=>{if(!window.launcher){setStatus({embedded:false,available:false,verified:false,error:'请在桌面启动器中检查 HXZRE 状态'});return;}try{setStatus(await invoke('hxzre.status'));}catch(error:any){setStatus({embedded:false,available:false,verified:false,error:error.message});}};
- useEffect(()=>{void read();},[]);
- const healthy=status.embedded&&status.verified;
- return <div className="setting-group runtime-module-group" data-card-title={cardTitle||'HXZRE 运行时'}><h3>HXZRE 运行时</h3><p>HXZRE 是上传链路的可选前向纠错模块：服务器配置后，它会在丢包时补发冗余数据，帮助保持联机稳定。是否使用由你决定。</p><Toggle label="启用 HXZRE 前向纠错补偿" description="关闭后使用原始连接；开启后仅在 Windows x64 且服务器提供 HXZRE 服务时生效。" checked={enabled} onChange={onChange}/><div className="runtime-module-status" role="status">{healthy?<ShieldCheck size={18}/>:<AlertTriangle size={18}/>}<span><strong>{healthy?'HXZRE 已内嵌并通过校验':status.embedded?'HXZRE 已内嵌，等待服务器配置':'HXZRE 状态暂不可用'}</strong><small>{status.embedded?`${status.id||'hxzre'} ${status.version||''} · ${status.available?'当前平台可用':'当前平台将使用原始连接'}`:(status.error||'请点击刷新状态')}</small></span></div><Button icon={RefreshCw} onClick={()=>perform(read)}>刷新 HXZRE 状态</Button><Button disabled={testing||!status.available} onClick={async()=>{setTesting(true);try{const value=await invoke('hxzre.test');setTests(value.items);}catch(error:any){setTests([{id:'error',name:'连接检查',ok:false,detail:error.message||'无法检测，请稍后重试'}]);}finally{setTesting(false);}}}>{testing?'正在验证数据传输…':'检查三个服务器的实际连接'}</Button>{tests.map((item:any)=><p key={item.id} className={item.ok?'muted':'inline-error'}>{item.name}：{item.detail}{item.latency!=null?' · '+item.latency+' ms':''}</p>)}</div>;
+type ModuleStatus={embedded?:boolean;verified?:boolean;available?:boolean;version?:string;error?:string};
+type ConnectionTest={id:string;name:string;ok:boolean;detail:string;latency?:number};
+
+export function HxzreRuntime({enabled,onChange,cardTitle}:{
+  enabled:boolean;onChange:(value:boolean)=>unknown;cardTitle?:string;
+}){
+  const [status,setStatus]=useState<ModuleStatus|null>(null);
+  const [tests,setTests]=useState<ConnectionTest[]>([]),[testing,setTesting]=useState(false);
+  async function read(){
+    if(!window.launcher){setStatus({error:'请在桌面启动器中检查 HXZRE 状态'});return;}
+    try{setStatus(await invoke('hxzre.status'));}
+    catch(error){setStatus({error:error instanceof Error?error.message:String(error)});}
+  }
+  useEffect(()=>{void read();},[]);
+  async function checkConnections(){
+    setTesting(true);
+    try{setTests((await invoke('hxzre.test')).items);}
+    catch{setTests([{id:'error',name:'连接检查',ok:false,detail:'暂时无法完成检测，请稍后重试。'}]);}
+    finally{setTesting(false);}
+  }
+  const healthy=status?.embedded&&status.verified;
+  const title=!status?'正在检查本地模块…':healthy?'HXZRE 已内嵌并通过校验':status.embedded?'HXZRE 模块校验未通过':'HXZRE 状态暂不可用';
+  const detail=healthy?(status.available?'当前平台可用。':'当前平台会使用常规连接。'):
+    status?'可以继续使用常规连接。刷新后仍有问题，可在帮助与反馈中联系管理员。':'';
+  const StatusIcon=healthy?ShieldCheck:status?AlertTriangle:RefreshCw;
+  return <SettingsSection title="HXZRE 运行时" cardTitle={cardTitle} detail={status?.version}>
+    <PreferenceSwitch name="启用 HXZRE 前向纠错补偿" caption="服务器支持时，补发上传途中丢失的数据，帮助保持联机稳定。"
+      checked={enabled} change={async value=>{await onChange(value);}}/>
+    <div className="settings-content">
+      <div className="settings-status" role="status"><StatusIcon size={18}/><div><strong>{title}</strong>{detail&&<small>{detail}</small>}</div></div>
+      <div className="settings-actions">
+        <Button icon={RefreshCw} onClick={read}>刷新 HXZRE 状态</Button>
+        <Button icon={Network} disabled={testing||!status?.available} onClick={checkConnections}>{testing?'正在验证数据传输…':'检查三个服务器的实际连接'}</Button>
+      </div>
+      {status?.error&&<details><summary>技术详情</summary><p>{status.error}</p></details>}
+      {tests.length>0&&<ul className="settings-results" aria-label="服务器连接结果">{tests.map(item=>
+        <li key={item.id} data-error={!item.ok||undefined}><strong>{item.name}</strong> {item.detail}{item.latency!=null?' · '+item.latency+' ms':''}</li>)}</ul>}
+    </div>
+  </SettingsSection>;
 }
