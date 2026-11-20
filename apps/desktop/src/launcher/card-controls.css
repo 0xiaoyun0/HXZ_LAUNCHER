@@ -21,7 +21,12 @@
 [data-skin] .desktop-panel-grid {gap:var(--desk-gap)}
 [data-skin] .desktop-panel.lobby-block {padding:0;margin:0}
 [data-skin] .desktop-panels.guild-columns {display:block}
-[data-skin] .desktop-panels section[data-fixed] {height:var(--card-height);overflow:auto;scrollbar-gutter:stable}
+[data-skin] .desktop-panels [data-card-id] {position:relative}
+[data-skin] .desktop-panels section[data-fixed] {min-height:var(--card-height)}
+.desktop-panels [data-card-grid][data-packed] {display:grid;grid-template: none / repeat(12,minmax(0,1fr));grid-auto-rows:4px;row-gap:0;align-items:start}
+.desktop-panels [data-card-grid][data-compact] {display:flex;flex-direction:column;align-items:stretch;gap:var(--desk-gap)}
+.card-heading-tools {display:inline-flex;align-items:center;gap:2px;flex:none}
+.desktop-panels .desk-card>header>.card-heading-tools {margin-left:auto}
 [data-skin] .desktop-panels :is(.player-now,.preference-more,.instance-lines) {background:transparent;box-shadow:none}
 [data-skin] .music-page .desktop-panel-body>.player-now {border:0;padding:0;margin:0}
 [data-skin] .music-page .desktop-panel-body>.volume-line {margin:14px 0 0;padding-top:12px;border-top:1px solid var(--edge)}
@@ -46,11 +51,19 @@
 .board-row-controls :disabled {opacity:.48;cursor:default}
 .board-editor .small-action,.board-editor .launch-primary {color:var(--foreground);border-radius:var(--control-radius)}
 .board-editor .launch-primary {color:var(--accent-ink)}
-.desktop-panels [data-editing]>[data-card-id] {position:relative;outline:1px dashed var(--accent-border);outline-offset:2px;padding-bottom:32px}
-.desktop-panels [data-drop] {outline:3px solid var(--accent-text)}
-.canvas-grip {position:absolute;bottom:3px;z-index:1;width:25px;height:24px;padding:0;display:grid;place-items:center;touch-action:none;border:1px solid var(--edge);border-radius:5px;background:var(--solid);color:var(--accent-text)}
-.canvas-grip.move {left:8px;cursor:grab}.canvas-grip.move:active {cursor:grabbing}.canvas-grip.size {right:8px;cursor:nwse-resize}
-.size-hint {position:absolute;right:38px;bottom:4px;font-size:.75rem;background:var(--solid);color:var(--foreground);padding:3px 8px;border-radius:4px}
+.canvas-grip {display:inline-grid;place-items:center;flex:none;touch-action:none;border:0;background:transparent;color:var(--desk-muted);padding:0}
+.canvas-grip.move {width:27px;height:28px;cursor:grab;border-radius:var(--control-radius)}
+.canvas-grip.size {position:absolute;right:2px;bottom:2px;width:24px;height:23px;cursor:nwse-resize;border-radius:var(--control-radius);opacity:.32}
+.canvas-grip.size svg {width:12px;height:12px}
+[data-card-id]:hover>.canvas-grip.size,.canvas-grip.size:focus-visible {opacity:1}
+.canvas-grip:hover:enabled,.canvas-grip:focus-visible {color:var(--accent-text);background:var(--accent-soft)}
+.canvas-grip.move:active {cursor:grabbing}.canvas-grip:disabled {opacity:.22;cursor:default}
+[data-card-id][data-drop=before] {box-shadow:inset 0 3px var(--accent)}
+[data-card-id][data-drop=after] {box-shadow:inset 0 -3px var(--accent)}
+[data-card-id][data-gesture] {outline:1px dashed var(--accent);outline-offset:1px}
+.card-drag-preview {position:fixed;z-index:80;pointer-events:none;box-sizing:border-box;border:2px dashed var(--accent);border-radius:var(--desk-radius,12px);background:color-mix(in srgb,var(--accent) 10%,transparent);display:grid;place-content:start center;padding:8px}
+.card-drag-preview>span {padding:5px 10px;border-radius:6px;background:var(--solid);color:var(--foreground);font-size:.8rem;box-shadow:0 2px 8px #0002}
+.game-board .desk-card>footer {padding-right:calc(var(--panel-pad) + 10px)}
 .empty-board {display:flex;gap:12px;align-items:center;justify-content:center;padding:24px;border-radius:var(--desk-radius);background:var(--theme-pane);border:1px dashed var(--edge)}
 [data-skin] .launcher-content :is(.forum-list,.forum-detail,.forum-compose,.content-card,.shop-product,.blueprint-card,.pt-toolbar,.lobby-banner) {
   border:1px solid var(--edge);border-radius:var(--desk-radius);background:var(--theme-pane);color:var(--foreground)
@@ -69,3 +82,4 @@
 [data-skin] .launcher-content .desktop-panel:not(.direct-game-card) {backdrop-filter:blur(7px)}
 @media (prefers-reduced-transparency:reduce) {[data-skin] .launcher-content :is(.catalog-panel,.forum-page,.preference-section,.settings-rail,.desktop-panel,.social-chat>.chat-main,.social-chat>.people-panel) {backdrop-filter:none}}
 [data-skin=paper] .launcher-content :is(.catalog-panel,.forum-page,.preference-section,.settings-rail,.desktop-panel,.social-chat>.chat-main,.social-chat>.people-panel) {backdrop-filter:none}
+.board-card-settings>h3 {margin:0;grid-column:1/-1;font-size:.92rem}

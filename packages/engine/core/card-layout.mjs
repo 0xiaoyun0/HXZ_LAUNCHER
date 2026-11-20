@@ -16,7 +16,7 @@ export function normalizeCardLayouts(value) {
       if (!item || typeof item.i !== 'string' || !keyPattern.test(item.i) || used.has(item.i)) continue;
       used.add(item.i);
       const w = integer(item.w, 6, 2, 12);
-      items.push({ i: item.i, x: integer(item.x, 0, 0, 12 - w), y: integer(item.y, 0, 0, 500), w, h: integer(item.h, 14, 5, 100) });
+      items.push({ i: item.i, x: integer(item.x, 0, 0, 12 - w), y: integer(item.y, 0, 0, 500), w, h: integer(item.h, 14, 5, 100), ...(item.manualHeight===true?{manualHeight:true}:{}) });
     }
     const ids = list => [...new Set((Array.isArray(list) ? list : []).filter(id => typeof id === 'string' && keyPattern.test(id)).map(id=>stableCardId(page,id)))].slice(0, 160);
     result[page] = { items, hidden: ids(data.hidden), locked: ids(data.locked), fixed: ids(data.fixed) };

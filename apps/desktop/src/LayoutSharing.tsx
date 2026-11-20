@@ -1,11 +1,13 @@
 import './layout-sharing.css';
 import {useRef,useState} from 'react';
+import {ref,useSnapshot} from 'valtio';
 import {Download,FileUp,Undo2} from 'lucide-react';
 import {Button,Field,Modal,Select,Toggle} from './ui';
 import {desktop,invoke,notify,reload,saveSettings,state,ui} from './model';
 import {exportLayoutPackage,readLayoutPackage,applyLayoutPackage,LAYOUT_LIMIT} from '../../../packages/engine/core/layout-package.mjs';
 export function LayoutSharing(){
- const [mode,setMode]=useState(''),[incoming,setIncoming]=useState<any>(null),[merge,setMerge]=useState('merge'),[appearance,setAppearance]=useState(true),[name,setName]=useState('我的卡片布局'),[previous,setPrevious]=useState<any>(null),[busy,setBusy]=useState(false);
+ const [mode,setMode]=useState(''),[incoming,setIncoming]=useState<any>(null),[merge,setMerge]=useState('merge'),[appearance,setAppearance]=useState(true),[name,setName]=useState('我的卡片布局'),[busy,setBusy]=useState(false);
+ const previous=useSnapshot(ui).layoutImportUndo;
  const file=useRef<HTMLInputElement>(null);
  async function read(){if(desktop){const value=await invoke('cards.import');if(value){setIncoming(readLayoutPackage(value));setMode('import');}}else file.current?.click();}
  async function write(){setBusy(true);try{
@@ -19,10 +21,10 @@ export function LayoutSharing(){
    const backup=readLayoutPackage({format:'hxz-card-layout',version:1,name:'导入前的本机布局',appearance:incoming.appearance,layout:{cardLayouts,cardPlacements,widgets,cardStyle,columns}});
    if(desktop){await invoke('cards.apply',{package:incoming,mode:merge,confirmed:true});await reload();}
    else await saveSettings(applyLayoutPackage(state.settings,incoming,merge));
-   ui.layoutUnsaved?.discard();setPrevious(backup);setMode('');notify('卡片布局已应用');
+   ui.layoutUnsaved?.discard();ui.layoutImportUndo=ref(backup);setMode('');notify('卡片布局已应用');
   }finally{setBusy(false);}
  }
- return <><div className="toolbar layout-sharing"><Button icon={Download} onClick={()=>setMode('export')}>导出布局</Button><Button icon={FileUp} onClick={read}>导入布局</Button>{desktop&&<Button icon={Undo2} onClick={async()=>{const value=await invoke('profile.cards');if(value){setIncoming(readLayoutPackage(value));setMerge('merge');setMode('import');}else notify('本机没有保存过 0.9.2 卡片布局');}}>接回旧版布局</Button>}{previous&&<Button icon={Undo2} onClick={async()=>{if(desktop){await invoke('cards.apply',{package:previous,mode:'replace',confirmed:true});await reload();}else await saveSettings(applyLayoutPackage(state.settings,previous));setPrevious(null);notify('已撤销本次布局导入');}}>撤销本次导入</Button>}</div>
+ return <><div className="toolbar layout-sharing"><Button icon={Download} onClick={()=>setMode('export')}>导出布局</Button><Button icon={FileUp} onClick={read}>导入布局</Button>{desktop&&<Button icon={Undo2} onClick={async()=>{const value=await invoke('profile.cards');if(value){setIncoming(readLayoutPackage(value));setMerge('merge');setMode('import');}else notify('本机没有保存过 0.9.2 卡片布局');}}>接回旧版布局</Button>}{previous&&<Button icon={Undo2} onClick={async()=>{if(desktop){await invoke('cards.apply',{package:previous,mode:'replace',confirmed:true});await reload();}else await saveSettings(applyLayoutPackage(state.settings,previous));ui.layoutImportUndo=null;notify('已撤销本次布局导入');}}>撤销本次导入</Button>}</div>
   <input ref={file} type="file" hidden accept=".json,application/json" aria-label="选择卡片布局文件" onChange={async e=>{const source=e.target.files?.[0];e.target.value='';if(!source)return;try{if(source.size>LAYOUT_LIMIT)throw Error('布局文件超过 1 MB');setIncoming(readLayoutPackage(await source.text()));setMode('import');}catch(error:any){notify(error.message,true);}}}/>
   <Modal open={!!mode} title={mode==='import'?'预览卡片布局':'导出卡片布局'} onClose={()=>{if(!busy)setMode('');}}>
    <div className="layout-sharing-dialog">

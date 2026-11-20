@@ -8,6 +8,7 @@ import {legacyAppearance,legacyCardPackage} from '../engine/legacy-appearance.mj
 import {activeDesign} from '../packages/engine/core/desktop-themes.mjs';
 import {wallpaperSource} from '../packages/engine/core/desktop-wallpaper.mjs';
 import {boardCards,updateBoard} from '../packages/engine/core/board-preferences.mjs';
+import {normalizeCardLayouts} from '../packages/engine/core/card-layout.mjs';
 import {mediaPath} from '../packages/engine/core/media.mjs';
 
 async function fixture(t){
@@ -134,4 +135,18 @@ test('upgrade freezes the old active artwork and retains fields in inactive sche
   await assert.rejects(save({workspaceShelf:[]}),/至少/);
   await save({workspaceShelf:['classic','library','journal']});
   assert.equal((await save({workspaceLayout:'journal'})).workspaceLayout,'journal');
+});
+test('a direct drop keeps its column and reflowed legacy cards only adopt a height deliberately set on the new board',()=>{
+  const specs=[{id:'join',w:6},{id:'network',w:6,fit:true},{id:'guide',w:6}];
+  const key='multiplayer.wide',old={items:[{i:'join',x:6,y:35,w:6,h:16},{i:'guide',x:6,y:51,w:6,h:14},{i:'network',x:0,y:69,w:6,h:20}],hidden:[],locked:[],fixed:['network']};
+  const store=value=>normalizeCardLayouts({[key]:value})[key];
+  const read=(layout,id)=>boardCards(specs,layout).find(r=>r.id===id);
+  assert.equal(read(old,'network').fixed,false);
+  const moved=store(updateBoard(specs,old,{id:'network',op:'place',x:3,to:'guide',after:false}));
+  assert.deepEqual(boardCards(specs,moved).map(c=>c.id),['join','network','guide']);assert.equal(read(moved,'network').column,3);
+  assert.equal(read(moved,'guide').column,6);assert.deepEqual(moved.fixed,['network']);assert.equal(read(moved,'network').fixed,false);
+  const wider=store(updateBoard(specs,moved,{id:'network',op:'size',w:8}));assert.equal(read(wider,'network').fixed,false);
+  const sized=store(updateBoard(specs,wider,{id:'network',op:'size',h:18}));assert.equal(read(sized,'network').fixed,true);assert.equal(read(sized,'network').h,18);
+  const auto=store(updateBoard(specs,sized,{id:'network',op:'height',value:0}));assert.equal(read(auto,'network').fixed,false);
+  assert.deepEqual(old.items.at(-1),{i:'network',x:0,y:69,w:6,h:20});
 });

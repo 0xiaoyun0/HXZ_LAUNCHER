@@ -55,13 +55,19 @@ export async function verifyCustomization(page,directory){
   await page.keyboard.press('Escape');await page.getByRole('link',{name:'音乐播放器',exact:true}).first().click();
   await page.locator('[data-board=music] [data-card-source="home.roles"] .home-role').waitFor();
   await home.click();await board.getByRole('button',{name:'卡片',exact:true}).click();await dialog.getByRole('button',{name:'移回本页'}).click();await dialog.getByLabel('显示我的角色').waitFor();
-  await dialog.getByRole('button',{name:'在页面上拖动'}).click();
+  await dialog.getByRole('button',{name:'完成',exact:true}).click();
   const grip=board.getByRole('button',{name:'拖动我的角色',exact:true}),destination=board.locator('[data-card-id="monitor"]');
   const start=await grip.boundingBox(),end=await destination.boundingBox();
-  await page.mouse.move(start.x+start.width/2,start.y+start.height/2);await page.mouse.down();await page.mouse.move(end.x+end.width/2,end.y+25,{steps:12});await page.mouse.up();
+  await page.mouse.move(start.x+start.width/2,start.y+start.height/2);await page.mouse.down();await page.mouse.move(end.x+end.width-34,end.y+Math.min(end.height-12,85),{steps:12});await page.mouse.up();
   await page.waitForFunction(()=>{const ids=[...document.querySelectorAll('[data-board=home] .game-board>[data-card-id]')].map(el=>el.dataset.cardId);return ids.indexOf('roles')>ids.indexOf('monitor');});
-  const resize=board.getByRole('button',{name:'调整大小游戏实例',exact:true}),corner=await resize.boundingBox();
+  const resize=board.getByRole('button',{name:'调整大小游戏实例',exact:true});await resize.scrollIntoViewIfNeeded();const corner=await resize.boundingBox();
   await page.mouse.move(corner.x+corner.width/2,corner.y+corner.height/2);await page.mouse.down();await page.mouse.move(corner.x+corner.width/2-80,corner.y+corner.height/2+46,{steps:12});await page.mouse.up();
-  await board.locator('.instances-card[data-fixed]').waitFor();await capture('card-arrangement');await board.getByRole('button',{name:'完成整理'}).click();
+  await board.locator('.instances-card[data-fixed]').waitFor();await capture('card-arrangement');await page.reload();await board.locator('.instances-card[data-fixed]').waitFor();
+  const stored=(await snapshot()).cardLayouts['home.wide'];assert.equal(stored.items.find(i=>i.i==='library').manualHeight,true);
+  const moveGrip=board.getByRole('button',{name:'拖动游戏实例'});await moveGrip.scrollIntoViewIfNeeded();
+  const box=await moveGrip.boundingBox();await page.mouse.move(box.x+10,box.y+10);await page.mouse.down();await page.mouse.move(box.x+52,box.y+25,{steps:5});
+  await page.locator('.card-drag-preview').waitFor();await capture('live-card-drag');await page.keyboard.press('Escape');await page.mouse.up();
+  assert.deepEqual((await snapshot()).cardLayouts['home.wide'],stored);
+  await resize.dblclick();await board.locator('.instances-card:not([data-fixed])').waitFor();
   console.log('三套材质、设置重载、命名方案、宽窄窗独立布局、锁定、通用卡片和跨页移动通过');
 }
