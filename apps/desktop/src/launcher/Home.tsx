@@ -1,11 +1,11 @@
 import {useMemo,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
-import {ArrowRight,Download,FileUp,FolderOpen,History,Layers3,Music2,Network,Palette,Play,Search,Square} from 'lucide-react';
+import {ArrowRight,Download,FileUp,FolderOpen,History,Layers3,PanelLeft,Music2,Network,Palette,Play,Search,Square} from 'lucide-react';
 import {resumeTarget} from '../../../../packages/engine/core/resume.mjs';
 import {wallpaperSource} from '../../../../packages/engine/core/desktop-wallpaper.mjs';
 import {homeLayoutKey,workspaceLayout,workspaceModules} from '../../../../packages/engine/core/desktop-workspace.mjs';
-import {chooseRoot,importPack,invoke,launch,perform,selectInstance,state,task} from '../model';
+import {chooseRoot,importPack,perform,startOrStopInstance,state,task} from '../model';
 import {CardBoard,CardHeading} from '../CardBoard';
 import {PackIcon} from '../GameLibrary';
 import {HomeRole,HomeServers,InstanceSummary,PlayCalendar} from './HomeSidebar';
@@ -24,11 +24,6 @@ export function Home(){
   const focused=games.find(g=>g.id===focus)||last||games[0],featured=modules.featured&&!term&&libraryFilter==='all'&&last;
   const count=layout==='library'?7:layout==='journal'?2:4;
   const rows=matches.filter(g=>!featured||g.id!==last.id).slice(0,featured?count-1:count);
-  async function start(game:any){
-    const session=s.sessions?.find((row:any)=>row.instance===game.id&&row.root===s.settings.gameRoot);
-    if(session){await invoke('game.stop',{key:session.key});return;}
-    await selectInstance(game.id);await launch(game.id);
-  }
   function gameRow(game:any,feature=false){
     const isLast=game.id===last?.id,running=s.sessions?.some((r:any)=>r.instance===game.id&&r.root===s.settings.gameRoot);
     const version=game.version===game.id?'本地实例':game.version;
@@ -39,7 +34,7 @@ export function Home(){
       <button className="instance-info" aria-label={'查看 '+game.name+' 的详情'} onClick={()=>setFocus(game.id)}>
         <PackIcon game={game}/><span>{feature&&<span className="resume-caption"><History size={13}/>{previous?.reason==='last'?'上次游玩':'当前实例'}</span>}
           <strong>{game.name}</strong><small>{meta}</small></span></button>
-      <button className={isLast?'launch-primary':'small-action'} disabled={t.busy||game.placeholder} onClick={()=>perform(()=>start(game))}>
+      <button className={isLast?'launch-primary':'small-action'} disabled={t.busy||game.placeholder} onClick={()=>perform(()=>startOrStopInstance(game.id))}>
         {running?<Square size={15}/>:<Play size={15}/>}<span>{running?'停止游戏':game.installed?(isLast&&previous?.reason==='last'?'继续游玩':'启动'):'安装并启动'}</span></button>
     </article>;
   }
@@ -52,7 +47,7 @@ export function Home(){
       {!matches.length&&<p className="desk-empty">{term?'没有匹配的实例。':libraryFilter==='favorites'?'还没有收藏的实例。可以在游戏库中收藏常玩的游戏。':libraryFilter==='installed'?'当前目录还没有安装游戏。':'还没有可用实例。可以选择游戏目录，或下载第一个游戏。'}</p>}</div>
     <footer><small>{term||libraryFilter!=='all'?'找到 '+matches.length+' 个匹配实例':games.filter(g=>g.installed).length+' 个已安装'}</small><Link to={'/library'+(term?'?q='+encodeURIComponent(query):'')}>管理实例 <ArrowRight size={14}/></Link></footer></>;
   return <section className="launch-page game-home"><CardBoard id="home" layoutKey={homeLayoutKey(layout)} columns={workspaceLayout(layout).columns} label={layout==='journal'?'游玩手记':layout==='library'?'实例控制台':'启动游戏'} home pageTitle
-    actions={<Link className="small-action appearance-shortcut" to="/settings?section=appearance"><Palette size={15}/>外观</Link>}
+    actions={<><Link className="small-action" to="/lite"><PanelLeft size={15}/>极简版</Link><Link className="small-action appearance-shortcut" to="/settings?section=appearance"><Palette size={15}/>外观</Link></>}
     beforeCards={modules.quickLinks&&<nav className="home-quick-links" aria-label="首页快捷入口">{quickLinks.map(({to,name,icon:Icon})=><Link to={to} key={to}><Icon size={16}/>{name}<ArrowRight size={13}/></Link>)}</nav>}
     cards={[
       {id:'library',title:'游戏实例',w:8,className:'instances-card',content:instances,native:true},

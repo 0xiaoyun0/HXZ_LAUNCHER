@@ -85,7 +85,7 @@ const SKIN = "https://skin.hxzmc.top/api/yggdrasil";
 const APPEARANCE_VERSION = 2;
 // Presentation and voice settings do not change files owned by the active task.
 const LIVE_SETTINGS = new Set([
-  'themeChange','desktopBackdrop','wallpaperMode','wallpaperImageSource','workspaceLayout','workspaceModules','workspaceShelf','libraryView',
+  'themeChange','desktopBackdrop','wallpaperMode','wallpaperImageSource','workspaceLayout','liteStartup','workspaceModules','workspaceShelf','libraryView',
   'keepLauncherAvailable','autoReportErrors','autoCheckUpdates','instancesCollapsed','theme','fontSize','accentColor',
   'backgroundColor','backgroundImage','backgroundOpacity','backgroundPositionX',
   'backgroundPositionY','backgroundFit','backgroundVideo','backgroundMusic',
@@ -128,7 +128,7 @@ export async function createServices({
     fontSize: 16,
     accentColor: DEFAULT_DESKTOP_THEME.accent,
     desktopThemes: {active:DEFAULT_DESKTOP_THEME.id,entries:[]},desktopBackdrop:"plain",
-    ...WALLPAPER_DEFAULTS,workspaceLayout:'classic',workspaceModules:{},workspaceShelf:null,libraryView:'auto',
+    ...WALLPAPER_DEFAULTS,workspaceLayout:'classic',liteStartup:false,workspaceModules:{},workspaceShelf:null,libraryView:'auto',
     cardLayouts: {},cardPlacements:{},widgets:[],shortcuts:{},shortcutEnabled:true,voiceOverlay:false,gameWindowAction:'minimize',gameSleep:true,memoryOptimization:true,onboardingDone:false,onboardingVersion:0,
     cardStyle: {color:'',opacity:DEFAULT_DESKTOP_THEME.opacity,gap:20,radius:DEFAULT_DESKTOP_THEME.radius},
     blueprintInstance:"",showCover:true,defaultCover:"",backgroundMusic:"",musicVolume:0.3,musicPlayMode:"list",videoQuality:"balanced",animationSpeed:1,

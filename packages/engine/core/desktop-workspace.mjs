@@ -23,6 +23,10 @@ export function workspaceShelf(value){
 }
 export function workspacePatch(settings,input){
   const patch={};
+  if(Object.hasOwn(input,'liteStartup')){
+    if(typeof input.liteStartup!=='boolean')throw Error('极简版启动偏好无效');
+    patch.liteStartup=input.liteStartup;
+  }
   if(input.workspaceLayout!=null){
     if(!WORKSPACES.some(item=>item.id===input.workspaceLayout))throw Error('找不到所选工作台');
     patch.workspaceLayout=input.workspaceLayout;

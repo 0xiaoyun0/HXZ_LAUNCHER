@@ -21,6 +21,7 @@ Section
   FileClose $0
   WriteUninstaller "$INSTDIR\卸载幻想镇.exe"
   CreateShortCut "$SMPROGRAMS\幻想镇 3rd.lnk" "$INSTDIR\幻想镇 3rd.exe"
+  CreateShortCut "$SMPROGRAMS\幻想镇 极简版.lnk" "$INSTDIR\幻想镇 极简版.exe"
   WriteRegStr HKCU "Software\HXZ\Third" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Classes\hxz3-room" "" "URL:幻想镇 3rd 房间邀请"
   WriteRegStr HKCU "Software\Classes\hxz3-room" "URL Protocol" ""
@@ -38,6 +39,7 @@ SectionEnd
 Section "Uninstall"
   !include "${UNINSTALL_FILES}"
   Delete "$SMPROGRAMS\幻想镇 3rd.lnk"
+  Delete "$SMPROGRAMS\幻想镇 极简版.lnk"
   DeleteRegKey HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\HXZ-3RD"
   ReadRegStr $0 HKCU "Software\Classes\hxz-room\shell\open\command" ""
   StrCmp $0 '"$INSTDIR\幻想镇 3rd.exe" "%1"' 0 +2

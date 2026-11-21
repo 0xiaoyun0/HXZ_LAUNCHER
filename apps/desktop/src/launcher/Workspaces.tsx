@@ -24,6 +24,7 @@ export function Workspaces(){
         </button>;
       })}</div>
     </section>
+    <section className="preference-section"><h2>启动入口</h2><PreferenceSwitch name="默认打开极简版" caption="下次打开启动器时直接选择实例并游玩。" checked={s.liteStartup===true} change={on=>saveSettings({liteStartup:on})}/></section>
     <section className="preference-section"><h2>界面模块</h2><div className="module-options">
       {WORKSPACE_MODULES.map(item=><PreferenceSwitch key={item.id} name={item.name} caption={item.caption} checked={modules[item.id]}
         change={on=>saveSettings({workspaceModules:{[item.id]:on}})}/>)}

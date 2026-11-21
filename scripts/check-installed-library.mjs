@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {scan as measureInsets} from './desktop-insets.mjs';
+import {scan as measureInsets,cardHeadingIssues} from './desktop-insets.mjs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -59,6 +59,15 @@ try{
   await page.evaluate(()=>document.fonts.ready);
   assert.deepEqual((await page.evaluate(measureInsets)).issues,[],'本机实例和角色的文字超出了首页留白');
   await fs.mkdir('.preview',{recursive:true});await page.screenshot({path:'.preview/installed-library-home.png',animations:'disabled'});
+  await page.setViewportSize({width:1250,height:825});
+  await page.locator('main').evaluate(el=>{el.scrollTop=el.scrollHeight;});
+  assert.deepEqual(await page.evaluate(cardHeadingIssues),[],'既有默认服务器和日历的操作必须紧靠卡片工具');
+  await page.screenshot({path:'.preview/installed-home-actions.png',animations:'disabled'});
+  await page.getByRole('link',{name:'极简版',exact:true}).click();
+  await page.locator('.lite-game h2').waitFor();
+  assert.deepEqual((await page.evaluate(measureInsets)).issues,[]);
+  await page.screenshot({path:'.preview/installed-lite-start.png',animations:'disabled'});
+  await page.getByRole('link',{name:'完整工作台'}).click();
   await page.locator('.home-server-list a').last().click();
   await page.locator('.default-server-card').first().waitFor();
   assert.deepEqual((await page.evaluate(measureInsets)).issues,[],'默认服务器的文字超出了卡片留白');

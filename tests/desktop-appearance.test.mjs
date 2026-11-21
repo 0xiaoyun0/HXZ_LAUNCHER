@@ -125,6 +125,13 @@ test('upgrade freezes the old active artwork and retains fields in inactive sche
   const service=await open(),save=input=>service.invoke('settings.save',input);
   const upgraded=await save({themeChange:{op:'select',id:'paper'},workspaceLayout:'journal',workspaceModules:{shortcuts:false}});
   assert.deepEqual(wallpaperSource(upgraded),{url:'./media/adventure.webp',video:false});
+  assert.equal(upgraded.liteStartup,false);
+  const enabled=await save({liteStartup:true});
+  assert.equal(enabled.workspaceLayout,'journal');
+  assert.deepEqual(enabled.cardLayouts,upgraded.cardLayouts);
+  await assert.rejects(save({liteStartup:'yes'}),/启动偏好无效/);
+  assert.equal((await (await open()).invoke('settings.save',{})).liteStartup,true);
+  assert.equal((await save({liteStartup:false})).unknown,'keep');
   assert.equal(upgraded.workspaceModules.futureModule,'keep');assert.equal(upgraded.unknown,'keep');
   assert.deepEqual(upgraded.cardLayouts['home.wide'].hidden,['monitor']);
   const reset=await save({themeChange:{op:'reset'}});

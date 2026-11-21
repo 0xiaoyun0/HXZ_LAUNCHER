@@ -19,7 +19,7 @@ const routes=[
   ['/community/inbox','.inbox-page'],['/community/guild','.guild-columns'],['/community/linking','.archive-viewport iframe'],
   ['/community/playtime','.pt-toolbar'],['/community/worlds','.hub-page'],['/community/blueprints','.blueprint-grid'],
   ['/community/wallet','.music-find'],['/community/backpack','.inventory-ui .inventory-tabs'],['/community/shop','.shop-products'],
-  ['/community/saved','.hub-page'],['/community/events','.hub-page'],['/community/appeals','.hub-page']
+  ['/community/saved','.hub-page'],['/community/events','.hub-page'],['/community/appeals','.hub-page'],['/lite','.lite-workspace']
 ];
 
 function measure(){
@@ -50,6 +50,15 @@ function measure(){
   if(compact)for(const grid of main.querySelectorAll('.desktop-panels>.desktop-panel-grid')){
     const children=[...grid.children].filter(el=>el.hasAttribute('data-card-id'));
     if(children.some(el=>bounds(el).width<bounds(grid).width-2))errors.push('窄窗卡片未占满一行 '+grid.parentElement.dataset.board);
+  }
+  const lite=main.querySelector('.lite-workspace');
+  if(lite){
+    const game=bounds(lite.querySelector('.lite-game')),profile=bounds(lite.querySelector('.lite-profile')),shell=bounds(lite);
+    const primary=bounds(lite.querySelector('.launch-primary'));
+    if(main.scrollTop<2&&primary.bottom>view.bottom+1)errors.push('极简版启动按钮不在首屏');
+    if(game.right>profile.left+1&&game.bottom>profile.top+1)errors.push('极简版实例与角色重叠');
+    if(Math.max(game.right,profile.right)>shell.right+1)errors.push('极简版卡片越过工作区');
+    if(Math.abs(game.top-profile.top)<=1&&profile.width>game.width)errors.push('宽窗中启动区比角色区窄');
   }
   const rail=main.querySelector('.settings-rail');
   if(rail){
@@ -140,6 +149,15 @@ function homeGeometry(){
 
 // Resize a card inside the same window, as when the player moves it between columns.
 async function exerciseCardWidth(page){
+  const board=page.locator('main [data-board=home]').first(),grid=board.locator('[data-card-grid]').first();
+  const compact=await grid.getAttribute('data-compact'),boardStyle=await board.getAttribute('style');
+  try{
+    await board.evaluate(el=>{el.style.inlineSize='31em';el.style.maxInlineSize='100%';});
+    await page.waitForFunction(()=>document.querySelector('main [data-board=home] [data-card-grid]')?.hasAttribute('data-compact'));
+  }finally{
+    await board.evaluate((el,style)=>style===null?el.removeAttribute('style'):el.setAttribute('style',style),boardStyle);
+    await page.waitForFunction(compact=>document.querySelector('main [data-board=home] [data-card-grid]')?.getAttribute('data-compact')===compact,compact);
+  }
   const calendar=page.locator('main .calendar-card > .section-heading').first();
   const original=await calendar.getAttribute('style');
   try{
@@ -227,7 +245,7 @@ export async function verifyDesktopLayout(page,native,directory){
       const record={route,width,height,font,theme,skin,workspace,issues,textInsets,...(reader?{readerHeight:Math.round(reader)}:{})};observations.push(record);
       if(issues.length)failures.push(record);
       const settingsExample=['/settings?section=downloads','/settings?section=network'].includes(route)&&(width===1250||width===780&&font===22);
-      if(width===1360||issues.length||settingsExample||['/','/music','/settings','/community/voice','/community/linking'].includes(route)){
+      if(width===1360||issues.length||settingsExample||['/','/lite','/music','/settings','/community/voice','/community/linking'].includes(route)){
         const name=route.replace(/[^a-z0-9-]/gi,'_')||'home';
         await page.screenshot({path:path.join(output,name+'-'+width+'-'+font+'.png'),animations:'disabled'});
       }

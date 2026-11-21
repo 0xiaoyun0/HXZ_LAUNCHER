@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {checkLocalGames,checkCommunityGames,checkGuestCatalog} from './check-desktop-arcade.mjs';
+import {checkLiteHome} from './check-desktop-lite.mjs';
 import {scan as measureInsets} from './desktop-insets.mjs';
 import fs from 'node:fs/promises';
 import net from 'node:net';
@@ -14,6 +15,7 @@ const {version}=JSON.parse(await fs.readFile('package.json','utf8'));
 const architecture=process.argv.includes('--ia32')?'ia32':'x64';
 const withAccount=process.argv.includes('--fixture-account');
 const layoutOnly=withAccount&&process.argv.includes('--layout-only');
+const startLite=process.argv.includes('--lite');
 const title='幻想镇 3rd.exe';
 const dist=path.resolve(process.env.HXZ3_TEST_DIST||path.join('release',version,'windows-'+architecture));
 let exe=path.join(dist,title);
@@ -62,7 +64,7 @@ await fs.writeFile(path.join(home,'settings.json'),JSON.stringify({gameRoot,java
 }
 const server=net.createServer();await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const port=server.address().port;await new Promise(resolve=>server.close(resolve));
 const nativeLog=openSync(path.join(artifacts,'native-qa.log'),'w');
-const proc=spawn(exe,[],{windowsHide:true,stdio:['ignore',nativeLog,nativeLog],env:{...process.env,HXZ3_QA_INSTANCE:'1',HXZ3_QA_BACKGROUND:'1',HXZ3_HOME:home,APPDATA:path.join(home,'roaming'),WEBVIEW2_USER_DATA_FOLDER:path.join(home,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port='+port+' --remote-debugging-address=127.0.0.1 --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling'}});
+const proc=spawn(exe,startLite?['--lite']:[],{windowsHide:true,stdio:['ignore',nativeLog,nativeLog],env:{...process.env,HXZ3_QA_INSTANCE:'1',HXZ3_QA_BACKGROUND:'1',HXZ3_HOME:home,APPDATA:path.join(home,'roaming'),WEBVIEW2_USER_DATA_FOLDER:path.join(home,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port='+port+' --remote-debugging-address=127.0.0.1 --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling'}});
 closeSync(nativeLog);let browser,page;const errors=[];
 proc.on('exit',(code,signal)=>console.log('QA launcher exit',code,signal||''));
 try {
@@ -84,6 +86,7 @@ try {
    await page.screenshot({path:path.join(artifacts,name+'.png'),animations:'disabled'});
  };
  const denied=async action=>{const result=await native(action);assert.equal(result.ok,false,action);assert.match(result.error,/登录|未在本应用/);};
+ if(!layoutOnly||startLite)await checkLiteHome(page,native,{names,searchedInstance,capture,cold:startLite});
  if(layoutOnly){
    await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor();
    await checkGuestCatalog(page);
@@ -203,14 +206,17 @@ try {
    const saved=JSON.parse(await fs.readFile(path.join(home,'settings.json'),'utf8'));assert.deepEqual(saved.futureSetting,{keep:42});assert.equal(saved.instanceSettings[searchedInstance].favorite,true);
    if(fixture){
      await page.setViewportSize({width:1250,height:825});await resume.getByRole('button',{name:'继续游玩'}).click();await fixture.login(page);
-     await resume.getByRole('button',{name:'继续游玩'}).click();await page.getByRole('button',{name:'收起任务'}).click();
-     await resume.getByRole('button',{name:'停止游戏'}).waitFor({timeout:90000});
+     const launchPanel=startLite?page.locator('.lite-game'):resume;
+     if(startLite)await page.getByRole('link',{name:'极简版',exact:true}).click();
+     await launchPanel.getByRole('button',{name:'继续游玩'}).click();await page.getByRole('button',{name:'收起任务'}).click();
+     await launchPanel.getByRole('button',{name:'停止游戏'}).waitFor({timeout:90000});
      const running=(await native('state',{localOnly:true})).value;
      assert.equal(running.settings.lastPlayed.id,names[0]);assert.equal(running.sessions.length,1);
      const marker=path.join(gameRoot,'versions',names[0],'client-started.txt');
      const end=Date.now()+16000;while(!await fs.stat(marker).catch(()=>undefined)&&Date.now()<end)await wait(150);
-     const heap=(await fs.readFile(marker,'utf8')).trim().split(' ');assert.equal(heap[0],'-Xmx768M');assert.ok(Math.abs(Number(heap[1])/1048576-768)<32);await wait(1500);await resume.getByRole('button',{name:'停止游戏'}).click();
-     await resume.getByRole('button',{name:'继续游玩'}).waitFor();
+     const heap=(await fs.readFile(marker,'utf8')).trim().split(' ');assert.equal(heap[0],'-Xmx768M');assert.ok(Math.abs(Number(heap[1])/1048576-768)<32);await wait(1500);await launchPanel.getByRole('button',{name:'停止游戏'}).click();
+     await launchPanel.getByRole('button',{name:'继续游玩'}).waitFor();
+     if(startLite)await page.getByRole('link',{name:'完整工作台'}).click();
      await nav.getByRole('link',{name:'联机大厅'}).click();await page.getByRole('navigation',{name:'房间操作'}).waitFor();
      await page.getByRole('button',{name:'创建房间',exact:true}).first().click();
      await page.getByRole('button',{name:'加入伙伴',exact:true}).click();await page.getByPlaceholder('粘贴房主发来的 hxz-room:// 邀请').waitFor();
@@ -270,7 +276,9 @@ try {
          if(!page)await wait(250);
        }
        assert.ok(page,'restart should reopen native launcher');page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(15000);
-       await page.getByRole('navigation',{name:'主导航'}).waitFor();await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor();
+       await page.getByRole('navigation',{name:'主导航'}).waitFor();
+       if(startLite){await page.getByRole('heading',{name:'极简启动',exact:true}).waitFor();await page.getByRole('link',{name:'完整工作台'}).click();}
+       await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor();
        assert.equal((await native('extension.status')).value.active,expected);
      };
      await pluginSettings();await capture('launcher-extensions');

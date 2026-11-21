@@ -36,7 +36,7 @@
 .heading-actions>*,.lite-actions>* {min-inline-size:0;max-inline-size:100%}
 .heading-actions .card-heading-tools {flex:0 0 auto;margin:0}
 .heading-actions :is(a,button):not(.card-options,.card-grip) {overflow-wrap:anywhere}
-.preference-section>.section-heading {padding:var(--panel-pad);border-block-end:1px solid var(--desk-line)}
+.preference-section>.section-heading {margin-inline:calc(0px - var(--panel-pad));padding:var(--inset-row) var(--panel-pad);border-block-end:1px solid var(--desk-line)}
 .launcher-content .instance-toolbar {flex-flow:row wrap;gap:var(--action-gap)}
 .launcher-content .instance-toolbar>label {flex:1 1 min(100%,12em)}
 .launcher-content .instance-toolbar>:is(a,button) {flex:none}

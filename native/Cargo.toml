@@ -1,5 +1,6 @@
 [package]
 name = "hxz-launcher"
+default-run = "hxz-launcher"
 version = "0.10.0"
 edition = "2021"
 license = "Apache-2.0"

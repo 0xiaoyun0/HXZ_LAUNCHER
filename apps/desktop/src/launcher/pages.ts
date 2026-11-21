@@ -2,6 +2,7 @@ import {Gamepad2,Play,MessagesSquare,MessageCircle,Music2,BookOpen,ScrollText,Cl
 import {communityPages} from './community-pages';
 export const pages=[
  {path:'/',label:'游戏',terms:'首页 继续 上次 游玩 启动',icon:Play,primary:true,member:false},
+ {path:'/lite',label:'极简启动',terms:'极简版 PCL 简洁模式 继续游戏 当前实例 切换实例',icon:Play,primary:false,member:false},
  {path:'/library',label:'游戏库',terms:'实例 收藏 存档 文件 管理',icon:LibraryBig,primary:true,member:false},
  {path:'/workshop',label:'资源',terms:'整合包 模组 下载',icon:PackageOpen,primary:true,member:false},
  {path:'/servers',label:'默认服务器',terms:'原版生存群组服 模组一服 模组二服 人数 名单 更新 入服 状态 监控',icon:Network,primary:false,member:false},

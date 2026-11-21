@@ -171,6 +171,9 @@ fn main() {
                 let _ = w.show();
                 let _ = w.set_focus();
             }
+            if args.iter().any(|arg| arg == "--lite") {
+                let _ = app.emit_to("main", "engine-event", json!({"type":"open-lite"}));
+            }
             if let Some(link) = args.iter().find_map(|value| invite(value)) {
                 if let Some(pending) = app.try_state::<Invitations>() {
                     *pending.0.lock().unwrap() = Some(link);
@@ -202,6 +205,9 @@ fn main() {
             app.manage(extension.clone());
             app.manage(Engine::new(home, bin)?);
             let mut window = app.config().app.windows[0].clone();
+            if std::env::args_os().any(|arg| arg == "--lite") {
+                window.url = tauri::WebviewUrl::App("index.html#/lite".into());
+            }
             let background_test = isolated_test
                 && std::env::var_os("HXZ3_QA_BACKGROUND").as_deref()
                     == Some(std::ffi::OsStr::new("1"));
