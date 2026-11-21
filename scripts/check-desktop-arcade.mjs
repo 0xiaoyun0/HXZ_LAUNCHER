@@ -46,6 +46,16 @@ export async function checkLocalGames(page,capture){
     await page.getByRole('button',{name:'游玩林间疾跑'}).click();
     await page.getByRole('button',{name:'开始游戏',exact:true}).click();
     await metadata(page).getByText('本机练习').waitFor();
+    const changeWorkspace=page.getByRole('button',{name:'切换工作区，当前为完整工作台'});
+    const workspacePrompt=page.getByRole('dialog',{name:'切换工作区'});
+    const resume=page.getByRole('button',{name:'继续游戏',exact:true});
+    await changeWorkspace.click();
+    await workspacePrompt.getByRole('button',{name:'留在完整工作台'}).click();
+    await resume.waitFor();
+    await changeWorkspace.click();
+    await workspacePrompt.getByRole('button',{name:'切换到极简版'}).click();
+    await page.getByRole('dialog',{name:'结束本局并离开？'}).getByRole('button',{name:'返回游戏'}).click();
+    await resume.click();
     await page.getByRole('button',{name:'再来一局',exact:true}).waitFor({timeout:30000});
     await page.waitForFunction(()=>Number(document.querySelector('.arcade-personal-best b')?.textContent)>0);
     await page.getByRole('button',{name:'返回游戏厅',exact:true}).click();

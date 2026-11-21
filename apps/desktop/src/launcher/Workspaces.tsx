@@ -9,6 +9,10 @@ import {PreferenceSwitch} from './ChoiceControls';
 import {Modal} from '../ui';
 
 const icons=[LayoutGrid,LibraryBig,NotebookPen];
+export function StartupPreference(){
+ const settings=useSnapshot(state).settings;
+ return <section className="preference-section"><h2>默认启动入口</h2><PreferenceSwitch name="默认打开极简版" caption="下次从普通入口启动时生效。当前窗口可以通过左上角切换工作区。" checked={settings.liteStartup===true} change={on=>saveSettings({liteStartup:on})}/></section>;
+}
 export function Workspaces(){
   const s=useSnapshot(state).settings,active=workspaceLayout(s.workspaceLayout),modules=workspaceModules(s.workspaceModules);
   const shelf=workspaceShelf(s.workspaceShelf),[organize,setOrganize]=useState(false);
@@ -24,7 +28,7 @@ export function Workspaces(){
         </button>;
       })}</div>
     </section>
-    <section className="preference-section"><h2>启动入口</h2><PreferenceSwitch name="默认打开极简版" caption="下次打开启动器时直接选择实例并游玩。" checked={s.liteStartup===true} change={on=>saveSettings({liteStartup:on})}/></section>
+    <StartupPreference/>
     <section className="preference-section"><h2>界面模块</h2><div className="module-options">
       {WORKSPACE_MODULES.map(item=><PreferenceSwitch key={item.id} name={item.name} caption={item.caption} checked={modules[item.id]}
         change={on=>saveSettings({workspaceModules:{[item.id]:on}})}/>)}

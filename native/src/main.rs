@@ -171,14 +171,14 @@ fn main() {
                 let _ = w.show();
                 let _ = w.set_focus();
             }
-            if args.iter().any(|arg| arg == "--lite") {
-                let _ = app.emit_to("main", "engine-event", json!({"type":"open-lite"}));
-            }
             if let Some(link) = args.iter().find_map(|value| invite(value)) {
                 if let Some(pending) = app.try_state::<Invitations>() {
                     *pending.0.lock().unwrap() = Some(link);
                 }
                 let _ = app.emit_to("main", "engine-event", json!({"type":"room-link"}));
+            } else {
+                let entry = if args.iter().any(|arg| arg == "--lite") { "lite" } else { "default" };
+                let _ = app.emit_to("main", "engine-event", json!({"type":"open-workspace","entry":entry}));
             }
         }))
     };

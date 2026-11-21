@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {openFullWorkspace} from './check-desktop-lite.mjs';
+import {openFullWorkspace,switchWorkspace} from './check-desktop-lite.mjs';
 import {scan as measureInsets,cardHeadingIssues} from './desktop-insets.mjs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -64,10 +64,13 @@ try{
   await page.locator('main').evaluate(el=>{el.scrollTop=el.scrollHeight;});
   assert.deepEqual(await page.evaluate(cardHeadingIssues),[],'既有默认服务器和日历的操作必须紧靠卡片工具');
   await page.screenshot({path:'.preview/installed-home-actions.png',animations:'disabled'});
-  await page.getByRole('link',{name:'极简版',exact:true}).click();
+  await switchWorkspace(page,true);
   await page.locator('.lite-game h2').waitFor();
   assert.deepEqual((await page.evaluate(measureInsets)).issues,[]);
   await page.screenshot({path:'.preview/installed-lite-start.png',animations:'disabled'});
+  await page.getByRole('button',{name:'切换工作区，当前为极简版'}).click();await page.getByRole('dialog',{name:'切换工作区'}).waitFor();
+  await page.screenshot({path:'.preview/installed-workspace-switch.png',animations:'disabled'});
+  await page.getByRole('button',{name:'留在极简版'}).click();
   await openFullWorkspace(page);
   await page.locator('.home-server-list a').last().click();
   await page.locator('.default-server-card').first().waitFor();

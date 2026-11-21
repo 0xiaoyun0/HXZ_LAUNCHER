@@ -1,15 +1,23 @@
 import {Download,LayoutGrid,Gamepad2,Play,MessagesSquare,MessageCircle,Music2,BookOpen,ScrollText,Clock3,LibraryBig,PackageOpen,Network,Settings2,Stethoscope,UserRound} from 'lucide-react';
 import {communityPages} from './community-pages';
+export function isLitePage(path:string){
+ const pathname=path.split('?')[0];
+ return pathname==='/lite'||pathname.startsWith('/lite/');
+}
 export const liteTabs=[
  {path:'/lite',label:'启动',icon:Play},
- {path:'/workshop/install',label:'下载',icon:Download},
- {path:'/settings',label:'设置',icon:Settings2},
+ {path:'/lite/download',label:'下载',icon:Download},
+ {path:'/lite/settings',label:'设置',icon:Settings2},
  {path:'/lite/more',label:'更多',icon:LayoutGrid}
 ];
 export const pages=[
  {path:'/',label:'游戏',terms:'首页 继续 上次 游玩 启动',icon:Play,primary:true,member:false},
  {path:'/lite',label:'极简启动',terms:'极简版 PCL 简洁模式 继续游戏 当前实例 切换实例',icon:Play,primary:false,member:false},
  {path:'/lite/more',label:'极简版更多功能',terms:'完整工作台 游戏库 更多工具 游戏目录',icon:LayoutGrid,primary:false,member:false},
+ {path:'/lite/download',label:'下载安装',terms:'极简版 Minecraft 安装游戏 加载器 下载',icon:Download,primary:false,member:false},
+ {path:'/lite/settings',label:'启动设置',terms:'极简版 Java 内存 游戏目录 默认启动方式',icon:Settings2,primary:false,member:false},
+ {path:'/lite/settings/wallpaper',label:'玩家壁纸',terms:'极简版 自定义背景 静态图片 动态视频',icon:LayoutGrid,primary:false,member:false},
+ {path:'/lite/account',label:'账号与角色',terms:'极简版 皮肤站 登录 切换角色',icon:UserRound,primary:false,member:false},
  {path:'/library',label:'游戏库',terms:'实例 收藏 存档 文件 管理',icon:LibraryBig,primary:true,member:false},
  {path:'/workshop',label:'资源',terms:'整合包 模组 下载',icon:PackageOpen,primary:true,member:false},
  {path:'/servers',label:'默认服务器',terms:'原版生存群组服 模组一服 模组二服 人数 名单 更新 入服 状态 监控',icon:Network,primary:false,member:false},

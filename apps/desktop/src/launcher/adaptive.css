@@ -22,7 +22,7 @@
   overflow-wrap:anywhere;
 }
 .section-heading>h2 svg {flex:none}
-.heading-actions,.lite-actions {
+.heading-actions {
   display:flex;
   flex-flow:row wrap;
   align-items:center;
@@ -33,7 +33,7 @@
 }
 .heading-actions {flex:0 1 auto;margin-inline-start:auto}
 .heading-actions:empty {display:none}
-.heading-actions>*,.lite-actions>* {min-inline-size:0;max-inline-size:100%}
+.heading-actions>* {min-inline-size:0;max-inline-size:100%}
 .heading-actions .card-heading-tools {flex:0 0 auto;margin:0}
 .heading-actions :is(a,button):not(.card-options,.card-grip) {overflow-wrap:anywhere}
 .preference-section>.section-heading {margin-inline:calc(0px - var(--panel-pad));padding:var(--inset-row) var(--panel-pad);border-block-end:1px solid var(--desk-line)}
@@ -42,3 +42,25 @@
 .launcher-content .instance-toolbar>:is(a,button) {flex:none}
 .launcher-content .launch-title {flex-wrap:wrap;gap:var(--section-gap)}
 .launch-title>.board-actions {margin-inline-start:auto;max-inline-size:100%;justify-content:flex-end}
+.launcher-brand .brand-home {display:inline-flex;align-items:center;flex:none;gap:.45em;color:var(--desk-ink);text-decoration:none;white-space:nowrap}
+.launcher-brand .workspace-trigger {display:inline-flex;align-items:center;justify-content:center;gap:.45em;min-block-size:2.25em;padding:.35em .65em;color:var(--desk-accent);border:1px solid var(--desk-line);border-radius:var(--control-radius);background:var(--desk-selection);cursor:pointer;font:inherit;font-size:.82em;font-weight:600;line-height:1.2;white-space:nowrap}
+.workspace-trigger>svg {inline-size:1em;block-size:1em;flex:none}
+.launcher-brand .workspace-trigger:hover,.launcher-brand .workspace-trigger:focus-visible {border-color:currentColor}
+.launcher-navigation {display:flex;align-items:center;align-self:stretch;gap:.35em;flex:1 1 0;min-inline-size:0;container:launcher-navigation / inline-size}
+.workspace-change {display:flex;align-items:center;flex-wrap:wrap;gap:.75em;color:var(--desk-muted)}
+.workspace-change>strong {color:var(--desk-ink)}
+@container desktop-window (max-width:72em) {
+  .launcher-brand .brand-home strong {display:none}
+}
+@container launcher-navigation (max-width:60em) {
+  .launcher-navigation:has(.bar-shortcuts a:nth-child(2)) .bar-shortcuts a {inline-size:34px;padding-inline:0}
+  .launcher-navigation:has(.bar-shortcuts a:nth-child(2)) .bar-shortcuts a>span {display:none}
+}
+@container launcher-navigation (max-width:40em) {
+  [data-shell=full] nav[aria-label="主导航"] a:not(.active) {inline-size:34px;padding-inline:0}
+  [data-shell=full] nav[aria-label="主导航"] a:not(.active)>span {display:none}
+}
+@container launcher-navigation (max-width:25em) {
+  [data-shell=full] nav[aria-label="主导航"] a.active {inline-size:34px;padding-inline:0}
+  [data-shell=full] nav[aria-label="主导航"] a.active>span {display:none}
+}

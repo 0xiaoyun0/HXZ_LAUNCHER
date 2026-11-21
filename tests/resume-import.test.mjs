@@ -12,6 +12,8 @@ test('resume keeps the last launched instance after browsing, and recovers from 
   const worlds=[installed('a'),installed('b'),{id:'template',builtin:true,installed:false},{id:'broken',error:'metadata'}];
   const settings={gameRoot:'Q:/library',selectedInstance:'b',lastPlayed:{id:'a',root:'Q:/library'}};
   assert.equal(resumeTarget(worlds,settings).game.id,'a');
+  assert.equal(resumeTarget(worlds,settings,{id:'b',root:settings.gameRoot}).game.id,'b');
+  assert.equal(resumeTarget(worlds,settings,{id:'b',root:'R:/other'}).game.id,'a');
   assert.equal(resumeTarget(worlds.filter(v=>v.id!=='a'),settings).game.id,'b');
   assert.equal(resumeTarget(worlds,{...settings,gameRoot:'R:/library'}).reason,'selected');
   assert.equal(resumeTarget(worlds,{...settings,lastPlayed:{...settings.lastPlayed,id:'template'}}).game.id,'b');

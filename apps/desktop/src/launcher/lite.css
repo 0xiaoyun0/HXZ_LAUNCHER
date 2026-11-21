@@ -1,6 +1,5 @@
 /* Keep account, selected version and the launch command together in the same rail. */
-.launcher-frame[data-shell=lite] .launcher-bar>.bar-spacer {display:none}
-.launcher-frame[data-shell=lite] .launcher-bar>nav {margin-inline:auto}
+.launcher-frame[data-shell=lite] .launcher-navigation {justify-content:center}
 .launcher-frame[data-shell=lite] .launcher-content:has(>.lite-workspace) {scrollbar-gutter:auto}
 .lite-workspace {
   display:flex;
@@ -49,6 +48,8 @@
 @container workspace (max-width:38em) {
   .lite-rail {flex:1 1 100%;border-inline-end:0}
   .lite-scene {display:none}
+  .lite-identity {flex-flow:row wrap;justify-content:flex-start;align-content:center;text-align:start;gap:.65em}
+  .lite-identity>.text-action {margin-inline-start:auto}
 }
 .lite-more {max-inline-size:65em}
 .lite-more nav {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,14em),1fr));gap:var(--section-gap)}
@@ -65,3 +66,11 @@
 .lite-picker-results button>span {display:grid;gap:.2em;flex:1;min-inline-size:0;overflow-wrap:anywhere}
 .lite-picker-results small,.lite-pagination {color:var(--desk-muted)}
 .lite-pagination {display:flex;align-items:center;justify-content:flex-end;gap:.75em}
+.lite-workspace-exit {display:flex;flex-wrap:wrap;align-items:center;gap:var(--section-gap);margin-block-start:var(--section-gap);padding:var(--panel-pad);border-block-start:1px solid var(--desk-line)}
+.lite-workspace-exit>div {flex:1 1 16em;min-inline-size:0}
+.lite-workspace-exit h2 {margin:0;font-size:1em}
+.lite-workspace-exit p {margin:.45em 0 0;line-height:1.5;color:var(--desk-muted)}
+.lite-tools-page {max-inline-size:65em}
+.lite-install-panels {display:flex;flex-wrap:wrap;gap:var(--section-gap);align-items:flex-start}
+.lite-install-panels>section,.lite-install-panels>aside {flex:1.5 1 20em;min-inline-size:0;padding:var(--panel-pad);border:1px solid var(--desk-line);border-radius:var(--desk-radius);background:var(--desk-surface);overflow-wrap:anywhere}
+.lite-install-panels>aside {flex:1 1 15em}

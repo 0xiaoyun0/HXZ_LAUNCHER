@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {checkLocalGames,checkCommunityGames,checkGuestCatalog} from './check-desktop-arcade.mjs';
-import {checkLiteHome,openFullWorkspace} from './check-desktop-lite.mjs';
+import {checkLiteHome,openFullWorkspace,switchWorkspace} from './check-desktop-lite.mjs';
 import {scan as measureInsets} from './desktop-insets.mjs';
 import fs from 'node:fs/promises';
 import net from 'node:net';
@@ -207,7 +207,7 @@ try {
    if(fixture){
      await page.setViewportSize({width:1250,height:825});await resume.getByRole('button',{name:'继续游玩'}).click();await fixture.login(page);
      const launchPanel=startLite?page.locator('.lite-game'):resume;
-     if(startLite)await page.getByRole('link',{name:'极简版',exact:true}).click();
+     if(startLite)await switchWorkspace(page,true);
      await launchPanel.getByRole('button',{name:'继续游玩'}).click();await page.getByRole('button',{name:'收起任务'}).click();
      await launchPanel.getByRole('button',{name:'停止游戏'}).waitFor({timeout:90000});
      const running=(await native('state',{localOnly:true})).value;

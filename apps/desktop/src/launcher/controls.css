@@ -77,13 +77,8 @@
 }
 @container desktop-window (max-width:90em) {
   .launcher-frame .launcher-bar {gap:7px}
-  .launcher-bar:has(.bar-shortcuts a:nth-child(2)) .bar-shortcuts a {width:34px;padding:0}
-  .launcher-bar:has(.bar-shortcuts a:nth-child(2)) .bar-shortcuts a span {display:none}
 }
 @container desktop-window (max-width:62em) {.launcher-frame .launcher-bar {gap:4px}}
-@container desktop-window (max-width:42em) {
-  .launcher-bar:has(.bar-shortcuts a:nth-child(2)) .launcher-brand>span {display:none}
-}
 @media (forced-colors:active) {
   .choice-option input:checked+span,.appearance-navigation button[aria-current=page] {outline:2px solid Highlight}
   .featured-game .feature-illustration,.featured-game[data-cover]::before {display:none}

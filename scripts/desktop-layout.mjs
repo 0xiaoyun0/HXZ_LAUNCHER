@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import {switchWorkspace} from './check-desktop-lite.mjs';
 import {scan as measureInsets,cardHeadingIssues} from './desktop-insets.mjs';
 
 // Exercise the installed WebView. Routes with their own content surface declare its selector.
@@ -19,8 +20,39 @@ const routes=[
   ['/community/inbox','.inbox-page'],['/community/guild','.guild-columns'],['/community/linking','.archive-viewport iframe'],
   ['/community/playtime','.pt-toolbar'],['/community/worlds','.hub-page'],['/community/blueprints','.blueprint-grid'],
   ['/community/wallet','.music-find'],['/community/backpack','.inventory-ui .inventory-tabs'],['/community/shop','.shop-products'],
-  ['/community/saved','.hub-page'],['/community/events','.hub-page'],['/community/appeals','.hub-page'],['/lite','.lite-workspace'],['/lite/more','.lite-more nav']
+  ['/community/saved','.hub-page'],['/community/events','.hub-page'],['/community/appeals','.hub-page'],['/lite','.lite-workspace'],['/lite/download','.lite-install-panels'],['/lite/settings','.memory-setting'],['/lite/settings/wallpaper','.wallpaper-modes'],['/lite/account','.instance-lines'],['/lite/more','.lite-more nav']
 ];
+
+function titlebarIssues(){
+  const bar=document.querySelector('.launcher-bar'),bounds=el=>el.getBoundingClientRect(),errors=[];
+  let lastRight=0;
+  for(const el of bar.querySelectorAll('a,button')){
+    const r=bounds(el);
+    if(r.width&& (r.left<lastRight-1||r.right>innerWidth+1))errors.push('顶栏项目重叠 '+(el.ariaLabel||el.innerText));
+    if(r.width)lastRight=r.right;
+  }
+  for(const tab of bar.querySelectorAll('nav a')){
+    const button=bounds(tab);
+    for(const child of tab.children){
+      const area=bounds(child);
+      if(area.width&&(area.left<button.left-1||area.right>button.right+1))errors.push('导航文字或图标越过按钮 '+tab.getAttribute('aria-label'));
+    }
+  }
+  if(bar.querySelectorAll('nav a.active').length>1)errors.push('多个顶栏入口同时高亮');
+  return errors;
+}
+
+async function sweepTitlebar(page,viewport,font,widths){
+  try{
+    for(let width=Math.min(...widths);width<=Math.max(...widths);width+=font){
+      await page.setViewportSize({width,height:viewport.height});
+      assert.deepEqual(await page.evaluate(titlebarIssues),[],'顶栏宽度 '+width+'，字号 '+font);
+    }
+  }finally{
+    await page.setViewportSize(viewport);
+    await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
+  }
+}
 
 function measure(){
   const main=document.querySelector('main'),bar=document.querySelector('.launcher-bar'),footer=document.querySelector('.launcher-status');
@@ -98,20 +130,6 @@ function measure(){
     if(rect.width>1601||Math.abs((rect.left-view.left)-(view.left+main.clientWidth-rect.right))>2)errors.push('页面没有落在居中且限宽的内容区域');
   }
   if(document.documentElement.scrollWidth>innerWidth+1||main.scrollWidth>main.clientWidth+2)errors.push('工作区出现横向滚动 '+main.scrollWidth+'/'+main.clientWidth);
-  let lastRight=0;
-  for(const el of bar.querySelectorAll('a,button')){
-    const r=bounds(el);
-    if(r.width&& (r.left<lastRight-1||r.right>innerWidth+1))errors.push('顶栏项目重叠 '+(el.ariaLabel||el.innerText));
-    if(r.width)lastRight=r.right;
-  }
-  for(const tab of bar.querySelectorAll('nav a')){
-    const button=bounds(tab);
-    for(const child of tab.children){
-      const area=bounds(child);
-      if(area.width&&(area.left<button.left-1||area.right>button.right+1))errors.push('导航文字或图标越过按钮 '+tab.getAttribute('aria-label'));
-    }
-  }
-  if(bar.querySelectorAll('nav a.active').length>1)errors.push('多个顶栏入口同时高亮');
   if(main.querySelector('.react-resizable-handle,.card-layout-toolbar,.react-grid-layout'))errors.push('固定页面挂载了布局编辑器');
   if(main.querySelector('.preference-section .preference-section'))errors.push('设置卡嵌入设置卡');
   const pageTitle=main.querySelector('h1')?.textContent.trim();
@@ -186,10 +204,16 @@ async function exerciseCardWidth(page){
   }
 }
 
+async function visit(page,route){
+  const lite=route==='/lite'||route.startsWith('/lite/');
+  if(await page.locator('.launcher-frame').getAttribute('data-shell')!==(lite?'lite':'full'))await switchWorkspace(page,lite);
+  await page.evaluate(value=>{location.hash=value;},route);
+}
 export async function verifyDesktopLayout(page,native,directory){
   const output=path.join(directory,'layout');await fs.mkdir(output,{recursive:true});
   const observations=[],overlays=[],failures=[];
   const windows=[[1360,880,16,'light','town'],[1250,825,16,'light','paper'],[1920,1080,16,'light','town'],[1000,660,22,'dark','observatory'],[780,540,16,'light','paper'],[780,540,22,'dark','observatory']];
+  const sweptFonts=new Set(),widths=windows.map(([width])=>width);
   const layouts=['classic','library','journal','library','journal','classic'];
   for(const [index,[width,height,font,theme,skin]] of windows.entries()){
     const workspace=layouts[index];
@@ -199,17 +223,23 @@ export async function verifyDesktopLayout(page,native,directory){
     await page.waitForFunction(([n,mode,design])=>getComputedStyle(document.documentElement).getPropertyValue('--font-size').trim()===n+'px'&&document.documentElement.dataset.theme===mode&&document.documentElement.dataset.skin===design,[font,theme,skin]);
     let firstHome;
     for(const [route,selector] of routes){
-      await page.evaluate(value=>{location.hash=value;},route);
+      await visit(page,route);
       let issues, textInsets;
       try{
         await page.locator(selector).first().waitFor({state:'attached',timeout:8000});
         if(route==='/settings?section=network')await page.locator('.settings-status').getByText(/已内嵌并通过校验|状态暂不可用|模块校验未通过/).waitFor();
         await page.evaluate(()=>document.fonts.ready);
         await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
-        if(route==='/'){firstHome=await page.evaluate(homeGeometry);await exerciseCardWidth(page);}
+        if(route==='/'){
+          if(!sweptFonts.has(font)){
+            await sweepTitlebar(page,{width,height},font,widths);
+            sweptFonts.add(font);
+          }
+          firstHome=await page.evaluate(homeGeometry);await exerciseCardWidth(page);
+        }
         textInsets=await page.evaluate(measureInsets);
         assert.ok(textInsets.inspected,'页面应具有可测量的文字');
-        issues=[...await page.evaluate(measure),...await page.evaluate(cardHeadingIssues),...textInsets.issues];
+        issues=[...await page.evaluate(titlebarIssues),...await page.evaluate(measure),...await page.evaluate(cardHeadingIssues),...textInsets.issues];
         if(route==='/community/linking'){
           const archive=await page.locator('.archive-viewport iframe').elementHandle();
           const frame=await archive.contentFrame();
@@ -226,7 +256,7 @@ export async function verifyDesktopLayout(page,native,directory){
           await search.fill('');
           await page.getByText('没有匹配的实例。',{exact:true}).waitFor({state:'hidden'});
         }
-        if(!route.startsWith('/settings')){
+        if(!route.startsWith('/settings')&&!route.startsWith('/lite/settings')){
           const disallowed='select,details,[role="combobox"],[aria-haspopup="menu"],[aria-haspopup="listbox"]';
           if(await page.locator('main').locator(disallowed).count())issues.push('设置以外的页面含下拉式控件');
           if(route==='/community/linking'&&await page.frameLocator('.archive-viewport iframe').locator(disallowed).count())issues.push('档案馆内含下拉式控件');
@@ -259,7 +289,7 @@ export async function verifyDesktopLayout(page,native,directory){
       }
     }
     for(const [route,control] of [['/','实例配置'],['/','卡片'],['/community/playtime','每周时长榜']]){
-      await page.evaluate(value=>{location.hash=value;},route);
+      await visit(page,route);
       const dialog=page.getByRole('dialog');
       const record={control,width,height,font,theme,skin,issues:[]};
       try{
@@ -308,12 +338,12 @@ export async function verifyDesktopLayout(page,native,directory){
       overlays.push(record);if(record.issues.length)failures.push(record);
     }
     if(width<=54*font){
-      await page.evaluate(()=>{location.hash='/settings';});
+      await visit(page,'/settings');
       const categories=page.getByRole('navigation',{name:'设置分类',exact:true});
       await categories.getByRole('link',{name:'下载与更新'}).click();
       await page.getByRole('radiogroup',{name:'下载并发数'}).waitFor();
     }
-    await page.evaluate(()=>{location.hash='/';});
+    await visit(page,'/');
     await page.locator('.resume-panel .launch-primary').waitFor();
     assert.deepEqual(await page.evaluate(homeGeometry),firstHome,'访问其他核心和插件页面后，首页几何尺寸必须一致');
   }
