@@ -78,6 +78,8 @@ export const community = reactive({
   user: null as Session["user"] | null,
   users: [] as Member[],
   messages: [] as ChatMessage[],
+  // 0 marks the start of the lobby, null a full initial batch from the server.
+  previousMessageTime: 0 as number | null,
   room: "",
   muted: false,
   deafened: false,
@@ -192,6 +194,7 @@ export function disconnect() {
   community.user = null;
   community.users = [];
   community.messages = [];
+  community.previousMessageTime = 0;
   chatView.draft = "";
   for(const item of chatView.attachments)if(item.preview?.startsWith('blob:'))URL.revokeObjectURL(item.preview);
   chatView.attachments=[];
@@ -278,6 +281,7 @@ export async function connect() {
         community.id = packet.id!;
         community.user = packet.user!;
         community.messages = packet.messages || [];
+        community.previousMessageTime = community.messages.length >= 100 ? null : 0;
       } else if(packet.type === "voice-rooms"){community.rooms=packet.rooms||[];
       } else if(packet.type === "board-changed"){window.dispatchEvent(new CustomEvent("hxz-board",{detail:packet}));
       } else if(packet.type === "coop-state"){window.dispatchEvent(new CustomEvent("hxz-coop",{detail:packet}));
@@ -314,8 +318,10 @@ export async function connect() {
         );
       } else if (packet.type === "chat" && packet.message) {
         community.messages.push(packet.message);
-        if (community.messages.length > 300)
+        if (community.messages.length > 300) {
+          community.previousMessageTime = community.messages[community.messages.length - 301].created;
           community.messages.splice(0, community.messages.length - 300);
+        }
       } else if (packet.type === "notices-changed") void loadNotices();
       else if (packet.type === "error") {
         community.error = packet.error || "社区请求未完成";

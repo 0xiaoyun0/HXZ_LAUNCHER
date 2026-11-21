@@ -86,6 +86,7 @@ export async function communityFixture(temp, dist, title) {
       const nav=page.getByRole('navigation',{name:'社区导航'});
       await nav.getByRole('link',{name:'聊天'}).click();
       const chat=page.getByPlaceholder('聊点什么吧…');await chat.waitFor({timeout:25000});
+      assert.equal(await page.getByRole('button',{name:'查看更早的消息'}).count(),0,'临时社区没有更早的聊天记录');
       await page.getByRole('button',{name:'表情',exact:true}).click();
       const emoji=page.getByRole('dialog',{name:'选择表情'});await emoji.getByRole('button',{name:'颜文字',exact:true}).click();await emoji.locator('.expression-item').first().click();
       assert.ok((await chat.inputValue()).length>0);await chat.fill('@');await chat.press('ArrowDown');

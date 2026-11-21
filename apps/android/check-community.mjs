@@ -138,8 +138,10 @@ try{
   const composer=page.locator('.social-chat textarea').first();
   await composer.waitFor();
   await page.waitForFunction(()=>!document.querySelector('.social-connection'));
+  assert.equal(await page.getByRole('button',{name:'查看更早的消息'}).count(),0,'空聊天室不应该显示历史分页');
   await composer.fill(message);await composer.press('Enter');
   await page.locator('.chat-history').getByText(message,{exact:true}).waitFor();
+  assert.equal(await page.getByRole('button',{name:'查看更早的消息'}).count(),0,'新收到的第一条消息之前没有历史记录');
   await page.getByRole('button',{name:/此刻在线/}).click();
   await page.getByRole('dialog',{name:'此刻在线'}).locator('.person').filter({hasText:name}).waitFor();
   await page.getByRole('dialog').getByRole('button',{name:'关闭'}).click();
@@ -164,6 +166,25 @@ try{
     await page.locator(section).waitFor();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true,label+' phone width');
   }
+  const insert=service.db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)');
+  const seed=n=>insert.run('lobby',uid,name,'记录 '+n,Date.now());
+  const count=Number(service.db.prepare("SELECT count(*) AS n FROM messages WHERE channel='lobby'").get().n);
+  for(let i=count+1;i<=100;i++)seed(i);
+  const historyURL=r=>r.url().includes('/api/chat/history?before=');
+  const opening=page.waitForResponse(historyURL);
+  await page.goto(origin+'/index.html#/community');
+  await page.reload();
+  assert.deepEqual((await (await opening).json()).items,[]);
+  assert.equal(await page.locator('.chat-history [data-message]').count(),100);
+  assert.equal(await page.getByRole('button',{name:'查看更早的消息'}).count(),0);
+  seed(101);seed(102);
+  await page.route('**/api/chat/history?before=*',route=>route.abort('failed'),{times:1});
+  await page.reload();
+  await page.getByRole('button',{name:'重试读取聊天记录'}).click();
+  await page.getByRole('button',{name:'查看更早的消息'}).click();
+  await page.locator('.chat-history').getByText(message,{exact:true}).waitFor();
+  assert.equal(await page.locator('.chat-history [data-message]').count(),102);
+  assert.equal(await page.getByRole('button',{name:'查看更早的消息'}).count(),0);
   assert.deepEqual(errors,[]);
   console.log('Android 社区页面 · 390×844，社区首屏与使用协议、横竖屏导航、公告选服、社区内选实例与下载、取消与登录后续接、重开角色、临时社区服务、WebSocket 聊天、论坛、协会、LINKING、排行及钱包通过。');
 }catch(error){
