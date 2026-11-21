@@ -46,8 +46,9 @@ await build({root:archive,configFile:path.join(archive,'vite.config.ts'),plugins
   }
 }],build:{outDir:path.join(town,'linking'),emptyOutDir:true,target:'chrome80',cssTarget:'chrome80'}});
 await cp(path.join(root,'public/media/games'),path.join(town,'media/games'),{recursive:true});
+await copyFile(path.join(root,'public/media/brand/launcher.svg'),path.join(town,'town-mark.svg'));
 await copyFile(path.join(source,'LICENSE'),path.join(town,'FCL-LICENSE.txt'));
-await writeFile(path.join(town,'server-presets.json'),JSON.stringify(DEFAULT_SERVERS.map(({name,address})=>({name,address}))));
+await writeFile(path.join(town,'server-presets.json'),JSON.stringify(DEFAULT_SERVERS.map(({id,group,name,address,version,loader,loaderVersion,enabled,profileSource,updateUrls,updateRequired,packageUrl,packageSha256})=>({id,group,name,address,version,loader,loaderVersion,enabled,profileSource,updateUrls,updateRequired,packageUrl,packageSha256}))));
 await writeFile(path.join(town,'source.json'),JSON.stringify({upstream:pin,version,changes:'apps/android/fcl.patch',license:'GPL-3.0-or-later'}));
 if(process.argv.includes('--prepare'))process.exit(0);
 const [major,minor,fix]=version.split('.').map(Number);

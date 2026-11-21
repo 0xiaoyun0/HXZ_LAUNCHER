@@ -37,8 +37,8 @@ window.launcher={
       const documentAction=action==='asset.export'&&input.action==='finish'||['blueprints.download','android.world.save'].includes(action);
       const timer=setTimeout(()=>{
         pending.delete(id);
-        resolve({ok:false,error:'连接未完成，请返回游戏首页再打开社区。'});
-      },documentAction?900000:32000);
+        resolve({ok:false,error:'操作超时，请在社区重试。'});
+      },documentAction||action==='android.account'?900000:32000);
       pending.set(id,value=>{clearTimeout(timer);resolve(value);});
       void channel.then(port=>{if(pending.has(id))port.postMessage(JSON.stringify({id,action,input}));});
     });

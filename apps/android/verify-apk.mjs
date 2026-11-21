@@ -27,7 +27,7 @@ export async function verifyApk(file,abi,pin,version){
   assert.deepEqual([...abis],[abi],file+' native ABI');
   const meta=JSON.parse(source);
   assert.deepEqual(meta.upstream,pin);assert.equal(meta.version,version);
-  for(const name of ['AndroidManifest.xml','classes.dex','assets/controllers/00000000.json','assets/town/index.html','assets/town/linking/index.html','assets/town/server-presets.json','assets/town/FCL-LICENSE.txt','lib/'+abi+'/libfcl.so','lib/'+abi+'/libgl4es_114.so','lib/'+abi+'/libng_gl4es.so','lib/'+abi+'/libpojavexec.so'])assert.ok(names.has(name),name);
+  for(const name of ['AndroidManifest.xml','classes.dex','assets/controllers/00000000.json','assets/town/index.html','assets/town/town-mark.svg','assets/town/linking/index.html','assets/town/server-presets.json','assets/town/FCL-LICENSE.txt','lib/'+abi+'/libfcl.so','lib/'+abi+'/libgl4es_114.so','lib/'+abi+'/libng_gl4es.so','lib/'+abi+'/libpojavexec.so'])assert.ok(names.has(name),name);
   for(const jre of [8,17,21,25]){
     const root='assets/app_runtime/java/jre'+jre+'/';
     const expected=root+'bin-'+(abi==='arm64-v8a'?'arm64':'x86_64')+'.tar.xz';

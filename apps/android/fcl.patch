@@ -91,10 +91,10 @@ index 5cba3a7..e20cd6f 100644
      implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
      implementation(project(":ZipFileSystem"))
 diff --git a/FCL/src/main/AndroidManifest.xml b/FCL/src/main/AndroidManifest.xml
-index da0588e..bb3b527 100644
+index da0588e..21240f1 100644
 --- a/FCL/src/main/AndroidManifest.xml
 +++ b/FCL/src/main/AndroidManifest.xml
-@@ -37,19 +37,20 @@
+@@ -37,37 +37,35 @@
          android:dataExtractionRules="@xml/data_extraction_rules"
          android:fullBackupContent="@xml/backup_rules"
          android:hasFragileUserData="true"
@@ -113,10 +113,41 @@ index da0588e..bb3b527 100644
          android:usesCleartextTraffic="true"
          tools:ignore="DiscouragedApi"
          tools:targetApi="33">
-+        <activity android:name="top.hxzmc.town.TownCommunityActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
-         <activity
-             android:name=".activity.SplashActivity"
-             android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
+-        <activity
+-            android:name=".activity.SplashActivity"
+-            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode"
+-            android:exported="true"
+-            android:screenOrientation="sensorLandscape"
+-            android:theme="@style/Theme.Splash">
++        <activity android:name="top.hxzmc.town.TownCommunityActivity" android:exported="false"
++            android:launchMode="singleTop" android:windowSoftInputMode="adjustResize"
++            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode" />
++        <activity-alias android:name=".activity.SplashActivity" android:exported="true"
++            android:targetActivity="top.hxzmc.town.TownCommunityActivity">
+             <intent-filter>
+                 <action android:name="android.intent.action.MAIN" />
+-
+                 <category android:name="android.intent.category.LAUNCHER" />
+             </intent-filter>
+-        </activity>
++        </activity-alias>
+ 
+         <activity-alias
+             android:name=".ImportActivity"
+             android:exported="true"
+             android:label="@string/app_name_import"
+-            android:targetActivity=".activity.SplashActivity">
++            android:targetActivity="top.hxzmc.town.TownCommunityActivity">
+             <intent-filter>
+                 <action android:name="android.intent.action.VIEW" />
+ 
+@@ -204,4 +202,4 @@
+             <action android:name="android.intent.action.TTS_SERVICE" />
+         </intent>
+     </queries>
+-</manifest>
+\ No newline at end of file
++</manifest>
 diff --git a/FCL/src/main/java/com/tungsten/fcl/activity/JVMCrashActivity.kt b/FCL/src/main/java/com/tungsten/fcl/activity/JVMCrashActivity.kt
 index a32db38..1a3db8e 100644
 --- a/FCL/src/main/java/com/tungsten/fcl/activity/JVMCrashActivity.kt
@@ -230,6 +261,166 @@ index 774d421..f26be34 100644
                      runCatching { profile.repository.getGameVersion(it).orElse(null) }.getOrNull()
                  }
              }
+diff --git a/FCL/src/main/java/com/tungsten/fcl/game/FCLGameRepository.java b/FCL/src/main/java/com/tungsten/fcl/game/FCLGameRepository.java
+index 9036ac2..d3ad624 100644
+--- a/FCL/src/main/java/com/tungsten/fcl/game/FCLGameRepository.java
++++ b/FCL/src/main/java/com/tungsten/fcl/game/FCLGameRepository.java
+@@ -421,7 +421,7 @@ public class FCLGameRepository extends DefaultGameRepository {
+             vs.setUsesGlobal(true);
+     }
+ 
+-    public LaunchOptions getLaunchOptions(String version, JavaVersion javaVersion, File gameDir, double scaleFactor, double cursorOffset) {
++    public LaunchOptions getLaunchOptions(String version, JavaVersion javaVersion, File gameDir, double scaleFactor, double cursorOffset, String townServer) {
+         VersionSetting vs = getVersionSetting(version);
+         // 每版本渲染器覆盖（Profile.rendererOverrides）优先于版本/全局设置中的渲染器；
+         // 覆盖指向的渲染器已卸载/禁用时视同无覆盖，回到版本设置
+@@ -438,7 +438,7 @@ public class FCLGameRepository extends DefaultGameRepository {
+                 .setVersionType(LauncherUtilKt.getLauncherName(FCLApp.getAppContext()))
+                 .setVersionName(version)
+                 .setProfileName(FCLApp.getAppContext().getString(R.string.app_name))
+-                .setGameArguments(StringUtils.tokenize(vs.getMinecraftArgs()))
++                .setGameArguments(top.hxzmc.town.TownJoin.gameArguments(StringUtils.tokenize(vs.getMinecraftArgs()), townServer))
+                 .setJavaArguments(StringUtils.tokenize(vs.getJavaArgs()))
+                 .setMaxMemory(maxMemory)
+                 // Xms=Xmx 会让 G1 按峰值全量提交物理内存且不收缩堆，白占内存易触发系统杀进程与温控，故 Xms 取小值让堆按需增长
+@@ -446,7 +446,7 @@ public class FCLGameRepository extends DefaultGameRepository {
+                 // 口径与 JVMActivity surface 回调、GameMenu.refreshWindowsSize 一致：宽度含 cursorOffset
+                 .setWidth(FCLBridge.FORCE_RESOLUTION ? FCLBridge.FORCE_RESOLUTION_WIDTH : (int) ((AndroidUtilKt.getScreenWidth() + cursorOffset) * scaleFactor))
+                 .setHeight(FCLBridge.FORCE_RESOLUTION ? FCLBridge.FORCE_RESOLUTION_HEIGHT : (int) (AndroidUtilKt.getScreenHeight() * scaleFactor))
+-                .setServerIp(vs.getServerIp())
++                .setServerIp(townServer != null ? townServer : vs.getServerIp())
+                 .setVkDriverSystem(vs.isVKDriverSystem())
+                 .setRenderer(RendererManager.getRenderer(rendererId))
+                 .setDebugLog(vs.isDebugLog());
+diff --git a/FCL/src/main/java/com/tungsten/fcl/game/LauncherHelper.kt b/FCL/src/main/java/com/tungsten/fcl/game/LauncherHelper.kt
+index 3dd6387..1c84a1e 100644
+--- a/FCL/src/main/java/com/tungsten/fcl/game/LauncherHelper.kt
++++ b/FCL/src/main/java/com/tungsten/fcl/game/LauncherHelper.kt
+@@ -116,9 +116,17 @@ class LauncherHelper(
+     private val selectedVersion: String,
+ ) {
+ 
++    var townTarget: top.hxzmc.town.TownJoin.Target? = null
+     private val setting: VersionSetting = profile.getVersionSetting(selectedVersion)
+-    private val launchingStepsPane = TaskDialog(context, TaskCancellationAction.NORMAL).apply {
++    private var townUi: top.hxzmc.town.TownLaunchUi? = null
++    private val launchingStepsPane by lazy { TaskDialog(context, TaskCancellationAction.NORMAL).apply {
+         title = context.getString(R.string.version_launch)
++    } }
++
++    suspend fun launchFromCommunity(target: top.hxzmc.town.TownJoin.Target, ui: top.hxzmc.town.TownLaunchUi) {
++        townTarget = target
++        townUi = ui
++        try { withContext(Dispatchers.IO) { launch0() } } finally { mainScope.cancel() }
+     }
+     private val mainScope = CoroutineScope(Dispatchers.Main + SupervisorJob())
+     private var scaleFactor = 1.0
+@@ -158,6 +166,7 @@ class LauncherHelper(
+                     withContext(Dispatchers.Main) {
+                         currentStage?.let { launchingStepsPane.succeedStage(it) }
+                         launchingStepsPane.dismiss()
++                        if (townTarget != null && context is MainActivity) context.finish()
+                     }
+                 } catch (_: CancellationException) {
+                     // 用户主动取消（TaskDialog 取消按钮或检查弹窗中选择取消）：幂等关闭启动弹窗。
+@@ -170,7 +179,10 @@ class LauncherHelper(
+                     withContext(NonCancellable + Dispatchers.Main) {
+                         currentStage?.let { launchingStepsPane.failStage(it) }
+                         launchingStepsPane.dismiss()
+-                        showLaunchErrorMessage(e)
++                        if (e is top.hxzmc.town.TownJoin.LoginIssue && context is MainActivity) {
++                            android.app.AlertDialog.Builder(context).setTitle("皮肤站验证未完成").setMessage(e.message)
++                                .setPositiveButton("返回社区") { _, _ -> context.finish() }.show()
++                        } else showLaunchErrorMessage(e)
+                     }
+                 }
+             } finally {
+@@ -182,6 +194,7 @@ class LauncherHelper(
+ 
+     /** 进入下一启动阶段：上一真正进入的阶段打勾，当前阶段标记开始 */
+     private fun enterStage(stage: String) {
++        townUi?.let { it.stage(stage); return }
+         // 按 currentStage 而非列表固定前一项打勾，isNotCheckGame 跳过 dependencies 时不会错位
+         currentStage?.let { launchingStepsPane.succeedStage(it) }
+         launchingStepsPane.beginStage(stage)
+@@ -325,7 +338,8 @@ class LauncherHelper(
+                 javaVersion,
+                 profile.gameDir,
+                 scaleFactor,
+-                cursorOffset
++                cursorOffset,
++                townTarget?.address
+             )
+         val launcher = FCLGameLauncher(context, repository, version, authInfo, launchOptions, setting)
+ 
+@@ -374,7 +388,7 @@ class LauncherHelper(
+         checkMod(fclBridge, gameVersion, scannedMods)
+ 
+         val gameOption = GameOption(repository.getRunDirectory(selectedVersion).absolutePath)
+-        gameOption.set("preferredGraphicsBackend", setting.graphicsBackend)
++        gameOption.set("preferredGraphicsBackend", townTarget?.graphicsBackend ?: setting.graphicsBackend)
+         gameOption.set("startedCleanly", "true")
+         gameOption.save()
+     }
+@@ -387,6 +401,7 @@ class LauncherHelper(
+         javaVersion: JavaVersion,
+     ) {
+         withContext(Dispatchers.Main) {
++            townUi?.beforeGame()
+             CallbackBridge.nativeSetUseInputStackQueue(version.arguments.isPresent)
+             val intent = Intent(context, JVMActivity::class.java)
+             fclBridge.scaleFactor = scaleFactor
+@@ -400,11 +415,11 @@ class LauncherHelper(
+             intent.putExtras(bundle)
+             LOG.log(Level.INFO, "Start JVMActivity!")
+             context.startActivity(intent)
+-            if (MainActivity.getInstance().shouldPlayVideo()) {
++            if (townUi == null && MainActivity.getInstance().shouldPlayVideo()) {
+                 MainActivity.getInstance().mediaPlayer = null
+                 MainActivity.getInstance().binding.videoView.stopPlayback()
+             }
+-            if (context.getSharedPreferences("launcher", Context.MODE_PRIVATE)
++            if (townTarget == null && context.getSharedPreferences("launcher", Context.MODE_PRIVATE)
+                     .getBoolean("autoExitLauncher", false)
+             ) {
+                 FCLApp.getActivity()?.finish()
+@@ -418,7 +433,7 @@ class LauncherHelper(
+      */
+     private suspend fun runTracked(task: Task<*>) {
+         val executor = task.executor()
+-        withContext(Dispatchers.Main) { launchingStepsPane.setExecutor(executor, false) }
++        if (townUi == null) withContext(Dispatchers.Main) { launchingStepsPane.setExecutor(executor, false) } else townUi?.observe(executor)
+         suspendCancellableCoroutine { cont ->
+             executor.addTaskListener(object : TaskListener() {
+                 override fun onStop(success: Boolean, executor: TaskExecutor) {
+@@ -445,6 +460,10 @@ class LauncherHelper(
+         negativeText: String = context.getString(R.string.mod_check_continue),
+         neutralText: String? = null,
+     ): Choice = withContext(Dispatchers.Main) {
++        townUi?.let { ui ->
++            val labels = listOfNotNull(positiveText, negativeText, neutralText)
++            return@withContext listOf(Choice.POSITIVE, Choice.NEGATIVE, Choice.NEUTRAL)[ui.confirm(message, labels)]
++        }
+         suspendCancellableCoroutine { cont ->
+             // 弹窗按钮与协程取消可能竞争，已完成时不再重复 resume
+             fun choose(choice: Choice) {
+@@ -584,7 +603,7 @@ class LauncherHelper(
+             if (!mods.isNullOrEmpty() && !modded) {
+                 when (awaitChoice(
+                     context.getString(R.string.message_check_has_modloader),
+-                    neutralText = context.getString(R.string.button_install)
++                    neutralText = if (townUi == null) context.getString(R.string.button_install) else null
+                 )) {
+                     Choice.NEGATIVE -> {}
+                     Choice.NEUTRAL -> {
+@@ -711,6 +730,7 @@ class LauncherHelper(
+      * 登录账户；微软账户登录期间将认证阶段文字实时写入启动弹窗日志区
+      */
+     private suspend fun logIn(): AuthInfo {
++        townTarget?.let { return top.hxzmc.town.TownJoin.authenticate(account, it) }
+         val withProgress = account is MicrosoftAccount
+         if (withProgress) {
+             // 进度回调在后台登录线程触发，需切回主线程写弹窗日志
 diff --git a/FCL/src/main/java/com/tungsten/fcl/game/ManuallyCreatedModpackInstallTask.java b/FCL/src/main/java/com/tungsten/fcl/game/ManuallyCreatedModpackInstallTask.java
 index dd43710..9eb668c 100644
 --- a/FCL/src/main/java/com/tungsten/fcl/game/ManuallyCreatedModpackInstallTask.java
@@ -268,6 +459,64 @@ index 6a6a82f..dad6c23 100644
  
          // load accounts
          Account selected = null;
+diff --git a/FCL/src/main/java/com/tungsten/fcl/setting/ConfigHolder.java b/FCL/src/main/java/com/tungsten/fcl/setting/ConfigHolder.java
+index 5b3bf02..2f5bc34 100644
+--- a/FCL/src/main/java/com/tungsten/fcl/setting/ConfigHolder.java
++++ b/FCL/src/main/java/com/tungsten/fcl/setting/ConfigHolder.java
+@@ -39,9 +39,10 @@ public final class ConfigHolder {
+ 
+     private static Config configInstance;
+     private static boolean newlyCreated;
++    private static boolean gameInitialized;
+ 
+     public static boolean isInit() {
+-        return configInstance != null;
++        return gameInitialized;
+     }
+ 
+     public static Config config() {
+@@ -56,6 +57,14 @@ public final class ConfigHolder {
+     }
+ 
+     public synchronized static void init() throws IOException {
++        if (gameInitialized) return;
++        initTownAccounts();
++        Settings.init();
++        gameInitialized = true;
++        if (newlyCreated) saveConfigSync();
++    }
++
++    public synchronized static void initTownAccounts() throws IOException {
+         if (configInstance != null) {
+             return;
+         }
+@@ -63,7 +72,9 @@ public final class ConfigHolder {
+         configInstance = loadConfig();
+         configInstance.addListener(source -> markConfigDirty());
+ 
+-        Settings.init();
++        DownloadProviders.init();
++        Accounts.init();
++        AuthlibInjectorServers.init();
+ 
+         if (newlyCreated) {
+             saveConfigSync();
+diff --git a/FCL/src/main/java/com/tungsten/fcl/setting/Settings.java b/FCL/src/main/java/com/tungsten/fcl/setting/Settings.java
+index 3f24944..121b31d 100644
+--- a/FCL/src/main/java/com/tungsten/fcl/setting/Settings.java
++++ b/FCL/src/main/java/com/tungsten/fcl/setting/Settings.java
+@@ -41,11 +41,8 @@ public final class Settings {
+     }
+ 
+     private Settings() {
+-        DownloadProviders.init();
+-        Accounts.init();
+         Profiles.init();
+         Schedulers.defaultScheduler().execute(Controllers::init);
+-        AuthlibInjectorServers.init();
+ 
+         CacheRepository.setInstance(FCLCacheRepository.REPOSITORY);
+         FCLCacheRepository.REPOSITORY.setDirectory(FCLPath.CACHE_DIR);
 diff --git a/FCL/src/main/java/com/tungsten/fcl/setting/VersionSetting.kt b/FCL/src/main/java/com/tungsten/fcl/setting/VersionSetting.kt
 index 33fc6af..0572033 100644
 --- a/FCL/src/main/java/com/tungsten/fcl/setting/VersionSetting.kt
@@ -291,7 +540,7 @@ index 33fc6af..0572033 100644
                  vs.isIsolateGameDir = json["isolateGameDir"]?.asBoolean ?: false
                  vs.isNotCheckMod = json["notCheckMod"]?.asBoolean ?: false
 diff --git a/FCL/src/main/java/com/tungsten/fcl/ui/main/MainUI.java b/FCL/src/main/java/com/tungsten/fcl/ui/main/MainUI.java
-index df78a61..7d21cd7 100644
+index df78a61..6c4c00e 100644
 --- a/FCL/src/main/java/com/tungsten/fcl/ui/main/MainUI.java
 +++ b/FCL/src/main/java/com/tungsten/fcl/ui/main/MainUI.java
 @@ -15,34 +15,17 @@ import com.mio.skin.SkinViewer;
@@ -346,7 +595,7 @@ index df78a61..7d21cd7 100644
 -        hide.setOnClickListener(this);
 +        top.hxzmc.town.TownHome.bind(findViewById(R.id.announcement_container));
 +        View townCommunity = findViewById(R.id.town_community);
-+        townCommunity.setOnClickListener(v -> getContext().startActivity(new android.content.Intent(getContext(), top.hxzmc.town.TownCommunityActivity.class)));
++        townCommunity.setOnClickListener(v -> getContext().startActivity(new android.content.Intent(getContext(), top.hxzmc.town.TownCommunityActivity.class).addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP | android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)));
  
          skinViewer = findViewById(R.id.skin_viewer);
          renderer = new SkinRenderer(getContext());
@@ -506,7 +755,7 @@ index 70ca430..2e32b82 100644
  
      public static int getCurrentVersionCode(Context context) {
 diff --git a/FCL/src/main/java/com/tungsten/fclauncher/utils/FCLPath.java b/FCL/src/main/java/com/tungsten/fclauncher/utils/FCLPath.java
-index ebd7fa0..9d2a6b0 100644
+index ebd7fa0..96a8e1b 100644
 --- a/FCL/src/main/java/com/tungsten/fclauncher/utils/FCLPath.java
 +++ b/FCL/src/main/java/com/tungsten/fclauncher/utils/FCLPath.java
 @@ -34,7 +34,8 @@ public class FCLPath {
@@ -519,34 +768,72 @@ index ebd7fa0..9d2a6b0 100644
  
      public static String AUTHLIB_INJECTOR_PATH;
      public static String LIB_PATCHER_PATH;
-@@ -46,7 +47,7 @@ public class FCLPath {
+@@ -43,10 +44,18 @@ public class FCLPath {
+     public static String DK_BACKGROUND_PATH;
+     public static String LIVE_BACKGROUND_PATH;
+ 
++    public static boolean canUseSharedStorage(Context context) {
++        return android.os.Build.VERSION.SDK_INT >= 30 ? Environment.isExternalStorageManager()
++                : context.checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) == android.content.pm.PackageManager.PERMISSION_GRANTED;
++    }
++
      public static void loadPaths(Context context) {
          NATIVE_LIB_DIR = context.getApplicationInfo().nativeLibraryDir;
  
 -        LOG_DIR = Environment.getExternalStorageDirectory().getAbsolutePath() + "/FCL/log";
-+        LOG_DIR = TOWN_DIRECTORY + "/log";
++        File sharedTown = new File(TOWN_DIRECTORY);
++        boolean canUseShared = canUseSharedStorage(context);
++        String support = canUseShared ? sharedTown.getAbsolutePath() : new File(context.getFilesDir(), "town").getAbsolutePath();
++        LOG_DIR = support + "/log";
          CACHE_DIR = context.getCacheDir() + "/fclauncher";
  
          RUNTIME_DIR = context.getDir("runtime", 0).getAbsolutePath();
-@@ -66,8 +67,8 @@ public class FCLPath {
+@@ -66,8 +75,8 @@ public class FCLPath {
          PLUGIN_DIR = FILES_DIR + "/plugins";
          BACKGROUND_DIR = FILES_DIR + "/background";
          SKIN_DIR = FILES_DIR + "/skin";
 -        CONTROLLER_DIR = Environment.getExternalStorageDirectory().getAbsolutePath() + "/FCL/control";
 -        SHARE_DIR = Environment.getExternalStorageDirectory().getAbsolutePath() + "/FCL/share";
-+        CONTROLLER_DIR = TOWN_DIRECTORY + "/control";
-+        SHARE_DIR = TOWN_DIRECTORY + "/share";
++        CONTROLLER_DIR = support + "/control";
++        SHARE_DIR = support + "/share";
          File externalFilesDir = context.getExternalFilesDir(null);
          if (externalFilesDir == null) {
              externalFilesDir = new File(Environment.getExternalStorageDirectory(), "Android/data/" + context.getPackageName() + "/files");
+@@ -99,7 +108,7 @@ public class FCLPath {
+         init(CONTROLLER_DIR);
+         init(SHARE_DIR);
+         init(PRIVATE_COMMON_DIR);
+-        init(SHARED_COMMON_DIR);
++        if (canUseShared) init(SHARED_COMMON_DIR);
+     }
+ 
+     private static void init(String path) {
+diff --git a/FCL/src/main/java/com/tungsten/fclcore/auth/authlibinjector/AuthlibInjectorProvider.java b/FCL/src/main/java/com/tungsten/fclcore/auth/authlibinjector/AuthlibInjectorProvider.java
+index c4024c8..660e55b 100644
+--- a/FCL/src/main/java/com/tungsten/fclcore/auth/authlibinjector/AuthlibInjectorProvider.java
++++ b/FCL/src/main/java/com/tungsten/fclcore/auth/authlibinjector/AuthlibInjectorProvider.java
+@@ -31,7 +31,7 @@ public class AuthlibInjectorProvider implements YggdrasilProvider {
+     private final String apiRoot;
+ 
+     public AuthlibInjectorProvider(String apiRoot) {
+-        this.apiRoot = apiRoot;
++        this.apiRoot = apiRoot.endsWith("/") ? apiRoot : apiRoot + "/";
+     }
+ 
+     @Override
 diff --git a/FCL/src/main/java/com/tungsten/fclcore/auth/yggdrasil/YggdrasilAccount.java b/FCL/src/main/java/com/tungsten/fclcore/auth/yggdrasil/YggdrasilAccount.java
-index 21c60a8..e050046 100644
+index 21c60a8..da885ed 100644
 --- a/FCL/src/main/java/com/tungsten/fclcore/auth/yggdrasil/YggdrasilAccount.java
 +++ b/FCL/src/main/java/com/tungsten/fclcore/auth/yggdrasil/YggdrasilAccount.java
-@@ -188,6 +188,14 @@ public abstract class YggdrasilAccount extends ClassicAccount {
+@@ -188,6 +188,19 @@ public abstract class YggdrasilAccount extends ClassicAccount {
          return storage;
      }
  
++    public synchronized AuthInfo logInToTownServer() throws AuthenticationException {
++        authenticated = false;
++        return logIn();
++    }
++
 +    /** Save the rotated tokens returned by the same skin provider after a community login. */
 +    public synchronized void acceptTownRefresh(String previous, String accessToken, String clientToken) {
 +        if (!session.getAccessToken().equals(previous)) throw new IllegalStateException("角色登录已更新，请重新连接");
@@ -571,6 +858,26 @@ index d645355..02a05f5 100644
              applicationContext.getDir("runtime", 0).absolutePath + "/java/" + jre,
              applicationContext.cacheDir.toString() + "/fclauncher",
              Renderer(
+diff --git a/FCL/src/main/java/com/tungsten/fclcore/mod/modrinth/ModrinthCompletionTask.java b/FCL/src/main/java/com/tungsten/fclcore/mod/modrinth/ModrinthCompletionTask.java
+index cb9b832..0b6ccbf 100644
+--- a/FCL/src/main/java/com/tungsten/fclcore/mod/modrinth/ModrinthCompletionTask.java
++++ b/FCL/src/main/java/com/tungsten/fclcore/mod/modrinth/ModrinthCompletionTask.java
+@@ -117,7 +117,14 @@ public class ModrinthCompletionTask extends Task<Void> {
+                 continue;
+             if (modsDirectory.equals(filePath.getParent()) && this.modManager.hasSimpleMod(FileUtils.getName(filePath)))
+                 continue;
+-            FileDownloadTask task = new FileDownloadTask(file.getDownloads(), filePath.toFile());
++            FileDownloadTask.IntegrityCheck integrity = null;
++            if (file.getHashes() != null) {
++                String sha512 = file.getHashes().get("sha512");
++                String sha1 = file.getHashes().get("sha1");
++                if (sha512 != null) integrity = new FileDownloadTask.IntegrityCheck("SHA-512", sha512);
++                else if (sha1 != null) integrity = new FileDownloadTask.IntegrityCheck("SHA-1", sha1);
++            }
++            FileDownloadTask task = new FileDownloadTask(file.getDownloads(), filePath.toFile(), integrity);
+             task.setCacheRepository(dependency.getCacheRepository());
+             task.setCaching(true);
+             dependencies.add(task.withCounter("fcl.modpack.download"));
 diff --git a/FCL/src/main/res/layout/ui_main.xml b/FCL/src/main/res/layout/ui_main.xml
 index 7e7d663..7c9b321 100644
 --- a/FCL/src/main/res/layout/ui_main.xml

@@ -4,7 +4,6 @@ import android.content.Context
 import java.io.DataOutputStream
 import java.io.File
 import java.nio.file.Files
-import org.json.JSONArray
 
 /** Minecraft reads its server list as an uncompressed, named NBT compound. */
 object TownServers {
@@ -17,7 +16,7 @@ object TownServers {
             directory.mkdirs()
             val tmp = File.createTempFile("town-servers-", ".tmp", directory)
             try {
-                val presets = JSONArray(context.assets.open("town/server-presets.json").bufferedReader().use { it.readText() })
+                val presets = TownDirectory(context).listing()
                 DataOutputStream(tmp.outputStream().buffered()).use { out ->
                     out.writeByte(10); out.writeUTF("")
                     out.writeByte(9); out.writeUTF("servers"); out.writeByte(10); out.writeInt(presets.length())
