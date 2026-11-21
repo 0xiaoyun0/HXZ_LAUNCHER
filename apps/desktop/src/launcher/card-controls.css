@@ -21,7 +21,7 @@
 [data-skin] .desktop-panels.guild-columns {display:block}
 [data-skin] .desktop-panels [data-card-id] {position:relative}
 [data-skin] .desktop-panels section[data-fixed] {min-height:var(--card-height)}
-.desktop-panels [data-card-grid][data-packed] {display:grid;grid-template: none / repeat(12,minmax(0,1fr));grid-auto-rows:4px;row-gap:0;align-items:start}
+.desktop-panels [data-card-grid][data-packed] {display:grid;grid-template: none / repeat(12,minmax(0,1fr));grid-auto-rows:.25em;row-gap:0;align-items:start}
 .desktop-panels [data-card-grid][data-compact] {display:flex;flex-direction:column;align-items:stretch;gap:var(--desk-gap)}
 .card-heading-tools {display:inline-flex;align-items:center;gap:2px;flex:none}
 
@@ -51,7 +51,7 @@
 .board-editor .launch-primary {color:var(--accent-ink)}
 .canvas-grip {display:inline-grid;place-items:center;flex:none;touch-action:none;border:0;background:transparent;color:var(--desk-muted);padding:0}
 .canvas-grip.move {width:27px;height:28px;cursor:grab;border-radius:var(--control-radius)}
-.canvas-grip.size {position:absolute;right:2px;bottom:2px;width:24px;height:23px;cursor:nwse-resize;border-radius:var(--control-radius);opacity:.32}
+.canvas-grip.size {position:absolute;inset-inline-end:.125em;inset-block-end:.125em;width:24px;height:23px;cursor:nwse-resize;border-radius:var(--control-radius);opacity:.32}
 .canvas-grip.size svg {width:12px;height:12px}
 [data-card-id]:hover>.canvas-grip.size,.canvas-grip.size:focus-visible {opacity:1}
 .canvas-grip:hover:enabled,.canvas-grip:focus-visible {color:var(--accent-text);background:var(--accent-soft)}

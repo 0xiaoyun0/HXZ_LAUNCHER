@@ -1,7 +1,7 @@
 import {useEffect,useRef,useState,type PointerEvent} from 'react';
 import {createPortal} from 'react-dom';
 import {Grip,Scaling} from 'lucide-react';
-import {boardMetrics,cardPositions} from './CardGrid';
+import {boardMetrics,cardHeightUnit,cardPositions} from './CardGrid';
 
 type Kind='move'|'size';
 type Props={kind:Kind;id:string;title:string;compact:boolean;locked:boolean;onEdit:(command:any)=>void;onChoose:()=>void};
@@ -36,8 +36,10 @@ export function CardGestures({kind,id,title,compact,locked,onEdit,onChoose}:Prop
     const col=Math.min(12-oldW,Math.max(0,Math.round((p.left+dx)/step)));
     if(kind==='size'){
       const w=compact?12:Math.max(2,Math.min(12,Math.round((p.width+dx+gap)/step)));
-      const h=Math.max(5,Math.min(100,Math.round(Math.max(p.minimum,p.height+dy)/22)));
-      return {command:{id,op:'size',w:compact?undefined:w,h:Math.abs(dy)>=5?h:undefined},box:{left:rect.left+Math.min(p.left,(12-w)*step),top:rect.top+p.top,width:w*step-gap,height:Math.abs(dy)>=5?Math.max(p.minimum,h*22):p.height,text:(compact?'整行':w+'/12 宽')+' · '+(Math.abs(dy)>=5?Math.round(Math.max(p.minimum,h*22)):Math.round(p.height))+' px'}};
+      const unit=cardHeightUnit(p.card),heightChanged=Math.abs(dy)>=5;
+      const h=Math.max(5,Math.min(100,Math.round(Math.max(p.minimum,p.height+dy)/unit)));
+      const height=heightChanged?Math.max(p.minimum,h*unit):p.height;
+      return {command:{id,op:'size',w:compact?undefined:w,h:heightChanged?h:undefined},box:{left:rect.left+Math.min(p.left,(12-w)*step),top:rect.top+p.top,width:w*step-gap,height,text:(compact?'整行':w+'/12 宽')+(heightChanged?' · '+h+' 格':'')}};
     }
     const cards=cardPositions(p.grid).filter(c=>c.id!==id&&c.x<col+oldW&&c.x+c.w>col);
     const hit=document.elementFromPoint(x,y)?.closest<HTMLElement>('[data-card-id]');
@@ -67,7 +69,7 @@ export function CardGestures({kind,id,title,compact,locked,onEdit,onChoose}:Prop
       if(e.key==='Enter'||e.key===' '){e.preventDefault();onChoose();return;}
       if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;
       e.preventDefault();const grid=e.currentTarget.closest<HTMLElement>('[data-card-grid]')!,all=cardPositions(grid),at=all.findIndex(c=>c.id===id),card=all[at],delta=['ArrowLeft','ArrowUp'].includes(e.key)?-1:1;
-      if(kind==='size'){onEdit(e.key==='ArrowUp'||e.key==='ArrowDown'?{id,op:'height',value:Math.max(5,Math.round(card.height/22)+delta)}:{id,op:'width',value:compact?12:card.w+delta});}
+      if(kind==='size'){onEdit(e.key==='ArrowUp'||e.key==='ArrowDown'?{id,op:'height',value:Math.max(5,Math.round(card.height/cardHeightUnit(e.currentTarget.closest<HTMLElement>('[data-card-id]')!))+delta)}:{id,op:'width',value:compact?12:card.w+delta});}
       else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){if(!compact)onEdit({id,op:'place',x:card.x+delta});}
       else {const ordered=all.slice().sort((a,b)=>a.top-b.top||a.left-b.left),next=ordered[ordered.findIndex(c=>c.id===id)+delta];if(next)onEdit({id,op:'move',to:next.id});}
     }}>{kind==='move'?<Grip size={16}/>:<Scaling size={14}/>}</button>

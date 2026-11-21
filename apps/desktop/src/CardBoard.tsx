@@ -5,7 +5,7 @@ import {useSnapshot} from 'valtio';
 import {boardCards,updateBoard} from '../../../packages/engine/core/board-preferences.mjs';
 import {CARD_PAGES,normalizeCardPlacements,isPortableCard} from '../../../packages/engine/core/card-extras.mjs';
 import {ChoiceGroup} from './launcher/ChoiceControls';
-import {cardPositions,useCardGrid} from './CardGrid';
+import {cardHeightEm,cardPositions,useCardGrid} from './CardGrid';
 import {CardGestures} from './CardGestures';
 import {CardHarvest,ForeignCard,HarvestedCards,moveCard} from './PortableCards';
 import {state,ui,saveSettings,perform} from './model';
@@ -39,9 +39,9 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
   const [failure,setFailure]=useState(''),[editing,setEditing]=useState(false);
   const [pending,setPending]=useState<{key:string;value:any}|null>(null);
   useLayoutEffect(()=>{
-    const el=root.current,main=el?.closest('main');if(!el||!main)return;
-    const measure=()=>setCompact(main.clientWidth<=54*parseFloat(getComputedStyle(main).fontSize)||el.clientWidth<=590);
-    measure();const observer=new ResizeObserver(measure);observer.observe(el);observer.observe(main);return()=>observer.disconnect();
+    const el=root.current;if(!el)return;
+    const measure=()=>setCompact(el.clientWidth<=52*parseFloat(getComputedStyle(el).fontSize));
+    measure();const observer=new ResizeObserver(measure);observer.observe(el);return()=>observer.disconnect();
   },[s.settings.fontSize]);
   const key=layoutKey+(compact?'.compact':'.wide'),stored=transient?local:s.settings.cardLayouts?.[key];
   const transferable=desktopCardSources.some(([board])=>board===id),supportsWidgets=CARD_PAGES.some(([board])=>board===id);
@@ -78,7 +78,7 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
     const cmd=(op:string,value:any)=>modify({id:row.id,op,value});
     return <section className="board-card-settings" aria-label={row.title+'的尺寸与位置'}><h3>{row.title}</h3>
             <div><strong>宽度</strong><ChoiceGroup label={row.title+'宽度'} value={row.w} disabled={busy||row.locked||compact} options={[...new Set([4,6,8,12,row.w])].sort((a,b)=>a-b).map(w=>[w,({4:'三分之一',6:'半宽',8:'三分之二',12:'整行'} as Record<number,string>)[w]||w+'/12'])} onChange={v=>cmd('width',Number(v))}/></div>
-            <div><strong>高度</strong><ChoiceGroup label={row.title+'高度'} value={row.fixed?row.h:0} disabled={busy||row.locked} options={[...new Set([0,10,16,22,...(row.fixed?[row.h]:[])])].sort((a,b)=>a-b).map(h=>[h,h?h*22+' px':'随内容'])} onChange={v=>cmd('height',Number(v))}/></div>
+            <div><strong>高度</strong><ChoiceGroup label={row.title+'高度'} value={row.fixed?row.h:0} disabled={busy||row.locked} options={[...new Set([0,10,16,22,...(row.fixed?[row.h]:[])])].sort((a,b)=>a-b).map(h=>[h,h?h+' 格':'随内容'])} onChange={v=>cmd('height',Number(v))}/></div>
             {origin&&transferable&&<div><strong>移动到</strong><div className="board-destinations">{desktopCardSources.filter(([board])=>board!==id).map(([dest,title])=><button className="small-action" key={dest} disabled={busy||row.locked} onClick={()=>perform(()=>moveCard(origin,dest))}>{title}</button>)}</div></div>}
     </section>;
   }
@@ -87,7 +87,7 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
         const {id:cardId,title}=row,span=Math.min(12,Math.max(row.minW||2,row.w));
         const handle=(kind:'move'|'size')=><CardGestures kind={kind} id={cardId} title={title} compact={compact} locked={busy||row.locked} onEdit={modify} onChoose={()=>show(cardId)}/>;
         return <section key={cardId} data-card-id={cardId} data-column={row.column} data-locked={row.locked||undefined} data-size={span<=6?'narrow':'wide'} data-fixed={row.fixed||undefined} aria-label={title||undefined}
-          className={(home?'desk-card ':'desktop-panel ')+(row.className||'')} style={{'--panel-span':span,'--card-height':row.h*22+'px'} as CSSProperties}>
+          className={(home?'desk-card ':'desktop-panel ')+(row.className||'')} style={{'--panel-span':span,'--card-height':row.h*cardHeightEm+'em'} as CSSProperties}>
           <CardControls.Provider value={{id:cardId,title,show,move:handle('move')}}>
             {row.native?row.content:<><CardHeading title={title} className="board-card-heading"/><div className="desktop-panel-body">{row.content}</div></>}
           </CardControls.Provider>{handle('size')}</section>;

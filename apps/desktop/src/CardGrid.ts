@@ -1,6 +1,11 @@
 import {useLayoutEffect,type RefObject} from 'react';
 
-const columns=12,rowPixels=4;
+const columns=12;
+// One saved size unit is a line at the player's current text scale.
+export const cardHeightEm=1.375;
+export function cardHeightUnit(card:HTMLElement){
+  return parseFloat(getComputedStyle(card).fontSize)*cardHeightEm;
+}
 export function boardMetrics(grid:HTMLElement){
   const rect=grid.getBoundingClientRect(),gap=parseFloat(getComputedStyle(grid).columnGap)||0;
   return {rect,gap,step:(rect.width+gap)/columns};
@@ -18,7 +23,8 @@ export function useCardGrid(ref:RefObject<HTMLDivElement|null>,packed:boolean,si
     const grid=ref.current;if(!grid||!packed)return;
     const cards=Array.from(grid.children).filter((node):node is HTMLElement=>node instanceof HTMLElement&&!!node.dataset.cardId);
     function arrange(){
-      const gap=parseFloat(getComputedStyle(grid!).columnGap)||0,ends=Array<number>(columns).fill(0);
+      const style=getComputedStyle(grid!),gap=parseFloat(style.columnGap)||0;
+      const rowPixels=parseFloat(style.gridAutoRows),ends=Array<number>(columns).fill(0);
       for(const card of cards){
         const w=Number(card.style.getPropertyValue('--panel-span'))||columns;
         const tops=Array.from({length:columns-w+1},(_,x)=>Math.max(...ends.slice(x,x+w)));
