@@ -70,7 +70,7 @@ pub fn dispatch(
             if format!("{:x}", digest.finalize()) != id {
                 return Err("安装包校验失败".into());
             }
-            Command::new(file).spawn().map_err(|e| e.to_string())?;
+            Command::new(file).arg("--updated").spawn().map_err(|e| e.to_string())?;
             let app = app.clone();
             std::thread::spawn(move || {
                 std::thread::sleep(std::time::Duration::from_millis(450));

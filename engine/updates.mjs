@@ -5,22 +5,31 @@ import {Transform} from 'node:stream';
 import {createHash,createPublicKey,randomUUID,verify} from 'node:crypto';
 import path from 'node:path';
 import semver from 'semver';
+import {verifyRelease,RELEASE_ROOT} from '../packages/engine/core/update-sources.mjs';
 
 const maximum=512*1024*1024;
 const remote=value=>{const u=new URL(value);if(u.protocol!=='https:'||u.username||u.password)throw Error('更新源必须使用 HTTPS');return u.href;};
 export function updates({home,version,architecture,channel,installed,launch,isBusy,emit,fetcher=fetch}) {
- let manifest,active,autoChecked=false;
+ let manifest,active,timer,autoChecked=false;
  let state={version,installed:!!channel&&installed,distribution:installed?'setup':'portable',managed:!!channel&&installed,phase:channel&&installed?'尚未检查':'本地测试版',available:false,ready:false,percent:0};
  const set=change=>{state={...state,...change};emit({type:'app-update',...state});return {...state};};
  const dir=path.join(home,'updates'),target=()=>path.join(dir,manifest.sha256+'.exe');
  async function readManifest(){
-   const response=await fetcher(remote(channel.url),{signal:AbortSignal.timeout(12000),redirect:'error'});
+   const response=await fetcher(remote(channel.url),{signal:AbortSignal.timeout(12000),redirect:'follow'});
+   if(response.url)remote(response.url);
    if(!response.ok)throw Error('更新源暂时不可用');
    let length=0;const chunks=[];for await(const chunk of response.body){length+=chunk.length;if(length>256*1024)throw Error('更新清单过大');chunks.push(chunk);}
    const envelope=JSON.parse(Buffer.concat(chunks).toString('utf8')),payload=Buffer.from(envelope.payload,'base64');
    const key=createPublicKey({key:Buffer.from(channel.publicKey,'base64'),format:'der',type:'spki'});
    if(key.asymmetricKeyType!=='ed25519'||!verify(null,payload,key,Buffer.from(envelope.signature,'base64')))throw Error('更新签名无效');
    const record=JSON.parse(payload.toString('utf8')),asset=record.assets?.[architecture];
+   if(channel.format==='legacy092'){
+     const release=verifyRelease(envelope,key,architecture);
+     if(!semver.gt(release.version,version))return null;
+     const file=record.files[0];
+     if(file.size>maximum||!/^[a-f0-9]{64}$/.test(file.sha256))throw Error('新版发布清单缺少安装包完整性信息');
+     return {size:file.size,sha256:file.sha256,sha512:file.sha512,version:release.version,url:RELEASE_ROOT+'/download/v'+release.version+'/'+file.url};
+   }
    if(record.format!=='hxz-third-update-v1'||!semver.valid(record.version))throw Error('更新清单版本无效');
    if(!semver.gt(record.version,version))return null;
    if(!asset||!Number.isSafeInteger(asset.size)||asset.size<=0||asset.size>maximum||!/^[a-f0-9]{64}$/.test(asset.sha256))throw Error('更新文件描述无效');
@@ -38,9 +47,9 @@ export function updates({home,version,architecture,channel,installed,launch,isBu
    try{
      const response=await fetcher(manifest.url,{signal:AbortSignal.timeout(180000),redirect:'follow'});
      if(!response.ok)throw Error('安装包下载失败');if(response.url)remote(response.url);
-     let count=0,last=-1;const h=createHash('sha256');
-     await pipeline(response.body,new Transform({transform(chunk,_,cb){count+=chunk.length;if(count>manifest.size){cb(Error('更新内容超过清单大小'));return;}h.update(chunk);const pct=Math.floor(100*count/manifest.size);if(pct!==last){last=pct;set({phase:'正在下载',percent:pct});}cb(null,chunk);}}),createWriteStream(temp,{flags:'wx'}));
-     if(count!==manifest.size||h.digest('hex')!==manifest.sha256)throw Error('安装包完整性校验失败');
+     let count=0,last=-1;const h=createHash('sha256'),legacy=manifest.sha512?createHash('sha512'):null;
+     await pipeline(response.body,new Transform({transform(chunk,_,cb){count+=chunk.length;if(count>manifest.size){cb(Error('更新内容超过清单大小'));return;}h.update(chunk);legacy?.update(chunk);const pct=Math.floor(100*count/manifest.size);if(pct!==last){last=pct;set({phase:'正在下载',percent:pct});}cb(null,chunk);}}),createWriteStream(temp,{flags:'wx'}));
+     if(count!==manifest.size||h.digest('hex')!==manifest.sha256||(legacy&&legacy.digest('base64')!==manifest.sha512))throw Error('安装包完整性校验失败');
      await fs.rename(temp,target());return set({phase:'更新已下载',ready:true,percent:100});
    }finally{await fs.rm(temp,{force:true});}
  }
@@ -56,5 +65,10 @@ export function updates({home,version,architecture,channel,installed,launch,isBu
      throw Error('未知版本操作');
    }catch(e){set({phase:e.message});throw e;}finally{active=false;}
  }
- return {invoke,autoCheck(enabled){if(enabled&&state.managed&&!autoChecked){autoChecked=true;const timer=setTimeout(()=>{void invoke('app-update.check').catch(()=>{});},4500);timer.unref?.();}}};
+ return {invoke,autoCheck(enabled){
+   if(!enabled){clearTimeout(timer);timer=undefined;autoChecked=false;return;}
+   if(state.managed&&!autoChecked&&!timer){
+     timer=setTimeout(()=>{timer=undefined;autoChecked=true;void invoke('app-update.check').catch(()=>{});},4500);timer.unref?.();
+   }
+ }};
 }

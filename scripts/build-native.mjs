@@ -3,6 +3,7 @@ import path from 'node:path';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {createReadStream} from 'node:fs';
+import {verifyDesktopArchitecture} from './verify-desktop-arch.mjs';
 import {architecture,workerDirectory} from './worker-runtime.mjs';
 const triple=architecture==='ia32'?'i686-pc-windows-msvc':'';
 const pkg=JSON.parse(await fs.readFile('package.json','utf8'));
@@ -18,6 +19,7 @@ await fs.copyFile(path.join('native/target',triple,'release/hxz-lite.exe'),path.
 const engine=path.join(target,'engine');
 await fs.cp(workerDirectory,engine,{recursive:true});
 await fs.copyFile('LICENSE',path.join(target,'LICENSE'));
+await verifyDesktopArchitecture(target,architecture);
 const lines=[];
 async function record(dir){for(const file of await fs.readdir(dir,{withFileTypes:true})){const full=path.join(dir,file.name);if(file.isDirectory())await record(full);else if(file.name!=='SHA256SUMS.txt'){const hash=createHash('sha256');for await(const part of createReadStream(full))hash.update(part);lines.push(hash.digest('hex')+'  '+path.relative(target,full).split(path.sep).join('/'));}}}
 await record(target);await fs.writeFile(path.join(target,'SHA256SUMS.txt'),lines.sort().join('\n')+'\n');
