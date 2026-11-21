@@ -4,7 +4,11 @@ import {pipeline} from 'node:stream/promises';
 import path from 'node:path';
 import pkg from '../../../package.json' with {type:'json'};
 const {version}=pkg, base='HXZ-3rd-'+version;
-const files=[...['x64','ia32'].flatMap(arch=>[base+'-setup-'+arch+'.exe',base+'-windows-'+arch+'.zip']), 'extensions/HXZ-Community-Plugin-'+version+'.zip', 'android/HXZ-Community-'+version+'-debug.apk','SHA256SUMS.txt'];
+const files=[
+ ...['x64','ia32'].flatMap(arch=>[base+'-setup-'+arch+'.exe',base+'-windows-'+arch+'.zip','updates/HXZ-Launcher-'+version+'-'+arch+'.exe']),
+ ...['Community','Music','Arcade'].map(id=>'extensions/HXZ-'+id+'-Plugin-'+version+'.zip'),
+ 'updates/latest.json','updates/latest-ia32.json','android/HXZ-FCL-'+version+'-arm64-v8a-release.apk','SHA256SUMS.txt'
+];
 async function shipped(){
  const dirs=process.env.HXZ3_RELEASE_DIR?[path.resolve(process.env.HXZ3_RELEASE_DIR)]:[path.resolve(import.meta.dirname,'../../..'),path.resolve(import.meta.dirname,'../../../release',version)];
  const list=[];

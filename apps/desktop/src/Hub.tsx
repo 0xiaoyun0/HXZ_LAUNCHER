@@ -31,10 +31,11 @@ function ActiveHubPage({area:areaKey='events'}:{area?:string}){
  if(areaKey==='legacy'){areaKey=resolveHubTarget('/community/hub?'+params.toString())?.area||'events';if(areaKey==='all')areaKey='events';}
  const scoped=true,area=scoped?(HUB_AREAS[areaKey]||HUB_AREAS.events):{sections:['desk',...Object.values(HUB_AREAS).flatMap((v:any)=>v.sections)]},candidate=params.get('section'),section=area.sections.includes(candidate)?candidate!:(areaKey==='personal'?'saved':area.sections[0]),item=params.get('item')||'',showSummary=!scoped||areaKey==='people';
  const regions=useMemo(()=>Object.fromEntries(['nav','summary','board'].map(key=>[key,document.createElement('section')])) as Record<string,HTMLElement>,[]);
- useEffect(()=>mountHub(regions.board,{request,uid,server:snapshot.settings.communityUrl,platform:'desktop',section,item,regions,area:scoped?areaKey:undefined,showSummary,sectionTitleInCard:true,
+ useEffect(()=>mountHub(regions.board,{request,uid,server:snapshot.settings.communityUrl,platform:window.launcher?.platform||'desktop',section,item,regions,area:scoped?areaKey:undefined,showSummary,sectionTitleInCard:true,
   onSection:(next:string)=>{const target=desktopDestination(hubDestination(next));if(target)navigate(target);},
   navigate:(url:string)=>{if(/^https?:\/\//.test(url))return invoke('external.open',{url});const original=appDestination(url);const target=original?desktopDestination(original):null;if(!target)throw Error('这个内容入口已不可用，历史记录仍保留');navigate(target);},
-  worldPlan:async(record:string)=>invoke('world.plan',{record}),
+  worldPlan:window.launcher?.platform==='android'?undefined:(record:string)=>invoke('world.plan',{record}),
+  saveWorld:window.launcher?.platform==='android'?(record:string,revision:number)=>invoke('android.world.save',{record,revision}):undefined,
   exportAsset:(blob:Blob,name:string)=>exportAsset((input:any)=>invoke('asset.export',input),blob,name),
   importWorld:async(input:any)=>{if(task.busy||(state.running&&state.settings.keepLauncherAvailable===false))throw Error('请等待当前任务或游戏结束');if(!state.settings.gameRoot&&!await chooseRoot())throw Error('尚未选择游戏目录');ui.tasks=true;await invoke('world.import',input);await reload();notify('世界已导入，可以在游戏实例中启动');},
   downloadServer:async(id:string)=>{

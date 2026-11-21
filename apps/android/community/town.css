@@ -1,0 +1,14 @@
+html,body,#root{height:100%;margin:0}
+.town-shell{display:grid;grid-template-rows:auto minmax(0,1fr);height:100%;background:var(--bg,#f4f5fa);color:var(--ink,#202a43);font-family:system-ui,sans-serif}
+.town-shell main{min-height:0;overflow:auto;overscroll-behavior-y:auto}
+.town-bar{display:flex;align-items:center;justify-content:space-between;gap:.75rem;padding:.5rem max(.85rem,env(safe-area-inset-right)) .5rem max(.85rem,env(safe-area-inset-left));background:var(--surface,#fff);border-bottom:1px solid #dce0eb}
+.town-bar button,.town-bar span{display:flex;align-items:center;gap:.4rem}.town-bar button{min-height:44px;padding:0 .6rem;border:0;background:transparent;color:inherit;font:inherit}
+.town-account{margin:clamp(1rem,5vw,3rem) auto;max-width:33rem;padding:1.35rem;line-height:1.65}
+.town-shell .social-workspace,.town-shell .social-content{max-width:100%;min-width:0;box-sizing:border-box}
+.town-shell .social-sections{display:flex;flex-wrap:wrap;position:static;gap:.35rem;padding:.55rem .8rem}
+.town-shell .social-sections>*{min-height:40px}
+.town-shell .social-content,.town-shell .guild-viewport,.town-shell .archive-viewport{padding:clamp(.65rem,2.5vw,1.4rem)}
+.town-shell .social-content>*{min-width:0}.town-shell .chat-layout{min-height:45dvh}
+.town-shell .community-directory{grid-template-columns:repeat(auto-fit,minmax(min(100%,12rem),1fr))}
+.town-toast{position:fixed;bottom:1rem;inset-inline:1rem;margin-inline:auto;width:fit-content;max-width:calc(100% - 2rem);padding:.7rem 1rem;border-radius:.7rem;background:#27324b;color:white}
+@media(max-width:40rem){.town-shell .social-content :is(.cols-2,.split,.blueprint-grid,.hub-grid){grid-template-columns:minmax(0,1fr)}.town-shell .social-sections a{font-size:.85rem}}

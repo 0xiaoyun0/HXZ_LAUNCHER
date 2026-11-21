@@ -18,6 +18,12 @@ export function worldUI(ctx,parent,record){
   d.content.append(el('small','现有存档不被覆盖。导入后，从游戏的「单人游戏」选择地图。'));
   d.footer.append(button('取消',d.close),button('确认导入',async()=>{const input={record:item.id,revision:item.revision,name:name.value,template:template?.value,confirmed:true};surface.close();await ctx.importWorld(input);},true));
  },true));}
+ else if(ctx.saveWorld){
+  const modpack=record.data.packageType==='modpack';
+  actions.append(button(modpack?'保存整合包':'保存地图',()=>confirm(modpack?'保存这个整合包？':'保存这份地图？',
+   (modpack?'保存后，在游戏首页的「下载 → 本地整合包」中选择文件。':'保存后，在对应实例的「管理 → 世界」中选择导入地图。')+' 下载完成时会核对作者登记的 SHA-256。',
+   async()=>{const result=await ctx.saveWorld(record.id,record.revision);if(result?.ok)status.append(el('p','文件已保存。','hub-muted'));}),true));
+ }
  else status.append(el('small','此世界可在电脑端导入为独立实例；手机端可阅读要求及提交接力记录。'));
  if(lease?.uid===uid||record.editable)actions.append(button('提交新快照',()=>{
   const d=dialog('提交世界快照'),source=field(d.content,'已上传的 ZIP 或整合包地址'),sha256=field(d.content,'文件 SHA-256'),version=field(d.content,'地图版本'),note=field(d.content,'本次修改','', 'textarea');

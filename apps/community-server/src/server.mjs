@@ -63,7 +63,7 @@ export function createCommunity(options={}) {
     CREATE TABLE IF NOT EXISTS profiles(uid TEXT PRIMARY KEY,avatar TEXT NOT NULL,version TEXT NOT NULL);`);
   const skin=(options.skin || process.env.HXZ_SKIN_API || 'https://skin.hxzmc.top/api/yggdrasil').replace(/\/$/,'');
   const adminIDs=new Set(options.adminIDs || (process.env.HXZ_ADMIN_IDS || '').split(',').filter(Boolean));
-  const origins=new Set((options.origins || (process.env.HXZ_ORIGINS || 'null,file://,http://tauri.localhost,http://localhost:9000,http://127.0.0.1:9000').split(',')).map(v=>v.trim()).filter(Boolean));
+  const origins=new Set((options.origins || (process.env.HXZ_ORIGINS || 'null,file://,http://tauri.localhost,https://appassets.androidplatform.net,http://localhost:9000,http://127.0.0.1:9000').split(',')).map(v=>v.trim()).filter(Boolean));
   // Packaged Electron WebSockets use file://; opaque browser origins use null.
   // Preserve compatibility with existing .env files that already trust desktop clients.
   if(origins.has('null'))origins.add('file://');

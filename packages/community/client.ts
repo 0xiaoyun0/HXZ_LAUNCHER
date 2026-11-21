@@ -240,7 +240,7 @@ export async function connect() {
         ws.close();
         return;
       }
-      ws.send(JSON.stringify({ type: "auth", token: session.token, platform: "desktop" }));
+      ws.send(JSON.stringify({ type: "auth", token: session.token, platform: window.launcher?.platform || "desktop" }));
     };
     ws.onmessage = event => {
       if (attempt !== generation) return;

@@ -19,7 +19,7 @@ export function Linking(){
  useLayoutEffect(()=>{if(!frame.current)return;return mountLinkingBridge(frame.current,async(path,method,body)=>{
   if(previewChapter){const {storyPreviewRequest}=await import('./linking-story-preview081');return storyPreviewRequest(path,method);}
   const result=await communityRequest(path,{method,headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)},true);if(method==='POST'&&path.endsWith('/action'))window.dispatchEvent(new Event('hxz-linking-progress'));return result;
- },()=>({theme:state.settings.theme,reducedMotion:state.settings.animationSpeed===0||matchMedia('(prefers-reduced-motion:reduce)').matches,mobile:false}));},[sessionUser,previewChapter]);
+ },()=>({theme:state.settings.theme,reducedMotion:state.settings.animationSpeed===0||matchMedia('(prefers-reduced-motion:reduce)').matches,mobile:window.launcher?.platform==='android'}));},[sessionUser,previewChapter]);
  return <section className="linking-archive-host">{canPreview&&<header className={'linking-author-preview'+(previewChapter?' active':'')}>
   <div><strong>{previewChapter?'随包剧情预览 · 只读':'LINKING · 作者工具'}</strong>{previewChapter&&<p>可阅读两卷与第三值夜的随包正文，不代表线上开放状态；不保存进度、不验证口令、不发放奖励。</p>}</div>
   <nav aria-label="剧情预览">{previewChapter?<>

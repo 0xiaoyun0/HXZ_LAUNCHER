@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#f5f6fc"><title>幻想镇社区</title></head>
+<body><div id="root"><section aria-live="polite" style="padding:1.25rem;font:1rem/1.65 system-ui,sans-serif;color:#27334b"><strong>幻想镇社区</strong><p id="loading-community">正在打开社区…</p><button type="button" id="return-game" style="padding:.55rem .9rem">返回游戏首页</button></section></div>
+<script>
+  (function(){
+    var port;
+    window.townHostPort=new Promise(function(ready){
+      if(window.TownNative){port=window.TownNative;ready(port);return;}
+      window.addEventListener('message',function(event){
+        if(event.data!=='town-port'||!event.ports[0]||(event.source&&event.source!==window))return;
+        port=event.ports[0];ready(port);
+      });
+    });
+    document.getElementById('return-game').onclick=function(){if(port)port.postMessage(JSON.stringify({id:0,action:'android.leave'}));else history.back()};
+    setTimeout(function(){var tip=document.getElementById('loading-community');if(tip)tip.textContent='社区加载时间较长。请更新 Android System WebView 后重新打开。'},15000);
+  })();
+</script><script type="module" src="./entry.tsx"></script></body></html>
