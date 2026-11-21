@@ -262,28 +262,49 @@ index 774d421..f26be34 100644
                  }
              }
 diff --git a/FCL/src/main/java/com/tungsten/fcl/game/FCLGameRepository.java b/FCL/src/main/java/com/tungsten/fcl/game/FCLGameRepository.java
-index 9036ac2..d3ad624 100644
+index 9036ac2..3acf3ed 100644
 --- a/FCL/src/main/java/com/tungsten/fcl/game/FCLGameRepository.java
 +++ b/FCL/src/main/java/com/tungsten/fcl/game/FCLGameRepository.java
-@@ -421,7 +421,7 @@ public class FCLGameRepository extends DefaultGameRepository {
+@@ -421,32 +421,42 @@ public class FCLGameRepository extends DefaultGameRepository {
              vs.setUsesGlobal(true);
      }
  
 -    public LaunchOptions getLaunchOptions(String version, JavaVersion javaVersion, File gameDir, double scaleFactor, double cursorOffset) {
-+    public LaunchOptions getLaunchOptions(String version, JavaVersion javaVersion, File gameDir, double scaleFactor, double cursorOffset, String townServer) {
++    public LaunchOptions getLaunchOptions(String version, JavaVersion javaVersion, File gameDir, double scaleFactor, double cursorOffset, top.hxzmc.town.TownJoin.Target townTarget) {
++        String townServer = townTarget == null ? null : townTarget.getAddress();
          VersionSetting vs = getVersionSetting(version);
          // 每版本渲染器覆盖（Profile.rendererOverrides）优先于版本/全局设置中的渲染器；
          // 覆盖指向的渲染器已卸载/禁用时视同无覆盖，回到版本设置
-@@ -438,7 +438,7 @@ public class FCLGameRepository extends DefaultGameRepository {
+-        String rendererOverride = profile.getEffectiveRendererOverride(version);
++        String rendererOverride = townTarget != null && townTarget.getRendererId() != null
++                ? townTarget.getRendererId() : profile.getEffectiveRendererOverride(version);
+         String rendererId = rendererOverride != null ? rendererOverride : vs.getRenderer();
+         int maxMemory = (int) (getAllocatedMemory(
+                 vs.getMaxMemory() * 1024L * 1024L,
+                 MemoryUtils.getFreeDeviceMemory(FCLApp.getAppContext()) * 1024L * 1024L,
+                 vs.isAutoMemory()
+         ) / 1024 / 1024);
++        List<String> javaArgs = new ArrayList<>(StringUtils.tokenize(vs.getJavaArgs()));
++        if (townTarget != null) {
++            maxMemory = top.hxzmc.town.TownMemory.launchBudget(FCLApp.getAppContext(), getVersionRoot(version), maxMemory, javaArgs, townTarget);
++            if (townTarget.getMobileGraphics() && javaVersion.getVersion() >= 17 && javaArgs.stream().noneMatch(arg -> arg.startsWith("-XX:ActiveProcessorCount="))) {
++                javaArgs.add("-XX:ActiveProcessorCount=" + Math.min(3, Runtime.getRuntime().availableProcessors()));
++            }
++            if (townTarget.getDynamicModels()) javaArgs.add("-Dmodernfix.config.mixin.perf.dynamic_resources=true");
++        }
+         LaunchOptions.Builder builder = new LaunchOptions.Builder()
+                 .setGameDir(gameDir)
+                 .setJava(javaVersion)
                  .setVersionType(LauncherUtilKt.getLauncherName(FCLApp.getAppContext()))
                  .setVersionName(version)
                  .setProfileName(FCLApp.getAppContext().getString(R.string.app_name))
 -                .setGameArguments(StringUtils.tokenize(vs.getMinecraftArgs()))
+-                .setJavaArguments(StringUtils.tokenize(vs.getJavaArgs()))
 +                .setGameArguments(top.hxzmc.town.TownJoin.gameArguments(StringUtils.tokenize(vs.getMinecraftArgs()), townServer))
-                 .setJavaArguments(StringUtils.tokenize(vs.getJavaArgs()))
++                .setJavaArguments(javaArgs)
                  .setMaxMemory(maxMemory)
                  // Xms=Xmx 会让 G1 按峰值全量提交物理内存且不收缩堆，白占内存易触发系统杀进程与温控，故 Xms 取小值让堆按需增长
-@@ -446,7 +446,7 @@ public class FCLGameRepository extends DefaultGameRepository {
+                 .setMinMemory(Math.min(512, maxMemory))
                  // 口径与 JVMActivity surface 回调、GameMenu.refreshWindowsSize 一致：宽度含 cursorOffset
                  .setWidth(FCLBridge.FORCE_RESOLUTION ? FCLBridge.FORCE_RESOLUTION_WIDTH : (int) ((AndroidUtilKt.getScreenWidth() + cursorOffset) * scaleFactor))
                  .setHeight(FCLBridge.FORCE_RESOLUTION ? FCLBridge.FORCE_RESOLUTION_HEIGHT : (int) (AndroidUtilKt.getScreenHeight() * scaleFactor))
@@ -293,7 +314,7 @@ index 9036ac2..d3ad624 100644
                  .setRenderer(RendererManager.getRenderer(rendererId))
                  .setDebugLog(vs.isDebugLog());
 diff --git a/FCL/src/main/java/com/tungsten/fcl/game/LauncherHelper.kt b/FCL/src/main/java/com/tungsten/fcl/game/LauncherHelper.kt
-index 3dd6387..1c84a1e 100644
+index 3dd6387..34bbfc9 100644
 --- a/FCL/src/main/java/com/tungsten/fcl/game/LauncherHelper.kt
 +++ b/FCL/src/main/java/com/tungsten/fcl/game/LauncherHelper.kt
 @@ -116,9 +116,17 @@ class LauncherHelper(
@@ -343,17 +364,44 @@ index 3dd6387..1c84a1e 100644
          // 按 currentStage 而非列表固定前一项打勾，isNotCheckGame 跳过 dependencies 时不会错位
          currentStage?.let { launchingStepsPane.succeedStage(it) }
          launchingStepsPane.beginStage(stage)
-@@ -325,7 +338,8 @@ class LauncherHelper(
+@@ -201,6 +214,7 @@ class LauncherHelper(
+         enterStage("launch.state.mods")
+         // 全量 mod 扫描一次，供 lwjgl3ify 补丁、modloader 与渲染器检查共用
+         val scannedMods = scanMods(repository, selectedVersion)
++        if (scannedMods != null) townUi?.prepareClientMods(scannedMods)
+         // 装有自实现 FPE 模拟的模组（Angelica/Actinium 等）时本次启动跳过 SFPEW 兼容层
+         RendererPlugin.setFpeEmulatorModsPresent(scannedMods)
+         // GTNH/lwjgl3ify 兼容：mods 目录存在 lwjgl3ify 时在内存中合并 RFB 启动清单（不落盘），以 RFB + Java17+ 启动
+@@ -319,13 +333,18 @@ class LauncherHelper(
+         }
+         // 强制分辨率已迁移到游戏内菜单（MenuSetting），启动前同步进静态配置
+         FCLBridge.initForceResolution(menuSetting)
++        if (townTarget?.mobileGraphics == true) {
++            scaleFactor = minOf(scaleFactor, 0.6)
++            FCLBridge.FORCE_RESOLUTION = false
++        }
+         val launchOptions =
+             repository.getLaunchOptions(
+                 selectedVersion,
                  javaVersion,
                  profile.gameDir,
                  scaleFactor,
 -                cursorOffset
 +                cursorOffset,
-+                townTarget?.address
++                townTarget
              )
          val launcher = FCLGameLauncher(context, repository, version, authInfo, launchOptions, setting)
  
-@@ -374,7 +388,7 @@ class LauncherHelper(
+@@ -363,7 +382,7 @@ class LauncherHelper(
+         scannedMods: List<LocalModFile>?,
+     ) {
+         checkPathValid(repository)
+-        val renderer = RendererManager.getRenderer(setting.renderer)
++        val renderer = RendererManager.getRenderer(townTarget?.rendererId ?: profile.getEffectiveRendererOverride(selectedVersion) ?: setting.renderer)
+         fclBridge.renderer = renderer.name
+         val gameVersion = repository.getGameVersion(selectedVersion).orElse("")
+         checkRenderer(renderer, gameVersion, scannedMods)
+@@ -374,7 +393,7 @@ class LauncherHelper(
          checkMod(fclBridge, gameVersion, scannedMods)
  
          val gameOption = GameOption(repository.getRunDirectory(selectedVersion).absolutePath)
@@ -362,15 +410,15 @@ index 3dd6387..1c84a1e 100644
          gameOption.set("startedCleanly", "true")
          gameOption.save()
      }
-@@ -387,6 +401,7 @@ class LauncherHelper(
+@@ -387,6 +406,7 @@ class LauncherHelper(
          javaVersion: JavaVersion,
      ) {
          withContext(Dispatchers.Main) {
-+            townUi?.beforeGame()
++            townTarget?.let { townUi?.beforeGame(it, repository.getRunDirectory(selectedVersion)) }
              CallbackBridge.nativeSetUseInputStackQueue(version.arguments.isPresent)
              val intent = Intent(context, JVMActivity::class.java)
              fclBridge.scaleFactor = scaleFactor
-@@ -400,11 +415,11 @@ class LauncherHelper(
+@@ -400,11 +420,11 @@ class LauncherHelper(
              intent.putExtras(bundle)
              LOG.log(Level.INFO, "Start JVMActivity!")
              context.startActivity(intent)
@@ -384,7 +432,7 @@ index 3dd6387..1c84a1e 100644
                      .getBoolean("autoExitLauncher", false)
              ) {
                  FCLApp.getActivity()?.finish()
-@@ -418,7 +433,7 @@ class LauncherHelper(
+@@ -418,7 +438,7 @@ class LauncherHelper(
       */
      private suspend fun runTracked(task: Task<*>) {
          val executor = task.executor()
@@ -393,7 +441,7 @@ index 3dd6387..1c84a1e 100644
          suspendCancellableCoroutine { cont ->
              executor.addTaskListener(object : TaskListener() {
                  override fun onStop(success: Boolean, executor: TaskExecutor) {
-@@ -445,6 +460,10 @@ class LauncherHelper(
+@@ -445,6 +465,10 @@ class LauncherHelper(
          negativeText: String = context.getString(R.string.mod_check_continue),
          neutralText: String? = null,
      ): Choice = withContext(Dispatchers.Main) {
@@ -404,7 +452,7 @@ index 3dd6387..1c84a1e 100644
          suspendCancellableCoroutine { cont ->
              // 弹窗按钮与协程取消可能竞争，已完成时不再重复 resume
              fun choose(choice: Choice) {
-@@ -584,7 +603,7 @@ class LauncherHelper(
+@@ -584,7 +608,7 @@ class LauncherHelper(
              if (!mods.isNullOrEmpty() && !modded) {
                  when (awaitChoice(
                      context.getString(R.string.message_check_has_modloader),
@@ -413,7 +461,7 @@ index 3dd6387..1c84a1e 100644
                  )) {
                      Choice.NEGATIVE -> {}
                      Choice.NEUTRAL -> {
-@@ -711,6 +730,7 @@ class LauncherHelper(
+@@ -711,6 +735,7 @@ class LauncherHelper(
       * 登录账户；微软账户登录期间将认证阶段文字实时写入启动弹窗日志区
       */
      private suspend fun logIn(): AuthInfo {

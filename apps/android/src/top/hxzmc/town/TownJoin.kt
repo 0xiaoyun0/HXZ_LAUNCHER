@@ -3,16 +3,21 @@ package top.hxzmc.town
 import com.tungsten.fclcore.auth.Account
 import com.tungsten.fclcore.auth.AuthInfo
 import com.tungsten.fclcore.auth.CredentialExpiredException
+import com.tungsten.fclcore.mod.LocalModFile
 
 interface TownLaunchUi {
     fun stage(id: String)
+    suspend fun prepareClientMods(mods: List<LocalModFile>)
     fun observe(executor: com.tungsten.fclcore.task.TaskExecutor)
     suspend fun confirm(message: String, labels: List<String>): Int
-    suspend fun beforeGame()
+    suspend fun beforeGame(target: TownJoin.Target, runDirectory: java.io.File)
 }
 
 object TownJoin {
-    data class Target(val instance: String, val address: String?, val uid: String, val graphicsBackend: String? = null)
+    data class Target(val instance: String, val address: String?, val uid: String, val graphicsBackend: String? = null,
+                      val mobileGraphics: Boolean = false, val dynamicModels: Boolean = false, val rendererId: String? = null) {
+        internal var memoryReceipt: Pair<String, org.json.JSONObject>? = null
+    }
     fun authenticate(account: Account, target: Target): AuthInfo {
         val selected = TownSession.selected()
         check(selected != null && selected === account && TownSession.identity().optString("uid") == target.uid) { "当前角色已改变，请回到社区重新进服。" }

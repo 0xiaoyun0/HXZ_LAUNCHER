@@ -52,7 +52,7 @@ export function TownLobby({directory}:{directory:Directory}){
     <div className="town-list">{directory.topics.map(t=><Link className="town-item town-article" key={t.id} to={'/community/forum/'+encodeURIComponent(t.id)}><span><strong>{t.title}</strong><small>{t.name} · {t.replies} 条回复</small></span><ChevronRight size={16}/></Link>)}</div>
     {!directory.topics.length&&<p className="desk-empty" role="status">{directory.topicStatus==='loading'?'正在读取讨论…':directory.topicStatus==='offline'?'暂时连不上论坛。':'还没有公开讨论。'}</p>}</section></div></div></section>;
 }
-export function TownWorld({directory,member,joining,join,children}:{directory:Directory;member:boolean;joining:boolean;join:(server:TownServer)=>void;children?:React.ReactNode}){
+export function TownWorld({directory,member,identityReady,joining,join,children}:{directory:Directory;member:boolean;identityReady:boolean;joining:boolean;join:(server:TownServer)=>void;children?:React.ReactNode}){
   const {id}=useParams(),[query]=useSearchParams();
   const server=directory.servers.find(s=>s.id===id);
   const reports=directory.notices.filter(n=>n.serverId===id);
@@ -61,7 +61,7 @@ export function TownWorld({directory,member,joining,join,children}:{directory:Di
     {server?<><CommunityHeading title={server.name}/><div className="town-stack"><section className="desk-card">
       <SectionHeading title={selected?.title||'入服信息'}/>{selected&&<p className="town-copy">{selected.body}</p>}
       <dl className="detail-rows"><div><dt>服务器地址</dt><dd>{server.address}</dd></div><div><dt>游戏版本</dt><dd>{versionLabel(server,true)}</dd></div></dl>
-      <div className="desk-actions"><button className="launch-primary" disabled={!server.enabled||joining} onClick={()=>join(server)}><Play size={16}/>{!server.enabled?'暂未开放':joining?'正在准备…':member?'进入服务器':'登录并进入服务器'}</button></div>
+      <div className="desk-actions"><button className="launch-primary" disabled={!server.enabled||!identityReady||joining} onClick={()=>join(server)}><Play size={16}/>{!server.enabled?'暂未开放':!identityReady?'正在读取角色…':joining?'正在准备…':member?'进入服务器':'登录并进入服务器'}</button></div>
     </section>{children}{reports.some(n=>n.id!==selected?.id)&&<section className="desk-card"><SectionHeading title="同服公告"/><div className="town-list">{reports.filter(n=>n.id!==selected?.id).map(n=><Link key={n.id} className="town-item town-article" to={detail(server.id)+'?notice='+encodeURIComponent(n.id)}><strong>{n.title}</strong><ChevronRight size={16}/></Link>)}</div></section>}</div></>:
       <p role="status">{directory.serverStatus==='loading'?'正在读取服务器…':'没有找到这个社区服务器。'}</p>}</section>;
 }

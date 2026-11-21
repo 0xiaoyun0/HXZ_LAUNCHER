@@ -10,11 +10,12 @@ import java.net.URL
 import javax.net.ssl.HttpsURLConnection
 import org.json.JSONObject
 
-internal fun readJson(url: String, post: JSONObject? = null, bearer: String? = null, limit: Int = 262144): JSONObject {
+internal fun readJson(url: String, post: JSONObject? = null, bearer: String? = null, limit: Int = 262144,
+                      connectMs: Int = 10000, readMs: Int = 18000): JSONObject {
     val connection = URL(url).openConnection() as HttpsURLConnection
     try {
-        connection.connectTimeout = 10000
-        connection.readTimeout = 18000
+        connection.connectTimeout = connectMs
+        connection.readTimeout = readMs
         connection.instanceFollowRedirects = false
         connection.setRequestProperty("Accept", "application/json")
         if(bearer!=null)connection.setRequestProperty("Authorization","Bearer " + bearer)

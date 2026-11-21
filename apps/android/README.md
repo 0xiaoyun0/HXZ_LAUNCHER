@@ -6,6 +6,12 @@
 
 社区使用 Kotlin、AndroidX WebKit 和 APK 内置的 React/TypeScript 页面。页面共用桌面端的标题、社区栏目和卡片样式，紧凑窗口可以在聊天标题中打开在线名单。皮肤站令牌由原生层保存和轮换，社区页面只接收限于社区的会话。进服时由原生层核对角色和服务器地址，向皮肤站在线验证，并将这个服务器作为本次游戏的连接目标。
 
+社区服每次进服都检查 HXZUP 公布的版本。下载使用清单里的文件来源和发布节点，首次安装逐文件核对 SHA-1。同一发布版本下载中断后，可以回到原实例补全。保留了本地修改的旧实例在游戏库仍可打开。手机只安装游戏目录中的内容。接入仅公布域名的服务器时，原生端查询 Minecraft SRV 服务记录，显式端口优先。检测到已知的桌面输入法模组时，玩家可以在当前实例中停用它，原 JAR 以 `.disabled` 后缀保留。
+
+「游戏库 → 实例设置 → 内存」显示设备报告的物理运存、系统交换空间和上次实际生成的 Java 堆预算。「将系统虚拟内存计入游戏预算」是默认关闭的风险选项，按实例保存，下次启动生效。启用时会根据启动当刻的空闲交换空间、物理运存余量及系统低内存标记计算增量，同时为系统和原生渲染保留空间。标准档最多额外计入 1 GiB，加大档最多 2 GiB；两个档位都保留物理运存和交换空间余量。关闭后额外预算归零。系统仍按自身策略使用 zRAM 或厂商提供的交换空间。自定义 JVM 堆参数优先。手机画质和 ModernFix 按需加载模型可以独立选择，后者在整合包声明支持时显示。
+
+`npm run test:android:policies` 验证预算和 SRV 记录。`npm run test:android:hxzup -- --serial <设备> --server HXZ-mod-1` 将真机实例逐项与当期 HXZUP 核对，分别统计完整文件、安卓停用的模组和发布规则允许保留的配置。`npm run test:android:launch -- --serial <设备> --package top.hxzmc.launcher.third.debug --server HXZ-mod-1 --instance HXZ-mod-1 --memory off` 通过社区页面冷启动到 Minecraft 游戏窗口。游戏握手、世界画面、触控移动和退出另行在设备验收。
+
 从仓库根目录运行 `npm ci` 和 `npm run android:build`。构建使用 JDK 17、Gradle 8.14.4、Android SDK 35、NDK 27.0.12077973 和 CMake 3.22.1。设置 `ANDROID_HOME` 指向 SDK。默认使用上游 Gradle Wrapper；离线准备好的 Gradle 可用 `HXZ_GRADLE` 指定。传 `-- --x86_64` 构建模拟器架构。默认 ARM64 调试包独立安装在 `top.hxzmc.launcher.third.debug`。
 
 `upstream.json` 记录仓库、提交和许可证。构建核对 Git 提交并应用 `fcl.patch`，新代码在 `src`、`res`、`community`。上游依赖、资源和补丁可由上述步骤重建。随下游分发的 FCL 和集成代码遵循 GPL-3.0-or-later，原始版权和第三方组件各自的许可证继续有效。发布 APK 时提供本仓库对应提交、补丁和固定上游的完整对应源码。

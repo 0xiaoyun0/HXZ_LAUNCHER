@@ -38,7 +38,7 @@ function TownApp(){
     const rev=++identityRevision.current;
     try {const p=await invoke<Player>('android.identity');if(rev===identityRevision.current){applyPlayer(p);setFailure('');}}
     catch(e){if(rev===identityRevision.current)setFailure(e instanceof Error?e.message:'无法读取本机角色。');}
-    finally {state.ready=true;}
+    finally {if(rev===identityRevision.current)state.ready=true;}
   },[]);
   useEffect(()=>{
     try{Object.assign(state.settings,JSON.parse(localStorage.getItem('town-community-options')||'{}'));}catch{}
@@ -60,6 +60,7 @@ function TownApp(){
     return p;
   }
   function start(action:string,input:Record<string,unknown>){void work(async()=>{
+    if(!state.ready)return;
     const player:Player=uid?{uid}:await pick();
     if(!player.canceled&&player.uid)await game.send(action,{...input,uid:player.uid});
   });}
@@ -73,8 +74,8 @@ function TownApp(){
     <button className="role-button town-role" aria-label={uid?'切换皮肤站角色':'登录皮肤站'} title={model.accounts[0]?.name||'登录皮肤站'} disabled={busy||!model.ready} onClick={()=>void work(async()=>{await pick();})}><Avatar name={model.accounts[0]?.name}/><span>{model.accounts[0]?.name||'登录'}</span></button></header>
     <main className="launcher-content town-main" ref={scroll}>
       {failure&&<div className="social-connection town-feedback" role="alert"><span>{failure}</span><button className="small-action" onClick={()=>setFailure('')}>关闭</button></div>}
-      <Routes><Route path="/town" element={<TownLobby directory={directory}/>}/><Route path="/town/world/:id" element={<TownWorld directory={directory} member={!!uid} joining={busy||active(task)} join={join}>{currentWorld&&task.server===currentWorld.id&&<GameProgress task={task} act={act} retry={()=>join(currentWorld)}/>}</TownWorld>}/>
-      <Route path="/town/games" element={<TownLibrary game={task} act={act} start={start}/>}/>
+      <Routes><Route path="/town" element={<TownLobby directory={directory}/>}/><Route path="/town/world/:id" element={<TownWorld directory={directory} member={!!uid} identityReady={model.ready} joining={busy||active(task)} join={join}>{currentWorld&&task.server===currentWorld.id&&<GameProgress task={task} act={act} retry={()=>join(currentWorld)}/>}</TownWorld>}/>
+      <Route path="/town/games" element={<TownLibrary game={task} act={act} start={start} identityReady={model.ready}/>}/>
       <Route path="/community/*" element={uid?<Social worldsContent={<WorldList directory={directory}/>}/>:gate}/>
       <Route path="/arcade" element={uid?<OnlineGames/>:gate}/><Route path="/arcade/*" element={uid?<Suspense fallback={<p role="status">正在打开游戏…</p>}><GameRoom/></Suspense>:gate}/>
       <Route path="/points" element={<Navigate to="/community/wallet" replace/>}/><Route path="*" element={<Navigate to="/town" replace/>}/></Routes></main>

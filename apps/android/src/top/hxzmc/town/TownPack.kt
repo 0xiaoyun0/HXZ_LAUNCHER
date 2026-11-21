@@ -10,9 +10,7 @@ import javax.net.ssl.HttpsURLConnection
 import org.json.JSONObject
 
 internal object TownPack {
-    fun prepare(context: Context, server: TownDirectory.Server, spec: JSONObject): File {
-        val dir = File(context.cacheDir, "town-install").apply { mkdirs() }
-        if (server.source == "package") return archive(dir, server)
+    fun index(server: TownDirectory.Server, spec: JSONObject): JSONObject {
         val base = spec.optString("publisher")
         val revision = spec.optString("revision")
         check(base in server.updates && revision.matches(Regex("[A-Za-z0-9._-]{1,120}"))) { "请连网读取这个服务器当前的整合包。" }
@@ -22,6 +20,13 @@ internal object TownPack {
         val index = TownPackIndex.build(server.name, base, revision, spec, files, actions)
         val status = readJson(base + "/version.json")
         check(!status.optBoolean("maintenance") && status.getString("version") == revision) { "服务器刚更新了整合包，请重新进入获取最新版本。" }
+        return index
+    }
+
+    fun prepare(context: Context, server: TownDirectory.Server, index: JSONObject?): File {
+        val dir = File(context.cacheDir, "town-install").apply { mkdirs() }
+        if (server.source == "package") return archive(dir, server)
+        requireNotNull(index) { "请重新读取 HXZUP 整合包清单。" }
         val file = File.createTempFile("server-", ".mrpack", dir)
         try {
             ZipOutputStream(file.outputStream().buffered()).use {
@@ -31,6 +36,34 @@ internal object TownPack {
             }
             return file
         } catch (e: Exception) { file.delete(); throw e }
+    }
+
+    fun verifyInstall(runDirectory: File, index: JSONObject, progress: (Int,Int)->Unit) {
+        val root = runDirectory.canonicalFile.toPath()
+        val files = index.getJSONArray("files")
+        val buffer = ByteArray(64 * 1024)
+        for (i in 0 until files.length()) {
+            val row = files.getJSONObject(i)
+            val relative = row.getString("path")
+            val file = root.resolve(relative).toFile().canonicalFile
+            check(file.toPath().startsWith(root) && file.isFile && file.length() == row.getLong("fileSize")) {
+                "实例缺少与 HXZUP 清单一致的文件：" + relative.take(100) + "。请重新安装服务器整合包。"
+            }
+            val digest = MessageDigest.getInstance("SHA-1")
+            file.inputStream().buffered().use { input ->
+                while (true) {
+                    if (Thread.currentThread().isInterrupted) throw java.io.InterruptedIOException()
+                    val read = input.read(buffer)
+                    if (read < 0) break
+                    digest.update(buffer,0,read)
+                }
+            }
+            val expected = row.getJSONObject("hashes").getString("sha1")
+            check(digest.digest().contentEquals(expected.chunked(2).map { it.toInt(16).toByte() }.toByteArray())) {
+                "实例文件与 HXZUP 清单不符：" + relative.take(100) + "。请使用该服当前发布的整合包。"
+            }
+            if (i % 32 == 0 || i+1 == files.length()) progress(i+1,files.length())
+        }
     }
 
     private fun archive(dir: File, server: TownDirectory.Server): File {

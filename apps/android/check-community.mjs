@@ -57,7 +57,17 @@ try{
       if(action==='android.legal.accept'){localStorage.setItem('accepted','yes');value=true;}
       const task=()=>JSON.parse(sessionStorage.getItem('task')||'{"phase":"idle"}');
       if(action==='android.game.state')value=task();
-      if(action==='android.game.list')value=['测试实例'];
+      if(action==='android.game.list')value=['测试实例','另一实例'];
+      if(action==='android.game.options'||action==='android.game.options.save'){
+        const key='options:'+input.instance;
+        value=JSON.parse(localStorage.getItem(key)||'{"enabled":false,"physicalMiB":7600,"availableMiB":3100,"swapMiB":8192,"freeSwapMiB":5900,"isolated":true,"mobileGraphics":false,"last":null}');
+        if(action.endsWith('.save')){
+          if(sessionStorage.getItem('reject-save')){sessionStorage.removeItem('reject-save');bridge.onmessage?.({data:JSON.stringify({id,ok:false,error:'内存选项没有保存，请重试。'})});return;}
+          if(input.option==='renderer'||input.option==='tier')value[input.option]=input[input.option];
+          else value[{swap:'enabled',graphics:'mobileGraphics',models:'modelsEnabled'}[input.option]]=input.enabled;
+          localStorage.setItem(key,JSON.stringify(value));
+        }
+      }
       if(action==='android.game.versions')value=['1.21.1','1.16.5'];
       if(action==='android.game.respond'&&input.ticket==='qa'&&input.value==='second'){
         value={phase:'working',ticket:'qa',server:'HXZ-mod-1',title:'正在校验和补全游戏文件'};sessionStorage.setItem('task',JSON.stringify(value));
@@ -126,6 +136,36 @@ try{
   await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'游戏库'}).click();
   await page.getByRole('heading',{name:'正在校验和补全游戏文件'}).waitFor();
   await page.getByRole('button',{name:'取消',exact:true}).click();
+  const openOptions=()=>page.getByRole('button',{name:'测试实例 实例设置'}).click();
+  const swap=page.getByRole('switch',{name:'将系统虚拟内存计入游戏预算'});
+  await openOptions();
+  assert.equal(await swap.getAttribute('aria-checked'),'false');
+  await swap.click();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="将系统虚拟内存计入游戏预算"]')?.getAttribute('aria-checked')==='true');
+  await page.getByRole('button',{name:'加大 · 最多 2 GiB'}).click();
+  await page.reload();
+  await page.getByRole('button',{name:'另一实例 实例设置'}).click();
+  assert.equal(await swap.getAttribute('aria-checked'),'false');
+  await page.getByRole('button',{name:'关闭',exact:true}).click();
+  await openOptions();
+  assert.equal(await swap.getAttribute('aria-checked'),'true');
+  assert.equal(await page.getByRole('button',{name:'加大 · 最多 2 GiB'}).getAttribute('aria-pressed'),'true');
+  await page.evaluate(()=>sessionStorage.setItem('reject-save','1'));
+  await swap.click();await page.getByRole('alert').filter({hasText:'内存选项没有保存'}).waitFor();
+  assert.equal(await swap.getAttribute('aria-checked'),'true');
+  await swap.click();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="将系统虚拟内存计入游戏预算"]')?.getAttribute('aria-checked')==='false');
+  await page.getByRole('button',{name:'关闭',exact:true}).click();
+  await page.evaluate(()=>{
+    const key='options:测试实例',saved=JSON.parse(localStorage.getItem(key));
+    localStorage.setItem(key,JSON.stringify({...saved,enabled:true,swapMiB:0,freeSwapMiB:0,customHeap:true}));
+  });
+  await openOptions();
+  assert.equal(await swap.isEnabled(),true,'an unsupported setting can always be switched off');
+  await swap.click();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="将系统虚拟内存计入游戏预算"]')?.disabled===true);
+  assert.equal(await swap.getAttribute('aria-checked'),'false');
+  await page.getByRole('button',{name:'关闭',exact:true}).click();
   await page.getByRole('button',{name:'下载游戏',exact:true}).click();
   await page.getByRole('textbox',{name:'查找版本'}).fill('1.21');
   await page.getByText('1.21.1',{exact:true}).waitFor();
@@ -186,7 +226,7 @@ try{
   assert.equal(await page.locator('.chat-history [data-message]').count(),102);
   assert.equal(await page.getByRole('button',{name:'查看更早的消息'}).count(),0);
   assert.deepEqual(errors,[]);
-  console.log('Android 社区页面 · 390×844，社区首屏与使用协议、横竖屏导航、公告选服、社区内选实例与下载、取消与登录后续接、重开角色、临时社区服务、WebSocket 聊天、论坛、协会、LINKING、排行及钱包通过。');
+  console.log('Android 社区页面 · 横竖屏导航、公告选服、实例下载、内存选项的启停、实例隔离、重开与写入失败、角色与社交功能通过。');
 }catch(error){
   if(page)console.error(page.url(),await page.evaluate(()=>({nav:document.querySelector('.social-sections')?.textContent,dialog:document.querySelector('[role=dialog]')?.textContent})).catch(()=>({})));
   throw error;

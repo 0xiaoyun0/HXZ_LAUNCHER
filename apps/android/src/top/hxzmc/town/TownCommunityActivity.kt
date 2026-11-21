@@ -174,6 +174,10 @@ class TownCommunityActivity : FragmentActivity() {
                 }
             }
             "android.game.state" -> reply(port,id,games.status())
+            "android.game.options", "android.game.options.save" -> lifecycleScope.launch {
+                try { reply(port,id,games.options(args, action.endsWith(".save"))) }
+                catch(e:Exception) { reply(port,id,error=TownGameIssue.from(e,"读取实例设置",false).detail) }
+            }
             "android.game.list", "android.game.versions" -> lifecycleScope.launch {
                 try {reply(port,id,if(action=="android.game.list")games.library() else games.versions())}
                 catch (_:Exception){reply(port,id,error=if(action=="android.game.list")"无法读取当前游戏目录。" else "暂时连不上游戏版本目录，请稍后重试。")}
@@ -307,6 +311,7 @@ class TownCommunityActivity : FragmentActivity() {
     }
     override fun onResume() {
         super.onResume()
+        games.returned()
         if (::view.isInitialized) view.evaluateJavascript("window.dispatchEvent(new Event('town-resume'))", null)
     }
     override fun onSaveInstanceState(outState: Bundle) {

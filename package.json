@@ -7,6 +7,9 @@
   "scripts": {
     "android:prepare": "node apps/android/build.mjs --prepare",
     "test:android:community": "node apps/android/check-community.mjs",
+    "test:android:launch": "node apps/android/check-device-launch.mjs",
+    "test:android:hxzup": "node apps/android/check-device-hxzup.mjs",
+    "test:android:policies": "node apps/android/check-runtime-policies.mjs",
     "android:build": "node apps/android/build.mjs",
     "release:sign-desktop": "node scripts/sign-desktop-release.mjs",
     "release:verify-upgrade": "node scripts/check-release.mjs --publish",

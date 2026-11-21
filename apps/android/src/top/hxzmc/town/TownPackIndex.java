@@ -6,6 +6,7 @@ import org.json.JSONObject;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
 
@@ -58,8 +59,18 @@ public final class TownPackIndex {
             String sha = row.getString("sha1").toLowerCase(Locale.ROOT);
             require(bytes >= 0 && bytes <= Integer.MAX_VALUE && sha.matches("[0-9a-f]{40}"), "整合包文件缺少校验信息。");
             String remote = publisher + new URI(null,null,"/"+path,null).toASCIIString() + "?version=" + revision;
+            Set<String> sources = new LinkedHashSet<>();
+            JSONArray mirrors = row.optJSONArray("downloads");
+            if (mirrors != null) for (int n = 0; n < Math.min(32, mirrors.length()); n++) {
+                try {
+                    URI url = new URI(mirrors.getString(n));
+                    if ("https".equalsIgnoreCase(url.getScheme()) && url.getHost() != null &&
+                        url.getRawUserInfo() == null && url.getRawFragment() == null) sources.add(url.toASCIIString());
+                } catch (java.net.URISyntaxException ignored) { }
+            }
+            sources.add(remote);
             files.put(new JSONObject().put("path",local).put("fileSize",bytes)
-                .put("hashes",new JSONObject().put("sha1",sha)).put("downloads",new JSONArray().put(remote)));
+                .put("hashes",new JSONObject().put("sha1",sha)).put("downloads",new JSONArray(sources)));
         }
         return new JSONObject().put("game","minecraft").put("formatVersion",1).put("versionId",revision)
             .put("name",name).put("files",files).put("dependencies",dependencies);
