@@ -2,8 +2,7 @@ import {PlaytimePage} from './PlayCalendar';
 import {Blueprints} from './Blueprints';
 import {LauncherUpdates} from './LauncherNews';
 const groups=[{id:'survival',name:'原版生存群组'},{id:'mod-1',name:'模组一服'},{id:'mod-2',name:'模组二服'}];
-import {shareMusic,music} from './music-player';
-function VoiceMusic(){const c=useSnapshot(community),m=useSnapshot(music);return <div className="desk-actions"><span>{m.current?.title||'先在音乐播放器选择一首歌曲'}</span><Button disabled={!c.room||(!m.playing&&!c.musicSharing)} onClick={()=>perform(()=>shareMusic(!c.musicSharing))}>{c.musicSharing?'停止分享音乐':'分享当前播放'}</Button></div>;}
+import {OptionalRoomPlayer} from './launcher/Extensions';
 import {ChatAttachments,SavedStickers} from './ChatMedia';
 import {uploadChatFiles,disposeChatFiles} from '../../../packages/community/chat-media.mjs';
 import {HubPage} from './Hub';
@@ -43,7 +42,7 @@ export function Voice(){
  })}</div></section><aside className="voice-tools-stack">
  <section className="desktop-panel"><h2>通话控制</h2><div className="desktop-panel-body">{controls}</div></section>
  <section className="desktop-panel"><h2>麦克风与按键</h2><div className="desktop-panel-body">{devices}</div></section>
- <section className="desktop-panel"><h2>一起听</h2><div className="desktop-panel-body"><VoiceMusic/></div></section></aside><Modal open={!!u.voiceSettings} onClose={()=>ui.voiceSettings=false} title="说话方式"><Field label="麦克风模式"><Select value={s.settings.voiceMode} options={[{value:'open',label:'自由说话'},{value:'push-to-talk',label:'按键说话'}]} onChange={(value:string)=>perform(()=>saveSettings({voiceMode:value}))}/></Field>{s.settings.voiceMode==='push-to-talk'&&<Field label="点击并按下快捷键"><input readOnly value={String(s.settings.voiceKey||'KeyT')} onKeyDown={e=>{e.preventDefault();void perform(()=>saveSettings({voiceKey:e.code}));}}/></Field>}</Modal></div>;
+ <OptionalRoomPlayer/></aside><Modal open={!!u.voiceSettings} onClose={()=>ui.voiceSettings=false} title="说话方式"><Field label="麦克风模式"><Select value={s.settings.voiceMode} options={[{value:'open',label:'自由说话'},{value:'push-to-talk',label:'按键说话'}]} onChange={(value:string)=>perform(()=>saveSettings({voiceMode:value}))}/></Field>{s.settings.voiceMode==='push-to-talk'&&<Field label="点击并按下快捷键"><input readOnly value={String(s.settings.voiceKey||'KeyT')} onKeyDown={e=>{e.preventDefault();void perform(()=>saveSettings({voiceKey:e.code}));}}/></Field>}</Modal></div>;
 
 }
 export function Forum(){const [params,setParams]=useSearchParams(),focusedReply=params.get('reply');const {id}=useParams(),navigate=useNavigate(),c=useSnapshot(community);const [sort,setSort]=useState('newest'),[q,setQ]=useState(''),[search,setSearch]=useState(''),[page,setPage]=useState(0),[create,setCreate]=useState(false),[form,setForm]=useState({title:'',body:'',category:'交流讨论'}),[reply,setReply]=useState(''),[parent,setParent]=useState<any>(null);const list=useData(()=>id?request('/api/forum/posts/'+id+'?offset='+page*24+(focusedReply?'&reply='+encodeURIComponent(focusedReply):'')):loadForumPage(request,{sort,q:search,offset:page*24}),[id,sort,search,page,c.connected,focusedReply]);const access=useData(()=>request('/api/content/access'),[c.connected]);useEffect(()=>{setPage(0);setParent(null);setReply('');},[id]);useEffect(()=>{if(focusedReply&&list.data?.replies){setPage(Math.floor((list.data.offset||0)/24));requestAnimationFrame(()=>document.querySelector('[data-reply="'+CSS.escape(focusedReply)+'"]')?.scrollIntoView({block:'center'}));}},[list.data,focusedReply]);const post=list.data?.post;const remove=(path:string)=>{ui.confirm={title:'确认删除？',body:'删除后无法恢复。',action:async()=>{await request(path,'DELETE');if(path.includes('/posts/'))navigate('/community/forum');else await list.reload();}};};

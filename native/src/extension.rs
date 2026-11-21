@@ -18,31 +18,16 @@ struct Manifest {
     size: usize,
     files: HashMap<String, String>,
 }
-pub struct Extension {
-    catalog: Option<Manifest>,
+struct Package {
+    catalog: Manifest,
     root: PathBuf,
     active: bool,
+}
+pub struct Extension {
+    packages: HashMap<String, Package>,
     bypass: bool,
 }
-impl Extension {
-    pub fn open(home: &Path) -> Self {
-        let root = home.join("extensions").join("community");
-        let catalog: Option<Manifest> = serde_json::from_str(include_str!(concat!(
-            env!("OUT_DIR"),
-            "/community-extension.json"
-        )))
-        .ok();
-        let bypass = std::env::args_os().any(|arg| arg == "--disable-plugins");
-        let active = !bypass && catalog.as_ref().is_some_and(|c| {
-            Self::selection(&root) == c.sha256 && Self::asset(&root, c, &c.entry).is_some()
-        });
-        Self {
-            catalog,
-            root,
-            active,
-            bypass,
-        }
-    }
+impl Package {
     fn selection(root: &Path) -> String {
         fs::read(root.join("enabled.json"))
             .ok()
@@ -50,46 +35,118 @@ impl Extension {
             .and_then(|v| v["sha256"].as_str().map(String::from))
             .unwrap_or_default()
     }
+    fn installed(&self, selected: &str) -> bool {
+        selected == self.catalog.sha256
+            && Self::asset(&self.root, &self.catalog, &self.catalog.entry).is_some()
+    }
     fn asset(root: &Path, catalog: &Manifest, key: &str) -> Option<Vec<u8>> {
         let digest = catalog.files.get(key)?;
         let bytes = fs::read(root.join(&catalog.sha256).join(key)).ok()?;
         (format!("{:x}", Sha256::digest(&bytes)) == *digest).then_some(bytes)
     }
+}
+impl Extension {
+    pub fn open(home: &Path) -> Self {
+        let catalog: HashMap<String, Manifest> = serde_json::from_str(include_str!(concat!(
+            env!("OUT_DIR"),
+            "/official-extensions.json"
+        )))
+        .unwrap_or_default();
+        let bypass = std::env::args_os().any(|arg| arg == "--disable-plugins");
+        let mut packages = HashMap::new();
+        for (id, c) in catalog {
+            let root = home.join("extensions").join(&id);
+            let selected = Package::selection(&root);
+            let active =
+                !bypass && selected == c.sha256 && Package::asset(&root, &c, &c.entry).is_some();
+            if selected.is_empty()
+                && fs::read(root.join("enabled.json"))
+                    .ok()
+                    .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+                    .is_some_and(|v| v["remove"] == true)
+            {
+                if let Ok(entries) = fs::read_dir(&root) {
+                    for item in entries.flatten() {
+                        let name = item.file_name();
+                        let hash = name.to_string_lossy();
+                        if hash.len() == 64
+                            && hash.bytes().all(|b| b.is_ascii_hexdigit())
+                            && item.file_type().is_ok_and(|t| t.is_dir())
+                        {
+                            let _ = fs::remove_dir_all(item.path());
+                        }
+                    }
+                }
+            }
+            packages.insert(
+                id,
+                Package {
+                    catalog: c,
+                    root,
+                    active,
+                },
+            );
+        }
+        Self { packages, bypass }
+    }
+    pub fn enabled(&self, id: &str) -> bool {
+        self.packages.get(id).is_some_and(|p| p.active)
+    }
     pub fn active(&self) -> bool {
-        self.active
+        self.enabled("community")
+    }
+    pub fn pending(&self) -> bool {
+        !self.bypass
+            && self
+                .packages
+                .values()
+                .any(|p| p.active != p.installed(&Package::selection(&p.root)))
     }
     pub fn status(&self) -> Value {
-        let Some(c) = &self.catalog else {
-            return json!({"available":false,"active":false,"installed":false});
-        };
-        let selected = Self::selection(&self.root);
-        json!({"available":true,"active":self.active,"safeMode":self.bypass,"installed":selected==c.sha256,"entry":c.entry,"css":c.css,"version":c.version,"size":c.size,
-            "incompatible":!selected.is_empty()&&selected!=c.sha256})
+        let mut modules = serde_json::Map::new();
+        for (id, p) in &self.packages {
+            let selected = Package::selection(&p.root);
+            let c = &p.catalog;
+            let installed = p.installed(&selected);
+            modules.insert(id.clone(),json!({"available":true,"active":p.active,"safeMode":self.bypass,"installed":installed,"entry":c.entry,"css":c.css,"version":c.version,"size":c.size,"incompatible":!selected.is_empty()&&!installed}));
+        }
+        let mut status = modules
+            .get("community")
+            .cloned()
+            .unwrap_or(json!({"available":false,"active":false,"installed":false}));
+        status["modules"] = Value::Object(modules);
+        status
     }
     pub fn respond(&self, req: Request<Vec<u8>>, response: &mut Response<Cow<'static, [u8]>>) {
-        let Some(c) = &self.catalog else {
-            return;
-        };
         let decoded = percent_encoding::percent_decode_str(req.uri().path()).decode_utf8_lossy();
         let key = decoded.trim_start_matches('/');
-        if !c.files.contains_key(key) {
+        if !self
+            .packages
+            .values()
+            .any(|p| p.catalog.files.contains_key(key))
+        {
             return;
         }
-        *response = match (self.active && req.method() == http::Method::GET)
-            .then(|| Self::asset(&self.root, c, key))
-            .flatten()
-        {
-            Some(data) => Response::builder()
+        let bytes = if req.method() == http::Method::GET {
+            self.packages
+                .values()
+                .filter(|p| p.active)
+                .find_map(|p| Package::asset(&p.root, &p.catalog, key))
+        } else {
+            None
+        };
+        *response = match bytes {
+            Some(bytes) => Response::builder()
                 .status(StatusCode::OK)
                 .header("Content-Type", mime(key))
                 .header("Cache-Control", "no-store")
                 .header("X-Content-Type-Options", "nosniff")
-                .body(Cow::Owned(data))
+                .body(Cow::Owned(bytes))
                 .unwrap(),
             None => Response::builder()
                 .status(StatusCode::NOT_FOUND)
                 .header("Cache-Control", "no-store")
-                .body(Cow::Owned(Vec::new()))
+                .body(Cow::Borrowed(&[][..]))
                 .unwrap(),
         };
     }

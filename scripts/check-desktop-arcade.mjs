@@ -60,8 +60,9 @@ export async function checkLocalGames(page,capture){
     await page.waitForFunction(()=>Number(document.querySelector('.arcade-personal-best b')?.textContent)>0);
     await page.getByRole('button',{name:'返回游戏厅',exact:true}).click();
     await ranking(page).click();
-    await page.getByRole('link',{name:'打开扩展设置'}).click();
-    await page.getByRole('heading',{name:'社区插件'}).waitFor();
+    assert.equal(new URL(page.url()).hash,'#/points');
+    await page.getByRole('heading',{name:'我的积分'}).waitFor();
+    await page.getByRole('button',{name:'登录账号',exact:true}).waitFor();
     await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'游戏',exact:true}).click();
     assert.deepEqual(network,[],'无插件的本机练习不能访问计分服务器');
   }finally{page.off('request',observe);}
@@ -139,13 +140,10 @@ export async function checkCommunityGames(page,capture,fixture){
   const leaving=page.getByRole('dialog',{name:'结束本局并离开？'});
   await leaving.getByRole('button',{name:'返回游戏'}).click();
   await page.getByRole('button',{name:'继续游戏',exact:true}).waitFor();
-  const finish=url=>url.pathname==='/api/arcade/tanks/finish';
-  await page.route(finish,async route=>{await route.fetch();await route.abort('failed');});
+  fixture.dropNextArcadeFinish();
   await hall(page).click();
-  try{
-    await leaving.getByRole('button',{name:'结算并离开'}).click();
-    await leaving.getByRole('alert').waitFor();
-  }finally{await page.unroute(finish);}
+  await leaving.getByRole('button',{name:'结算并离开'}).click();
+  await leaving.getByRole('alert').waitFor();
   await leaving.getByRole('button',{name:'重试并离开'}).click();
   await page.locator('.game-catalog-grid').waitFor();
 }

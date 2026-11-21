@@ -12,6 +12,7 @@ import {launcherReleases} from '../packages/engine/core/app-update.mjs';
 import {supportRequest} from './support.mjs';
 import {updates} from './updates.mjs';
 import {musicAccount} from './music-account.mjs';
+import {cardPlugins} from './plugins.mjs';
 import {communityExtension} from './community-extension.mjs';
 import {preflight} from './preflight.mjs';
 import {createPeerTransport} from './rtc.mjs';
@@ -37,7 +38,8 @@ const identity=service=>emit({type:'identity-changed',authenticated:service.hasA
 engine.then(identity).catch(()=>{}); // The local UI receives initialization errors through the request that triggered it.
 const latency=createLatencyMonitor({targets:async()=>monitorEndpoints(await (await engine).invoke('monitor.targets'))});
 const updater=Promise.all([engine,fs.access(path.join(resources,'../../installed.flag')).then(()=>true,()=>false)]).then(([service,installed])=>updates({home,version:pkg.version,architecture:process.arch,installed,channel:__HXZ_UPDATE_CHANNEL__,emit,isBusy:()=>service.isBusy(),launch:input=>host('update.install',input)}));
-const extension=communityExtension({home,choose,resources,definition:__HXZ_COMMUNITY_EXTENSION__,emit});
+const officialExtensions=new Map(Object.entries(__HXZ_OFFICIAL_EXTENSIONS__).map(([id,definition])=>[id,communityExtension({home,choose,resources,id,definition,emit})]));
+const cards=cardPlugins({home,choose,emit,safeMode:process.env.HXZ3_SAFE_MODE==='1',request:async()=>{throw Error('请从本机导入卡片');}});
 const local={
   'profile.cards':()=>legacyCardPackage(previousAppData),
   'profile.look':async input=>legacyAppearance(previousAppData,home,await engine,input?.apply===true,input?.scope),
@@ -54,7 +56,15 @@ const local={
 };
 async function dispatch(action,input){
   const service=await engine;checkAccess(action,service.hasAuthenticatedAccount());
-  if(action.startsWith('extension.'))return extension(action);
+  if(action.startsWith('plugins.')){
+    if(input?.marketId||!['plugins.list','plugins.install','plugins.enable','plugins.disable','plugins.remove'].includes(action))throw Error('仅支持本地声明式卡片');
+    return cards(action,input||{});
+  }
+  if(action.startsWith('extension.')){
+    const extension=officialExtensions.get(input?.id??'community');
+    if(!extension)throw Error('未识别的官方扩展');
+    return extension(action);
+  }
   if(action.startsWith('app-update.'))return (await updater).invoke(action);
   if(Object.hasOwn(local,action))return local[action](input);
   const value=await service.invoke(action,input);

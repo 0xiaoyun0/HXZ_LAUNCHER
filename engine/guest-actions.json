@@ -126,5 +126,10 @@
   "cards.export",
   "cards.import",
   "cards.apply",
-  "background.choose"
+  "background.choose",
+  "plugins.list",
+  "plugins.install",
+  "plugins.enable",
+  "plugins.disable",
+  "plugins.remove"
 ]

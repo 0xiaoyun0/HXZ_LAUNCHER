@@ -20,26 +20,37 @@ function closure(entry){
   }
   visit(entry);return files;
 }
-const source='src/launcher/Social.tsx',entry=modules[source],core=closure('index.html');
-if(!entry||core.has(entry.file))throw Error('社区仍被游戏入口直接依赖');
-const exclusive=[...closure(source)].filter(file=>!core.has(file));
-const payload=new Map();
-for(const file of exclusive)payload.set(file,path.join(ui,file));
-for(const file of await filesUnder('public/linking'))payload.set('linking/'+file.split(path.sep).join('/'),path.join('public/linking',file));
-const name='HXZ-Community-Plugin-'+version+'.zip',out=path.resolve('release',version,'extensions');
+const core=closure('index.html'),removeFromBase=new Set(),catalog={};
+const out=path.resolve('release',version,'extensions');
 await fs.mkdir(out,{recursive:true});
-const zip=new yazl.ZipFile(),temp=path.join(out,name+'.tmp'),written=pipeline(zip.outputStream,createWriteStream(temp));
-const files={};
-for(const [relative,sourceFile] of [...payload].sort(([a],[b])=>a<b?-1:a>b?1:0)){
-  const data=await fs.readFile(sourceFile);
-  files[relative]=createHash('sha256').update(data).digest('hex');
-  zip.addBuffer(data,relative,{mtime:new Date('2000-01-01T00:00:00Z'),mode:0o100644});
+for(const [id,label,source] of [
+  ['community','Community','src/launcher/Social.tsx'],['music','Music','src/launcher/music-extension.ts'],['arcade','Arcade','src/launcher/arcade-extension.ts']
+]){
+  const entry=modules[source];
+  if(!entry||core.has(entry.file))throw Error(id+' 被基础界面直接依赖');
+  const payload=new Map();
+  for(const file of closure(source))if(!core.has(file)){payload.set(file,path.join(ui,file));removeFromBase.add(file);}
+  if(id==='community')for(const file of await filesUnder('public/linking'))payload.set('linking/'+file.split(path.sep).join('/'),path.join('public/linking',file));
+  if(id==='arcade')for(const file of await filesUnder('public/media/games')){
+    const key='media/games/'+file.split(path.sep).join('/');
+    payload.set(key,path.join(ui,key));removeFromBase.add(key);
+  }
+  const name='HXZ-'+label+'-Plugin-'+version+'.zip';
+  const zip=new yazl.ZipFile(),temp=path.join(out,name+'.tmp'),written=pipeline(zip.outputStream,createWriteStream(temp));
+  const files={};
+  for(const [relative,sourceFile] of [...payload].sort(([a],[b])=>a<b?-1:a>b?1:0)){
+    const data=await fs.readFile(sourceFile);
+    files[relative]=createHash('sha256').update(data).digest('hex');
+    zip.addBuffer(data,relative,{mtime:new Date('2000-01-01T00:00:00Z'),mode:0o100644});
+  }
+  zip.end();await written;
+  const hash=createHash('sha256');for await(const bytes of createReadStream(temp))hash.update(bytes);
+  const definition={version,name,entry:entry.file,css:entry.css||[],size:(await fs.stat(temp)).size,sha256:hash.digest('hex'),url:'https://www.hxzmc.top/api/release-file/'+name,files};
+  await fs.rename(temp,path.join(out,name));
+  catalog[id]=definition;
+  console.log(id+' · '+name+' · '+definition.size+' 字节');
 }
-zip.end();await written;
-const hash=createHash('sha256');for await(const bytes of createReadStream(temp))hash.update(bytes);
-const definition={version,name,entry:entry.file,css:entry.css||[],size:(await fs.stat(temp)).size,sha256:hash.digest('hex'),url:'https://www.hxzmc.top/api/release-file/'+name,files};
-await fs.rename(temp,path.join(out,name));
-await fs.writeFile('.runtime/community-extension.json',JSON.stringify(definition));
-for(const relative of exclusive)await fs.unlink(path.join(ui,relative));
+await fs.writeFile('.runtime/community-extension.json',JSON.stringify(catalog.community));
+await fs.writeFile('.runtime/official-extensions.json',JSON.stringify(catalog));
+for(const file of removeFromBase)await fs.unlink(path.join(ui,file));
 await fs.unlink(manifestPath);
-console.log('社区插件 '+name+' · '+payload.size+' 个文件 · '+definition.size+' 字节。基础桌面包独立。');

@@ -7,10 +7,10 @@ fn main() {
         println!("cargo:rerun-if-changed={source}");
         std::fs::copy(source, format!("icons/{icon}")).expect("copy canonical app icon");
     }
-    let manifest = "../.runtime/community-extension.json";
+    let manifest = "../.runtime/official-extensions.json";
     println!("cargo:rerun-if-changed={manifest}");
     let target = std::path::PathBuf::from(std::env::var_os("OUT_DIR").unwrap())
-        .join("community-extension.json");
+        .join("official-extensions.json");
     std::fs::write(
         target,
         std::fs::read(manifest).unwrap_or_else(|_| b"null".to_vec()),

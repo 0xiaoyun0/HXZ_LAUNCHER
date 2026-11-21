@@ -165,7 +165,8 @@ export async function createServices({
     instanceSettings: {}
   };
   const preferenceKeys = new Set(Object.keys(settings));
-  if (await exists(configFile)){
+  const hadPreferences=await exists(configFile);
+  if (hadPreferences){
     const prior=await json(configFile);
     settings={...settings,...prior,...wallpaperPreferences({desktopBackdrop:prior.desktopThemes?'scene':'plain',...prior}),
       workspaceLayout:workspaceLayout(prior.workspaceLayout).id};
@@ -175,6 +176,7 @@ export async function createServices({
     const installed=await initialLibrary?.();
     settings.gameRoot=installed?.root||await initialRoot();
     if(installed){
+      if(!hadPreferences&&installed.preferences)Object.assign(settings,installed.preferences);
       if(!settings.selectedInstance)settings.selectedInstance=installed.selected;
       if(!settings.lastPlayed&&installed.lastPlayed)settings.lastPlayed=installed.lastPlayed;
       if(installed.playtime){
@@ -1439,6 +1441,11 @@ export async function createServices({
           throw Error("更新弹窗设置无效");
         nextSettings.hxzupPopup = input.hxzupPopup;
       }
+      for(const key of ['fecEnabled','communityRelayEnabled']){
+        if(!Object.hasOwn(input,key))continue;
+        if(typeof input[key]!=='boolean')throw Error('连接开关需要布尔值');
+        nextSettings[key]=input[key];
+      }
       if(input.shortcuts!=null)nextSettings.shortcuts=normalizeShortcuts(input.shortcuts);
       if(input.gameWindowAction!=null){if(!['keep','minimize','hide'].includes(input.gameWindowAction))throw Error('游戏窗口操作无效');nextSettings.gameWindowAction=input.gameWindowAction;}
       for (const key of ['keepLauncherAvailable','autoReportErrors','shortcutEnabled','voiceOverlay','gameSleep','memoryOptimization','onboardingDone','chinesePaths','confirmUnsaved','instancesCollapsed','promptJavaDownload','showCover'])
@@ -2094,6 +2101,19 @@ export async function createServices({
       if(active){await ensureAccount();}
       else await remoteJSON(SKIN,{timeoutMs:6000,retryBudgetMs:1500,retryDelay:250});
       return {authenticated:!!active,latency:Date.now()-start};
+    },
+    async "arcade.score"({route,method,body}){
+      const allowed=method==='GET'?/^\/api\/arcade\/[a-z][a-z0-9-]{0,31}\?period=(week|all)$/:method==='POST'?/^\/api\/arcade\/[a-z][a-z0-9-]{0,31}\/(start|checkpoint|finish)$/:null;
+      if(typeof route!=='string'||!allowed?.test(route))throw Error('小游戏成绩请求无效');
+      const session=await actions['community.connect']({});
+      return remoteJSON(session.base+route,{method,headers:{Authorization:'Bearer '+session.token,...(method==='POST'?{'Content-Type':'application/json'}:{})},...(method==='POST'?{body:JSON.stringify(body)}:{}),timeoutMs:12000});
+    },
+    async "points.overview"() {
+      const session=await actions['community.connect']({});
+      const read=route=>remoteJSON(session.base+route,{headers:{Authorization:'Bearer '+session.token},timeoutMs:12000});
+      const [wallet,board]=await Promise.all([read('/api/points'),read('/api/points/leaderboard')]);
+      if(settings.selectedAccount!==session.accountId||selected()?.uuid!==session.user.uid||endpoint(settings.communityUrl)!==session.base)throw Error('当前账号或社区地址已切换，请重新读取积分');
+      return {name:session.user.name,balance:wallet.balance,ledger:wallet.ledger,rank:board.self?.rank??null,weekly:board.self?.points??'0',leaders:board.items||[]};
     },
     async "community.connect"(input) {
       const a=selected(),uuid=a.uuid,base=endpoint(settings.communityUrl),key=JSON.stringify([a.id,uuid,base]);

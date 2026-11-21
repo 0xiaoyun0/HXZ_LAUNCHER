@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {readCalendar,historicalCalendar} from '../packages/engine/core/game-playtime.mjs';
-const fields=['gameWindowAction','autoCheckUpdates','promptJavaDownload','memoryOptimization','selectedInstance','gameRoot','javaPath','theme','fontSize','accentColor','memoryMode','defaultMemoryMB','downloadConcurrency','downloadSpeedMBps','downloadMode','voiceMode','voiceKey','voiceSounds','showCover','animationSpeed','gameSleep','keepLauncherAvailable','communityUrl','confirmUnsaved','cardStyle','cardLayouts','cardPlacements','widgets','hiddenLinks','pinnedLinks'];
+const fields=['fecEnabled','communityRelayEnabled','gameWindowAction','autoCheckUpdates','promptJavaDownload','memoryOptimization','selectedInstance','gameRoot','javaPath','theme','fontSize','accentColor','memoryMode','defaultMemoryMB','downloadConcurrency','downloadSpeedMBps','downloadMode','voiceMode','voiceKey','voiceSounds','showCover','animationSpeed','gameSleep','keepLauncherAvailable','communityUrl','confirmUnsaved','cardStyle','cardLayouts','cardPlacements','widgets','hiddenLinks','pinnedLinks'];
 export function lastGameFromHistory(root,records){
   if(typeof root!=='string'||!path.isAbsolute(root)||!Array.isArray(records))return null;
   const resolved=path.resolve(root);

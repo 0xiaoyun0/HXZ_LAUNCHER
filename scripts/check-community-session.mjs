@@ -41,6 +41,13 @@ export async function communityFixture(temp, dist, title) {
   skin.listen(0,'127.0.0.1');await once(skin,'listening');
   const skinUrl='http://127.0.0.1:'+skin.address().port;
   const service=createCommunity({data:path.join(temp,'server'),skin:skinUrl,adminIDs:[profile.id],origins:['http://tauri.localhost','https://tauri.localhost']});
+  let loseFinishResponse=false;
+  service.server.prependListener('request',(req,res)=>{
+    if(!loseFinishResponse||req.method!=='POST'||req.url!=='/api/arcade/tanks/finish')return;
+    loseFinishResponse=false;
+    // Commit the score on the real fixture server, then simulate loss of the reply.
+    res.end=()=>{res.destroy();return res;};
+  });
   service.server.listen(0,'127.0.0.1');await once(service.server,'listening');
   // Only redirect the skin service in a private test copy. The shipped files and the installed app stay independent.
   const bin=path.join(temp,'community-bin'),worker=path.join(bin,'engine');
@@ -58,6 +65,7 @@ export async function communityFixture(temp, dist, title) {
       for(let i=0;i<50;i++)save.run(year,'fixture-'+i,'往期旅人 '+(i+1),String(500-i));
       save.run(year,profile.id,profile.name,'17');
     },
+    dropNextArcadeFinish(){loseFinishResponse=true;},
     rewardCode(){
       const code=randomBytes(20).toString('hex');
       service.db.prepare('INSERT INTO points_codes(hash,amount,created,actor) VALUES(?,?,?,?)').run(createHash('sha256').update(code).digest('hex'),'12',Date.now(),'fixture');

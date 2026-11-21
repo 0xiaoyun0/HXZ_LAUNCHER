@@ -3,7 +3,6 @@ import {useNavigate} from 'react-router-dom';
 import {ArrowDown,ArrowUp,Check,Play,Plus,Trash2} from 'lucide-react';
 import {FLOW_ACTIONS,normalizeWorkflow,runWorkflow} from '../../../packages/engine/core/card-workflow.mjs';
 import {leaveVoice} from '../../../packages/community/client';
-import {stopMusic} from './music-player';
 import {account,invoke,launch,notify,selected,state,task,ui} from './model';
 import {Button,IconButton,Modal,Select} from './ui';
 import './workflow-card.css';
@@ -14,7 +13,7 @@ export function WorkflowCard({item,draft,editing,onChange}:any){
  const change=(values:string[])=>onChange({...draft,steps:normalizeWorkflow(values)});
  const move=(index:number,direction:number)=>{const next=[...steps];[next[index],next[index+direction]]=[next[index+direction],next[index]];change(next);};
  async function execute(action:string){
-  if(action==='pause-music')stopMusic();
+  if(action==='pause-music')window.dispatchEvent(new Event('hxz-pause-music'));
   if(action==='leave-voice')await leaveVoice();
   if(action==='instance-folder'){const instance=selected();if(!instance?.installed)throw Error('请先选择一个已安装的实例');await invoke('instance.folder',{id:instance.id,kind:'versions'});}
   if(action==='launch-instance'){

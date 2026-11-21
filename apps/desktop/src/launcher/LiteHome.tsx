@@ -85,6 +85,7 @@ export function LiteMore(){
   return <section className="launch-page lite-more"><header className="launch-title"><h1>更多功能</h1></header>
     <nav aria-label="极简版工具">
       <Link to="/lite?versions="><GalleryVerticalEnd size={19}/><span>版本选择</span><ChevronRight size={15}/></Link>
+      <Link to="/lite/points"><LayoutGrid size={19}/><span>我的积分</span><ChevronRight size={15}/></Link>
       <Link to="/lite/account"><UserRound size={19}/><span>账号与角色</span><ChevronRight size={15}/></Link>
       <Link to="/lite/settings/wallpaper"><Image size={19}/><span>玩家壁纸</span><ChevronRight size={15}/></Link>
     </nav>

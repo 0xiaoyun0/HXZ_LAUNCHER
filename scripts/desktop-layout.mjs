@@ -12,7 +12,7 @@ const routes=[
   ['/arcade','.game-catalog-grid'],['/arcade/play/runner','.canvas-stage'],['/community/ranking','.points-ranking'],
   ['/community/arcade/board/gomoku','.strategy-board'],['/community/arcade/social/werewolf','.wolf-layout'],['/community/arcade/coop/tanks','.coop-mode-toolbar'],
   ['/playtime','.playtime-summary'],['/playtime?date=2025-01-01','.panel-value'],['/account','.preference-section'],['/check','.check-list'],['/support','.feedback-center'],
-  ['/updates','.launcher-updates'],['/settings','.memory-setting'],['/settings?section=appearance','input[aria-label="界面字号"]'],
+  ['/updates','.launcher-updates'],['/points','.preference-section'],['/lite/points','.preference-section'],['/settings','.memory-setting'],['/settings?section=appearance','input[aria-label="界面字号"]'],
   ['/settings?section=appearance&panel=surface','.design-options'],['/settings?section=appearance&panel=wallpaper','.wallpaper-modes'],
   ['/settings?section=downloads','input[aria-label="下载总限速"]'],['/settings?section=network','input[type=url]'],
   ['/settings?section=migration','.preference-section'],['/settings/extensions','.extension-actions'],
@@ -271,6 +271,14 @@ export async function verifyDesktopLayout(page,native,directory){
         }
         const bottom=await page.locator('main').evaluate(el=>el.scrollHeight-el.clientHeight);
         if(bottom>2){
+          if(route==='/workshop/sources'){
+            const node=page.locator('.download-source-grid article').first();
+            await node.scrollIntoViewIfNeeded();
+            const before=await page.locator('main').evaluate(el=>el.scrollTop);
+            const direction=before<bottom/2?1:-1;
+            await node.hover();await page.mouse.wheel(0,direction*340);
+            await page.waitForFunction(({before,direction})=>(document.querySelector('main').scrollTop-before)*direction>2,{before,direction},{timeout:1500}).catch(()=>issues.push('指针位于节点卡片时滚轮未传递给页面'));
+          }
           for(const y of [Math.round(bottom/2),bottom]){
             await page.locator('main').evaluate((el,top)=>{el.scrollTop=top;},y);
             issues.push(...await page.evaluate(measure));

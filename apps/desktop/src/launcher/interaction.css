@@ -1,0 +1,27 @@
+/* Page content passes the wheel to its parent on reaching either edge. */
+.launcher-content :is(.card-content,.instance-file-list,.hxzup-cards,.expression-grid,.mention-options),
+.town-shell main :is(.card-content,.instance-file-list,.expression-grid,.mention-options) {
+  overscroll-behavior-block:auto;
+}
+.launcher-content .card-content {
+  scrollbar-gutter:auto;
+}
+@keyframes town-panel-enter {from{opacity:.55}to{opacity:1}}
+@media (prefers-reduced-motion:no-preference) {
+  :root:not([data-motion=off]) :is(.launcher-frame,.town-shell,[role=dialog]) :where(button,a,[role=switch],[role=radio]) {
+    transition-property:background-color,color,border-color,box-shadow;
+    transition-duration:clamp(65ms,calc(var(--duration,.28s) * .48),240ms);
+    transition-timing-function:ease-out;
+  }
+  :root:not([data-motion=off]) :is(.launcher-content,.town-shell main)>:where(.launch-page,.play-library,.standard-page,.lite-workspace,.social-workspace),
+  :root:not([data-motion=off]) .modal[data-state=open] {
+    animation:town-panel-enter clamp(70ms,calc(var(--duration,.28s) * .55),260ms) ease-out;
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  :is(.launcher-frame,.town-shell,.modal),:is(.launcher-frame,.town-shell,.modal) *,
+  :is(.launcher-frame,.town-shell,.modal) *::before,:is(.launcher-frame,.town-shell,.modal) *::after {
+    animation-duration:.01ms!important; animation-iteration-count:1!important;
+    transition-duration:0s!important; scroll-behavior:auto!important;
+  }
+}

@@ -21,4 +21,4 @@ export default defineConfig({root:path.resolve('apps/desktop'),base:'./',publicD
    });
   }
  }
-}},build:{outDir:'dist',manifest:true,rollupOptions:{preserveEntrySignatures:'strict',input:{launcher:path.resolve('apps/desktop/index.html'),community:path.resolve('apps/desktop/src/launcher/Social.tsx')}},target:'chrome108',emptyOutDir:true}});
+}},build:{outDir:'dist',manifest:true,rollupOptions:{preserveEntrySignatures:'strict',input:{launcher:path.resolve('apps/desktop/index.html'),community:path.resolve('apps/desktop/src/launcher/Social.tsx'),music:path.resolve('apps/desktop/src/launcher/music-extension.ts'),arcade:path.resolve('apps/desktop/src/launcher/arcade-extension.ts')}},target:'chrome108',emptyOutDir:true}});

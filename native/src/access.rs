@@ -8,7 +8,8 @@ pub fn guest(action: &str) -> bool {
     allowed.contains(action)
 }
 pub fn included(action: &str) -> bool {
-    !["plugins.", "companion.", "lyrics.", "music.web."]
+    if action.starts_with("plugins.") { return matches!(action,"plugins.list"|"plugins.install"|"plugins.enable"|"plugins.disable"|"plugins.remove"); }
+    ![ "companion.", "lyrics.", "music.web."]
         .iter()
         .any(|prefix| action.starts_with(prefix))
 }

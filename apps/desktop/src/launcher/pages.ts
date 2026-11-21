@@ -11,6 +11,8 @@ export const liteTabs=[
  {path:'/lite/more',label:'更多',icon:LayoutGrid}
 ];
 export const pages=[
+ {path:'/points',label:'我的积分',terms:'账户 余额 积分 本周 排行榜',icon:ScrollText,primary:false,member:true},
+ {path:'/lite/points',label:'我的积分',terms:'极简版 账户 积分 本周 排行榜 余额',icon:ScrollText,primary:false,member:true},
  {path:'/',label:'游戏',terms:'首页 继续 上次 游玩 启动',icon:Play,primary:true,member:false},
  {path:'/lite',label:'极简启动',terms:'极简版 PCL 简洁模式 继续游戏 当前实例 切换实例',icon:Play,primary:false,member:false},
  {path:'/lite/more',label:'极简版更多功能',terms:'完整工作台 游戏库 更多工具 游戏目录',icon:LayoutGrid,primary:false,member:false},

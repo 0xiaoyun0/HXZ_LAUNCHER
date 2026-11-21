@@ -47,11 +47,13 @@ if(withAccount){
 }
 const jdk=path.join(process.env.ProgramFiles||'C:/Program Files','Java/jdk-17/bin/java.exe');
 const javaPath=await fs.access(jdk).then(()=>jdk,()=>'');
-if(layoutOnly){
+{
  const {communityExtension}=await import('../engine/community-extension.mjs');
- const definition=JSON.parse(await fs.readFile('.runtime/community-extension.json','utf8'));
- const zip=path.resolve('release',version,'extensions',definition.name);
- await communityExtension({home,definition,choose:async()=>({filePaths:[zip]})})('extension.import');
+ const catalog=JSON.parse(await fs.readFile('.runtime/official-extensions.json','utf8'));
+ for(const id of layoutOnly?['community','music','arcade']:['music','arcade']){
+   const definition=catalog[id],zip=path.resolve('release',version,'extensions',definition.name);
+   await communityExtension({home,id,definition,choose:async()=>({filePaths:[zip]})})('extension.import');
+ }
 }
 if(fixture&&!layoutOnly)await fixture.prepareJava(gameRoot,names[0],javaPath);
 await fs.writeFile(path.join(home,'settings.json'),JSON.stringify({gameRoot,javaPath,gameWindowAction:'keep',gameSleep:false,memoryMode:'manual',defaultMemoryMB:512,communityUrl:fixture?.url||'http://127.0.0.1:9',autoReportErrors:false,futureSetting:{keep:42},onboardingDone:true,instanceSettings:{...Object.fromEntries(names.slice(1).map(id=>[id,{favorite:true}])),[names[0]]:{memoryMode:'inherit',memoryMB:2048,jvmArgs:['-Xmx512M']}},selectedInstance:names[1],lastPlayed:{id:names[0],root:gameRoot,startedAt:'2026-11-01T12:00:00Z'}}));
@@ -130,7 +132,8 @@ try {
    await calendarDay.focus();await page.keyboard.press('Enter');await page.getByRole('heading',{name:label.slice(0,10)+' · 本机记录'}).waitFor();
    await nav.getByRole('link',{name:'游戏',exact:true}).click();
    await resume.getByRole('button',{name:'继续游玩'}).click();await page.getByRole('dialog').waitFor();await page.keyboard.press('Escape');
-   await denied('game.launch');await denied('lobby.host');await denied('plugins.list');await denied('lyrics.update');
+   await denied('game.launch');await denied('lobby.host');await denied('plugins.submit');await denied('lyrics.update');
+   assert.deepEqual((await native('plugins.list')).value.items,[]);
    await page.getByRole('link',{name:'启动前检查',exact:true}).click();
    await page.getByText('版本清单和客户端 JAR 可读取',{exact:true}).waitFor();
    await page.getByText('登录后可以启动游戏',{exact:true}).waitFor();
@@ -206,6 +209,21 @@ try {
    const saved=JSON.parse(await fs.readFile(path.join(home,'settings.json'),'utf8'));assert.deepEqual(saved.futureSetting,{keep:42});assert.equal(saved.instanceSettings[searchedInstance].favorite,true);
    if(fixture){
      await page.setViewportSize({width:1250,height:825});await resume.getByRole('button',{name:'继续游玩'}).click();await fixture.login(page);
+     const plainBalance=await native('points.overview');
+     assert.equal(plainBalance.ok,true,plainBalance.error);
+     assert.equal(plainBalance.value.balance,'0');
+     assert.equal((await native('extension.status')).value.active,false);
+     const board=await native('arcade.score',{route:'/api/arcade/runner?period=week',method:'GET'});
+     assert.equal(board.ok,true,board.error);
+     const rankedRun=await native('arcade.score',{route:'/api/arcade/runner/start',method:'POST',body:{rulesVersion:10}});
+     assert.ok(rankedRun.ok&&rankedRun.value.id,rankedRun.error);
+     assert.equal((await native('arcade.score',{route:'/api/session',method:'GET'})).ok,false);
+     await switchWorkspace(page,true);
+     await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'更多'}).click();
+     await page.getByRole('link',{name:'我的积分'}).click();
+     await page.getByText('可用余额',{exact:true}).waitFor();
+     assert.deepEqual((await native('points.overview')).value,plainBalance.value);
+     await openFullWorkspace(page);
      const launchPanel=startLite?page.locator('.lite-game'):resume;
      if(startLite)await switchWorkspace(page,true);
      await launchPanel.getByRole('button',{name:'继续游玩'}).click();await page.getByRole('button',{name:'收起任务'}).click();
@@ -257,7 +275,7 @@ try {
        const session=await page.context().newCDPSession(page);
        const previous=(await session.send('Target.getTargetInfo')).targetInfo.targetId;
        await session.detach();
-       await page.getByRole('button',{name:'重启启动器',exact:true}).click().catch(()=>{});
+       await page.getByRole('button',{name:'重启启动器',exact:true}).first().click().catch(()=>{});
        page=undefined;const timeout=Date.now()+60000;
        while(!page&&Date.now()<timeout){
          try{
@@ -314,9 +332,17 @@ try {
        const {verifyDesktopLayout}=await import('./desktop-layout.mjs');await verifyDesktopLayout(page,native,artifacts);
        await native('settings.save',{fontSize:16,theme:'light',animationSpeed:1});await page.setViewportSize({width:1250,height:825});await page.reload();
      }
-     await pluginSettings();await page.getByRole('button',{name:'停用插件'}).click();await page.getByText('已停用 · 重启后生效').waitFor();
+     await pluginSettings();await page.getByRole('button',{name:'停用插件'}).click();await page.getByText('已停用 · 重启后移除').waitFor();
+     const priorWallet=(await native('points.overview')).value;
+     for(const id of ['music','arcade'])assert.ok((await native('extension.disable',{id})).ok);
      const installedPath=(await native('extension.status')).value.entry;await restart();assert.equal((await native('extension.status')).value.active,false);
      assert.equal(await page.evaluate(async path=>(await fetch('/'+path)).status,installedPath),404);
+     assert.ok(Object.values((await native('extension.status')).value.modules).every(m=>!m.active));
+     assert.deepEqual((await native('points.overview')).value,priorWallet);
+     await switchWorkspace(page,true);await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'更多'}).click();
+     await page.getByRole('link',{name:'我的积分',exact:true}).click();await page.getByText('可用余额',{exact:true}).waitFor();
+     assert.deepEqual((await native('points.overview')).value,priorWallet);
+     assert.equal((await native('arcade.score',{method:'GET',route:'/api/arcade/tanks?period=week'})).ok,false);
      console.log('Signed-in launcher: native login, real Java 17 fixture main ran, stop, persisted last played and lobby controls.');
    }
  }

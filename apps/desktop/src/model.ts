@@ -5,7 +5,7 @@ import {requestFailureMessage} from '../../../packages/community/request-errors.
 import {newTaskProgress,updateTaskProgress} from '../../../packages/engine/core/task-progress.mjs';
 import {proxy,subscribe} from 'valtio';
 import {normalizeCardLayouts,normalizeCardStyle} from '../../../packages/engine/core/card-layout.mjs';
-declare global {interface Window {launcher?:{invoke:(action:string,input?:any)=>Promise<any>;subscribe:(fn:(event:any)=>void)=>()=>void;filePath:(file:File)=>string}}}
+declare global {interface Window {launcher?:{platform?:'android'|'desktop';invoke:(action:string,input?:any)=>Promise<any>;subscribe:(fn:(event:any)=>void)=>()=>void;filePath:(file:File)=>string}}}
 export const desktop=!!window.launcher;
 import {DEFAULT_DESKTOP_THEME,changeDesktopTheme,presetAppearance} from '../../../packages/engine/core/desktop-themes.mjs';
 import {WALLPAPER_DEFAULTS,wallpaperPatch,wallpaperPreferences} from '../../../packages/engine/core/desktop-wallpaper.mjs';

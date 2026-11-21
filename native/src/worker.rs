@@ -99,6 +99,7 @@ impl Engine {
             .arg("--disable-warning=ExperimentalWarning")
             .arg(self.bin.join("engine.cjs"))
             .env("HXZ3_PROFILE", &self.home)
+            .env("HXZ3_SAFE_MODE", if std::env::args_os().any(|arg| arg == "--disable-plugins") { "1" } else { "0" })
             .env("HXZ3_RESOURCES", self.bin.join("resources"))
             .env_remove("NODE_OPTIONS")
             .env_remove("NODE_PATH")

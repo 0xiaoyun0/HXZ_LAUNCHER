@@ -10,8 +10,11 @@ import {CardBoard,CardHeading} from '../CardBoard';
 import {PackIcon} from '../GameLibrary';
 import {HomeRole,HomeServers,InstanceSummary,PlayCalendar} from './HomeSidebar';
 
+import {extension} from './Extensions';
+import {useHomeCards} from '../workspace/useHomeCards';
 const quickLinks=[{to:'/workshop/install',name:'安装游戏',icon:Download},{to:'/multiplayer',name:'联机大厅',icon:Network},{to:'/music',name:'音乐播放器',icon:Music2}];
 export function Home(){
+  const modulesOn=useSnapshot(extension).modules,playerCards=useHomeCards();
   const s=useSnapshot(state),t=useSnapshot(task),[query,setQuery]=useState(''),[focus,setFocus]=useState(''),[filter,setFilter]=useState('all');
   const layout=workspaceLayout(s.settings.workspaceLayout).id,modules=workspaceModules(s.settings.workspaceModules);
   const choice=useSnapshot(ui).liteSelection;
@@ -49,12 +52,13 @@ export function Home(){
     <footer><small>{term||libraryFilter!=='all'?'找到 '+matches.length+' 个匹配实例':games.filter(g=>g.installed).length+' 个已安装'}</small><Link to={'/library'+(term?'?q='+encodeURIComponent(query):'')}>管理实例 <ArrowRight size={14}/></Link></footer></>;
   return <section className="launch-page game-home"><CardBoard id="home" layoutKey={homeLayoutKey(layout)} columns={workspaceLayout(layout).columns} label={layout==='journal'?'游玩手记':layout==='library'?'实例控制台':'启动游戏'} home pageTitle
     actions={<Link className="small-action appearance-shortcut" to="/settings?section=appearance"><Palette size={15}/>外观</Link>}
-    beforeCards={modules.quickLinks&&<nav className="home-quick-links" aria-label="首页快捷入口">{quickLinks.map(({to,name,icon:Icon})=><Link to={to} key={to}><Icon size={16}/>{name}<ArrowRight size={13}/></Link>)}</nav>}
+    beforeCards={modules.quickLinks&&<nav className="home-quick-links" aria-label="首页快捷入口">{quickLinks.filter(link=>link.to!=='/music'||modulesOn.music?.active).map(({to,name,icon:Icon})=><Link to={to} key={to}><Icon size={16}/>{name}<ArrowRight size={13}/></Link>)}</nav>}
     cards={[
       {id:'library',title:'游戏实例',w:8,className:'instances-card',content:instances,native:true},
       {id:'roles',title:'我的角色',w:4,className:'home-role-card',content:<HomeRole/>,native:true},
       {id:'monitor',title:'默认服务器',w:4,className:'home-servers-card',content:<HomeServers/>,native:true},
       {id:'playtime',title:'游玩日历',w:8,className:'calendar-card',content:<PlayCalendar journal={layout==='journal'}/>,native:true},
-      {id:'launch',title:'实例详情',w:4,className:'home-detail-card',content:<InstanceSummary game={focused}/>,native:true}
+      {id:'launch',title:'实例详情',w:4,className:'home-detail-card',content:<InstanceSummary game={focused}/>,native:true},
+      ...playerCards.map(({manifest,card})=>({id:'player-'+manifest.id,title:card.title,w:4,content:<><p>{card.body}</p>{card.route&&<Link className="small-action" to={card.route}>打开{card.title}</Link>}</>}))
     ]}/></section>;
 }

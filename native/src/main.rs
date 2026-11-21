@@ -70,8 +70,7 @@ async fn launcher_request(
         return Ok(plugin.status());
     }
     if action == "extension.restart" {
-        let status = plugin.status();
-        if status["active"] == status["installed"] {
+        if !plugin.pending() {
             return Err("没有等待重启的扩展变更".into());
         }
         if engine.busy.load(Ordering::Acquire) || engine.games.active() {
@@ -80,8 +79,12 @@ async fn launcher_request(
         window.app_handle().request_restart();
         return Ok(Value::Null);
     }
+    if (action.starts_with("music.") || action.starts_with("netease.")) && !plugin.enabled("music") { return Err("请先在设置中安装音乐播放器扩展并重启".into()); }
     if action == "community.connect" && !plugin.active() {
         return Err("请在设置中安装社区插件并重启".into());
+    }
+    if action == "arcade.score" && !plugin.enabled("arcade") {
+        return Err("请在设置中安装小游戏扩展并重启".into());
     }
     let (action,input) = if action == "drop.apply" {
         window.state::<dropped::Dropped>().consume(&input)?
