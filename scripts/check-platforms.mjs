@@ -19,13 +19,35 @@ async function check(folder,script,paths) {
     if(route==='/health')assert.equal((await response.json()).version,version);
     else if(route==='/api/releases'){
       const catalog=await response.json();assert.equal(catalog.version,version);
-      assert.ok(catalog.assets.some(f=>f.name.endsWith('.apk')));assert.ok(catalog.assets.some(f=>f.name.includes('-setup-x64')));
-      const definition=JSON.parse(await fs.readFile('.runtime/community-extension.json','utf8'));
-      const plugin=catalog.assets.find(f=>f.name===definition.name);assert.equal(plugin?.size,definition.size);
-      const source='http://127.0.0.1:'+port+plugin.url;
-      const head=await fetch(source,{method:'HEAD'});assert.equal(head.status,200);assert.equal(Number(head.headers.get('content-length')),plugin.size);
-      const payload=await fetch(source),digest=createHash('sha256');assert.equal(payload.status,200);
-      for await(const chunk of payload.body)digest.update(chunk);assert.equal(digest.digest('hex'),definition.sha256);
+      const origin='http://127.0.0.1:'+port;
+      const androidName='HXZ-FCL-'+version+'-arm64-v8a-release.apk';
+      const android=await fs.stat(path.join(release,'android',androidName)).catch(error=>{
+        if(error.code!=='ENOENT')throw error;
+        return null;
+      });
+      const apks=catalog.assets.filter(file=>file.name.endsWith('.apk'));
+      assert.deepEqual(apks.map(file=>file.name),android?.isFile()?[androidName]:[]);
+      if(apks.length){
+        const head=await fetch(origin+apks[0].url,{method:'HEAD'});
+        assert.equal(head.status,200);assert.equal(Number(head.headers.get('content-length')),android.size);
+      }
+      for(const abi of ['arm64-v8a','x86_64']){
+        const debug=await fetch(origin+'/api/release-file/HXZ-FCL-'+version+'-'+abi+'-debug.apk',{method:'HEAD'});
+        assert.equal(debug.status,404);
+      }
+      for(const arch of ['x64','ia32']){
+        assert.ok(catalog.assets.some(file=>file.name==='HXZ-3rd-'+version+'-setup-'+arch+'.exe'));
+      }
+      const extensions=JSON.parse(await fs.readFile('.runtime/official-extensions.json','utf8'));
+      for(const id of ['community','music','arcade']){
+        const definition=extensions[id],plugin=catalog.assets.find(file=>file.name===definition.name);
+        assert.equal(plugin?.size,definition.size);
+        const head=await fetch(origin+plugin.url,{method:'HEAD'});
+        assert.equal(head.status,200);assert.equal(Number(head.headers.get('content-length')),plugin.size);
+        const payload=await fetch(origin+plugin.url),digest=createHash('sha256');assert.equal(payload.status,200);
+        for await(const chunk of payload.body)digest.update(chunk);
+        assert.equal(digest.digest('hex'),definition.sha256);
+      }
     }
     else if(expected===200)assert.ok((await response.text()).length>350,route);
   }
