@@ -55,11 +55,14 @@
 }
 .launcher-wallpaper:has(:is(img,video))::after {
   content: ""; position: absolute; inset: 0;
-  background: linear-gradient(to bottom,rgba(var(--canvas-rgb),.78),rgba(var(--canvas-rgb),var(--art-wash)) 28%,rgba(var(--canvas-rgb),.44) 78%,rgba(var(--canvas-rgb),.64)),
-    linear-gradient(105deg,rgba(var(--canvas-rgb),.24),transparent 55%),rgba(var(--canvas-rgb),var(--wall-protection,.10));
+  background: linear-gradient(to bottom,
+    rgba(var(--canvas-rgb),.94) var(--titlebar-height),
+    rgba(var(--canvas-rgb),.88) calc(var(--titlebar-height) + var(--page-top) + 2.75rem),
+    transparent calc(var(--titlebar-height) + var(--page-top) + 10rem)),
+    rgba(var(--canvas-rgb),var(--wall-protection,.13));
 }
 [data-skin] .launcher-content {z-index: 1}
-[data-skin] :is(.launcher-bar,.launcher-status,.social-sections) {
+[data-skin] :is(.launcher-bar,.launcher-status) {
   background: var(--chrome); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
 }
 [data-skin] .launcher-bar {box-shadow: inset 0 -1px 0 var(--rim)}
@@ -149,7 +152,7 @@
 .theme-form button {justify-self: end}
 @media (prefers-reduced-transparency: reduce) {
   :root[data-skin] {--theme-pane: rgb(var(--pane-rgb)); --chrome: rgb(var(--chrome-rgb)); --control: var(--solid)}
-  [data-skin] :is(.game-board .desk-card,.launcher-bar,.launcher-status,.social-sections) {backdrop-filter: none}
+  [data-skin] :is(.game-board .desk-card,.launcher-bar,.launcher-status) {backdrop-filter: none}
 }
 @media (forced-colors: active) {
   [data-skin] .launcher-wallpaper {display: none}

@@ -50,7 +50,7 @@
 .workspace-change {display:flex;align-items:center;flex-wrap:wrap;gap:.75em;color:var(--desk-muted)}
 .workspace-change>strong {color:var(--desk-ink)}
 @container desktop-window (max-width:72em) {
-  .launcher-brand .brand-home strong {display:none}
+  [data-shell=full] .launcher-brand .brand-home strong {display:none}
 }
 @container launcher-navigation (max-width:60em) {
   .launcher-navigation:has(.bar-shortcuts a:nth-child(2)) .bar-shortcuts a {inline-size:34px;padding-inline:0}

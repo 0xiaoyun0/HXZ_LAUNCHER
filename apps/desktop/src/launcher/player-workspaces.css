@@ -1,7 +1,6 @@
 /* Workspace geometry, materials and media can each be changed on their own. */
 .launcher-content {scrollbar-gutter:stable}
 [data-skin] .launcher-wallpaper {background-image:none}
-.launcher-wallpaper:has(:is(img,video))::after {background:rgba(var(--canvas-rgb),var(--wall-protection,.13))}
 .launcher-frame .launcher-brand {gap:10px}
 .launcher-content .launch-title h1,.launcher-content .library-location h1 {letter-spacing:-.035em}
 .launcher-content .game-home .launch-title h1 {font-size:clamp(1.5rem,2vw,1.95rem);line-height:1.25}

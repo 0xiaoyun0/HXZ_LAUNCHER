@@ -41,7 +41,7 @@
 :is(.launcher-content,.modal) :is(textarea,select,input:not([type]),input:is([type=text],[type=search],[type=url],[type=email],[type=password],[type=number])) {
   padding-inline:var(--inset-control-x);padding-block:var(--inset-control-y);box-sizing:border-box;
 }
-.launcher-frame :is(.social-sections,.music-find,.volume-line,.setting-line,.home-picker) select {
+.launcher-frame :is(.music-find,.volume-line,.setting-line,.home-picker) select {
   padding-inline:var(--inset-control-x);padding-block:var(--inset-control-y);
 }
 .launcher-content .instance-toolbar>label {padding:var(--inset-control-y) var(--inset-control-x)}
@@ -94,9 +94,29 @@
 .picker-options>button>span {flex:1;min-width:0}.picker-options>button small {display:block}
 .picker-options>button[aria-pressed=true],.community-directory a.active {background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent-border)}
 .picker-options>button:hover,.community-directory a:hover {border-color:var(--accent-border)}
-.choice-launch {max-width:100%;justify-content:space-between}.choice-launch>span {overflow-wrap:anywhere;min-width:0}.choice-launch svg,.social-current svg {flex:none}
+.choice-launch {max-width:100%;justify-content:space-between}.choice-launch>span {overflow-wrap:anywhere;min-width:0}.choice-launch svg {flex:none}
 .detail-launch {justify-self:start}.detail-dialog-content pre {max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
-.social-current {display:inline-flex;align-items:center;gap:7px;border-left:1px solid var(--edge);padding:5px 12px;color:var(--accent-text);font-size:.84rem;font-weight:600}
+/* Community sections belong to the content heading, with a single active marker. */
+.community-page-heading, .guild-columns .board-actions {min-width:0; max-width:100%}
+.launcher-frame .social-sections {
+  display:flex; flex-wrap:wrap; align-items:center; min-width:0; max-width:100%;
+  column-gap:clamp(.125rem,.45vw,.55rem); row-gap:.15rem;
+}
+.social-sections :is(a,button) {
+  display:inline-flex; align-items:center; justify-content:center; gap:.38rem;
+  min-height:var(--control-height); padding:.35rem .5rem; border:0;
+  border-radius:var(--control-radius); font:inherit; font-size:.875rem; line-height:1.4;
+  text-decoration:none; color:var(--desk-muted); background:transparent; cursor:pointer;
+}
+.social-sections :is(a,button)>svg {flex:none}
+.social-sections :is(a,button):hover {color:var(--desk-ink); background:var(--desk-selection)}
+.social-sections :is(a,button):focus-visible {outline:2px solid var(--accent-text); outline-offset:1px}
+.social-sections a[aria-current=page] {color:var(--accent-text); font-weight:650; text-decoration:underline; text-underline-offset:.45em; text-decoration-thickness:.13em}
+@media (pointer:coarse) {.social-sections :is(a,button) {min-height:2.75rem; min-width:2.75rem}}
+@container desktop-window (max-width:40em) {
+  .social-sections a>svg {display:none}
+  .social-sections .directory-launch span {display:none}
+}
 .community-directory h3 {margin:0 0 8px;font-size:.87rem;color:var(--secondary)}
 .launcher-content .extension-help {margin:0}.launcher-content .extension-help summary {padding:var(--inset-row) var(--panel-pad);cursor:pointer;font-weight:600}
 .launcher-content .extension-help>p {margin:0;padding:0 var(--panel-pad) var(--inset-row)}

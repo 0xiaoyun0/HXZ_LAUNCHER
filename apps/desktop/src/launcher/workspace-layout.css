@@ -34,9 +34,21 @@
 .game-board .desk-card>footer {margin-inline: calc(-1 * var(--panel-pad)); padding-inline: var(--panel-pad)}
 .settings-switch {display: none}
 .social-workspace {max-width: none}
-.social-sections,.social-connection {
-  padding-inline: max(var(--desk-inset),calc((100% - var(--page-width)) / 2 + var(--desk-inset)));
+.social-conversation {height:100%; min-height:0}
+.social-conversation>.social-content {display:flex; flex-direction:column; flex:1 0 auto; min-height:0}
+.social-conversation .social-chat {flex:1 0 16rem; grid-template-rows:minmax(0,1fr)}
+.social-conversation .chat-main,.social-conversation .people-panel {min-height:0}
+.social-chat .chat-title {display:flex; align-items:center; gap:.55rem}
+.social-chat .chat-title>b {margin-right:auto}
+.social-chat .chat-members-trigger {display:none}
+.social-chat>.people-panel {display:block}
+.social-chat .chat-composer:focus-within {outline:2px solid var(--accent-text); outline-offset:0}
+.social-chat .chat-composer textarea:focus {border-color:transparent; box-shadow:none; outline:0}
+@media (max-width:690px) {
+  .social-chat>.people-panel {display:none}
+  .social-chat .chat-members-trigger {display:inline-flex; align-items:center; gap:.4rem; min-height:2.75rem; padding:.3rem .6rem; background:transparent; border:0; border-radius:var(--control-radius); color:var(--desk-muted); font:inherit; font-size:.8125rem; cursor:pointer}
 }
+.social-workspace .social-connection {flex-wrap: wrap; padding: .6rem .9rem; margin-bottom: var(--desk-gap); border: 1px solid var(--desk-line); border-radius: var(--control-radius)}
 .launcher-bar nav a>svg,.launcher-status button>svg {flex: none}
 .launcher-status>button {min-width: 0; max-width: 35%}
 .launcher-status>button>span {overflow: hidden; text-overflow: ellipsis; white-space: nowrap}
@@ -64,12 +76,12 @@
 }
 .launcher-content .social-content>h1 {margin-bottom: var(--desk-gap)}
 .launcher-content .page-header-tabs {display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 12px}
-.launcher-content .page-header-tabs a,.social-sections>a {text-decoration: none; color: var(--desk-muted); padding: 6px 10px; border-radius: 7px; font-size: .875rem}
-.launcher-content .page-header-tabs a.active,.social-sections>a.active {color: var(--accent-text); background: var(--desk-selection)}
-.launcher-frame :is(.button,.small-action,.launch-primary,.toolbar-settings,.social-sections a,.music-find select,.volume-line select,.social-sections select,.setting-line select,.home-picker select) {
+.launcher-content .page-header-tabs a {text-decoration: none; color: var(--desk-muted); padding: 6px 10px; border-radius: 7px; font-size: .875rem}
+.launcher-content .page-header-tabs a.active {color: var(--accent-text); background: var(--desk-selection)}
+.launcher-frame :is(.button,.small-action,.launch-primary,.toolbar-settings,.music-find select,.volume-line select,.setting-line select,.home-picker select) {
   min-height: var(--control-height); max-width: 100%; line-height: 1.35; font-size: .875rem;
 }
-.launcher-frame :is(.social-sections,.music-find,.volume-line,.setting-line,.home-picker) select {
+.launcher-frame :is(.music-find,.volume-line,.setting-line,.home-picker) select {
   min-width: 0; border: 1px solid var(--desk-line); border-radius: 7px; background-color: var(--desk-surface); color: var(--desk-ink); padding: 5px 8px; font-family: inherit;
 }
 .launcher-content :is(.desk-actions,.music-find,.actions,.memory-controls,.card-actions) {min-width: 0; flex-wrap: wrap}
@@ -119,7 +131,9 @@
 .guild-columns {margin-bottom: var(--desk-gap)}
 .guild-columns .desk-card>h2 {margin-bottom: 10px}
 .social-archive {height: 100%; min-height: 0; max-width: none}
-.social-archive>.social-sections,.social-archive>.social-connection {flex: none}
+.archive-viewport>.community-page-heading {flex: none}
+.launcher-content .archive-viewport>.community-page-heading {width:100%; max-width:var(--page-width); margin-inline:auto; padding:var(--page-top) var(--desk-inset) 0}
+.archive-viewport>.social-connection {margin-inline:var(--desk-inset); flex:none}
 .social-archive>.archive-viewport,.archive-viewport>.linking-archive-host {
   display: flex; flex: 1 1 0; min-width: 0; min-height: 0; flex-direction: column;
 }

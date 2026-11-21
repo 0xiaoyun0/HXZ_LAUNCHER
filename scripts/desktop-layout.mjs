@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import sharp from 'sharp';
 import {switchWorkspace} from './check-desktop-lite.mjs';
 import {scan as measureInsets,cardHeadingIssues} from './desktop-insets.mjs';
 
@@ -133,6 +134,15 @@ function measure(){
   if(main.querySelector('.react-resizable-handle,.card-layout-toolbar,.react-grid-layout'))errors.push('固定页面挂载了布局编辑器');
   if(main.querySelector('.preference-section .preference-section'))errors.push('设置卡嵌入设置卡');
   const pageTitle=main.querySelector('h1')?.textContent.trim();
+  const communityNav=main.querySelector('nav[aria-label="社区导航"]');
+  if(communityNav){
+    const heading=communityNav.closest('header'),title=heading?.querySelector('h1');
+    if(!title||getComputedStyle(communityNav).backgroundColor!=='rgba(0, 0, 0, 0)')errors.push('社区栏目必须位于页面标题内并透出工作区背景');
+    if(title){
+      const a=bounds(title),b=bounds(communityNav);
+      if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>1&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>1)errors.push('社区标题与栏目相互遮挡');
+    }
+  }
   if(pageTitle&&[...main.querySelectorAll('h2')].some(h=>h.getBoundingClientRect().height&&h.textContent.trim()===pageTitle))errors.push('页面标题重复 '+pageTitle);
   const archive=main.querySelector('.archive-viewport iframe');
   if(archive&&bounds(archive).height<view.height*.55)errors.push('档案阅读区域仅有 '+Math.round(bounds(archive).height)+' px');
@@ -208,6 +218,36 @@ async function visit(page,route){
   const lite=route==='/lite'||route.startsWith('/lite/');
   if(await page.locator('.launcher-frame').getAttribute('data-shell')!==(lite?'lite':'full'))await switchWorkspace(page,lite);
   await page.evaluate(value=>{location.hash=value;},route);
+}
+async function checkWallpaperContrast(page,native,output){
+  const luminance=rgb=>rgb.map(v=>v/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4).reduce((sum,v,i)=>sum+v*[.2126,.7152,.0722][i],0);
+  await page.setViewportSize({width:1250,height:825});
+  for(const [skin,theme] of [['town','light'],['observatory','dark']]){
+    assert.equal((await native('settings.save',{themeChange:{op:'select',id:skin}})).ok,true);
+    assert.equal((await native('settings.save',{theme,fontSize:16,wallpaperMode:'image',wallpaperImageSource:'town',backgroundOpacity:1})).ok,true);
+    await page.reload();await visit(page,'/community');
+    const heading=page.locator('.community-page-heading');
+    await heading.waitFor();await page.locator('.launcher-wallpaper img').evaluate(img=>img.decode());
+    await page.mouse.move(1,1);await page.evaluate(()=>document.fonts.ready);
+    const samples=await heading.locator('h1,nav a,nav button').evaluateAll(items=>items.map(el=>{
+      const r=el.getBoundingClientRect();
+      return {name:el.textContent.trim(),color:getComputedStyle(el).color.match(/[\d.]+/g).slice(0,3).map(Number),
+        x:r.left,y:r.top+r.height/2,w:r.width,required:el.tagName==='H1'?3:4.5};
+    }));
+    await page.screenshot({path:path.join(output,'community-wallpaper-'+theme+'.png'),animations:'disabled'});
+    const hide=await page.addStyleTag({content:'.community-page-heading{visibility:hidden!important}'});
+    let raw;
+    try{raw=await sharp(await page.screenshot({scale:'css'})).removeAlpha().raw().toBuffer({resolveWithObject:true});}
+    finally{await hide.evaluate(el=>el.remove());}
+    for(const sample of samples){
+      for(const fraction of [.15,.5,.85]){
+        const i=(Math.floor(sample.y)*raw.info.width+Math.floor(sample.x+fraction*sample.w))*raw.info.channels;
+        const bg=luminance(Array.from(raw.data.subarray(i,i+3))),fg=luminance(sample.color);
+        const contrast=(Math.max(bg,fg)+.05)/(Math.min(bg,fg)+.05);
+        assert.ok(contrast>=sample.required,theme+' 壁纸下「'+sample.name+'」对比度 '+contrast.toFixed(2));
+      }
+    }
+  }
 }
 export async function verifyDesktopLayout(page,native,directory){
   const output=path.join(directory,'layout');await fs.mkdir(output,{recursive:true});
@@ -358,5 +398,6 @@ export async function verifyDesktopLayout(page,native,directory){
   await fs.writeFile(path.join(output,'results.json'),JSON.stringify(observations,null,2));
   await fs.writeFile(path.join(output,'dialogs.json'),JSON.stringify(overlays,null,2));
   assert.equal(failures.length,0,JSON.stringify(failures.map(({route,control,width,font,issues})=>({route,control,width,font,issues}))));
+  await checkWallpaperContrast(page,native,output);
   console.log(routes.length+' desktop routes × '+windows.length+' window and font combinations, '+overlays.length+' dialogs passed.');
 }
