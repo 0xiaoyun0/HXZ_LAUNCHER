@@ -1,0 +1,39 @@
+/* Titles and action groups are siblings in document order. Only the title takes spare space. */
+.launcher-frame {
+  --action-gap: .5em;
+  --section-gap: 1em;
+}
+.launcher-content .section-heading {
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-start;
+  gap:var(--action-gap) var(--section-gap);
+  min-inline-size:0;
+}
+.launcher-content .section-heading>h2 {
+  display:flex;
+  align-items:center;
+  gap:var(--action-gap);
+  flex:1 1 max-content;
+  min-inline-size:0;
+  max-inline-size:100%;
+  margin:0;
+  overflow-wrap:anywhere;
+}
+.section-heading>h2 svg {flex:none}
+.heading-actions,.lite-actions {
+  display:flex;
+  flex-flow:row wrap;
+  align-items:center;
+  justify-content:flex-end;
+  gap:var(--action-gap);
+  min-inline-size:0;
+  max-inline-size:100%;
+}
+.heading-actions {flex:0 1 auto;margin-inline-start:auto}
+.heading-actions:empty {display:none}
+.heading-actions>*,.lite-actions>* {min-inline-size:0;max-inline-size:100%}
+.heading-actions .card-heading-tools {flex:0 0 auto;margin:0}
+.heading-actions :is(a,button):not(.card-options,.card-grip) {overflow-wrap:anywhere}
+.preference-section>.section-heading {padding:var(--panel-pad);border-block-end:1px solid var(--desk-line)}

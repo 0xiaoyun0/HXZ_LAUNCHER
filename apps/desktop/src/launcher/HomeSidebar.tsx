@@ -3,7 +3,7 @@ import {Link} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
 import {Activity,ArrowRight,CalendarDays,ChevronRight,Box,Globe,Network,ContactRound,RefreshCw,Settings2,Stethoscope,UserRoundPlus} from 'lucide-react';
 import {account,cfg,invoke,perform,reload,saveSettings,state,ui} from '../model';
-import {CardMenu} from '../CardBoard';
+import {CardHeading} from '../CardBoard';
 import {Avatar,Select,DetailDialog} from '../ui';
 
 export function playDuration(seconds:number){
@@ -21,7 +21,7 @@ export function HomeServers(){
   }
   useEffect(()=>{void checkServers(false);},[settings.communityUrl]);
   const online=servers?.filter(row=>row.available)||[];
-  return <><header><h2><Network size={16}/>默认服务器</h2><button className="icon-plain" aria-label="刷新服务器状态" disabled={loading} onClick={()=>void checkServers()}><RefreshCw size={15}/></button><CardMenu/></header>
+  return <><CardHeading title={<><Network size={16}/>默认服务器</>}><button className="icon-plain" aria-label="刷新服务器状态" disabled={loading} onClick={()=>void checkServers()}><RefreshCw size={15}/></button></CardHeading>
       <div className="home-server-list">{s.instances.filter((row:any)=>row.builtin).map((game:any)=>{
         const status=servers?.find(row=>row.id===game.group);
         return <Link key={game.id} to={'/servers?id='+encodeURIComponent(game.id)}><span>{game.name}</span><small>{game.placeholder?'尚未开放':status?.available?status.online+' 人在线':game.installed?'已安装':'可安装'}</small></Link>;
@@ -31,7 +31,7 @@ export function HomeServers(){
 
 export function HomeRole(){
   const s=useSnapshot(state),role=account(s),settings=s.settings;
-  return <><header><h2><ContactRound size={16}/>我的角色</h2><CardMenu/></header>
+  return <><CardHeading title={<><ContactRound size={16}/>我的角色</>}/>
       <div className="home-role"><Avatar name={role?.name||'旅'} image={role?.avatar} size={44}/><div><strong>{role?.name||'本地游客'}</strong>
         <small>{role?.authenticated?(role.uuid?'已登录 · 当前游戏角色':'已登录 · 请选择角色'):'使用幻想镇皮肤站账号登录'}</small></div></div>
       {s.accounts.length>1&&<div className="home-picker"><span>切换账号</span><Select label="切换当前账号" value={settings.selectedAccount} options={s.accounts.map((a:any)=>({value:a.id,label:a.name||a.username}))} onChange={(id:string)=>saveSettings({selectedAccount:id})}/></div>}
@@ -45,7 +45,7 @@ export function InstanceSummary({game}:{game:any}){
   const s=useSnapshot(state),settings=s.settings,options=game&&cfg(game.id,s);
   const memory=options?.memoryMode==='manual'?options.memoryMB+' MB · 实例':options?.memoryMode==='auto'?'自动分配':
     settings.memoryMode==='manual'?settings.defaultMemoryMB+' MB · 全局':'自动分配';
-  return <><header><h2><Box size={16}/>实例详情</h2><CardMenu/></header>{game?<><h3>{game.name||game.id}</h3><small>{[game.version===game.id?'本地实例':game.version,game.loader].filter(Boolean).join(' · ')}</small>
+  return <><CardHeading title={<><Box size={16}/>实例详情</>}/>{game?<><h3>{game.name||game.id}</h3><small>{[game.version===game.id?'本地实例':game.version,game.loader].filter(Boolean).join(' · ')}</small>
       <dl className="detail-rows"><div><dt>状态</dt><dd>{game.error?'需要检查':game.installed?'已安装':'待安装'}</dd></div><div><dt>Java</dt><dd>{options.javaMode==='custom'||(options.javaMode==='inherit'&&settings.javaPath)?'指定运行环境':'自动匹配'}</dd></div><div><dt>最大内存</dt><dd>{memory}</dd></div></dl>
       {game.installed&&<DetailDialog title="常用文件夹"><div className="desk-actions">{[['versions','版本目录'],['screenshots','截图'],['saves','存档']].map(([kind,label])=><button className="small-action" key={kind} onClick={()=>perform(()=>invoke('instance.folder',{id:game.id,kind}))}>{label}</button>)}</div></DetailDialog>}
       <div className="desk-actions"><button className="small-action" onClick={()=>{ui.instance=game.id;ui.dialog='instance';}}><Settings2 size={15}/>实例配置</button><Link className="small-action" to={'/check?id='+encodeURIComponent(game.id)}><Stethoscope size={15}/>启动前检查</Link></div></>:<p>选择游戏实例后可查看配置。</p>}
@@ -75,7 +75,7 @@ export function PlayCalendar({journal=false}:{journal?:boolean}={}){
     const cells=Array.from(event.currentTarget.parentElement!.querySelectorAll<HTMLAnchorElement>('a'));
     cells[Math.max(0,Math.min(cells.length-1,cells.indexOf(event.currentTarget)+delta))]?.focus();
   }
-  return <><header><h2><CalendarDays size={16}/>游玩日历</h2><Link to="/playtime">游玩记录 <ArrowRight size={14}/></Link><CardMenu/></header>
+  return <><CardHeading title={<><CalendarDays size={16}/>游玩日历</>}><Link to="/playtime">游玩记录 <ArrowRight size={14}/></Link></CardHeading>
     {failed?<p role="alert">本机记录读取失败。<button className="small-action" onClick={refresh}>重试</button></p>:!days?<p>正在读取本机记录…</p>:<>
     <dl className="time-periods">{[['今天',sum(today)],['本周',sum(monday)],['本月',sum(today.slice(0,7)+'-01')]].map(([label,seconds])=><div key={label}><dt>{label}</dt><dd>{playDuration(Number(seconds))}</dd></div>)}</dl>
     <div className="calendar-tools"><small>最近 {weeks} 周 · 本机游玩</small><div className="segmented" aria-label="日历范围">{[[26,'半年'],[52,'一年']].map(([count,text])=><button key={count} aria-pressed={weeks===count} onClick={()=>setWeeks(Number(count))}>{text}</button>)}</div></div>

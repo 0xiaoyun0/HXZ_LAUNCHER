@@ -1,3 +1,4 @@
+import {SectionHeading} from '../SectionHeading';
 import {useState} from 'react';
 import {Check,LayoutGrid,LibraryBig,NotebookPen,SlidersHorizontal} from 'lucide-react';
 import {useSnapshot} from 'valtio';
@@ -12,7 +13,7 @@ export function Workspaces(){
   const s=useSnapshot(state).settings,active=workspaceLayout(s.workspaceLayout),modules=workspaceModules(s.workspaceModules);
   const shelf=workspaceShelf(s.workspaceShelf),[organize,setOrganize]=useState(false);
   return <>
-    <section className="preference-section workspace-picker"><h2>首页布局<button className="text-action" onClick={()=>setOrganize(true)}><SlidersHorizontal size={14}/>整理布局</button></h2>
+    <section className="preference-section workspace-picker"><SectionHeading title="首页布局" actions={<button className="text-action" onClick={()=>setOrganize(true)}><SlidersHorizontal size={14}/>整理布局</button>}/>
       <div className="workspace-choices">{WORKSPACES.map((choice,index)=>{
         if(!shelf.includes(choice.id))return null;
         const selected=choice.id===active.id,Icon=icons[index];

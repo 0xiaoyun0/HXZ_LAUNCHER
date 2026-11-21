@@ -5,12 +5,10 @@
 }
 .board-actions,.board-toolbar,.board-card-heading,.board-editor-tools,.board-away {display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .board-toolbar {justify-content:flex-end;margin:0 0 9px;min-width:0}
-.board-toolbar>strong,.board-card-heading>h2,.board-editor-tools>span,.board-away>span {margin-right:auto}
-.game-board .desk-card>header {gap:8px}
-.game-board .desk-card>header>h2 {margin-right:auto}
+.board-toolbar>strong,.board-editor-tools>span,.board-away>span {margin-right:auto}
 .card-options {display:inline-grid;place-items:center;flex:none;border:0;background:transparent;color:var(--desk-muted);width:26px;height:26px;padding:0;border-radius:var(--control-radius);cursor:pointer}
 .card-options:hover {background:var(--accent-soft);color:var(--accent-text)}
-.board-card-heading {flex-wrap:nowrap;padding:9px var(--panel-pad);border-bottom:1px solid var(--edge);min-width:0}
+.board-card-heading {padding:9px var(--panel-pad);border-bottom:1px solid var(--edge);min-width:0}
 .board-card-heading h2 {font-size:.9375rem;line-height:1.4;font-weight:650;margin-block:0;overflow-wrap:anywhere}
 .game-board[data-custom] {grid-template-areas:none;grid-template-columns:repeat(12,minmax(0,1fr));align-items:start}
 .game-board[data-custom]>.desk-card {grid-area:auto;grid-column:span var(--panel-span,12)}
@@ -26,7 +24,7 @@
 .desktop-panels [data-card-grid][data-packed] {display:grid;grid-template: none / repeat(12,minmax(0,1fr));grid-auto-rows:4px;row-gap:0;align-items:start}
 .desktop-panels [data-card-grid][data-compact] {display:flex;flex-direction:column;align-items:stretch;gap:var(--desk-gap)}
 .card-heading-tools {display:inline-flex;align-items:center;gap:2px;flex:none}
-.desktop-panels .desk-card>header>.card-heading-tools {margin-left:auto}
+
 [data-skin] .desktop-panels :is(.player-now,.preference-more,.instance-lines) {background:transparent;box-shadow:none}
 [data-skin] .music-page .desktop-panel-body>.player-now {border:0;padding:0;margin:0}
 [data-skin] .music-page .desktop-panel-body>.volume-line {margin:14px 0 0;padding-top:12px;border-top:1px solid var(--edge)}

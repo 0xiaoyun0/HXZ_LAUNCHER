@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {scan as measureInsets} from './desktop-insets.mjs';
+import {scan as measureInsets,cardHeadingIssues} from './desktop-insets.mjs';
 
 // Exercise the installed WebView. Routes with their own content surface declare its selector.
 const routes=[
@@ -138,6 +138,28 @@ function homeGeometry(){
   });
 }
 
+// Resize a card inside the same window, as when the player moves it between columns.
+async function exerciseCardWidth(page){
+  const calendar=page.locator('main .calendar-card > .section-heading').first();
+  const original=await calendar.getAttribute('style');
+  try{
+    let wrapped=false;
+    for(const width of ['100%', '34em', '22em', '15em', '11em']){
+      const nextLine=await calendar.evaluate((el,width)=>{
+        el.style.inlineSize=width;
+        el.style.maxInlineSize='100%';
+        const title=el.querySelector('h2').getBoundingClientRect(),actions=el.querySelector('.heading-actions').getBoundingClientRect();
+        return actions.top>=title.bottom-1;
+      },width);
+      wrapped||=nextLine;
+      assert.deepEqual(await page.evaluate(cardHeadingIssues),[],'卡片宽度 '+width);
+    }
+    assert.ok(wrapped,'窄卡片应允许整组操作换行');
+  }finally{
+    await calendar.evaluate((el,style)=>style===null?el.removeAttribute('style'):el.setAttribute('style',style),original);
+  }
+}
+
 export async function verifyDesktopLayout(page,native,directory){
   const output=path.join(directory,'layout');await fs.mkdir(output,{recursive:true});
   const observations=[],overlays=[],failures=[];
@@ -158,10 +180,10 @@ export async function verifyDesktopLayout(page,native,directory){
         if(route==='/settings?section=network')await page.locator('.settings-status').getByText(/已内嵌并通过校验|状态暂不可用|模块校验未通过/).waitFor();
         await page.evaluate(()=>document.fonts.ready);
         await page.evaluate(()=>new Promise(done=>requestAnimationFrame(()=>requestAnimationFrame(done))));
-        if(route==='/')firstHome=await page.evaluate(homeGeometry);
+        if(route==='/'){firstHome=await page.evaluate(homeGeometry);await exerciseCardWidth(page);}
         textInsets=await page.evaluate(measureInsets);
         assert.ok(textInsets.inspected,'页面应具有可测量的文字');
-        issues=[...await page.evaluate(measure),...textInsets.issues];
+        issues=[...await page.evaluate(measure),...await page.evaluate(cardHeadingIssues),...textInsets.issues];
         if(route==='/community/linking'){
           const archive=await page.locator('.archive-viewport iframe').elementHandle();
           const frame=await archive.contentFrame();

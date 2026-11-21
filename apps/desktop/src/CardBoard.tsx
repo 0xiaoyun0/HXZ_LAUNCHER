@@ -1,3 +1,4 @@
+import {SectionHeading} from './SectionHeading';
 import {Children,Fragment,Suspense,createContext,isValidElement,lazy,useContext,useEffect,useLayoutEffect,useRef,useState,type CSSProperties,type ReactElement,type ReactNode} from 'react';
 import {ArrowDown,ArrowUp,Check,Ellipsis,GripVertical,LayoutGrid,LockKeyhole,Plus,RotateCcw,Undo2,UnlockKeyhole} from 'lucide-react';
 import {useSnapshot} from 'valtio';
@@ -16,7 +17,7 @@ export const desktopCardSources=[['home','启动游戏'],['music','音乐播放�
 export type CardSpec={id:string;title:string;content:ReactNode;w?:number;x?:number;y?:number;h?:number;minW?:number;minH?:number;maxH?:number;className?:string;plain?:boolean;fit?:boolean;native?:boolean;origin?:{source:string;card:string;title:string;w?:number;minW?:number;widget?:boolean}};
 type Props={id:string;cards:CardSpec[];label?:string;pageTitle?:boolean;className?:string;transient?:boolean;home?:boolean;layoutKey?:string;columns?:string[][];beforeCards?:ReactNode;actions?:ReactNode};
 const CardControls=createContext<{show:(id:string)=>void;id:string;title:string;move:ReactNode}|null>(null);
-export function CardMenu(){
+function CardMenu(){
   const card=useContext(CardControls);
   return card?<span className="card-heading-tools">{card.move}<button className="card-options" type="button" aria-label={card.title+'卡片选项'} title="卡片选项" onClick={()=>card.show(card.id)}><Ellipsis size={17}/></button></span>:null;
 }
@@ -27,6 +28,10 @@ export function CardBoard(props:Props){
   const harvest=useContext(CardHarvest);
   return harvest?<HarvestedCards source={props.id} cards={props.cards}/>:<PlayerBoard {...props}/>;
 }
+export function CardHeading({title,children,className}:{title:ReactNode;children?:ReactNode;className?:string}){
+  return <SectionHeading title={title} className={className} actions={<>{children}<CardMenu/></>}/>;
+}
+
 function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,actions,beforeCards,columns,layoutKey=id,transient=false}:Props){
   const s=useSnapshot(state),root=useRef<HTMLDivElement>(null),grid=useRef<HTMLDivElement>(null),[compact,setCompact]=useState(false);
   const [manage,setManage]=useState(false),[target,setTarget]=useState(''),[add,setAdd]=useState(false),[busy,setBusy]=useState(false);
@@ -84,7 +89,7 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
         return <section key={cardId} data-card-id={cardId} data-column={row.column} data-locked={row.locked||undefined} data-size={span<=6?'narrow':'wide'} data-fixed={row.fixed||undefined} aria-label={title||undefined}
           className={(home?'desk-card ':'desktop-panel ')+(row.className||'')} style={{'--panel-span':span,'--card-height':row.h*22+'px'} as CSSProperties}>
           <CardControls.Provider value={{id:cardId,title,show,move:handle('move')}}>
-            {row.native?row.content:<><header className="board-card-heading"><h2>{title}</h2><CardMenu/></header><div className="desktop-panel-body">{row.content}</div></>}
+            {row.native?row.content:<><CardHeading title={title} className="board-card-heading"/><div className="desktop-panel-body">{row.content}</div></>}
           </CardControls.Provider>{handle('size')}</section>;
 
   };

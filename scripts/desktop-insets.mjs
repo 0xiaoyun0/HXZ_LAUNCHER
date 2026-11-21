@@ -88,3 +88,32 @@ export function scan(rootSelector) {
   const issues = [...failures].map(([key,{gap,limit}])=>key+'侧留白 '+gap+' px，要求 '+limit+' px');
   return {inspected:owners.size,issues,minima:Object.fromEntries(minima)};
 }
+
+// Compare actual neighbouring controls with the gap supplied by their container, at any zoom or width.
+export function cardHeadingIssues() {
+  const issues=[];
+  for(const header of document.querySelectorAll('main [data-card-id] > header, main header.section-heading')) {
+    const title=header.querySelector(':scope > h1, :scope > h2');
+    if(!title||!header.getClientRects().length)continue;
+    const group=header.querySelector(':scope > .heading-actions');
+    const actions=[...(group||header).children].filter(el=>el!==title&&el.getBoundingClientRect().width>0);
+    if(!actions.length)continue;
+    const style=getComputedStyle(header),rect=header.getBoundingClientRect(),edge=rect.right-parseFloat(style.paddingRight)-parseFloat(style.borderRightWidth);
+    const expected=parseFloat(getComputedStyle(group||header).columnGap)||0;
+    const boxes=actions.map(el=>el.getBoundingClientRect());
+    const lines=[];
+    for(const box of boxes) {
+      let line=lines.find(row=>row[0].top<box.bottom-1&&row[0].bottom>box.top+1);
+      if(!line){line=[];lines.push(line);}
+      line.push(box);
+    }
+    const label=title.textContent.trim();
+    for(const line of lines){
+      if(Math.abs(edge-line.at(-1).right)>2)issues.push(label+' 的操作没有对齐卡片右侧');
+      for(let i=1;i<line.length;i++)if(Math.abs(line[i].left-line[i-1].right-expected)>2)issues.push(label+' 的操作之间出现了多余空白或重叠');
+    }
+    const h=title.getBoundingClientRect();
+    for(const b of boxes)if(Math.min(h.right,b.right)-Math.max(h.left,b.left)>2&&Math.min(h.bottom,b.bottom)-Math.max(h.top,b.top)>2)issues.push(label+' 的标题与操作重叠');
+  }
+  return issues;
+}
