@@ -19,7 +19,7 @@ const routes=[
   ['/community/inbox','.inbox-page'],['/community/guild','.guild-columns'],['/community/linking','.archive-viewport iframe'],
   ['/community/playtime','.pt-toolbar'],['/community/worlds','.hub-page'],['/community/blueprints','.blueprint-grid'],
   ['/community/wallet','.music-find'],['/community/backpack','.inventory-ui .inventory-tabs'],['/community/shop','.shop-products'],
-  ['/community/saved','.hub-page'],['/community/events','.hub-page'],['/community/appeals','.hub-page'],['/lite','.lite-workspace']
+  ['/community/saved','.hub-page'],['/community/events','.hub-page'],['/community/appeals','.hub-page'],['/lite','.lite-workspace'],['/lite/more','.lite-more nav']
 ];
 
 function measure(){
@@ -53,12 +53,13 @@ function measure(){
   }
   const lite=main.querySelector('.lite-workspace');
   if(lite){
-    const game=bounds(lite.querySelector('.lite-game')),profile=bounds(lite.querySelector('.lite-profile')),shell=bounds(lite);
-    const primary=bounds(lite.querySelector('.launch-primary'));
-    if(main.scrollTop<2&&primary.bottom>view.bottom+1)errors.push('极简版启动按钮不在首屏');
-    if(game.right>profile.left+1&&game.bottom>profile.top+1)errors.push('极简版实例与角色重叠');
-    if(Math.max(game.right,profile.right)>shell.right+1)errors.push('极简版卡片越过工作区');
-    if(Math.abs(game.top-profile.top)<=1&&profile.width>game.width)errors.push('宽窗中启动区比角色区窄');
+    const rail=bounds(lite.querySelector('.lite-rail')),scene=bounds(lite.querySelector('.lite-scene')),shell=bounds(lite);
+    const identity=bounds(lite.querySelector('.lite-identity')),game=bounds(lite.querySelector('.lite-game'));
+    const primary=bounds(lite.querySelector('.launch-primary')),actions=bounds(lite.querySelector('.lite-version-actions'));
+    if(main.scrollTop<2&&(primary.bottom>view.bottom+1||actions.bottom>view.bottom+1))errors.push('启动或版本操作不在首屏');
+    if(identity.bottom>game.top+1||primary.bottom>actions.top+1)errors.push('角色、启动与版本操作发生重叠');
+    if(game.left<rail.left||game.right>rail.right+1)errors.push('启动操作越过侧栏');
+    if(scene.width>0&&(rail.right>scene.left+1||scene.right>shell.right+1))errors.push('启动栏和背景区域越界');
   }
   const rail=main.querySelector('.settings-rail');
   if(rail){
@@ -102,6 +103,13 @@ function measure(){
     const r=bounds(el);
     if(r.width&& (r.left<lastRight-1||r.right>innerWidth+1))errors.push('顶栏项目重叠 '+(el.ariaLabel||el.innerText));
     if(r.width)lastRight=r.right;
+  }
+  for(const tab of bar.querySelectorAll('nav a')){
+    const button=bounds(tab);
+    for(const child of tab.children){
+      const area=bounds(child);
+      if(area.width&&(area.left<button.left-1||area.right>button.right+1))errors.push('导航文字或图标越过按钮 '+tab.getAttribute('aria-label'));
+    }
   }
   if(bar.querySelectorAll('nav a.active').length>1)errors.push('多个顶栏入口同时高亮');
   if(main.querySelector('.react-resizable-handle,.card-layout-toolbar,.react-grid-layout'))errors.push('固定页面挂载了布局编辑器');

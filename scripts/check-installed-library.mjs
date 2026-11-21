@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import {openFullWorkspace} from './check-desktop-lite.mjs';
 import {scan as measureInsets,cardHeadingIssues} from './desktop-insets.mjs';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -67,7 +68,7 @@ try{
   await page.locator('.lite-game h2').waitFor();
   assert.deepEqual((await page.evaluate(measureInsets)).issues,[]);
   await page.screenshot({path:'.preview/installed-lite-start.png',animations:'disabled'});
-  await page.getByRole('link',{name:'完整工作台'}).click();
+  await openFullWorkspace(page);
   await page.locator('.home-server-list a').last().click();
   await page.locator('.default-server-card').first().waitFor();
   assert.deepEqual((await page.evaluate(measureInsets)).issues,[],'默认服务器的文字超出了卡片留白');

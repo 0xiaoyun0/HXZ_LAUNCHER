@@ -46,8 +46,8 @@
 }
 @container desktop-window (max-width: 62em) {
   .launcher-bar {gap: 4px}
-  .launcher-bar nav[aria-label="主导航"] a:not(.active) {width: 34px; padding: 0}
-  .launcher-bar nav[aria-label="主导航"] a:not(.active) span {display: none}
+  .launcher-frame:not([data-shell=lite]) .launcher-bar nav[aria-label="主导航"] a:not(.active) {width: 34px; padding: 0}
+  .launcher-frame:not([data-shell=lite]) .launcher-bar nav[aria-label="主导航"] a:not(.active) span {display: none}
   .launcher-bar .toolbar-settings span,.launcher-brand small {display: none}
 }
 .launcher-content :is(.launch-title,.page-header,.play-library-toolbar) {

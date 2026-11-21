@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {checkLocalGames,checkCommunityGames,checkGuestCatalog} from './check-desktop-arcade.mjs';
-import {checkLiteHome} from './check-desktop-lite.mjs';
+import {checkLiteHome,openFullWorkspace} from './check-desktop-lite.mjs';
 import {scan as measureInsets} from './desktop-insets.mjs';
 import fs from 'node:fs/promises';
 import net from 'node:net';
@@ -216,7 +216,7 @@ try {
      const end=Date.now()+16000;while(!await fs.stat(marker).catch(()=>undefined)&&Date.now()<end)await wait(150);
      const heap=(await fs.readFile(marker,'utf8')).trim().split(' ');assert.equal(heap[0],'-Xmx768M');assert.ok(Math.abs(Number(heap[1])/1048576-768)<32);await wait(1500);await launchPanel.getByRole('button',{name:'停止游戏'}).click();
      await launchPanel.getByRole('button',{name:'继续游玩'}).waitFor();
-     if(startLite)await page.getByRole('link',{name:'完整工作台'}).click();
+     if(startLite)await openFullWorkspace(page);
      await nav.getByRole('link',{name:'联机大厅'}).click();await page.getByRole('navigation',{name:'房间操作'}).waitFor();
      await page.getByRole('button',{name:'创建房间',exact:true}).first().click();
      await page.getByRole('button',{name:'加入伙伴',exact:true}).click();await page.getByPlaceholder('粘贴房主发来的 hxz-room:// 邀请').waitFor();
@@ -277,7 +277,7 @@ try {
        }
        assert.ok(page,'restart should reopen native launcher');page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(15000);
        await page.getByRole('navigation',{name:'主导航'}).waitFor();
-       if(startLite){await page.getByRole('heading',{name:'极简启动',exact:true}).waitFor();await page.getByRole('link',{name:'完整工作台'}).click();}
+       if(startLite){await page.getByRole('heading',{name:'极简启动',exact:true}).waitFor();await openFullWorkspace(page);}
        await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor();
        assert.equal((await native('extension.status')).value.active,expected);
      };
