@@ -3,6 +3,7 @@ import {Link,useLocation} from 'react-router-dom';
 import {proxy,useSnapshot} from 'valtio';
 import {ChevronLeft,Download,Package,RotateCcw} from 'lucide-react';
 import {StatusMark,LatticeGlyph} from './micro/Feedback';
+import {PageSkeleton} from '../PageFeedback';
 import {communityPages} from './community-pages';
 import {SettingsLayout} from './SettingsLayout';
 import {desktop,invoke,state,task} from '../model';
@@ -39,17 +40,19 @@ export function OptionalRoomPlayer(){
 }
 export function OfficialModule({id,mini=false}:{id:'arcade'|'music';mini?:boolean}){
   const e=useSnapshot(extension);
-  if(!e.ready)return null;
+  const opening=mini?null:<PageSkeleton title={names[id]} label={'正在打开'+names[id]}/>;
+  if(!e.ready)return opening;
   if(!e.modules[id]?.active)return mini?null:<section className="launch-page"><h1>{names[id]}</h1><p>在扩展设置中安装{names[id]}，重启后即可使用。</p><Link className="small-action" to="/settings/extensions">打开扩展设置</Link></section>;
   const Component=id==='arcade'?Arcade:mini?Mini:Music;
-  return <Suspense fallback={null}><Component/></Suspense>;
+  return <Suspense fallback={opening}><Component/></Suspense>;
 }
 export function CommunitySlot(){
   const e=useSnapshot(extension),{pathname}=useLocation();
   const page=communityPages.find(p=>p.path===pathname);
-  if(!e.ready)return <p className="launch-page micro-wait" role="status"><LatticeGlyph/>正在读取扩展…</p>;
+  const opening=<PageSkeleton title={page?.label||'社区'} label="正在打开社区"/>;
+  if(!e.ready)return opening;
   if(!e.active)return <section className="launch-page"><h1>{page?.path==='/community'?'社区':page?.label||'社区插件'}</h1><div className="desktop-panel"><div className="desktop-panel-body"><p>{e.safeMode?'本次启动跳过了社区插件，正常重启后可以使用。':e.incompatible?'社区插件需要更新，请在扩展设置里安装匹配的版本。':e.installed?'社区插件已下载，重启启动器后可以打开。':'此功能由社区插件提供，在扩展设置中安装并重启后即可使用。'}</p><div className="arcade-links"><Link className="small-action" to="/settings/extensions">打开扩展设置</Link>{(pathname.includes('/arcade/')||['/community/wallet','/community/shop','/community/ranking'].includes(pathname))&&<Link className="small-action" to="/arcade">返回小游戏厅</Link>}</div></div></div></section>;
-  return <Suspense fallback={<p className="launch-page micro-wait" role="status"><LatticeGlyph/>正在打开社区…</p>}><Community/></Suspense>;
+  return <Suspense fallback={opening}><Community/></Suspense>;
 }
 const descriptions:Record<ModuleId,string>={community:'聊天、论坛、冒险者协会、LINKING、积分商城与联机对局',music:'本地音乐、歌单、歌词和底栏播放控制',arcade:'小游戏大厅、本机练习与个人最好成绩'};
 function ModuleSetting({id}:{id:ModuleId}){

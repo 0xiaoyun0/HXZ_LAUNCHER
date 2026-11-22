@@ -27,7 +27,13 @@ export function PageLoadIndicator(){
  },[loading,route.key]);
  return loading&&visibleFor===route.key?<div className="page-load-indicator" role="status" aria-label="正在加载页面内容"><span/></div>:null;
 }
-export function PageSkeleton({label='正在加载页面…'}:{label?:string}){return <div className="page-skeleton" role="status"><p className="micro-wait"><LatticeGlyph/>{label}</p><div className="skeleton-title"/><div className="skeleton-cards">{[0,1,2].map(n=><div className="skeleton-card" key={n}><i/><i/><i/></div>)}</div></div>;}
+export function PageSkeleton({label='正在加载页面…',title}:{label?:string;title?:string}){
+ const placeholders=<div className="skeleton-cards" aria-hidden="true">{[0,1,2].map(n=><div className="skeleton-card" key={n}><i/><i/><i/></div>)}</div>;
+ if(title)return <section className="launch-page module-opening" aria-label={title} aria-busy="true">
+   <header className="launch-title"><h1>{title}</h1><span role="status" aria-label={label}><LatticeGlyph/></span></header>{placeholders}
+ </section>;
+ return <div className="page-skeleton" role="status"><p className="micro-wait"><LatticeGlyph/>{label}</p><div className="skeleton-title"/>{placeholders}</div>;
+}
 // Reveal only the visible content inside each card. RGL owns the outer card
 // geometry; transforming that element (or the whole page) can cross its bounds.
 export function usePageEnter(key:unknown){

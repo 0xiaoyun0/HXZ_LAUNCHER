@@ -16,6 +16,12 @@
 .micro-lattice i {border-radius:24%;background:currentColor;opacity:.7}
 .micro-lattice [data-hole] {visibility:hidden}
 .micro-wait {display:flex;align-items:center;gap:.55em}
+.module-opening .skeleton-cards {grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--card-gap,1.25rem)}
+.module-opening .skeleton-card {padding:var(--panel-padding,1.35rem);background:var(--desk-surface);border:1px solid var(--desk-line);border-radius:var(--desk-radius)}
+.module-opening .skeleton-card:first-child {grid-column:1/-1}
+.module-opening .skeleton-card i {height:.65em;margin:0 0 .85em;background:var(--desk-line)}
+.module-opening .skeleton-card i:last-child {margin-bottom:0}
+@media(max-width:54rem) {.module-opening .skeleton-cards {grid-template-columns:minmax(0,1fr)}}
 .micro-status {inline-size:1.14em;block-size:1.14em;flex:none;vertical-align:-.18em}
 .micro-status .mark-track {stroke-opacity:.2}.micro-status .mark-ring {transform-origin:center;transform:rotate(-90deg)}
 .micro-status[data-status=done] {color:var(--success,var(--accent-text))}.micro-status[data-status=failed] {color:var(--danger,#c74242)}
