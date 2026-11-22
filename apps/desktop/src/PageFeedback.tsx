@@ -57,11 +57,11 @@ export function usePageEnter(key:unknown){
    frame=0;if(stopped||document.hidden)return;
    const viewport=el.closest('.app-main,.launcher-content')?.getBoundingClientRect()||{top:0,bottom:innerHeight};
    const desktop=el.classList.contains('launcher-content');
-   const panels='[data-card-id],.preference-section,.resource-section,.lite-game,.lite-identity,.resource-target,.installation-summary,.hub-page>header,.hub-page>.hub-panel';
+   const panels='[data-card-id],.preference-section,.resource-section,.lite-game,.lite-identity,.resource-target,.installation-summary,.hub-page>header,.hub-page>.hub-panel,.play-library-toolbar,.play-library-filter,.chat-title,.chat-composer,.people-panel>header,.task-stage-heading';
    const selector=desktop?(includeTitle?'.launch-title,.lite-rail-heading,.page-header,'+panels:panels):includeTitle?'.page-header,.card-page-title,.air-card':'.air-card';
    let nodes=Array.from(el.querySelectorAll<HTMLElement>(selector));
    // Non-card result pages still reveal their changing list, never a game canvas.
-   if(!nodes.length)nodes=Array.from(el.querySelectorAll<HTMLElement>('.forum-list,.rank-list,.blueprint-list,.resource-results'));
+   if(!nodes.length)nodes=Array.from(el.querySelectorAll<HTMLElement>('.forum-list,.rank-list,.blueprint-list,.resource-results,.support-reports,.library-location,.social-subnav,.points-ranking>header,.lite-settings-section'));
    const candidates=nodes
     .filter(node=>!seen.has(node)&&node.closest('[data-motion-scope]')===el&&!node.parentElement?.closest('.air-card'))
     .map(node=>({node,rect:node.getBoundingClientRect()}))

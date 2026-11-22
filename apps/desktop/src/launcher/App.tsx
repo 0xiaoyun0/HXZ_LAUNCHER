@@ -1,6 +1,7 @@
 import {DesktopNotice} from './DesktopNotice';
 import {DesktopGuide} from './DesktopGuide';
 import {useTabIndicator} from './useTabIndicator';
+import {useWorkspaceNavigation} from './useWorkspaceNavigation';
 import {ArchiveSignalMark} from '../ArchiveSignal';
 import {useArchiveSignal} from '../linking-effects';
 import {WindowButtons} from './WindowButtons';
@@ -12,6 +13,9 @@ import {account,desktop,invoke,notify,perform,reload,state,task,ui} from '../mod
 import {useAppearance} from '../workspace/appearance';
 import {Avatar,Modal,IconButton} from '../ui';
 import './desktop-motion.css';
+import {FinderMatches} from './micro/FinderMatches';
+import {usePressSurfaces} from './micro/surface-motion';
+import './micro/player-actions.css';
 import {WarmHints} from './micro/WarmHints';
 import {LatticeGlyph} from './micro/Feedback';
 import {useReducedMotionPreference,PageLoadIndicator,usePageEnter} from '../PageFeedback';
@@ -97,9 +101,11 @@ function Finder({close,lite}:{close:()=>void;lite:boolean}){
  const extensions=useSnapshot(extension),active=extensions.active;
  const results=pages.filter(p=>(p.path!=='/music'||extensions.modules.music?.active)&&(p.path!=='/arcade'||extensions.modules.arcade?.active)&&isLitePage(p.path)===lite&&(active||!p.path.startsWith('/community'))&&match(p.label+' '+p.terms)),games=query.trim()?s.instances.filter((g:any)=>match(g.name+' '+g.id+' '+g.version)).slice(0,8):[];
  const open=(path:string)=>{close();go(path);};
- return <Modal open title={lite?'搜索极简版':'搜索启动器'} onClose={close}><label className="finder-input"><Search size={17}/><input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="搜索实例或功能"/></label><div className="finder-results">{results.map(p=><button key={p.path} onClick={()=>open(p.path)}><p.icon size={16}/>{p.label}<ChevronRight size={14}/></button>)}{games.map((g:any)=><button key={g.id} onClick={()=>open((lite?'/lite?versions=':'/library?q=')+encodeURIComponent(g.id))}><Box size={16}/>{g.name}<ChevronRight size={14}/></button>)}{!results.length&&!games.length&&<p>{lite?'极简版中没有匹配的实例或功能。':'没有匹配的实例或功能。'}</p>}</div></Modal>;
+ const items=[...results.map(p=>({id:'route:'+p.path,label:p.label,icon:p.icon,path:p.path})),...games.map((g:any)=>({id:'game:'+g.id,label:g.name,icon:Box,path:(lite?'/lite?versions=':'/library?q=')+encodeURIComponent(g.id)}))];
+ return <Modal open title={lite?'搜索极简版':'搜索启动器'} onClose={close}><FinderMatches query={query} update={setQuery} items={items} open={open} empty={lite?'极简版中没有匹配的实例或功能。':'没有匹配的实例或功能。'}/></Modal>;
 }
 function Frame(){
+ usePressSurfaces();
  const s=useSnapshot(state),u=useSnapshot(ui),t=useSnapshot(task),role=account(s),navigate=useNavigate(),location=useLocation(),main=usePageEnter(location.pathname+location.search),[finder,setFinder]=useState(false);
  const lite=isLitePage(location.pathname);
  const initialEntry=useRef(location.pathname==='/'&&!window.location.hash.replace(/^#/,''));
@@ -125,6 +131,7 @@ function Frame(){
     void perform(async()=>{const p=await invoke('drop.apply',{ticket:e.ticket,target:'pack'});if(p){ui.pack=p;ui.dialog='import';}});
   }});},[navigate,location.pathname]);
  const ext=useSnapshot(extension),archiveSignal=useArchiveSignal();
+ const workspaceNav=useWorkspaceNavigation(!reduced&&(s.settings.animationSpeed??1)>0&&!asleep);
  useEffect(()=>{void perform(refreshExtension);},[]);
  const desktopDestinations=ext.modules.music?.active?['home','music','install']:['home','install'];
  const visible=pages.filter(p=>(ext.active||!p.path.startsWith('/community'))&&(p.path!=='/arcade'||ext.modules.arcade?.active)&&(p.path!=='/music'||ext.modules.music?.active));
@@ -138,21 +145,21 @@ function Frame(){
  const roleName=role?.name||'账号';
  const modules=workspaceModules(s.settings.workspaceModules),workspace=workspaceLayout(s.settings.workspaceLayout);
  return <div className="launcher-frame" data-shell={lite?'lite':'full'} data-workspace={workspace.id}><header className="launcher-bar" data-tauri-drag-region>
-   <div className="launcher-brand"><Link to={lite?'/lite':'/'} className="brand-home" aria-label="幻想镇首页" title="返回当前工作区首页">{ext.active&&archiveSignal.enabled?<ArchiveSignalMark/>:<img src="./media/brand/launcher.svg" alt=""/>}<strong>幻想镇</strong></Link></div>
+   <div className="launcher-brand"><Link onClick={e=>workspaceNav.follow(e,lite?'/lite':'/')} to={lite?'/lite':'/'} className="brand-home" aria-label="幻想镇首页" title="返回当前工作区首页">{ext.active&&archiveSignal.enabled?<ArchiveSignalMark/>:<img src="./media/brand/launcher.svg" alt=""/>}<strong>幻想镇</strong></Link></div>
    <div ref={navRef} className="launcher-navigation" data-tauri-drag-region><nav aria-label="主导航">{tabs.map(p=>{
      const active=(lite?liteTab:selectedTop)===p.path;
-     return <Link key={p.path} to={p.path} aria-current={active?'page':undefined} className={active?'active':''} aria-label={p.label} data-hint={p.label} data-hint-compact>
+     return <Link onClick={e=>workspaceNav.follow(e,p.path)} key={p.path} to={p.path} aria-current={active?'page':undefined} className={active?'active':''} aria-label={p.label} data-hint={p.label} data-hint-compact>
        <p.icon size={17} strokeWidth={1.75} aria-hidden/><span>{p.label}</span>{active&&<i className="nav-indicator" aria-hidden/>}
      </Link>;})}</nav>
    {!lite&&modules.shortcuts&&<nav className="bar-shortcuts" aria-label="快捷导航">{visible.filter(p=>['/community/guild','/music','/community/linking'].includes(p.path)).map(p=>
-     <NavLink key={p.path} to={p.path} aria-label={p.label} data-hint={p.label} data-hint-compact>
+     <NavLink onClick={e=>workspaceNav.follow(e,p.path)} key={p.path} to={p.path} aria-label={p.label} data-hint={p.label} data-hint-compact>
        {({isActive})=><><p.icon size={16} strokeWidth={1.75} aria-hidden/><span>{p.path.endsWith('linking')?'LINKING':p.label}</span>{isActive&&<i className="nav-indicator" aria-hidden/>}</>}
      </NavLink>)}</nav>}
    {!lite&&<div className="bar-spacer" data-tauri-drag-region/>}</div>
    <div className="launcher-tools">
      <IconButton icon={Search} label="搜索实例或功能" data-hint="搜索实例或功能 · Ctrl K" onClick={()=>setFinder(true)}/>
-     {!lite&&<><button className={'toolbar-settings'+(location.pathname.startsWith('/settings')?' active':'')} aria-label="设置" title="设置" onClick={()=>navigate('/settings')}><Settings2 size={16}/><span>设置</span></button>
-     <button className="role-button" aria-label="账号与角色" title={role?.name?'账号与角色 · '+roleName:'账号与角色'} onClick={()=>navigate('/account')}>
+     {!lite&&<><button className={'toolbar-settings'+(location.pathname.startsWith('/settings')?' active':'')} aria-label="设置" title="设置" onClick={()=>workspaceNav.go('/settings')}><Settings2 size={16}/><span>设置</span></button>
+     <button className="role-button" aria-label="账号与角色" title={role?.name?'账号与角色 · '+roleName:'账号与角色'} onClick={()=>workspaceNav.go('/account')}>
        <PlayerAvatar role={role} size={26}/><span className="bar-role-name">{roleName}</span>
      </button></>}
    </div>

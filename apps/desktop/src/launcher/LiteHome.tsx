@@ -2,10 +2,13 @@ import {useState} from 'react';
 import {Link,useSearchParams} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
 import {FolderGlyph} from './micro/Feedback';
-import {ArrowLeft,ArrowRight,Check,ChevronRight,Download,FolderOpen,GalleryVerticalEnd,Image,LayoutGrid,Play,Search,Settings2,Square,UserRound} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Check,ChevronRight,Download,FolderOpen,GalleryVerticalEnd,Image,LayoutGrid,Search,Settings2,UserRound} from 'lucide-react';
 import {resumeTarget} from '../../../../packages/engine/core/resume.mjs';
+import {LaunchAction} from './micro/LaunchAction';
+import {InstancePortrait} from './micro/InstancePortrait';
+import {useReflowList} from './micro/surface-motion';
 import {PackIcon} from '../GameLibrary';
-import {account,chooseRoot,perform,selectInstance,startOrStopInstance,state,task,ui} from '../model';
+import {account,chooseRoot,perform,selectInstance,state,task,ui} from '../model';
 import {PlayerAvatar} from './PlayerAvatar';
 import {Modal} from '../ui';
 
@@ -19,6 +22,8 @@ export function InstancePicker({games,current,initialSearch,close}:{games:readon
   const [search,setSearch]=useState(initialSearch),[page,setPage]=useState(0),[saving,setSaving]=useState(false);
   const term=search.trim().toLowerCase(),matches=games.filter(game=>[game.name,game.id,game.version,game.loader].some(v=>String(v??'').toLowerCase().includes(term)));
   const pageSize=6,pages=Math.max(1,Math.ceil(matches.length/pageSize)),index=Math.min(page,pages-1);
+  const shown=matches.slice(index*pageSize,(index+1)*pageSize);
+  const list=useReflowList<HTMLDivElement>(JSON.stringify(shown.map(g=>g.id)));
   async function choose(id:string){
     setSaving(true);
     try{
@@ -31,8 +36,8 @@ export function InstancePicker({games,current,initialSearch,close}:{games:readon
   }
   return <Modal open title="版本选择" onClose={close}>
     <label className="finder-input"><Search size={17}/><input autoFocus aria-label="查找游戏实例" placeholder="搜索名称、版本或加载器" value={search} onChange={e=>{setSearch(e.target.value);setPage(0);}}/></label>
-    <div className="lite-picker-results">{matches.slice(index*pageSize,(index+1)*pageSize).map(game=>
-      <button key={game.id} type="button" disabled={saving} aria-pressed={game.id===current} onClick={()=>perform(()=>choose(game.id))}>
+    <div className="lite-picker-results flow-list" ref={list}>{shown.map(game=>
+      <button key={game.id} data-flow-key={game.id} type="button" disabled={saving} aria-pressed={game.id===current} onClick={()=>perform(()=>choose(game.id))}>
         <PackIcon game={game}/><span><strong>{game.name}</strong><small>{description(game)}</small></span>{game.id===current&&<Check size={17} aria-label="当前实例"/>}
       </button>)}</div>
     {!matches.length&&<p role="status">没有找到匹配的实例。可以换一个名称或版本号。</p>}
@@ -62,14 +67,13 @@ export function LiteHome(){
         {!role?.authenticated&&<button className="text-action" onClick={()=>{ui.dialog='account';}}><UserRound size={14}/>登录幻想镇账号</button>}
       </div>
       <section className="lite-game" aria-label="版本与启动">
-        <div className="lite-version-info">
-          {game&&<PackIcon game={game}/>}
+        <div className="lite-version-info instance-swap" key={game?.id} data-instance={game?.id}>
+          {game&&<InstancePortrait game={game} media={s.settings.showCover!==false?s.settings.instanceSettings[game.id]?.coverMedia:undefined}/>}
           <div><span className="lite-caption">{game?caption:'游戏实例'}</span>
             <h2>{game?.name||'还没有游戏实例'}</h2>
             <p>{game?description(game):'选择游戏目录或下载一个版本。'}</p></div>
         </div>
-        {game?<button className="launch-primary lite-launch" aria-label={action} disabled={!!t.busy||(!running&&!canChange)} onClick={()=>perform(()=>startOrStopInstance(game.id))}>
-          {running?<Square size={18}/>:<Play size={18}/>} {action}</button>
+        {game?<LaunchAction id={game.id} className="launch-primary lite-launch" running={!!running} label={action} disabled={!!t.busy||(!running&&!canChange)}/>
         :<Link className="launch-primary lite-launch" to="/lite/download"><Download size={17}/>下载游戏</Link>}
         <div className="lite-version-actions">
           <button className="small-action" disabled={!canChange} onClick={()=>setPicking(true)}><GalleryVerticalEnd size={15}/>版本选择</button>

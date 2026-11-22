@@ -55,20 +55,36 @@ export function startCardTravel(e:React.PointerEvent,card:Move,from:string){
 export function CardTravelLayer({destinations}:{destinations?:string[]}={}){
  const allowed=(id:string)=>!destinations||destinations.includes(id);
  const value=useSyncExternalStore(fn=>{dragListeners.add(fn);return()=>{dragListeners.delete(fn);};},()=>drag),navigate=useNavigate(),location=useLocation();
- useEffect(()=>{if(!value)return;let hover='',timer:any,frame=0;
-  const end=(commit:boolean)=>{const current=drag;clearTimeout(timer);cancelAnimationFrame(frame);drag=null;dragEmit();if(commit&&current?.over){const board=document.elementFromPoint(current.x,current.y)?.closest<HTMLElement>('[data-card-board]'),geometry=board?boardMetrics(board):undefined;
-const drop=board&&geometry&&board.dataset.cardBoard===current.over?{x:Math.floor((current.x-geometry.rect.left)/geometry.step),y:Math.floor((current.y-geometry.rect.top)/cardHeightUnit(board)),mode:board.hasAttribute('data-compact')?'compact':'wide'}:undefined;
-void moveCard(current.card,current.over,drop).catch(e=>notify(e.message,true));}};
-  const move=(e:PointerEvent)=>{if(!drag||e.pointerId!==drag.pointerId)return;const element=document.elementFromPoint(e.clientX,e.clientY),nav=element?.closest<HTMLElement>('[data-card-destination],.air-primary-nav a,.launcher-navigation a'),board=element?.closest<HTMLElement>('[data-card-board]');
-   const target=nav?.dataset.cardDestination||CARD_PAGES.find(p=>nav?.getAttribute('href')==='#'+p[1])?.[0]||board?.dataset.cardBoard||'';
-   const valid=allowed(target)&&CARD_PAGES.some(p=>p[0]===target)&&target!==drag.from?target:'';drag={...drag,x:e.clientX,y:e.clientY,over:valid};cancelAnimationFrame(frame);frame=requestAnimationFrame(dragEmit);
-   if(valid!==hover){hover=valid;clearTimeout(timer);if(valid)timer=setTimeout(()=>{const route=CARD_PAGES.find(p=>p[0]===valid)?.[1];if(route&&route!==location.pathname)navigate(route);},650);}
+ const ghost=React.useRef<HTMLDivElement>(null);
+ useEffect(()=>{
+  if(!value)return;
+  let hover='',timer:ReturnType<typeof setTimeout>|undefined,frame=0;
+  const paint=()=>{
+    frame=0;if(!drag)return;
+    const element=document.elementFromPoint(drag.x,drag.y),nav=element?.closest<HTMLElement>('[data-card-destination],.air-primary-nav a,.launcher-navigation a');
+    const target=nav?.dataset.cardDestination||CARD_PAGES.find(p=>nav?.getAttribute('href')==='#'+p[1])?.[0]||element?.closest<HTMLElement>('[data-card-board]')?.dataset.cardBoard||'';
+    const valid=allowed(target)&&CARD_PAGES.some(p=>p[0]===target)&&target!==drag.from?target:'';
+    if(valid!==drag.over){drag={...drag,over:valid};dragEmit();}
+    if(valid!==hover){
+      hover=valid;clearTimeout(timer);
+      if(valid)timer=setTimeout(()=>{const route=CARD_PAGES.find(p=>p[0]===valid)?.[1];if(route&&route!==location.pathname)navigate(route);},650);
+    }
+    ghost.current?.style.setProperty('--travel-x',drag.x+14+'px');ghost.current?.style.setProperty('--travel-y',drag.y+12+'px');
   };
-  const up=(e:PointerEvent)=>{if(!drag||e.pointerId!==drag.pointerId)return;move(e);end(true);},cancel=()=>end(false),key=(e:KeyboardEvent)=>{if(e.key==='Escape')cancel();};
+  const end=(commit:boolean)=>{
+    const current=drag;clearTimeout(timer);cancelAnimationFrame(frame);drag=null;dragEmit();
+    if(!commit||!current?.over)return;
+    const board=document.elementFromPoint(current.x,current.y)?.closest<HTMLElement>('[data-card-board]'),geometry=board?boardMetrics(board):undefined;
+    const drop=board&&geometry&&board.dataset.cardBoard===current.over?{x:Math.floor((current.x-geometry.rect.left)/geometry.step),y:Math.floor((current.y-geometry.rect.top)/cardHeightUnit(board)),mode:board.hasAttribute('data-compact')?'compact':'wide'}:undefined;
+    void moveCard(current.card,current.over,drop).catch(e=>notify(e.message,true));
+  };
+  const move=(e:PointerEvent)=>{if(!drag||e.pointerId!==drag.pointerId)return;drag.x=e.clientX;drag.y=e.clientY;if(!frame)frame=requestAnimationFrame(paint);};
+  const up=(e:PointerEvent)=>{if(!drag||e.pointerId!==drag.pointerId)return;drag.x=e.clientX;drag.y=e.clientY;cancelAnimationFrame(frame);paint();end(true);};
+  const cancel=()=>end(false),key=(e:KeyboardEvent)=>{if(e.key==='Escape')cancel();};
   window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',cancel);window.addEventListener('blur',cancel);window.addEventListener('keydown',key);
   return()=>{clearTimeout(timer);cancelAnimationFrame(frame);window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',cancel);window.removeEventListener('blur',cancel);window.removeEventListener('keydown',key);};
  },[!!value,navigate,location.pathname]);
  useEffect(()=>{document.body.classList.toggle('card-travelling',!!value);return()=>document.body.classList.remove('card-travelling');},[!!value]);
  if(!value)return null;
- return createPortal(<><div className="card-travel-ghost" style={{left:value.x+14,top:value.y+12}}><Grip size={19}/><strong>{value.card.title}</strong><span>{value.over?'松手放到'+CARD_PAGES.find(p=>p[0]===value.over)?.[2]:'拖到栏目或下方目标页'}</span></div><div className="card-travel-dock"><span>移动卡片 · Esc 取消</span><div>{CARD_PAGES.filter(p=>p[0]!==value.from&&allowed(p[0])).map(p=><button key={p[0]} data-card-destination={p[0]} className={value.over===p[0]?'active':''}>{p[2]}</button>)}</div></div></>,document.body);
+ return createPortal(<><div ref={ghost} className="card-travel-ghost" style={{left:0,top:0,'--travel-x':value.x+14+'px','--travel-y':value.y+12+'px'} as React.CSSProperties}><Grip size={19}/><strong>{value.card.title}</strong><span>{value.over?'松手放到'+CARD_PAGES.find(p=>p[0]===value.over)?.[2]:'拖到栏目或下方目标页'}</span></div><div className="card-travel-dock"><span>移动卡片 · Esc 取消</span><div>{CARD_PAGES.filter(p=>p[0]!==value.from&&allowed(p[0])).map(p=><button key={p[0]} data-card-destination={p[0]} className={value.over===p[0]?'active':''}>{p[2]}</button>)}</div></div></>,document.body);
 }

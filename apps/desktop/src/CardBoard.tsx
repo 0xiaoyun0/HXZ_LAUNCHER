@@ -1,3 +1,5 @@
+import {settleCardDrop} from './launcher/micro/surface-motion';
+import {createPortal} from 'react-dom';
 import {SectionHeading} from './SectionHeading';
 import {Children,Fragment,Suspense,createContext,isValidElement,lazy,useContext,useEffect,useLayoutEffect,useRef,useState,type CSSProperties,type ReactElement,type ReactNode} from 'react';
 import {ArrowDown,ArrowUp,Check,Ellipsis,GripVertical,LayoutGrid,LockKeyhole,MoveUpRight,Plus,RotateCcw,Undo2,UnlockKeyhole} from 'lucide-react';
@@ -16,7 +18,7 @@ const AddWidget=lazy(()=>import('./Widgets').then(m=>({default:m.AddWidget})));
 const Widget=lazy(()=>import('./Widgets').then(m=>({default:m.Widget})));
 export const desktopCardSources=[['home','启动游戏'],['music','音乐播放器'],['install','安装游戏']];
 export type CardSpec={id:string;title:string;content:ReactNode;w?:number;x?:number;y?:number;h?:number;minW?:number;minH?:number;maxH?:number;className?:string;plain?:boolean;fit?:boolean;native?:boolean;origin?:{source:string;card:string;title:string;w?:number;minW?:number;widget?:boolean}};
-type Props={id:string;cards:CardSpec[];label?:string;pageTitle?:boolean;className?:string;transient?:boolean;home?:boolean;layoutKey?:string;columns?:string[][];beforeCards?:ReactNode;actions?:ReactNode};
+type Props={id:string;cards:CardSpec[];label?:string;pageTitle?:boolean;className?:string;transient?:boolean;home?:boolean;layoutKey?:string;columns?:string[][];beforeCards?:ReactNode;actions?:ReactNode;toolbarHost?:HTMLElement|null};
 const CardControls=createContext<{show:(id:string)=>void;id:string;title:string;move:ReactNode}|null>(null);
 function CardMenu(){
   const card=useContext(CardControls);
@@ -33,7 +35,7 @@ export function CardHeading({title,children,className}:{title:ReactNode;children
   return <SectionHeading title={title} className={className} actions={<>{children}<CardMenu/></>}/>;
 }
 
-function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,actions,beforeCards,columns,layoutKey=id,transient=false}:Props){
+function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,actions,beforeCards,toolbarHost,columns,layoutKey=id,transient=false}:Props){
   const s=useSnapshot(state),root=useRef<HTMLDivElement>(null),grid=useRef<HTMLDivElement>(null),[compact,setCompact]=useState(false);
   const [manage,setManage]=useState(false),[target,setTarget]=useState(''),[add,setAdd]=useState(false),[busy,setBusy]=useState(false);
   const [undo,setUndo]=useState<{key:string;value:any}|null>(null),[drag,setDrag]=useState(''),[local,setLocal]=useState<any>();
@@ -70,12 +72,18 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
   const grouped=!!columns&&!compact&&!custom;
   const packed=!compact&&!grouped;
   useCardGrid(grid,packed,JSON.stringify(visible.map(r=>[r.id,r.column,r.gridRow,r.w,r.h,r.fixed,r.locked])));
-  async function modify(command:any){
+  const released=useRef<Map<string,DOMRect>|undefined>(undefined);
+  useLayoutEffect(()=>{
+    const from=released.current;released.current=undefined;
+    if(from&&grid.current)settleCardDrop(grid.current,from);
+  });
+  async function modify(command:any,release?:Map<string,DOMRect>){
+    released.current=release;
     const positions=!compact&&grid.current?cardPositions(grid.current):[];
     const saved=await write(old=>updateBoard(specs,old,{...command,positions}));
     if(saved&&['layout','move','place','width','height'].includes(command.op)){
       const card=Array.from(grid.current?.querySelectorAll<HTMLElement>('[data-card-id]')||[]).find(el=>el.dataset.cardId===command.id);
-      if(card){card.dataset.landed=card.dataset.landed==='a'?'b':'a';}
+      if(card){card.dataset.landed=release?'settled':card.dataset.landed==='a'?'b':'a';}
     }
   }
   const open=<>{undo?.key===key&&!manage&&<button className="small-action" disabled={busy} onClick={()=>write(()=>undo.value,false)}><Undo2 size={15}/>撤销</button>}{editing&&<button className="launch-primary" onClick={()=>perform(async()=>{await ui.layoutUnsaved?.save();setEditing(false);})}><Check size={15}/>完成整理</button>}<button className="small-action board-launch" onClick={()=>show()}><LayoutGrid size={15}/>卡片</button></>;
@@ -101,7 +109,7 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
   };
   return <div ref={root} className={'desktop-panels '+className} data-board={id}>
     {pageTitle?<header className="launch-title"><h1>{label}</h1><div className="board-actions">{actions}{open}</div></header>:
-      <div className="board-toolbar">{label&&<strong>{label}</strong>}{actions}{open}</div>}
+      toolbarHost?createPortal(<>{actions}{open}</>,toolbarHost):<div className="board-toolbar">{label&&<strong>{label}</strong>}{actions}{open}</div>}
     {beforeCards}
     <div ref={grid} data-card-grid="" data-card-board={id} data-packed={packed||undefined} data-compact={compact||undefined} className={home?'game-board':'desktop-panel-grid'} data-columns={grouped||undefined} data-custom={custom||undefined} data-editing={editing||undefined}>
       {grouped?columns!.map(group=><div key={group[0]} className="board-column">{group.map(id=>{const row=visible.find(item=>item.id===id);return row&&renderCard(row);})}</div>):visible.map(renderCard)}
@@ -141,6 +149,6 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
 export function FormCards({id,children}:{id:string;children:ReactNode}){
   return <CardBoard id={id} cards={panels(children).map((node,i)=>({id:node.props['data-card']||'section-'+i,title:node.props['data-card-title']||node.props.cardTitle||'设置',content:node,w:node.props['data-width']||6}))}/>;
 }
-export function PanelGroup({id,children,names=[],widths=[],className=''}:{id:string;children:ReactNode;names?:string[];widths?:number[];heights?:number[];maxHeights?:number[];positions?:number[][];className?:string}){
-  return <CardBoard id={id} className={className} cards={panels(children).map((node,i)=>({id:node.props['data-card']||'panel-'+i,title:names[i]||'面板',content:node,w:widths[i]||6,fit:node.props['data-fit-content']===true}))}/>;
+export function PanelGroup({id,children,names=[],widths=[],className='',toolbarHost}:{id:string;children:ReactNode;toolbarHost?:HTMLElement|null;names?:string[];widths?:number[];heights?:number[];maxHeights?:number[];positions?:number[][];className?:string}){
+  return <CardBoard id={id} className={className} toolbarHost={toolbarHost} cards={panels(children).map((node,i)=>({id:node.props['data-card']||'panel-'+i,title:names[i]||'面板',content:node,w:widths[i]||6,fit:node.props['data-fit-content']===true}))}/>;
 }

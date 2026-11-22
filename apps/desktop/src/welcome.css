@@ -61,3 +61,45 @@
   :root[data-motion=on] .entry-submit:enabled:hover svg,:root[data-motion=on] .entry-return:hover svg {translate:.16em 0}
   :root[data-motion=on] .entry-spin {animation:entry-spin .9s linear infinite}
 }
+.welcome-screen {--entry-curve:cubic-bezier(.2,.8,.2,1);--entry-slide:.85em}
+.welcome-screen[data-entry-mode=register] {--entry-slide:-.85em}
+.welcome-spread {align-items:stretch}
+.welcome-picture .entry-landscape {opacity:1;transform:scale(1.015)}
+.welcome-picture .entry-landscape.alternate {opacity:0;transform:scale(1.065);object-position:58% center}
+.welcome-screen[data-entry-mode=register] .welcome-picture .entry-landscape:first-child {opacity:0;transform:scale(1.06)}
+.welcome-screen[data-entry-mode=register] .welcome-picture .entry-landscape.alternate {opacity:1;transform:scale(1.015)}
+.entry-caption {position:relative;z-index:1;max-inline-size:100%;color:white;font-weight:650;font-size:clamp(1.65rem,2.85vw,2.9rem);line-height:1.2;text-shadow:0 .08em .45em #0a1835a6}
+.entry-caption::before {content:"";display:block;block-size:.1em;inline-size:1.05em;border-radius:1em;margin-block-end:.46em;background:currentColor;transform-origin:left}
+.entry-mode {display:inline-grid;grid-template-columns:repeat(2,minmax(0,1fr));justify-self:start;align-self:flex-start;position:relative;isolation:isolate;gap:0;padding:.22em;border-radius:100em;border:1px solid var(--edge);background:var(--surface);font-size:.85em}
+.entry-mode i {position:absolute;z-index:-1;inset:.22em auto .22em .22em;inline-size:calc(50% - .22em);border-radius:inherit;background:var(--solid);box-shadow:0 1px 4px #14244024,0 0 0 1px var(--edge)}
+.welcome-screen[data-entry-mode=register] .entry-mode i {transform:translateX(100%)}
+.entry-mode button {color:var(--secondary);background:transparent;border:0;border-radius:100em;font:inherit;font-weight:550;padding:.46em 1.3em}
+.entry-mode button[aria-pressed=true] {color:var(--accent-text)}
+.entry-enroll {display:grid;gap:var(--entry-gap)}
+.entry-steps {display:grid;gap:1.15em;list-style:none;padding:0;margin:.12em 0 .25em}
+.entry-steps li {position:relative;display:flex;align-items:center;gap:.8em;min-width:0}
+.entry-steps li:first-child::before {content:"";position:absolute;inset-inline-start:1.06em;inset-block-start:2em;block-size:calc(100% - .65em);inline-size:1px;background:var(--edge)}
+.entry-steps li>span {position:relative;display:grid;place-items:center;flex:none;inline-size:2.2em;block-size:2.2em;border-radius:50%;color:var(--secondary);background:var(--surface);border:1px solid var(--edge)}
+.entry-steps li.current>span {background:var(--accent-soft);color:var(--accent-text);border-color:var(--accent-border)}
+.entry-steps strong,.entry-steps small {display:block;line-height:1.5;overflow-wrap:anywhere}
+.entry-steps strong {font-size:.91em}.entry-steps small,.entry-handoff {color:var(--secondary);font-size:.8em}
+.entry-handoff {display:flex;align-items:center;gap:.45em;margin:0;line-height:1.5}
+.entry-input {position:relative}
+.entry-input::after {content:"";position:absolute;pointer-events:none;inset:auto .9em -1px;border-bottom:2px solid var(--accent);border-radius:1em;transform:scaleX(0)}
+.entry-input:focus-within::after {transform:scaleX(1)}
+.entry-input:focus-within>svg {color:var(--accent-text)}
+@keyframes entry-swap {from{opacity:.35;translate:var(--entry-slide) 0}}
+@keyframes entry-line-in {from{transform:scaleX(.15)}}
+@keyframes field-arrival {from{opacity:.55;translate:0 .45em}}
+@keyframes entry-error-in {0%{translate:0 .25em;opacity:.45}55%{translate:-.16em 0}78%{translate:.13em 0}}
+@media(prefers-reduced-motion:no-preference){
+  :root[data-motion=on] .welcome-picture img.entry-landscape {animation:none;transition:opacity calc(var(--duration)*1.23) ease,transform calc(var(--duration)*1.65) var(--entry-curve)}
+  :root[data-motion=on] .entry-heading,:root[data-motion=on] .entry-caption {animation:entry-swap var(--duration) var(--entry-curve)}
+  :root[data-motion=on] .entry-caption::before {animation:entry-line-in var(--duration) var(--entry-curve)}
+  :root[data-motion=on] .entry-mode i {transition:transform calc(var(--duration)*.86) cubic-bezier(.24,.76,.25,1.07)}
+  :root[data-motion=on] .entry-input::after {transition:transform calc(var(--duration)*.68) var(--entry-curve)}
+  :root[data-motion=on] :is(.entry-steps li,.welcome-form-card form>.entry-field,.entry-enroll>.entry-submit) {animation:field-arrival calc(var(--duration)*.86) var(--entry-curve) backwards}
+  :root[data-motion=on] :is(.entry-steps li:nth-child(2),.welcome-form-card form>.entry-field:nth-child(2)) {animation-delay:calc(var(--duration)*.13)}
+  :root[data-motion=on] .entry-error {animation:entry-error-in var(--duration) ease-out}
+}
+@media(max-width:38em){.entry-caption {font-size:1.42rem}}

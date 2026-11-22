@@ -71,7 +71,12 @@ export const account=(source:any=state)=>source.accounts.find((a:any)=>a.id===so
 export const cfg=(id:string,source:any=state)=>{const game=source.instances.find((i:any)=>i.id===id)||{};const value={javaMode:'inherit',javaPath:'',memoryMode:'inherit',memoryMB:4096,autoUpdate:false,updateUrls:[],autoJoin:false,isolated:true,width:1280,height:720,fullscreen:false,jvmArgs:[],favorite:false,coverPositionX:50,coverPositionY:50,coverZoom:1,...game,serverAddress:game.address||'',...source.settings.instanceSettings[id]};if(game.builtin){value.updateUrls=game.updateUrls||[];value.serverAddress=game.address||'';if(game.updateRequired)value.autoUpdate=true;}return value;};
 export async function chooseRoot(){const gameRoot=await invoke('directory.choose');if(gameRoot)await saveSettings({gameRoot});return !!gameRoot;}
 export async function selectInstance(id:string){if(task.busy||(state.running&&state.settings.keepLauncherAvailable===false))return;await saveSettings({selectedInstance:id});}
-export async function launch(id=selected()?.id,updateOnly=false,joinServer=false){if(!id)return;if(!account()?.authenticated){ui.dialog='account';return;}if(!state.settings.gameRoot&&!await chooseRoot())return;ui.launchTarget=id;ui.launchUpdateOnly=updateOnly;ui.tasks=true;await invoke(updateOnly?'game.update':'game.launch',{id,joinServer});await reload();}
+export async function launch(id=selected()?.id,updateOnly=false,joinServer=false){if(!id)return;if(!account()?.authenticated){ui.dialog='account';return;}if(!state.settings.gameRoot&&!await chooseRoot())return;ui.launchTarget=id;ui.launchUpdateOnly=updateOnly;ui.tasks=true;
+  const origin=updateOnly?null:{id,root:state.settings.gameRoot};ui.launchOrigin=origin;
+  try{await invoke(updateOnly?'game.update':'game.launch',{id,joinServer});}
+  catch(error){ui.launchOrigin=null;throw error;}
+  finally{if(!task.busy)ui.launchOrigin=null;}
+  await reload();}
 export async function startOrStopInstance(id:string){
   const session=state.sessions?.find((row:any)=>row.instance===id&&row.root===state.settings.gameRoot);
   if(session){await invoke('game.stop',{key:session.key});return;}
@@ -93,5 +98,5 @@ window.launcher?.subscribe(e=>{
  if(e.type==='decision-close')ui.decision=null;
  if(e.type==='shortcut-conflict')notify(e.errors.join('；'),true);
  if(e.type==='game-crash'){ui.crash=e.report;ui.dialog='crash';}
- if(e.type==='task'){updateTaskProgress(task,e);if(e.hxzre?.state==='enabled')notify('HXZRE 已启用，上传前向纠错补偿已接管连接');else if(e.hxzre?.state==='fallback')notify('HXZRE 未启用，已回退原始连接');if(e.running!=null)state.running=e.running;if(e.error||e.failure)reportFailure(e.error||e.failure,ui.launchUpdateOnly?'install.update':'game.launch');if(e.busy===false)void reload().catch(()=>{});}
+ if(e.type==='task'){updateTaskProgress(task,e);if(e.hxzre?.state==='enabled')notify('HXZRE 已启用，上传前向纠错补偿已接管连接');else if(e.hxzre?.state==='fallback')notify('HXZRE 未启用，已回退原始连接');if(e.running!=null)state.running=e.running;if(e.error||e.failure)reportFailure(e.error||e.failure,ui.launchUpdateOnly?'install.update':'game.launch');if(e.busy===false){ui.launchOrigin=null;void reload().catch(()=>{});}}
 });

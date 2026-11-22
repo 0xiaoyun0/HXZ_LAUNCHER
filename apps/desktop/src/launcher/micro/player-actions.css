@@ -1,0 +1,85 @@
+.surface-ink {position:fixed;z-index:10000;overflow:hidden;pointer-events:none;contain:strict}
+.surface-ink>i {position:absolute;border-radius:50%;background:currentColor;pointer-events:none}
+.flow-list,.guided-results,.calendar-grid {position:relative}
+.card-travel-ghost {transform:translate3d(min(var(--travel-x),calc(100vw - 100% - .4rem)),min(var(--travel-y),calc(100vh - 100% - .4rem)),0);will-change:transform}
+[data-card-grid][data-dragging] [data-gesture],[data-card-grid][data-dragging] .card-drag-preview {will-change:transform}
+.card-drag-preview::before,.card-drag-preview::after {content:"";position:absolute;pointer-events:none;inline-size:.85em;block-size:.85em;border-color:var(--accent-text);border-style:solid}
+.card-drag-preview::before {inset:.24em auto auto .24em;border-width:2px 0 0 2px;border-start-start-radius:var(--control-radius,.55em)}
+.card-drag-preview::after {inset:auto .24em .24em auto;border-width:0 2px 2px 0;border-end-end-radius:var(--control-radius,.55em)}
+@keyframes card-pickup {from{box-shadow:0 .12em .35em #14223814;outline-color:transparent}to{box-shadow:0 .55em 1.6em #18254125;outline-color:var(--accent)}}
+@keyframes card-grip-engage {from{scale:.84;opacity:.65}to{scale:1;opacity:1}}
+@keyframes card-slot-in {from{opacity:.24}to{opacity:1}}
+@media(prefers-reduced-motion:no-preference){
+  :root[data-motion=on] [data-card-grid][data-dragging] .card-drag-preview {transition:transform calc(var(--duration)*.56) cubic-bezier(.22,.77,.23,1),width calc(var(--duration)*.45) ease-out,height calc(var(--duration)*.45) ease-out;animation:card-slot-in calc(var(--duration)*.55) ease-out}
+  :root[data-motion=on] [data-card-grid][data-dragging] [data-card-id]:not([data-gesture]) {transition:transform calc(var(--duration)*.78) cubic-bezier(.22,.8,.25,1)}
+  :root[data-motion=on] [data-card-grid][data-dragging] [data-card-id][data-gesture] {animation:card-pickup calc(var(--duration)*.48) ease-out;transition:none}
+  :root[data-motion=on] [data-gesture=move] .canvas-grip.move svg,:root[data-motion=on] [data-gesture=size] .canvas-grip.size svg {color:var(--accent-text);animation:card-grip-engage calc(var(--duration)*.55) ease-out}
+}
+.summary-identity {display:flex;align-items:center;gap:.8em;min-inline-size:0}
+.instance-swap>div:last-child {min-inline-size:0;overflow-wrap:anywhere}
+.instance-swap h3 {margin:0 0 .2em}
+.instance-portrait {display:grid;place-items:center;flex:0 0 auto;inline-size:2.85em;block-size:2.85em;border-radius:var(--control-radius,.55em);overflow:hidden;background:var(--accent-soft)}
+.instance-portrait img,.instance-portrait .pack-emblem,.instance-portrait .pack-emblem svg {inline-size:100%;block-size:100%;object-fit:cover}
+.launch-motion {position:relative;isolation:isolate;overflow:hidden;max-inline-size:100%}
+.launch-symbol {flex:none;display:grid;place-items:center}
+.launch-symbol svg {inline-size:1.08em;block-size:1.08em}
+.launch-label {--label-travel:.16em;min-inline-size:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.launch-motion[data-launch-state=preparing] {opacity:1}
+.launch-fill {position:absolute;inset:0;z-index:-1;background:currentColor;opacity:.17;transform:scaleX(var(--phase-fill));transform-origin:left}
+.launch-fill:not([data-known]) {transform:none;background:linear-gradient(95deg,transparent,currentColor,transparent);inline-size:45%}
+.finder-results.guided-results {isolation:isolate}
+.guided-results .finder-spot {position:absolute;inset:0 0 auto;z-index:-1;border-radius:var(--control-radius,.45em);background:var(--accent-soft);border-inline-start:.18em solid var(--accent-text);transform:translateY(var(--finder-y,0));opacity:0;pointer-events:none}
+.finder-spot[data-visible=true] {opacity:1}
+.finder-results.guided-results>button:is(:hover,:focus,:focus-visible) {background:transparent}
+.guided-results>button[data-selected] {color:var(--accent-text)}
+.guided-results mark {background:transparent;color:var(--accent-text);font-weight:720}
+.calendar-sweep {position:absolute;inset:0;z-index:1;overflow:clip;pointer-events:none;border-radius:.25em}
+.calendar-sweep::after {content:"";position:absolute;inset:0;opacity:0;background:linear-gradient(102deg,transparent 15%,rgba(var(--accent-rgb),.28),transparent 82%)}
+.task-stage-list>li {position:relative;isolation:isolate}
+.task-stage-list>li:not(:last-child)::before {content:"";position:absolute;pointer-events:none;inset-inline-start:.52em;inset-block-start:2.35em;inset-block-end:-.8em;inline-size:2px;border-radius:2px;background:var(--accent-border);transform-origin:top}
+.task-stage-list>li[data-status=done]:not(:last-child)::before {background:var(--accent)}
+.task-file-list>li {overflow-wrap:anywhere}
+.chat-send .send-flight {display:grid;place-items:center}
+.play-morph {inline-size:1.35em;block-size:1.35em;fill:currentColor;stroke:none}
+.play-morph path:first-child {clip-path:polygon(25% 13%,50% 28%,50% 72%,25% 87%)}
+.play-morph path:last-child {clip-path:polygon(49% 27%,88% 50%,88% 50%,49% 73%)}
+.play-morph[data-playing=true] path:first-child {clip-path:polygon(23% 15%,42% 15%,42% 85%,23% 85%)}
+.play-morph[data-playing=true] path:last-child {clip-path:polygon(58% 15%,77% 15%,77% 85%,58% 85%)}
+@keyframes identity-image-in {from{opacity:.45;transform:perspective(15em) rotateY(-21deg) scale(.86)}65%{transform:perspective(15em) rotateY(3deg) scale(1.02)}}
+@keyframes identity-copy-in {from{opacity:.38;translate:.58em 0}}
+@keyframes action-symbol-in {from{opacity:.4;scale:.68;rotate:-12deg}}
+@keyframes label-up {from{opacity:.4;translate:0 var(--label-travel,.45em)}}
+@keyframes phase-pass {from{translate:-100% 0}to{translate:225% 0}}
+@keyframes calendar-pass {0%{opacity:0;translate:-88% 0}35%{opacity:1}100%{opacity:0;translate:88% 0}}
+@keyframes connect-stage {from{transform:scaleY(0)}}
+@keyframes send-dispatch {0%{transform:translate(0,0)}18%{transform:translate(-12%,12%) scale(.85)}48%{opacity:0;transform:translate(78%,-78%) scale(.8)}49%{opacity:0;transform:translate(-38%,38%) scale(.7)}100%{opacity:1;transform:none}}
+@keyframes track-in {from{opacity:.4;translate:.75em 0}}
+/* Only the scrolling workspace participates. Window chrome and the native controls stay live. */
+:root:has(.launcher-frame) {view-transition-name:none}
+::view-transition {pointer-events:none}
+@keyframes desk-previous-page {to{opacity:0}}
+@keyframes desk-next-page {from{opacity:.26}}
+@media(prefers-reduced-motion:no-preference){
+  :root[data-motion=on] #workspace-main {view-transition-name:hxz-workspace}
+  :root[data-motion=on]::view-transition-group(hxz-workspace) {animation-duration:calc(var(--duration)*.66)}
+  :root[data-motion=on]::view-transition-old(hxz-workspace) {animation:desk-previous-page calc(var(--duration)*.52) ease-out both;mix-blend-mode:normal}
+  :root[data-motion=on]::view-transition-new(hxz-workspace) {animation:desk-next-page calc(var(--duration)*.72) ease-out both;mix-blend-mode:normal}
+  :root[data-motion=on] .instance-swap .instance-portrait {animation:identity-image-in var(--duration) cubic-bezier(.18,.7,.23,1)}
+  :root[data-motion=on] .instance-swap>div:last-child {animation:identity-copy-in calc(var(--duration)*.88) ease-out}
+  :root[data-motion=on] .launch-symbol {animation:action-symbol-in calc(var(--duration)*.68) ease-out}
+  :root[data-motion=on] .launch-label,:root[data-motion=on] .task-phase-swap {animation:label-up calc(var(--duration)*.73) ease-out}
+  :root[data-motion=on] .launch-motion[aria-busy=true] .launch-symbol svg {animation:status-turn calc(var(--duration)*2.8) linear infinite}
+  :root[data-motion=on] .launch-fill[data-known] {transition:transform calc(var(--duration)*.6) ease-out}
+  :root[data-motion=on] .launch-fill:not([data-known]) {animation:phase-pass calc(var(--duration)*3.3) ease-in-out infinite}
+  :root[data-motion=on] .finder-spot {transition:transform calc(var(--duration)*.63) cubic-bezier(.2,.76,.24,1),opacity calc(var(--duration)*.4)}
+  :root[data-motion=on] .calendar-sweep::after {animation:calendar-pass calc(var(--duration)*1.3) ease-in-out}
+  :root[data-motion=on] .calendar-sweep[data-wide=false]::after {animation-direction:reverse}
+  :root[data-motion=on] .task-stage-list>li[data-status=done]::before {animation:connect-stage var(--duration) ease-out}
+  :root[data-motion=on] .task-stage-list>li>.task-step-title,:root[data-motion=on] .task-stage-list>li>div {animation:label-up calc(var(--duration)*.74) ease-out}
+  :root[data-motion=on] .send-flight[data-sent] {animation:send-dispatch calc(var(--duration)*1.25) cubic-bezier(.2,.65,.3,1)}
+  :root[data-motion=on] .chat-media-draft>div,:root[data-motion=on] .track-identity {animation:track-in var(--duration) ease-out}
+  :root[data-motion=on] .chat-send:active:not(:disabled) .send-flight svg {transform:translate(-.12em,.12em) scale(.87)}
+  :root[data-motion=on] .play-morph path {transition:clip-path calc(var(--duration)*.78) cubic-bezier(.26,.8,.3,1)}
+}
+:root[data-motion=off]::view-transition-group(*),:root[data-motion=off]::view-transition-old(*),:root[data-motion=off]::view-transition-new(*) {animation:none}
+@media(prefers-reduced-motion:reduce){::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){animation:none}}

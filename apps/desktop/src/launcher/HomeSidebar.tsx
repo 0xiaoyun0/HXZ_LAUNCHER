@@ -6,6 +6,7 @@ import {account,cfg,invoke,perform,reload,saveSettings,state,ui} from '../model'
 import {CardHeading} from '../CardBoard';
 import {Avatar,Select,DetailDialog} from '../ui';
 
+import {InstancePortrait} from './micro/InstancePortrait';
 import {PlayerAvatar} from './PlayerAvatar';
 import {FolderGlyph} from './micro/Feedback';
 export function playDuration(seconds:number){
@@ -47,14 +48,14 @@ export function InstanceSummary({game}:{game:any}){
   const s=useSnapshot(state),settings=s.settings,options=game&&cfg(game.id,s);
   const memory=options?.memoryMode==='manual'?options.memoryMB+' MB · 实例':options?.memoryMode==='auto'?'自动分配':
     settings.memoryMode==='manual'?settings.defaultMemoryMB+' MB · 全局':'自动分配';
-  return <><CardHeading title={<><Box size={16}/>实例详情</>}/>{game?<><h3>{game.name||game.id}</h3><small>{[game.version===game.id?'本地实例':game.version,game.loader].filter(Boolean).join(' · ')}</small>
+  return <><CardHeading title={<><Box size={16}/>实例详情</>}/>{game?<><div className="summary-identity instance-swap" data-instance={game.id} key={game.id}><InstancePortrait game={game} media={settings.showCover!==false?settings.instanceSettings[game.id]?.coverMedia:undefined}/><div><h3>{game.name||game.id}</h3><small>{[game.version===game.id?'本地实例':game.version,game.loader].filter(Boolean).join(' · ')}</small></div></div>
       <dl className="detail-rows"><div><dt>状态</dt><dd>{game.error?'需要检查':game.installed?'已安装':'待安装'}</dd></div><div><dt>Java</dt><dd>{options.javaMode==='custom'||(options.javaMode==='inherit'&&settings.javaPath)?'指定运行环境':'自动匹配'}</dd></div><div><dt>最大内存</dt><dd>{memory}</dd></div></dl>
       {game.installed&&<DetailDialog title="常用文件夹" icon={<FolderGlyph/>}><div className="desk-actions">{[['versions','版本目录'],['screenshots','截图'],['saves','存档']].map(([kind,label])=><button className="small-action" key={kind} onClick={()=>perform(()=>invoke('instance.folder',{id:game.id,kind}))}>{label}</button>)}</div></DetailDialog>}
       <div className="desk-actions"><button className="small-action" onClick={()=>{ui.instance=game.id;ui.dialog='instance';}}><Settings2 size={15}/>实例配置</button><Link className="small-action" to={'/check?id='+encodeURIComponent(game.id)}><Stethoscope size={15}/>启动前检查</Link></div></>:<p>选择游戏实例后可查看配置。</p>}
     </>;
 }
 export function PlayCalendar({journal=false}:{journal?:boolean}={}){
-  const s=useSnapshot(state),[days,setDays]=useState<{date:string;seconds:number}[]>(),[failed,setFailed]=useState(false),[weeks,setWeeks]=useState(26);
+  const s=useSnapshot(state),[days,setDays]=useState<{date:string;seconds:number}[]>(),[failed,setFailed]=useState(false),[weeks,setWeeks]=useState(26),[rangeChanged,setRangeChanged]=useState(false);
   const refresh=useCallback(async()=>{try{const result=await invoke('game.playtime');setDays(result.days);setFailed(false);}catch{setFailed(true);}},[]);
   useEffect(()=>{void refresh();if(s.running){const tick=setInterval(refresh,5000);return ()=>clearInterval(tick);}},[s.running,refresh]);
   const day=86400000,now=new Date(Date.now()+8*3600000),today=now.toISOString().slice(0,10),midnight=Date.parse(today+'T00:00:00Z');
@@ -80,13 +81,13 @@ export function PlayCalendar({journal=false}:{journal?:boolean}={}){
   return <><CardHeading title={<><CalendarDays size={16}/>游玩日历</>}><Link to="/playtime">游玩记录 <ArrowRight size={14}/></Link></CardHeading>
     {failed?<p role="alert">本机记录读取失败。<button className="small-action" onClick={refresh}>重试</button></p>:!days?<p>正在读取本机记录…</p>:<>
     <dl className="time-periods">{[['今天',sum(today)],['本周',sum(monday)],['本月',sum(today.slice(0,7)+'-01')]].map(([label,seconds])=><div key={label}><dt>{label}</dt><dd>{playDuration(Number(seconds))}</dd></div>)}</dl>
-    <div className="calendar-tools"><small>最近 {weeks} 周 · 本机游玩</small><div className="segmented" aria-label="日历范围">{[[26,'半年'],[52,'一年']].map(([count,text])=><button key={count} aria-pressed={weeks===count} onClick={()=>setWeeks(Number(count))}>{text}</button>)}</div></div>
-    <div className="calendar-chart" role="group" aria-label="本机游玩日历">
+    <div className="calendar-tools"><small>最近 {weeks} 周 · 本机游玩</small><div className="segmented" aria-label="日历范围">{[[26,'半年'],[52,'一年']].map(([count,text])=><button key={count} aria-pressed={weeks===count} onClick={()=>{if(count!==weeks){setRangeChanged(true);setWeeks(Number(count));}}}>{text}</button>)}</div></div>
+    <div className="calendar-chart" data-range={weeks} role="group" aria-label="本机游玩日历">
       <div className="calendar-months" style={columns} aria-hidden="true">{months.map(({month,column})=>
         <span key={column} style={{gridColumn:column}}>{month}月</span>)}</div>
       <div className="calendar-weekdays" aria-hidden="true">{['一','三','五','日'].map((day,index)=>
         <span key={day} style={{gridRow:1+index*2}}>{day}</span>)}</div>
-      <div className="calendar-grid" style={columns}>{squares.map(date=>{
+      <div className="calendar-grid" style={columns}>{rangeChanged&&<span key={weeks} className="calendar-sweep" data-wide={weeks===52} aria-hidden/>}{squares.map(date=>{
         const seconds=byDate.get(date)||0;
         if(date>today)return <i key={date} data-level="future"/>;
         return <Link key={date} tabIndex={date===today?0:-1} aria-label={date+' · '+playDuration(seconds)} onKeyDown={move} to={'/playtime?date='+date} title={date+' · '+playDuration(seconds)}><i data-level={seconds>=7200?3:seconds>=1800?2:seconds>0?1:0}/></Link>;

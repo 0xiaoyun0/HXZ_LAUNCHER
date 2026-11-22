@@ -28,21 +28,27 @@ export function useCardGrid(ref:RefObject<HTMLDivElement|null>,packed:boolean,si
       const style=getComputedStyle(grid!),gap=parseFloat(style.columnGap)||0;
       const rowPixels=parseFloat(style.gridAutoRows),ends=Array<number>(columns).fill(0),unit=cardHeightUnit(grid!);
       const layout:LayoutItem[]=[],heights=new Map<string,number>();
+      // All width writes precede geometry reads, including on the first grouped-to-packed drop.
+      for(const card of cards){
+        const w=Number(card.style.getPropertyValue('--panel-span'))||columns;
+        if(card.style.gridColumnEnd!=='span '+w)card.style.gridColumn='1 / span '+w;
+      }
+      for(const card of cards)heights.set(card.dataset.cardId!,card.getBoundingClientRect().height);
       for(const card of cards){
         const w=Number(card.style.getPropertyValue('--panel-span'))||columns;
         const tops=Array.from({length:columns-w+1},(_,x)=>Math.max(...ends.slice(x,x+w)));
         const x=card.dataset.column===undefined?tops.indexOf(Math.min(...tops)):Math.max(0,Math.min(columns-w,Number(card.dataset.column)));
-        card.style.gridColumn=(x+1)+' / span '+w;
-        const height=card.getBoundingClientRect().height,h=Math.max(1,Math.ceil((height+gap)/unit));
+        const height=heights.get(card.dataset.cardId!)!,h=Math.max(1,Math.ceil((height+gap)/unit));
         const y=card.dataset.row===undefined?tops[x]:Number(card.dataset.row);
-        heights.set(card.dataset.cardId!,height);
         layout.push({i:card.dataset.cardId!,x,y,w,h,static:!!card.dataset.locked});
         ends.fill(Math.max(tops[x],y)+h,x,x+w);
       }
       const positions=new Map(verticalCompactor.compact(layout,columns).map(item=>[item.i,item]));
       for(const card of cards){
         const id=card.dataset.cardId!,item=positions.get(id)!;
-        card.style.gridRow=(Math.round(item.y*unit/rowPixels)+1)+' / span '+Math.max(1,Math.ceil(heights.get(id)!/rowPixels));
+        const column=(item.x+1)+' / span '+item.w,row=(Math.round(item.y*unit/rowPixels)+1)+' / span '+Math.max(1,Math.ceil(heights.get(id)!/rowPixels));
+        if(card.style.gridColumn!==column)card.style.gridColumn=column;
+        if(card.style.gridRow!==row)card.style.gridRow=row;
       }
     }
     arrange();const observer=new ResizeObserver(arrange);observer.observe(grid);cards.forEach(card=>observer.observe(card));

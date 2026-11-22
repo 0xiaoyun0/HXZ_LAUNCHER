@@ -1,13 +1,15 @@
 import {useMemo,useState} from 'react';
 import {Link} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
-import {ArrowRight,Download,FileUp,FolderOpen,History,Layers3,Music2,Network,Palette,Play,Search,Square} from 'lucide-react';
+import {ArrowRight,Download,FileUp,FolderOpen,History,Layers3,Music2,Network,Palette,Search} from 'lucide-react';
 import {resumeTarget} from '../../../../packages/engine/core/resume.mjs';
 import {wallpaperSource} from '../../../../packages/engine/core/desktop-wallpaper.mjs';
 import {homeLayoutKey,workspaceLayout,workspaceModules} from '../../../../packages/engine/core/desktop-workspace.mjs';
-import {chooseRoot,importPack,perform,startOrStopInstance,state,task,ui} from '../model';
+import {chooseRoot,importPack,perform,state,task,ui} from '../model';
 import {CardBoard,CardHeading} from '../CardBoard';
 import {FolderGlyph} from './micro/Feedback';
+import {LaunchAction} from './micro/LaunchAction';
+import {useReflowList} from './micro/surface-motion';
 import {PackIcon} from '../GameLibrary';
 import {HomeRole,HomeServers,InstanceSummary,PlayCalendar} from './HomeSidebar';
 
@@ -29,18 +31,19 @@ export function Home(){
   const focused=games.find(g=>g.id===focus)||last||games[0],featured=modules.featured&&!term&&libraryFilter==='all'&&last;
   const count=layout==='library'?7:layout==='journal'?2:4;
   const rows=matches.filter(g=>!featured||g.id!==last.id).slice(0,featured?count-1:count);
+  const list=useReflowList<HTMLDivElement>(JSON.stringify(rows.map(g=>g.id)));
   function gameRow(game:any,feature=false){
     const isLast=game.id===last?.id,running=s.sessions?.some((r:any)=>r.instance===game.id&&r.root===s.settings.gameRoot);
     const version=game.version===game.id?'本地实例':game.version;
     const meta=[version,game.loader,game.installed?'已安装':'可安装'].filter(Boolean).join(' · ');
     const cover=feature&&modules.coverArt&&s.settings.showCover!==false&&(wallpaperSource({wallpaperMode:'image',backgroundImage:s.settings.instanceSettings[game.id]?.coverMedia||s.settings.defaultCover})?.url||'./media/hero.webp');
-    return <article data-cover={cover?true:undefined} key={game.id} className={['home-instance-row',focused?.id===game.id?'focused':'',isLast?'resume-panel':'',feature?'featured-game':''].join(' ')}>
+    return <article data-flow-key={game.id} data-cover={cover?true:undefined} key={game.id} className={['home-instance-row',focused?.id===game.id?'focused':'',isLast?'resume-panel':'',feature?'featured-game':''].join(' ')}>
       {cover&&<img className="feature-illustration" alt="" src={cover} onError={e=>{e.currentTarget.hidden=true;}}/>}
       <button className="instance-info" aria-label={'查看 '+game.name+' 的详情'} onClick={()=>setFocus(game.id)}>
         <PackIcon game={game}/><span>{feature&&<span className="resume-caption"><History size={13}/>{previous?.reason==='last'?'上次游玩':'当前实例'}</span>}
           <strong>{game.name}</strong><small>{meta}</small></span></button>
-      <button className={isLast?'launch-primary':'small-action'} disabled={t.busy||game.placeholder} onClick={()=>perform(()=>startOrStopInstance(game.id))}>
-        {running?<Square size={15}/>:<Play size={15}/>}<span>{running?'停止游戏':game.installed?(isLast&&previous?.reason==='last'?'继续游玩':'启动'):'安装并启动'}</span></button>
+      <LaunchAction id={game.id} running={!!running} className={isLast?'launch-primary':'small-action'} disabled={!!t.busy||!!game.placeholder}
+        label={running?'停止游戏':game.installed?(isLast&&previous?.reason==='last'?'继续游玩':'启动'):'安装并启动'}/>
     </article>;
   }
   const instances=<><CardHeading title={<><Layers3 size={16}/>游戏实例</>}>{!s.settings.gameRoot&&<button className="text-action" onClick={()=>perform(chooseRoot)}><FolderGlyph/>选择游戏目录</button>}</CardHeading>
@@ -48,7 +51,7 @@ export function Home(){
     <div className="instance-toolbar"><label><Search size={16}/><input aria-label="搜索实例" placeholder="搜索实例" value={query} onChange={event=>setQuery(event.target.value)}/></label>
       <button className="small-action" onClick={()=>perform(()=>importPack())}><FileUp size={15}/>导入</button><Link className="small-action" to="/workshop/install"><Download size={15}/>下载</Link></div>
     {layout==='library'&&<div className="instance-filters" aria-label="实例范围">{[['all','全部'],['installed','已安装'],['favorites','收藏']].map(([id,label])=><button key={id} aria-pressed={filter===id} onClick={()=>setFilter(id)}>{label}</button>)}</div>}
-    <div className="desk-instance-list">{rows.map(game=>gameRow(game))}
+    <div className="desk-instance-list flow-list" ref={list}>{rows.map(game=>gameRow(game))}
       {!matches.length&&<p className="desk-empty">{term?'没有匹配的实例。':libraryFilter==='favorites'?'还没有收藏的实例。可以在游戏库中收藏常玩的游戏。':libraryFilter==='installed'?'当前目录还没有安装游戏。':'还没有可用实例。可以选择游戏目录，或下载第一个游戏。'}</p>}</div>
     <footer><small>{term||libraryFilter!=='all'?'找到 '+matches.length+' 个匹配实例':games.filter(g=>g.installed).length+' 个已安装'}</small><Link to={'/library'+(term?'?q='+encodeURIComponent(query):'')}>管理实例 <ArrowRight size={14}/></Link></footer></>;
   return <section className="launch-page game-home"><CardBoard id="home" layoutKey={homeLayoutKey(layout)} columns={workspaceLayout(layout).columns} label={layout==='journal'?'游玩手记':layout==='library'?'实例控制台':'启动游戏'} home pageTitle
