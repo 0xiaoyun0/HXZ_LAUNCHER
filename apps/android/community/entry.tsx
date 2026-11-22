@@ -4,6 +4,11 @@ import type {} from '../../desktop/src/model';
 declare global { interface Window { townHostPort:Promise<MessagePort> } }
 let sequence=0;
 const channel=window.townHostPort;
+window.addEventListener('town-back',event=>{
+  const dialogs=document.querySelectorAll<HTMLElement>('[role=dialog][data-state=open]');
+  const close=dialogs[dialogs.length-1]?.querySelector<HTMLButtonElement>('button[aria-label="关闭"]');
+  if(close){event.preventDefault();close.click();}
+});
 const pending=new Map<number,(value:any)=>void>();
 void channel.then(port=>{
   port.onmessage=({data})=>{
@@ -28,6 +33,12 @@ window.launcher={
       const {state}=await import('../../desktop/src/model');
       const allowed=['blueprintInstance','voiceMode','voiceKey','voiceSounds','chatHistoryDays'];
       const preferences=Object.fromEntries(Object.entries(input).filter(([key])=>allowed.includes(key)));
+      if(input.animationSpeed===0||input.animationSpeed===1)preferences.animationSpeed=input.animationSpeed;
+      if(typeof input.townTheme==='string'){
+        const {changeDesktopTheme,DESKTOP_THEMES}=await import('../../../packages/engine/core/desktop-themes.mjs');
+        if(!DESKTOP_THEMES.some(theme=>theme.id===input.townTheme))return {ok:false,error:'该外观方案不存在。'};
+        Object.assign(preferences,changeDesktopTheme(state.settings,{op:'select',id:input.townTheme}));
+      }
       const previous=JSON.parse(localStorage.getItem('town-community-options')||'{}');
       localStorage.setItem('town-community-options',JSON.stringify({...previous,...preferences}));
       return {ok:true,value:{...state.settings,...preferences}};

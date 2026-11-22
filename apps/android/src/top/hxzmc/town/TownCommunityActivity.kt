@@ -41,12 +41,15 @@ class TownCommunityActivity : FragmentActivity() {
     private val files by lazy { TownFiles(cacheDir) }
     private data class Save(val port: Reply, val id: Int, val document: TownFiles.Document)
     private var save: Save? = null
+    private var handlingBack = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         incomingPack = importUri(intent)
-        window.statusBarColor = android.graphics.Color.rgb(247,248,252)
-        window.decorView.systemUiVisibility = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        // The game activity owns immersive mode. The community uses normal Android system bars.
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN or
+            android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
+        applySystemBars(getSharedPreferences("town-appearance", MODE_PRIVATE).getString("skin", "town"))
         val loader = WebViewAssetLoader.Builder().addPathHandler("/") { asset ->
             val missing = { WebResourceResponse("text/plain", "UTF-8", 404, "Missing", emptyMap(), ByteArrayInputStream(byteArrayOf())) }
             if (asset.split('/').any { it.isEmpty() || it == "." || it == ".." || it.contains('\\') }) missing()
@@ -128,6 +131,21 @@ class TownCommunityActivity : FragmentActivity() {
         view.loadUrl(origin + "/index.html" + lastPath)
     }
 
+    private fun applySystemBars(skin: String?) {
+        val color = when (skin) {
+            "observatory" -> android.graphics.Color.rgb(13,30,40)
+            "paper" -> android.graphics.Color.rgb(249,244,234)
+            else -> android.graphics.Color.rgb(247,249,255)
+        }
+        window.statusBarColor = color
+        val supportsLightNavigation = android.os.Build.VERSION.SDK_INT >= 26
+        window.navigationBarColor = if (supportsLightNavigation) color else android.graphics.Color.BLACK
+        val icons = android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
+            (if (supportsLightNavigation) android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0)
+        val decor = window.decorView
+        decor.systemUiVisibility = if (skin == "observatory") decor.systemUiVisibility and icons.inv() else decor.systemUiVisibility or icons
+    }
+
     private fun dispatch(port: Reply, raw: String) {
         val input = runCatching { JSONObject(raw) }.getOrNull() ?: return
         val id = input.optInt("id")
@@ -143,7 +161,18 @@ class TownCommunityActivity : FragmentActivity() {
         if (action == "android.close") { finish(); return }
         if (!LegalAgreement.isAccepted(this)) { reply(port,id,error="阅读并同意使用协议后即可进入社区。"); return }
         when (action) {
+            "android.appearance.bars" -> {
+                val skin = args.optString("skin")
+                if (skin !in setOf("town","observatory","paper")) { reply(port,id,error="该外观方案不存在。"); return }
+                applySystemBars(skin)
+                getSharedPreferences("town-appearance", MODE_PRIVATE).edit().putString("skin",skin).apply()
+                reply(port,id,true)
+            }
             "android.directory" -> reply(port, id, directory.listing())
+            "android.server.profile" -> publicNetwork.execute {
+                try { reply(port, id, directory.publicProfile(args.getString("server"))) }
+                catch (_: Exception) { reply(port, id, error = "暂时无法核对这个服务器的整合包版本。") }
+            }
             "android.notices" -> reply(port, id, directory.news(false))
             "android.topics" -> reply(port, id, directory.topics(false))
             "android.directory.refresh", "android.notices.refresh", "android.topics.refresh" -> publicNetwork.execute {
@@ -319,7 +348,16 @@ class TownCommunityActivity : FragmentActivity() {
         if (::view.isInitialized) view.url?.substringAfter('#', "")?.takeIf { it.startsWith('/') }?.let { outState.putString("town-route", "#" + it) }
     }
     @Deprecated("Uses WebView navigation history")
-    override fun onBackPressed() { if (view.canGoBack()) view.goBack() else finish() }
+    override fun onBackPressed() {
+        if (!::view.isInitialized) { finish(); return }
+        if (handlingBack) return
+        handlingBack = true
+        view.evaluateJavascript("window.dispatchEvent(new Event('town-back', {cancelable:true}))") { unhandled ->
+            handlingBack = false
+            if (isDestroyed || isFinishing || unhandled == "false") return@evaluateJavascript
+            if (view.canGoBack()) view.goBack() else finish()
+        }
+    }
     override fun onDestroy() {
         packPicker?.cancel()
         publicNetwork.shutdownNow()

@@ -34,6 +34,12 @@ function interact(action,label){
   const buttons=[...document.querySelectorAll('a,button')].filter(el=>el.getBoundingClientRect().width>0&&!el.disabled);
   const name=el=>(el.getAttribute('aria-label')||el.textContent||'').trim();
   const find=text=>buttons.find(el=>name(el)===text);
+  if(action==='tab'){
+    const button=find(label);
+    if(!button)return '';
+    if(button.getAttribute('aria-selected')==='true')return 'selected';
+    button.click();return 'selecting';
+  }
   if(action==='renderer'){
     const button=find(label);
     if(!button)return '';
@@ -99,11 +105,17 @@ try{
   if(values.memory||values['dynamic-models']||values.renderer||values['lean-search']){
     await polling(()=>run('click','游戏库'),10000,'游戏库');
     await polling(()=>run('click',instance+' 实例设置'),12000,'实例设置');
-    for(const [action,target] of [['memory',values.memory],['models',values['dynamic-models']?'on':null],['search',values['lean-search']?'on':null]]){
+    const switchTab=label=>polling(async()=>(await run('tab',label))==='selected',10000,label);
+    if(values.memory){
+      await switchTab('内存');
+      await polling(async()=>{const state=await run('memory',values.memory);assert.notEqual(state,'unavailable','此设备或实例不支持内存选项');return state==='saved';},10000,'内存选项已保存');
+    }
+    if(values.tier)await polling(async()=>(await run('renderer',values.tier==='large'?'加大 · 最多 2 GiB':'标准 · 最多 1 GiB'))==='saved',10000,'预算档位已保存');
+    if(values.renderer||values['dynamic-models']||values['lean-search'])await switchTab('画质与加载');
+    for(const [action,target] of [['models',values['dynamic-models']?'on':null],['search',values['lean-search']?'on':null]]){
       if(target)await polling(async()=>{const state=await run(action,target);assert.notEqual(state,'unavailable','此设备或实例不支持这项设置');return state==='saved';},10000,'实例选项已保存');
     }
     if(values.renderer)await polling(async()=>(await run('renderer',values.renderer))==='saved',10000,'渲染器已保存');
-    if(values.tier)await polling(async()=>(await run('renderer',values.tier==='large'?'加大 · 最多 2 GiB':'标准 · 最多 1 GiB'))==='saved',10000,'预算档位已保存');
     await run('click','关闭');
     await polling(()=>run('click','幻想镇社区首页'),10000,'返回社区');
   }

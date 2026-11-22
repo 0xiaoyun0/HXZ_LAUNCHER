@@ -46,6 +46,7 @@ await build({root:archive,configFile:path.join(archive,'vite.config.ts'),plugins
   }
 }],build:{outDir:path.join(town,'linking'),emptyOutDir:true,target:'chrome80',cssTarget:'chrome80'}});
 await cp(path.join(root,'public/media/games'),path.join(town,'media/games'),{recursive:true});
+await cp(path.join(root,'public/media/town'),path.join(town,'media/town'),{recursive:true});
 await copyFile(path.join(root,'public/media/brand/launcher.svg'),path.join(town,'town-mark.svg'));
 await copyFile(path.join(source,'LICENSE'),path.join(town,'FCL-LICENSE.txt'));
 await writeFile(path.join(town,'server-presets.json'),JSON.stringify(DEFAULT_SERVERS.map(({id,group,name,address,version,loader,loaderVersion,enabled,profileSource,updateUrls,updateRequired,packageUrl,packageSha256})=>({id,group,name,address,version,loader,loaderVersion,enabled,profileSource,updateUrls,updateRequired,packageUrl,packageSha256}))));

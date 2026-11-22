@@ -1,4 +1,4 @@
-import {useEffect,useState} from 'react';
+import {useEffect,useId,useState} from 'react';
 import {AlertTriangle,Check} from 'lucide-react';
 import {invoke} from '../../desktop/src/model';
 import {Modal} from '../../desktop/src/ui';
@@ -8,8 +8,11 @@ type InstanceOptions = {enabled:boolean;tier:'standard'|'large';physicalMiB:numb
   customHeap:boolean;last:Budget|null;isolated:boolean;mobileGraphics:boolean;modelsAvailable:boolean;modelsEnabled:boolean;renderer:string;supportsZink:boolean;itemSearch:boolean|null};
 const gib=(mib:number)=>(mib/1024).toFixed(1)+' GiB';
 
-export function TownInstanceOptions({instance,close}:{instance:string;close:()=>void}){
+export type OptionTab='memory'|'graphics';
+const tabs=[{id:'memory',name:'内存'},{id:'graphics',name:'画质与加载'}] as const;
+export function TownInstanceOptions({instance,close,initialTab='memory'}:{instance:string;close:()=>void;initialTab?:OptionTab}){
   const [data,setData]=useState<InstanceOptions|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[attempt,setAttempt]=useState(0);
+  const [tab,setTab]=useState<OptionTab>(initialTab),prefix=useId();
   useEffect(()=>{
     let visible=true;
     setError('');
@@ -27,7 +30,15 @@ export function TownInstanceOptions({instance,close}:{instance:string;close:()=>
     <div className="town-instance-options">
       {!data&&!error&&<p role="status">正在读取设备内存…</p>}
       {data&&<>
-        <section><h3>游戏画质</h3>
+        <div className="town-option-tabs" role="tablist" aria-label="实例设置分类">{tabs.map(item=><button
+          key={item.id} id={prefix+'-tab-'+item.id} type="button" role="tab" aria-selected={tab===item.id} aria-controls={prefix+'-panel-'+item.id}
+          tabIndex={tab===item.id?0:-1} onClick={()=>setTab(item.id)} onKeyDown={event=>{
+            if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+            event.preventDefault();
+            const next=event.key==='Home'?'memory':event.key==='End'?'graphics':tab==='memory'?'graphics':'memory';
+            setTab(next);document.getElementById(prefix+'-tab-'+next)?.focus();
+          }}>{item.name}</button>)}</div>
+        <section role="tabpanel" id={prefix+'-panel-graphics'} aria-labelledby={prefix+'-tab-graphics'} hidden={tab!=='graphics'}>
           {data.isolated?<div className="town-option-row"><div><strong>手机画质</strong><p>降低渲染分辨率和视距，关闭光影。关闭此项可恢复之前的画质。</p></div>
           <button className="town-switch" type="button" role="switch" aria-label="手机画质" aria-checked={data.mobileGraphics}
             disabled={busy} onClick={()=>void save('graphics',!data.mobileGraphics)}><span>{data.mobileGraphics&&<Check size={12}/>}</span></button></div>
@@ -43,14 +54,14 @@ export function TownInstanceOptions({instance,close}:{instance:string;close:()=>
               <button key={value} type="button" className="small-action" aria-pressed={(data.renderer||'default')===value} disabled={busy}
                 onClick={()=>void save('renderer',value)}>{label}</button>)}</div></div>
         </section>
-        <section><h3>内存</h3>
-          <dl className="town-memory-readout"><div><dt>物理运存</dt><dd>{gib(data.physicalMiB)}</dd></div>
-            <div><dt>系统虚拟内存</dt><dd>{gib(data.swapMiB)}<small> · 当前空闲 {gib(data.freeSwapMiB)}</small></dd></div></dl>
+        <section role="tabpanel" id={prefix+'-panel-memory'} aria-labelledby={prefix+'-tab-memory'} hidden={tab!=='memory'}>
+          <dl className="town-memory-readout"><div><dt>物理运存</dt><dd>{gib(data.physicalMiB)}<small>可用 {gib(data.availableMiB)}</small></dd></div>
+            <div><dt>系统虚拟内存</dt><dd>{gib(data.swapMiB)}<small>空闲 {gib(data.freeSwapMiB)}</small></dd></div></dl>
           <div className="town-option-row"><div><strong>将系统虚拟内存计入游戏预算</strong><span className="town-risk"><AlertTriangle size={14}/>风险选项</span></div>
           <button type="button" className="town-switch" role="switch" aria-label="将系统虚拟内存计入游戏预算"
             aria-describedby="town-swap-help" aria-checked={data.enabled} disabled={busy||(!data.enabled&&(data.customHeap||data.swapMiB<=0))}
             onClick={()=>void save('swap',!data.enabled)}><span>{data.enabled&&<Check size={12}/>}</span></button></div>
-          <p id="town-swap-help">默认关闭。开启后，下次启动会按可用物理运存和空闲交换空间适度提高 Java 堆上限。关闭后恢复基础预算。换页由安卓管理，游戏可能卡顿或因内存不足退出。</p>
+          <p id="town-swap-help">默认关闭。开启后，下次启动按物理运存和空闲交换空间提高 Java 堆上限。游戏可能卡顿，也可能因内存不足退出。</p>
           {data.enabled&&<div><strong>额外预算</strong><div className="town-renderers" role="group" aria-label="额外预算">
             {([['standard','标准 · 最多 1 GiB'],['large','加大 · 最多 2 GiB']] as const).map(([value,label])=>
               <button key={value} type="button" className="small-action" aria-pressed={(data.tier||'standard')===value} disabled={busy}

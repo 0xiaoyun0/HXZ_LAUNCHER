@@ -44,7 +44,28 @@ class TownDirectory(context: Context) {
         }
     }
     fun server(id: String) = catalog().firstOrNull { it.id == id } ?: error("找不到这个社区服务器。")
-    fun listing() = JSONArray(catalog().map { it.display() })
+    private fun profileKey(server: Server) = "profile:" + server.id + ":" + server.updates.joinToString("|")
+
+    private fun savedProfile(server: Server): JSONObject? = cache.getString(profileKey(server), null)?.let {
+        runCatching { JSONObject(it) }.getOrNull()?.takeIf { saved -> saved.optString("version").isNotBlank() }
+    }
+
+    private fun displayProfile(server: Server, profile: JSONObject?, state: String): JSONObject {
+        val result = server.display().put("profileSource", server.source).put("profileState", state)
+        if (profile != null) for (field in listOf("version", "loader", "loaderVersion")) result.put(field, profile.optString(field))
+        return result
+    }
+
+    fun listing() = JSONArray(catalog().map { server ->
+        val saved = if (server.source == "hxzup") savedProfile(server) else null
+        displayProfile(server, saved, if (saved == null) "preset" else "cached")
+    })
+
+    fun publicProfile(id: String): JSONObject {
+        val server = server(id)
+        val profile = requirement(server)
+        return displayProfile(server, profile, profile.optString("profileState", "preset"))
+    }
 
     fun refresh(): JSONArray {
         val incoming = readJson(TownSession.COMMUNITY + "/api/server-presets").getJSONArray("servers")
@@ -93,13 +114,15 @@ class TownDirectory(context: Context) {
         val base = server.display()
         if (server.source != "hxzup" && !server.required) return base
         // Scope the cached requirements to this server and its current publishers.
-        val key = "profile:" + server.id + ":" + server.updates.joinToString("|")
+        val key = profileKey(server)
+        var advertisedRevision: String? = null
         for (url in server.updates) {
             val status = runCatching { readJson(url + "/version.json") }.getOrNull() ?: continue
             check(!status.optBoolean("maintenance")) { server.name + "正在维护，请稍后再进入。" }
             if (server.source != "hxzup") return base
             val revision = status.optString("version")
             if (revision.isEmpty()) continue
+            advertisedRevision = revision
             val profile = runCatching { readJson(url + "/game-profile.json?version=" + android.net.Uri.encode(revision)) }.getOrNull() ?: continue
             val version = profile.optString("gameVersion").trim()
             if (version.isBlank()) continue
@@ -108,16 +131,15 @@ class TownDirectory(context: Context) {
                 .put("loaderVersion", loader?.optString("version") ?: "").put("publisher", url).put("revision", revision)
             cache.edit().putString(key, req.toString()).apply()
             return base.put("version", version).put("loader", req.getString("loader")).put("loaderVersion", req.getString("loaderVersion"))
-                .put("publisher", url).put("revision", revision)
+                .put("publisher", url).put("revision", revision).put("profileState", "fresh")
         }
         if (!server.required) {
-            cache.getString(key, null)?.let { raw ->
-                val saved = JSONObject(raw)
+            savedProfile(server)?.takeIf { advertisedRevision == null || it.optString("revision") == advertisedRevision }?.let { saved ->
                 return base.put("version", saved.getString("version")).put("loader", saved.getString("loader"))
                     .put("loaderVersion", saved.getString("loaderVersion")).put("publisher", saved.optString("publisher"))
-                    .put("revision", saved.optString("revision"))
+                    .put("revision", saved.optString("revision")).put("profileState", "cached")
             }
-            if (server.version.isNotBlank()) return base
+            if (advertisedRevision == null && server.version.isNotBlank()) return base
         }
         error("暂时读不到" + server.name + "的整合包要求。请检查网络后重试。")
     }

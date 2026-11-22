@@ -40,7 +40,7 @@ internal class TownGameExit(private val context: Context) {
                 n > 0 && TownGameError.graphicsCrash(String(header,0,n))
             }
         }.getOrDefault(false)
-        if (graphics) return JSONObject().put("phase","error").put("server",server).put("instance",instance)
+        if (graphics) return JSONObject().put("phase","error").put("server",server).put("instance",instance).put("optionTab","graphics")
             .put("title","上次游戏的图形渲染器崩溃")
             .put("detail","「$instance」在绘制画面时退出。请从实例设置切换图形渲染器，再进入服务器。")
         if (Build.VERSION.SDK_INT < 30) return null
@@ -53,7 +53,7 @@ internal class TownGameExit(private val context: Context) {
             !models -> "已经使用手机画质。若整合包支持，可在实例设置中试用按需加载模型。"
             else -> "已经使用手机画质和按需加载模型。请先关闭其他占用运存的应用；若仍然退出，可请服主提供适合手机的整合包。"
         }
-        return JSONObject().put("phase","error").put("server",server).put("instance",instance).put("title","上次游戏因手机内存不足退出")
+        return JSONObject().put("phase","error").put("server",server).put("instance",instance).put("optionTab","memory").put("title","上次游戏因手机内存不足退出")
             .put("detail","安卓在运行「$instance」时回收了游戏。"+action)
     }
 }
