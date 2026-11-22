@@ -62,7 +62,7 @@ export function updateBoard(specs,saved,instruction){
   const items=rows.map((r,order)=>{
     const x=Number.isFinite(r.column)?Math.max(0,Math.min(12-r.w,r.column)):nextColumn+r.w>12?0:nextColumn;
     nextColumn=(x+r.w)%12;
-    const preserveRow=['visible','lock','height','width','size'].includes(instruction.op);
+    const preserveRow=['layout','visible','lock','height','width','size'].includes(instruction.op);
     return {i:r.id,x,y:r.gridY??(preserveRow?r.gridRow:undefined)??order,w:r.w,h:r.h,...(r.manualHeight?{manualHeight:true}:{})};
   });
   return {...saved,items:[...items,...(saved?.items||[]).filter(r=>!ids.has(r.i))],

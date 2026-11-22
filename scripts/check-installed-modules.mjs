@@ -76,7 +76,11 @@ try{
   await settings();
   for(const [title,name] of [['社区插件','下载社区插件'],['音乐播放器','安装音乐播放器'],['小游戏','安装小游戏']]){
     const section=page.locator('.preference-section').filter({has:page.getByRole('heading',{name:title,exact:true})}),button=section.getByRole('button',{name,exact:true});
-    await button.click();await section.getByText('已下载 · 重启后启用',{exact:true}).waitFor({timeout:90000});
+    await button.click();
+    const ready=section.getByText('已下载 · 重启后启用',{exact:true}),failure=section.getByRole('alert');
+    await ready.or(failure).first().waitFor({timeout:90000});
+    if(await failure.isVisible())throw Error(title+'安装失败：'+await failure.innerText());
+    assert.ok(await ready.isVisible());
   }
   await states(true,false);await page.reload();await states(true,false);
   await close();await start(['--disable-plugins']);await states(true,false);await close();

@@ -157,3 +157,11 @@ test('a direct drop keeps its column and reflowed legacy cards only adopt a heig
   const auto=store(updateBoard(specs,sized,{id:'network',op:'height',value:0}));assert.equal(read(auto,'network').fixed,false);
   assert.deepEqual(old.items.at(-1),{i:'network',x:0,y:69,w:6,h:20});
 });
+test('moving visible cards retains hidden and locked grid positions',()=>{
+  const specs=['first','hidden','pinned'].map(id=>({id,w:4}));
+  const saved={items:[{i:'first',x:0,y:1,w:4,h:12},{i:'hidden',x:4,y:23,w:4,h:15},{i:'pinned',x:8,y:7,w:4,h:10}],hidden:['hidden'],locked:['pinned'],fixed:[]};
+  const next=updateBoard(specs,saved,{op:'layout',id:'first',items:[{i:'first',x:2,y:0,w:4},{i:'pinned',x:8,y:7,w:4}]});
+  assert.deepEqual(next.items.find(i=>i.i==='hidden'),saved.items[1]);
+  assert.deepEqual(next.items.find(i=>i.i==='pinned'),saved.items[2]);
+  assert.deepEqual(next.hidden,['hidden']);assert.deepEqual(next.locked,['pinned']);
+});
