@@ -147,6 +147,7 @@ try{
     const status=await page.evaluate(async()=>(await window.launcher.invoke('extension.status')).value);assert.ok(status.installed);assert.equal(status.active,false);
     console.log('实际交付目录的本地社区包已校验并进入待重启状态');
   }
+  const {checkInstanceDrawer}=await import('./check-instance-drawer.mjs');await checkInstanceDrawer(page,'.preview',servers[1].name);
   assert.deepEqual(await fingerprint(),before);
   console.log(JSON.stringify({instances:state.instances.length,installed:state.instances.filter(i=>i.installed).length,
     servers:servers.map(({name,version,loader,installed})=>({name,version,loader,installed})),calendarDays:Object.keys(library.playtime?.days||{}).length,sourceFilesUnchanged:true}));

@@ -6,7 +6,7 @@ export async function checkFirstVisit(page,native,capture,lite=false){
   await page.evaluate(p=>{location.hash=p;},home);
   await page.setViewportSize({width:1250,height:825});await page.reload();
   const entry=page.getByRole('dialog',{name:'登录幻想镇'}),guest=entry.getByRole('button',{name:'先以游客身份浏览'});
-  await guest.waitFor();await entry.locator('.welcome-picture img').evaluate(img=>img.decode());
+  await guest.waitFor();await entry.locator('.welcome-picture img').first().evaluate(img=>img.decode());
   await capture('entry-sign-in');
   assert.ok(await entry.getByRole('button',{name:'登录幻想镇'}).isDisabled());
   await entry.getByRole('textbox',{name:'邮箱或用户名'}).fill('guide-fixture');

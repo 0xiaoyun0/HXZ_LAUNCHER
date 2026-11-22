@@ -1,8 +1,10 @@
+import {checkPlayerActionMotion} from './check-player-action-motion.mjs';
+import {checkCardDrag} from './check-card-drag.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-async function recordInteractions(page,exercise){
+export async function recordInteractions(page,exercise){
   if(!process.env.HXZ3_CAPTURE_MOTION)return exercise();
   const dest=path.resolve(process.env.HXZ3_CAPTURE_MOTION);
   await fs.mkdir(dest,{recursive:true});
@@ -30,8 +32,8 @@ export async function checkMicroInteractions(page,native,capture){
   const mainNav=page.getByRole('navigation',{name:'主导航'});
   const shortcuts=page.getByRole('navigation',{name:'快捷导航'});
   const original=(await native('state',{localOnly:true})).value.settings;
-  await mainNav.getByRole('link',{name:'游戏',exact:true}).click();
-  await mainNav.getByRole('link',{name:'游戏库',exact:true}).click();
+  await mainNav.getByRole('link',{name:'游戏',exact:true}).click();await page.locator('#workspace-main .game-home').waitFor();
+  await mainNav.getByRole('link',{name:'游戏库',exact:true}).click();await page.locator('#workspace-main .play-library').waitFor();
   await page.goBack();await page.locator('#workspace-main[data-page-direction=back] .game-home').waitFor();
   await page.goForward();await page.locator('#workspace-main[data-page-direction=forward]').waitFor();
   assert.equal(new URL(page.url()).hash,'#/library');
@@ -57,16 +59,16 @@ export async function checkMicroInteractions(page,native,capture){
   });
   await recordInteractions(page,async()=>{
     await mainNav.getByRole('link',{name:'游戏',exact:true}).click();
-    const grip=page.getByRole('button',{name:'拖动游戏实例',exact:true});
-    await grip.scrollIntoViewIfNeeded();
-    const card=await grip.boundingBox(),cx=card.x+card.width/2,cy=card.y+card.height/2;
-    await page.mouse.move(cx,cy);await page.mouse.down();await page.mouse.move(cx-75,cy+32,{steps:12});
-    await page.locator('.card-drag-preview').waitFor();await page.keyboard.press('Escape');await page.mouse.up();
-    await page.locator('.card-drag-preview').waitFor({state:'hidden'});
+    await checkCardDrag(page);await checkPlayerActionMotion(page,native,capture);
+    await mainNav.getByRole('link',{name:'游戏',exact:true}).click();
     await shortcuts.getByRole('link',{name:'音乐播放器',exact:true}).click();
     const modes=page.getByRole('radiogroup',{name:'播放模式'});
     const volume=page.getByRole('slider',{name:'音量',exact:true});
     await volume.waitFor();
+    await page.locator('.play-buttons').getByRole('button',{name:'播放',exact:true}).click();
+    await page.locator('.play-morph[data-playing=true]').waitFor();
+    await page.locator('.play-buttons').getByRole('button',{name:'暂停',exact:true}).click();
+    await page.locator('.play-morph[data-playing=false]').waitFor();
     await modes.getByRole('radio',{name:'列表循环',exact:true}).click();
     await modes.getByRole('radio',{name:'随机播放',exact:true}).click();
     await modes.locator('input[value=shuffle]:checked').waitFor({state:'attached'});

@@ -1,4 +1,4 @@
-import {checkMicroInteractions} from './check-desktop-micro.mjs';
+import {checkMicroInteractions,recordInteractions} from './check-desktop-micro.mjs';
 import {checkPlayerSurfaces} from './check-player-surfaces.mjs';
 import assert from 'node:assert/strict';
 import {checkLocalGames,checkCommunityGames,checkGuestCatalog} from './check-desktop-arcade.mjs';
@@ -19,6 +19,7 @@ const architecture=process.argv.includes('--ia32')?'ia32':'x64';
 const withAccount=process.argv.includes('--fixture-account');
 const motionOnly=withAccount&&process.argv.includes('--motion-only');
 const layoutOnly=withAccount&&(process.argv.includes('--layout-only')||motionOnly);
+const drawerOnly=process.argv.includes('--drawer-only'),dragOnly=process.argv.includes('--drag-only');
 const startLite=process.argv.includes('--lite');
 const title='幻想镇 3rd.exe';
 const dist=path.resolve(process.env.HXZ3_TEST_DIST||path.join('release',version,'windows-'+architecture));
@@ -59,7 +60,7 @@ const javaPath=await fs.access(jdk).then(()=>jdk,()=>'');
    await communityExtension({home,id,definition,choose:async()=>({filePaths:[zip]})})('extension.import');
  }
 }
-if(fixture&&!layoutOnly)await fixture.prepareJava(gameRoot,names[0],javaPath);
+if(fixture)await fixture.prepareJava(gameRoot,names[0],javaPath);
 await fs.writeFile(path.join(home,'settings.json'),JSON.stringify({gameRoot,javaPath,gameWindowAction:'keep',gameSleep:false,memoryMode:'manual',defaultMemoryMB:512,communityUrl:fixture?.url||'http://127.0.0.1:9',autoReportErrors:false,futureSetting:{keep:42},onboardingDone:true,instanceSettings:{...Object.fromEntries(names.slice(1).map(id=>[id,{favorite:true}])),[names[0]]:{memoryMode:'inherit',memoryMB:2048,jvmArgs:['-Xmx512M']}},selectedInstance:names[1],lastPlayed:{id:names[0],root:gameRoot,startedAt:'2026-11-01T12:00:00Z'}}));
 {
  const track='ada80000-0000-4333-8000-000000000001',count=8000*15,buffer=Buffer.alloc(44+count*2);
@@ -93,8 +94,12 @@ try {
  };
  const denied=async action=>{const result=await native(action);assert.equal(result.ok,false,action);assert.match(result.error,/登录|未在本应用/);};
  if(!motionOnly&&(layoutOnly||startLite))await checkFirstVisit(page,native,capture,startLite);
- if(!layoutOnly||startLite)await checkLiteHome(page,native,{names,searchedInstance,capture,cold:startLite});
- if(layoutOnly){
+ if(!drawerOnly&&!dragOnly&&(!layoutOnly||startLite))await checkLiteHome(page,native,{names,searchedInstance,capture,cold:startLite});
+ if(drawerOnly){
+   const {checkInstanceDrawer}=await import('./check-instance-drawer.mjs');await checkInstanceDrawer(page,artifacts);
+ }else if(dragOnly){
+   const {checkCardDrag}=await import('./check-card-drag.mjs');await recordInteractions(page,()=>checkCardDrag(page));
+ }else if(layoutOnly){
    await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor();
    if(!motionOnly)await checkGuestCatalog(page);
    await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'小游戏'}).click();
@@ -353,7 +358,7 @@ try {
    }
  }
  assert.deepEqual(errors,[]);
- if(!layoutOnly)console.log('WebView2 '+architecture+': 328 instances, resume, preflight, guest gates, persistent settings, player, optional extension and navigation verified.');
+ if(!drawerOnly&&!dragOnly&&!layoutOnly)console.log('WebView2 '+architecture+': 328 instances, resume, preflight, guest gates, persistent settings, player, optional extension and navigation verified.');
 } catch(error){
  console.error('Host status',proc.exitCode,proc.signalCode);if(page)console.error('Current route:',new URL(page.url()).hash,'Headings:',await page.getByRole('heading').allTextContents().catch(()=>[]));
  throw error;
