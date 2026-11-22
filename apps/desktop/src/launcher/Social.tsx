@@ -51,12 +51,13 @@ export function Social({worldsContent}:{worldsContent?:ReactNode}){
   const title=active?.path==='/community'?'社区聊天':active?.path==='/community/forum'?'社区论坛':active?.label||'社区';
   const member=role?.authenticated&&!!role.uuid;
   const guild=location.pathname==='/community/guild',archive=location.pathname==='/community/linking',arcade=location.pathname.startsWith('/community/arcade/');
+  const immersive=archive&&window.launcher?.platform!=='android';
   const connection=!c.connected&&<div className="social-connection" role="status">{c.connecting?'正在连接社区…':<><IssueHelp issue={playerError(c.error||'社区连接已断开','community.connect')}/><button className="small-action" onClick={()=>void connect()}>重新连接</button></>}</div>;
   useEffect(()=>{if(member)void connect();},[member,role?.id,role?.uuid,s.settings.communityUrl]);
-  return <section className={'social-workspace'+(member&&archive?' social-archive':member&&active?.path==='/community'?' social-conversation':'')}>
-    {!member?<div className="launch-page login-gate"><CommunityHeading title={title}/><p>{role?.authenticated?'请先选择游戏角色。':'使用幻想镇账号登录后即可参与社区。'}</p>{role?.authenticated?<Link to="/account" className="small-action">选择角色</Link>:<button className="launch-primary" onClick={()=>ui.dialog='account'}>登录账号</button>}</div>:
+  return <section className={'social-workspace'+((member||immersive)&&archive?' social-archive':member&&active?.path==='/community'?' social-conversation':'')}>
+    {!member?<div className={immersive?"archive-access login-gate":"launch-page login-gate"}>{immersive?<h1>{title}</h1>:<CommunityHeading title={title}/>}<p>{role?.authenticated?'请先选择游戏角色。':'使用幻想镇账号登录后即可参与社区。'}</p>{role?.authenticated?<Link to="/account" className="small-action">选择角色</Link>:<button className="launch-primary" onClick={()=>ui.dialog='account'}>登录账号</button>}</div>:
         <div key={[role.id,role.uuid,s.settings.communityUrl].join(':')} className={archive?'archive-viewport':guild?'guild-viewport':'social-content'}>
-          {!guild&&<><CommunityHeading title={arcade?'小游戏联机':title}/>{connection}</>}
+          {!guild&&!immersive&&<><CommunityHeading title={arcade?'小游戏联机':title}/>{connection}</>}
           {arcade&&<Link className="small-action arcade-return" to="/arcade">返回小游戏厅</Link>}
           <Suspense fallback={<p role="status">正在打开…</p>}>
           <Routes><Route index element={<Chat/>}/><Route path="forum" element={<Forum/>}/><Route path="forum/:id" element={<Forum/>}/><Route path="voice" element={<Voice/>}/><Route path="inbox" element={<Inbox/>}/>
