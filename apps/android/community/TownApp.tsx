@@ -11,13 +11,16 @@ import {disconnect} from '../../../packages/community/client';
 import {TownLobby,TownWorld,WorldList,useDirectory,type TownServer} from './TownLobby';
 import {TownLibrary,TownTasks,GameProgress,useGameTask,active} from './TownPlay';
 import {TownNavigation,useBottomNavigation} from './TownNavigation';
-import {TownAppearance} from './TownAppearance';
+import {TownAppearance,type AppearanceSection} from './TownAppearance';
+import {TownBackdrop} from './TownBackdrop';
+import {useTownPersonalization} from './personalization';
 import {TownWelcome} from './TownWelcome';
 import {useAppearance} from '../../desktop/src/workspace/appearance';
 import {useReducedMotionPreference} from '../../desktop/src/PageFeedback';
 import {Avatar} from '../../desktop/src/ui';
 import '../../desktop/src/launcher/desktop.css';
 import './town.css';
+import './town-personalization.css';
 import './town-motion.css';
 
 type Player={uid?:string;name?:string;canceled?:boolean};
@@ -32,7 +35,8 @@ function applyPlayer(player:Player){
 }
 function TownApp(){
   const model=useSnapshot(state),feedback=useSnapshot(ui),location=useLocation(),directory=useDirectory();
-  const [failure,setFailure]=useState(''),[busy,setBusy]=useState(false),[appearance,setAppearance]=useState(false),game=useGameTask();
+  const [failure,setFailure]=useState(''),[busy,setBusy]=useState(false),[appearance,setAppearance]=useState<AppearanceSection|null>(null),game=useGameTask();
+  const personal=useTownPersonalization();
   const speed=model.settings.animationSpeed??1;
   const reducedMotion=useReducedMotionPreference(),bottomNavigation=useBottomNavigation();
   useAppearance(model,speed===0||reducedMotion,speed);
@@ -75,20 +79,22 @@ function TownApp(){
   const task=game.task;
   const currentWorld=directory.servers.find(server=>location.pathname==='/town/world/'+server.id);
   const gate=<section className="launch-page town-content"><CommunityHeading title="登录幻想镇社区"/>{location.pathname==='/community/worlds'&&<WorldList directory={directory}/>}<div className="desk-card"><p>使用皮肤站角色参与聊天、论坛和活动。下次打开会继续使用这个角色。</p><button className="launch-primary" disabled={busy||!model.ready} onClick={()=>void work(async()=>{await pick();})}><UserRound size={16}/>登录皮肤站</button></div></section>;
-  return <div className="launcher-frame town-shell" data-shell="town" data-nav={bottomNavigation?'bottom':'top'}><header className="launcher-bar town-bar"><div className="launcher-brand"><Link className="brand-home" aria-label="幻想镇社区首页" to="/town"><img alt="" src="./town-mark.svg"/><span><strong>幻想镇</strong><small>FANTASY TOWN</small></span></Link></div>
+  return <div className="launcher-frame town-shell" data-shell="town" data-nav={bottomNavigation?'bottom':'top'} data-wallpaper={personal.layout.background==='custom'&&personal.media.background?'custom':undefined}>
+    <TownBackdrop personal={personal} reduced={speed===0||reducedMotion}/>
+    <header className="launcher-bar town-bar"><div className="launcher-brand"><Link className="brand-home" aria-label="幻想镇社区首页" to="/town"><img alt="" src="./town-mark.svg"/><span><strong>幻想镇</strong><small>FANTASY TOWN</small></span></Link></div>
     {!bottomNavigation&&<TownNavigation bottom={false} working={active(task)}/>}
-    <div className="town-header-tools"><button type="button" className="town-look-button" aria-label="外观与动效" title="外观与动效" onClick={()=>setAppearance(true)}><Palette size={18}/></button>
+    <div className="town-header-tools"><button type="button" className="town-look-button" aria-label="外观与动效" title="外观与动效" onClick={()=>setAppearance('style')}><Palette size={18}/></button>
       <button className="role-button town-role" aria-label={uid?'切换皮肤站角色':'登录皮肤站'} title={model.accounts[0]?.name||'登录皮肤站'} disabled={busy||!model.ready} onClick={()=>void work(async()=>{await pick();})}><Avatar name={model.accounts[0]?.name}/><span>{model.accounts[0]?.name||'登录'}</span></button></div></header>
     <main className="launcher-content town-main" ref={scroll}>
       {failure&&<div className="social-connection town-feedback" role="alert"><span>{failure}</span><button className="small-action" onClick={()=>setFailure('')}>关闭</button></div>}
-      <Routes><Route path="/town" element={<TownLobby directory={directory}/>}/><Route path="/town/world/:id" element={<TownWorld directory={directory} member={!!uid} playerName={model.accounts[0]?.name} identityReady={model.ready} joining={busy||active(task)} join={join}>{currentWorld&&task.server===currentWorld.id&&<GameProgress task={task} act={act} retry={()=>join(currentWorld)}/>}</TownWorld>}/>
+      <Routes><Route path="/town" element={<TownLobby directory={directory} personal={personal} edit={setAppearance}/>}/><Route path="/town/world/:id" element={<TownWorld directory={directory} member={!!uid} playerName={model.accounts[0]?.name} identityReady={model.ready} joining={busy||active(task)} join={join}>{currentWorld&&task.server===currentWorld.id&&<GameProgress task={task} act={act} retry={()=>join(currentWorld)}/>}</TownWorld>}/>
       <Route path="/town/games" element={<TownLibrary game={task} act={act} start={start} identityReady={model.ready}/>}/>
       <Route path="/town/tasks" element={<TownTasks task={task} act={act} servers={directory.servers}/>}/>
       <Route path="/community/*" element={uid?<Social worldsContent={<WorldList directory={directory}/>}/>:gate}/>
       <Route path="/arcade" element={uid?<OnlineGames/>:gate}/><Route path="/arcade/*" element={uid?<Suspense fallback={<p role="status">正在打开游戏…</p>}><GameRoom/></Suspense>:gate}/>
       <Route path="/points" element={<Navigate to="/community/wallet" replace/>}/><Route path="*" element={<Navigate to="/town" replace/>}/></Routes></main>
     {bottomNavigation&&<TownNavigation bottom working={active(task)}/>}
-    {appearance&&<TownAppearance close={()=>setAppearance(false)} systemReduced={reducedMotion}/>}
+    {appearance&&<TownAppearance close={()=>setAppearance(null)} systemReduced={reducedMotion} personal={personal} initial={appearance}/>}
     {feedback.toast&&<div role="status" className="town-toast">{feedback.toast}</div>}</div>;
 }
 try{Object.assign(state.settings,JSON.parse(localStorage.getItem('town-community-options')||'{}'));}catch{}

@@ -7,6 +7,7 @@ import {once} from 'node:events';
 import {randomInt,randomUUID} from 'node:crypto';
 import {chromium} from 'playwright-core';
 import {createCommunity} from '../community-server/src/server.mjs';
+import {checkPersonalization} from './tests/check-personalization.mjs';
 
 // Windows can assign a browser-blocked low port when asked for port zero.
 async function listenForBrowser(server){
@@ -105,7 +106,8 @@ try{
   await page.getByRole('heading',{name:'社区大厅',exact:true}).waitFor();
   await page.getByRole('link',{name:/原版生存群组服/}).waitFor();
   await page.locator('.brand-home img').evaluate(img=>img.decode());
-  await page.locator('.town-hall-cover img,.town-server-mark').evaluateAll(imgs=>Promise.all(imgs.map(img=>img.decode())));
+  assert.equal(await page.locator('.town-hall-cover').count(),0,'首次打开使用简洁大厅');
+  await page.locator('.town-server-mark').evaluateAll(imgs=>Promise.all(imgs.map(img=>img.decode())));
   for(const [width,height] of [[320,720],[360,800],[412,915],[800,420]]){
     await page.setViewportSize({width,height});
     const fits=await page.evaluate(()=>{
@@ -148,6 +150,7 @@ try{
   await page.getByRole('button',{name:'小镇微光'}).click();
   assert.equal(await page.evaluate(()=>window.dispatchEvent(new Event('town-back',{cancelable:true}))),false);
   await page.getByRole('dialog',{name:'外观与动效'}).waitFor({state:'hidden'});
+  await checkPersonalization(page);
   const mainNav=page.getByRole('navigation',{name:'主导航'});
   await mainNav.getByRole('link',{name:'游戏任务'}).click();
   await page.getByRole('heading',{name:'当前没有游戏任务'}).waitFor();
@@ -308,7 +311,7 @@ try{
   assert.equal(await page.locator('.chat-history [data-message]').count(),102);
   assert.equal(await page.getByRole('button',{name:'查看更早的消息'}).count(),0);
   assert.deepEqual(errors,[]);
-  console.log('Android 社区页面通过：横竖屏与窄屏大字、三套外观与减少动效、返回键、公告与公开版本核对、任务、实例设置、角色及社区功能。');
+  console.log('Android 社区页面通过：横竖屏与窄屏大字、个性化媒体与卡片保存恢复、三套外观与减少动效、返回键、公告与公开版本核对、任务、实例设置、角色及社区功能。');
 }catch(error){
   if(page)console.error(page.url(),await page.evaluate(()=>({nav:document.querySelector('.social-sections')?.textContent,dialog:document.querySelector('[role=dialog]')?.textContent})).catch(()=>({})));
   throw error;

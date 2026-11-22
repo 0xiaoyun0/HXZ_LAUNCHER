@@ -120,8 +120,9 @@ class TownCommunityActivity : FragmentActivity() {
             override fun onShowFileChooser(v: WebView, result: ValueCallback<Array<Uri>>, params: FileChooserParams): Boolean {
                 picker?.onReceiveValue(null); picker = result
                 val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*")
-                val types = params.acceptTypes.filter { it.contains('/') }.toTypedArray()
-                if (types.isNotEmpty()) intent.putExtra(Intent.EXTRA_MIME_TYPES, types)
+                val types = params.acceptTypes.flatMap { it.split(',') }.map { it.trim() }.filter { it.contains('/') }.distinct()
+                if (types.size == 1) intent.type = types.first()
+                else if (types.isNotEmpty()) intent.putExtra(Intent.EXTRA_MIME_TYPES, types.toTypedArray())
                 intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, params.mode == FileChooserParams.MODE_OPEN_MULTIPLE)
                 try { startActivityForResult(intent, 82) } catch (_: android.content.ActivityNotFoundException) { picker?.onReceiveValue(null); picker = null }
                 return true
@@ -337,6 +338,10 @@ class TownCommunityActivity : FragmentActivity() {
         if (requestCode != 82) return
         val uris = if (resultCode == RESULT_OK) data?.clipData?.let { clip -> (0 until clip.itemCount).map { clip.getItemAt(it).uri }.toTypedArray() } ?: data?.data?.let { arrayOf(it) } else null
         picker?.onReceiveValue(uris); picker = null
+    }
+    override fun onPause() {
+        if (::view.isInitialized) view.evaluateJavascript("window.dispatchEvent(new Event('town-pause'))", null)
+        super.onPause()
     }
     override fun onResume() {
         super.onResume()
