@@ -1,10 +1,11 @@
-import {useDeferredValue,useMemo,useState} from 'react';
+import {useDeferredValue,useMemo,useRef,useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {Link,useSearchParams,useNavigate} from 'react-router-dom';
 import * as Dialog from '@radix-ui/react-dialog';
 import {Play, Plus, Search, Settings2, FolderOpen, Star, MoreHorizontal, PackageOpen, RefreshCw, Square, Layers, Download, FileUp, Trash2,  X, UserRound, ArrowDownToLine, ListFilter, Check, ArrowUpRight} from 'lucide-react';
 import {state,ui,task,account,selected,cfg,perform,invoke,saveSettings,selectInstance,launch,importPack,reload,chooseRoot,bytes} from './model';
 import {Avatar,Button,IconButton,Dropdown,Select,Empty} from './ui';
+import {useReflowList} from './launcher/micro/surface-motion';
 import {ChoiceGroup} from './launcher/ChoiceControls';
 import {InstanceManager} from './InstanceManager';
 
@@ -37,7 +38,15 @@ export function GameLibrary(){
  const view=s.settings.libraryView||'auto';
  const presentation=view==='auto'?(s.settings.workspaceLayout==='library'?'list':'cards'):view;
  const size=24,pages=Math.max(1,Math.ceil(games.length/size)),current=Math.min(page,pages-1);
- const openManager=async(game:any)=>{await selectInstance(game.id);setManager(true);};
+ const shown=games.slice(current*size,(current+1)*size);
+ const list=useReflowList<HTMLDivElement>(JSON.stringify([presentation,...shown.map(g=>g.id)]));
+ const managerOrigin=useRef<HTMLElement|null>(null);
+ const openManager=async(game:any)=>{
+   const active=document.activeElement;
+   const card=list.current?.querySelector<HTMLElement>('[data-flow-key="'+CSS.escape(game.id)+'"]');
+   managerOrigin.current=active instanceof HTMLElement&&card?.contains(active)?active:card?.querySelector<HTMLButtonElement>('.card-manage')??null;
+   await selectInstance(game.id);setManager(true);
+ };
  const start=async(game:any)=>{if(locked){ui.tasks=true;return;}await selectInstance(game.id);await launch(game.id);};
  const menu=(game:any)=>[
   {label:'启动前检查',icon:Search,action:()=>navigate('/check?id='+encodeURIComponent(game.id))},
@@ -53,9 +62,9 @@ export function GameLibrary(){
   </header>
   <div className="play-library-filter"><nav aria-label="游戏分类">{[{id:'all',label:'全部游戏'},{id:'official',label:'默认服务器'},{id:'local',label:'本地实例'},{id:'favorites',label:'收藏'}].map(f=><button key={f.id} aria-pressed={filter===f.id} className={filter===f.id?'active':''} onClick={()=>{setFilter(f.id);setPage(0);}}>{f.label}{f.id==='all'&&<small>{s.instances.length}</small>}</button>)}</nav><div className="play-library-actions"><ChoiceGroup label="游戏库视图" value={view} options={[['auto','自动'],['cards','卡片'],['list','列表']]} onChange={libraryView=>perform(()=>saveSettings({libraryView}))}/><div className="search"><Search size={16}/><input placeholder="搜索游戏" aria-label="搜索游戏" value={query} onChange={e=>{setQuery(e.target.value);setPage(0);}}/></div><Dropdown trigger={<button className="button icon-button" aria-label="排序与刷新"><ListFilter size={17}/></button>} items={[{label:'默认顺序',detail:order==='default'?'✓':'',action:()=>setOrder('default')},{label:'按名称排序',detail:order==='name'?'✓':'',action:()=>setOrder('name')},{separator:true},{label:'刷新游戏库',icon:RefreshCw,disabled:locked,action:reload}]}/><Button icon={PackageOpen} disabled={locked} onClick={()=>importPack()}>导入</Button><Link className="button solid" to="/workshop/install"><Plus size={16}/>安装游戏</Link></div></div>
   <div className="play-library-scroll">
-   <div className="direct-game-grid" data-view={presentation}>{games.slice(current*size,(current+1)*size).map((game:any)=>{
+   <div className="direct-game-grid flow-list" data-view={presentation} ref={list}>{shown.map((game:any)=>{
     const running=s.sessions?.find((session:any)=>session.instance===game.id),busy=t.busy&&selected(s)?.id===game.id;
-    return <article className={'direct-game-card '+(running||busy?'game-active':'')} key={game.id}>
+    return <article data-flow-key={game.id} className={'direct-game-card '+(running||busy?'game-active':'')} key={game.id}>
      <div className="game-card-head"><span className={'game-source '+(game.builtin?'official':'')}>{game.builtin?'幻想镇 · 默认服务器':'本地实例'}</span><Dropdown trigger={<button className="card-menu" aria-label={game.name+'的更多操作'}><MoreHorizontal size={19}/></button>} items={menu(game)}/></div>
      <button className="game-identity" disabled={locked} onClick={()=>perform(()=>openManager(game))} aria-label={'管理 '+game.name}><PackIcon game={game}/><span><h2>{game.name}</h2><span className="game-version-tags"><small>{version(game)}</small>{game.loader&&game.loader!=='跟随整合包'&&<small>{game.loader}</small>}</span></span></button>
      <div className="game-card-status"><i className={running?'running':game.error?'broken':ready(game)?'ready':''}/><span>{running?'游戏运行中':busy?t.phase:game.placeholder?'尚未开放':game.error?'需要修复':ready(game)?'已安装，可直接启动':'尚未安装'}</span>{cfg(game.id,s).favorite&&<Star size={13} className="card-favorite"/>}{cfg(game.id,s).autoUpdate&&<small title="启动前自动检查 HXZ UP 更新"><RefreshCw size={11}/>自动更新</small>}</div>
@@ -69,6 +78,6 @@ export function GameLibrary(){
    <div className="library-drop-hint"><PackageOpen size={15}/><span>支持拖入整合包，也可选择其他启动器的 .minecraft 目录。</span></div>
   </div>
   {t.busy&&<button className="library-current-task" onClick={()=>ui.tasks=true}><RefreshCw size={18} className="spin"/><span><strong>{t.phase}</strong><small>{t.total?`${t.completed} / ${t.total} ${t.unit} · ${bytes(t.speed)}/s`:'正在准备任务'}</small></span>{t.total>0&&<progress value={t.completed} max={t.total}/>}<span>查看详情<ArrowUpRight size={15}/></span></button>}
-  <Dialog.Root open={manager} onOpenChange={setManager}><Dialog.Portal><Dialog.Overlay className="instance-manager-overlay"/><Dialog.Content className="instance-manager-drawer" aria-describedby={undefined}><header><Dialog.Title>实例管理</Dialog.Title><Dialog.Close asChild><IconButton icon={X} label="返回游戏库"/></Dialog.Close></header><InstanceManager/></Dialog.Content></Dialog.Portal></Dialog.Root>
+  <Dialog.Root open={manager} onOpenChange={setManager}><Dialog.Portal><Dialog.Overlay className="instance-manager-overlay"/><Dialog.Content className="instance-manager-drawer" aria-describedby={undefined} onCloseAutoFocus={e=>{if(managerOrigin.current?.isConnected){e.preventDefault();managerOrigin.current.focus({preventScroll:true});}}}><header><Dialog.Title>实例管理</Dialog.Title><Dialog.Close asChild><IconButton icon={X} label="返回游戏库"/></Dialog.Close></header><InstanceManager/></Dialog.Content></Dialog.Portal></Dialog.Root>
  </div>;
 }

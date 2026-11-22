@@ -4,7 +4,7 @@
   --solid:#fff;--foreground:#20283a;--secondary:#546073;--edge:rgba(53,66,91,.15);--cell:rgba(85,101,136,.10);
   --shade:rgba(39,49,71,.09);--rim:transparent
 }
-.launcher-frame {--panel-pad:clamp(17px,1.7vw,26px);--desk-inset:clamp(18px,2.45vw,38px);--page-top:clamp(20px,2vw,32px);--control-height:max(36px,2.3rem)}
+:root[data-skin],.launcher-frame {--panel-pad:clamp(17px,1.7vw,26px);--desk-inset:clamp(18px,2.45vw,38px);--page-top:clamp(20px,2vw,32px);--control-height:max(36px,2.3rem)}
 .launcher-content {font-family:"Segoe UI Variable Text","Microsoft YaHei UI","Segoe UI",sans-serif}
 .launcher-frame .launcher-bar {box-shadow:none;gap:12px}
 .launcher-bar nav>a,.launcher-bar .toolbar-settings {font-size:.875rem}

@@ -1,5 +1,5 @@
 /* Interaction controls use the same surface and spacing hierarchy as the cards. */
-[data-skin] .launcher-frame {--desk-gap: var(--preview-gap,var(--card-spacing,14px))}
+:root[data-skin],[data-skin] .launcher-frame {--desk-gap: var(--preview-gap,var(--card-spacing,14px))}
 @container workspace (max-width:54em) {
   [data-skin] .launcher-content :is(.launch-page,.standard-page,.play-library,.social-content) {--desk-gap: clamp(8px,calc(var(--preview-gap,var(--card-spacing,14px)) - 4px),20px)}
 }

@@ -1,0 +1,55 @@
+/* Radix mounts this workspace beside the launcher. Its layout responds to the drawer's own width. */
+.instance-manager-drawer {
+  --inspector-edge:clamp(.5rem,1vw,1rem);
+  --desk-radius:var(--preview-radius,var(--pane-radius,1rem));
+  box-sizing:border-box;inset-block:var(--inspector-edge);inset-inline:auto var(--inspector-edge);
+  inline-size:min(61rem,max(49rem,52vw),calc(100% - 2 * var(--inspector-edge)));max-inline-size:100%;
+  background:var(--solid);color:var(--foreground);font-size:var(--font-size,1rem);
+}
+.instance-manager-drawer .instance-workspace {container:instance-inspector / inline-size}
+.instance-manager-drawer .instance-content {
+  --panel-pad:clamp(1em,2.5cqi,1.5em);--desk-gap:clamp(.75em,var(--card-spacing,1em),1.7em);
+  min-inline-size:0;padding:var(--panel-pad);background:color-mix(in srgb,var(--solid) 94%,var(--foreground));
+  scrollbar-gutter:stable;scroll-padding-block:var(--panel-pad);
+}
+.instance-manager-drawer .instance-tabs {
+  height:auto;min-height:2.8em;flex-wrap:wrap;gap:.08em clamp(.25em,1cqi,.85em);padding-inline:clamp(.8em,2.5cqi,1.5em);
+}
+.instance-manager-drawer .instance-tabs>button {height:auto;min-block-size:2.75em;padding:.5em .42em;white-space:nowrap}
+.instance-manager-drawer .instance-header {gap:clamp(.55em,1.5cqi,1em);padding:clamp(.85em,2.4cqi,1.5em)}
+.instance-manager-drawer .instance-header>div:not(.instance-header-actions) {min-inline-size:0}
+.instance-manager-drawer .instance-header-actions .button {display:inline-flex}
+.instance-manager-drawer .instance-title-line {flex-wrap:wrap;row-gap:.35em}
+.instance-manager-drawer .instance-title-line h2 {overflow-wrap:anywhere}
+.instance-overview-tools {display:flex;align-items:center;flex-wrap:wrap;gap:.45em;margin-inline-start:auto}
+.instance-manager-drawer .instance-overview-tools+.tab-refresh {margin-inline-start:0}
+.instance-manager-drawer .board-toolbar {margin-block-end:var(--desk-gap)}
+.instance-manager-drawer .desktop-panel {
+  margin:0;padding:0;min-inline-size:0;border:1px solid var(--edge);border-radius:var(--desk-radius);
+  color:var(--pane-fg,var(--foreground));background:var(--theme-pane,var(--solid));box-shadow:0 .14em .65em -.45em var(--shade);
+}
+.instance-manager-drawer .board-card-heading {
+  display:flex;align-items:center;justify-content:space-between;gap:.5em;padding:var(--inset-row) var(--panel-pad);
+  min-inline-size:0;margin:0;border-bottom:1px solid var(--edge);
+}
+.instance-manager-drawer .board-card-heading h2 {font-size:.94em;line-height:1.45;margin:0}
+.instance-manager-drawer .desktop-panel-body {min-inline-size:0;padding:var(--inset-group) var(--panel-pad)}
+.instance-manager-drawer .desktop-panel-body>.instance-block {margin:0;padding:0;border:0;background:transparent;box-shadow:none;border-radius:0}
+.instance-manager-drawer .instance-block-title {gap:.5em 1em;flex-wrap:wrap;margin:0 0 .6em}
+.instance-manager-drawer .instance-block :is(h3,p) {overflow-wrap:anywhere}
+.instance-manager-drawer .instance-block h3 {margin:0;line-height:1.45}
+.instance-manager-drawer .file-shortcuts>div {margin:0;display:flex;gap:.55em;flex-wrap:wrap}
+.instance-manager-drawer .instance-endpoint {align-items:baseline;gap:.5em .85em}
+.instance-manager-drawer .instance-endpoint code {white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+.instance-manager-drawer .instance-content .runtime-block {display:grid;grid-template-columns:minmax(0,1fr);gap:.7em}
+.instance-manager-drawer .instance-content .runtime-block>* {grid-column:1;grid-row:auto;min-inline-size:0;margin-block:0}
+.instance-manager-drawer .role-button:focus-visible,.instance-manager-drawer button:focus-visible {outline:2px solid var(--accent-text);outline-offset:2px}
+@container instance-inspector (max-width:40em){
+  .instance-header {flex-wrap:wrap}
+  .instance-manager-drawer .instance-tabs {column-gap:.18em}
+  .instance-manager-drawer .instance-tabs>button {gap:.3em}
+}
+@media(prefers-reduced-motion:no-preference){
+  :root[data-motion=on] .instance-content>:is(.inline-instance-config,.instance-files,.instance-log-panel,.desktop-panels) {animation:inspector-tab-in calc(var(--duration)*.68) ease-out}
+}
+@keyframes inspector-tab-in {from{opacity:.48;translate:0 .35em}}
