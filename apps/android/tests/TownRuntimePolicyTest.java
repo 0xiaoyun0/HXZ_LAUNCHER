@@ -3,6 +3,8 @@ package top.hxzmc.town;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
@@ -52,6 +54,20 @@ public class TownRuntimePolicyTest {
         assert TownSrv.choose(List.of(other, srv, weighted), random) == weighted;
         assert TownSrv.choose(List.of(), random) == null;
         assert TownSrv.choose(List.of(new TownSrv(1, 0, 0, ".")), random).host.equals(".");
+        Path temp = Files.createTempDirectory("town-jei");
+        Path dir = Files.createDirectories(temp.resolve("config/jei"));
+        Path config = dir.resolve("jei-client.ini");
+        try {
+            TownItemSearch search = new TownItemSearch(temp.toFile());
+            assert search.enabled() == null;
+            String original = "[advanced]\r\r\n\tlowMemorySlowSearchEnabled = false\r\r\nother = 保留\r\n";
+            Files.writeString(config, original);
+            assert Boolean.FALSE.equals(search.enabled());
+            search.save(true);
+            assert Boolean.TRUE.equals(search.enabled());
+            search.save(false);
+            assert original.equals(Files.readString(config));
+        } finally { Files.deleteIfExists(config); Files.delete(dir); Files.delete(dir.getParent()); Files.delete(temp); }
         System.out.println("Android memory budget and Minecraft SRV policy passed");
     }
 }

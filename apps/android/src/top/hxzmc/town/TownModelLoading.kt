@@ -12,9 +12,9 @@ internal class TownModelLoading(context: Context, directory: File, javaArgs: Str
     val enabled get() = prefs.getBoolean(key, false)
     val available: Boolean by lazy {
         !StringUtils.tokenize(javaArgs).any { it.startsWith("-Dmodernfix.config.mixin.perf.dynamic_resources=") } &&
-            config.isFile && config.length() <= 262144 && config.useLines { lines ->
+            config.isFile && config.length() <= 262144 && runCatching { config.useLines { lines ->
                 lines.any { it.trimStart('#', ' ').startsWith("mixin.perf.dynamic_resources=") }
-            }
+            } }.getOrDefault(false)
     }
     fun save(value: Boolean) {
         check(!value || available) { "这个实例没有提供可切换的 ModernFix 模型加载选项。" }

@@ -10,6 +10,6 @@ const jdk=process.env.JAVA_HOME;
 const bin=tool=>jdk?path.join(jdk,'bin',tool):tool;
 const src=path.join(app,'src/top/hxzmc/town');
 try{
-  execFileSync(bin('javac'),['-encoding','UTF-8','-d',tmp,path.join(src,'TownMemoryBudget.java'),path.join(src,'TownSrv.java'),path.join(app,'tests/TownRuntimePolicyTest.java')],{stdio:'inherit',windowsHide:true});
+  execFileSync(bin('javac'),['-encoding','UTF-8','-d',tmp,...['TownMemoryBudget.java','TownSrv.java','TownItemSearch.java'].map(file=>path.join(src,file)),path.join(app,'tests/TownRuntimePolicyTest.java')],{stdio:'inherit',windowsHide:true});
   execFileSync(bin('java'),['-ea','-cp',tmp,'top.hxzmc.town.TownRuntimePolicyTest'],{stdio:'inherit',windowsHide:true});
 }finally{rmSync(tmp,{recursive:true,force:true});}

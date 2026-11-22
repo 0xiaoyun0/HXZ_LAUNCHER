@@ -10,7 +10,9 @@
 
 「游戏库 → 实例设置 → 内存」显示设备报告的物理运存、系统交换空间和上次实际生成的 Java 堆预算。「将系统虚拟内存计入游戏预算」是默认关闭的风险选项，按实例保存，下次启动生效。启用时会根据启动当刻的空闲交换空间、物理运存余量及系统低内存标记计算增量，同时为系统和原生渲染保留空间。标准档最多额外计入 1 GiB，加大档最多 2 GiB；两个档位都保留物理运存和交换空间余量。关闭后额外预算归零。系统仍按自身策略使用 zRAM 或厂商提供的交换空间。自定义 JVM 堆参数优先。手机画质和 ModernFix 按需加载模型可以独立选择，后者在整合包声明支持时显示。
 
-`npm run test:android:policies` 验证预算和 SRV 记录。`npm run test:android:hxzup -- --serial <设备> --server HXZ-mod-1` 将真机实例逐项与当期 HXZUP 核对，分别统计完整文件、安卓停用的模组和发布规则允许保留的配置。`npm run test:android:launch -- --serial <设备> --package top.hxzmc.launcher.third.debug --server HXZ-mod-1 --instance HXZ-mod-1 --memory off` 通过社区页面冷启动到 Minecraft 游戏窗口。游戏握手、世界画面、触控移动和退出另行在设备验收。
+部分整合包提供 JEI 的「低内存物品搜索」。在独立实例中开启它，会用较慢的搜索换取较小的物品索引。关闭可恢复原设置，两个操作都保留其他 JEI 配置和整合包配方。
+
+`npm run test:android:policies` 验证预算、SRV 记录和实例配置的可逆修改。`npm run test:android:hxzup -- --serial <设备> --server HXZ-mod-1` 将真机实例逐项与当期 HXZUP 核对，分别统计完整文件、安卓停用的模组和发布规则允许保留的配置。`npm run test:android:launch -- --serial <设备> --package top.hxzmc.launcher.third.debug --server HXZ-mod-1 --instance HXZ-mod-1 --memory off` 通过社区页面冷启动到 Minecraft 游戏窗口。游戏握手、世界画面、触控移动和退出另行在设备验收。
 
 从仓库根目录运行 `npm ci` 和 `npm run android:build`。构建使用 JDK 17、Gradle 8.14.4、Android SDK 35、NDK 27.0.12077973 和 CMake 3.22.1。设置 `ANDROID_HOME` 指向 SDK。默认使用上游 Gradle Wrapper；离线准备好的 Gradle 可用 `HXZ_GRADLE` 指定。传 `-- --x86_64` 构建模拟器架构。默认 ARM64 调试包独立安装在 `top.hxzmc.launcher.third.debug`。
 

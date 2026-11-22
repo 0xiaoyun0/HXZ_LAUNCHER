@@ -60,11 +60,11 @@ try{
       if(action==='android.game.list')value=['测试实例','另一实例'];
       if(action==='android.game.options'||action==='android.game.options.save'){
         const key='options:'+input.instance;
-        value=JSON.parse(localStorage.getItem(key)||'{"enabled":false,"physicalMiB":7600,"availableMiB":3100,"swapMiB":8192,"freeSwapMiB":5900,"isolated":true,"mobileGraphics":false,"last":null}');
+        value=JSON.parse(localStorage.getItem(key)||'{"enabled":false,"physicalMiB":7600,"availableMiB":3100,"swapMiB":8192,"freeSwapMiB":5900,"isolated":true,"mobileGraphics":false,"modelsEnabled":false,"modelsAvailable":true,"supportsZink":true,"itemSearch":false,"last":null}');
         if(action.endsWith('.save')){
           if(sessionStorage.getItem('reject-save')){sessionStorage.removeItem('reject-save');bridge.onmessage?.({data:JSON.stringify({id,ok:false,error:'内存选项没有保存，请重试。'})});return;}
           if(input.option==='renderer'||input.option==='tier')value[input.option]=input[input.option];
-          else value[{swap:'enabled',graphics:'mobileGraphics',models:'modelsEnabled'}[input.option]]=input.enabled;
+          else value[{swap:'enabled',graphics:'mobileGraphics',models:'modelsEnabled',itemSearch:'itemSearch'}[input.option]]=input.enabled;
           localStorage.setItem(key,JSON.stringify(value));
         }
       }
@@ -140,6 +140,12 @@ try{
   const swap=page.getByRole('switch',{name:'将系统虚拟内存计入游戏预算'});
   await openOptions();
   assert.equal(await swap.getAttribute('aria-checked'),'false');
+  for(const name of ['手机画质','按需加载模型','低内存物品搜索']){
+    await page.getByRole('switch',{name,exact:true}).click();
+    await page.waitForFunction(label=>document.querySelector('[role=switch][aria-label="'+label+'"]')?.getAttribute('aria-checked')==='true',name);
+  }
+  await page.getByRole('button',{name:'MobileGlues'}).click();
+  await page.waitForFunction(()=>document.querySelector('.town-renderers [aria-pressed=true]')?.textContent==='MobileGlues');
   await swap.click();
   await page.waitForFunction(()=>document.querySelector('[aria-label="将系统虚拟内存计入游戏预算"]')?.getAttribute('aria-checked')==='true');
   await page.getByRole('button',{name:'加大 · 最多 2 GiB'}).click();
@@ -149,6 +155,8 @@ try{
   await page.getByRole('button',{name:'关闭',exact:true}).click();
   await openOptions();
   assert.equal(await swap.getAttribute('aria-checked'),'true');
+  assert.equal(await page.getByRole('switch',{name:'低内存物品搜索'}).getAttribute('aria-checked'),'true');
+  assert.equal(await page.getByRole('button',{name:'MobileGlues'}).getAttribute('aria-pressed'),'true');
   assert.equal(await page.getByRole('button',{name:'加大 · 最多 2 GiB'}).getAttribute('aria-pressed'),'true');
   await page.evaluate(()=>sessionStorage.setItem('reject-save','1'));
   await swap.click();await page.getByRole('alert').filter({hasText:'内存选项没有保存'}).waitFor();

@@ -5,7 +5,7 @@ import {Modal} from '../../desktop/src/ui';
 
 type Budget = {enabled:boolean;customHeap:boolean;baseMiB:number;extraMiB:number;limitMiB:number};
 type InstanceOptions = {enabled:boolean;tier:'standard'|'large';physicalMiB:number;availableMiB:number;swapMiB:number;freeSwapMiB:number;
-  customHeap:boolean;last:Budget|null;isolated:boolean;mobileGraphics:boolean;modelsAvailable:boolean;modelsEnabled:boolean;renderer:string;supportsZink:boolean};
+  customHeap:boolean;last:Budget|null;isolated:boolean;mobileGraphics:boolean;modelsAvailable:boolean;modelsEnabled:boolean;renderer:string;supportsZink:boolean;itemSearch:boolean|null};
 const gib=(mib:number)=>(mib/1024).toFixed(1)+' GiB';
 
 export function TownInstanceOptions({instance,close}:{instance:string;close:()=>void}){
@@ -17,7 +17,7 @@ export function TownInstanceOptions({instance,close}:{instance:string;close:()=>
       .catch(()=>{if(visible)setError('暂时读不到实例设置，请重试。');});
     return ()=>{visible=false;};
   },[instance,attempt]);
-  async function save(option:'graphics'|'swap'|'models'|'renderer'|'tier',value:boolean|string){
+  async function save(option:'graphics'|'swap'|'models'|'renderer'|'tier'|'itemSearch',value:boolean|string){
     setBusy(true);setError('');
     try{setData(await invoke<InstanceOptions>('android.game.options.save',{instance,option,...(typeof value==='string'?{[option]:value}:{enabled:value})}));}
     catch(e){setError(e instanceof Error?e.message:'未保存，请重试。');}
@@ -35,6 +35,9 @@ export function TownInstanceOptions({instance,close}:{instance:string;close:()=>
           {(data.modelsAvailable||data.modelsEnabled)&&<div className="town-option-row"><div><strong>按需加载模型</strong><p>使用整合包内的 ModernFix 降低启动占用。首次看到方块时可能卡顿，模型异常时可关闭。</p></div>
             <button className="town-switch" type="button" role="switch" aria-label="按需加载模型" aria-checked={data.modelsEnabled}
               disabled={busy} onClick={()=>void save('models',!data.modelsEnabled)}><span>{data.modelsEnabled&&<Check size={12}/>}</span></button></div>}
+          {data.itemSearch!=null&&<div className="town-option-row"><div><strong>低内存物品搜索</strong><p>让 JEI 的物品索引少占内存，搜索可能变慢。配方和物品列表照常可用。</p></div>
+            <button className="town-switch" type="button" role="switch" aria-label="低内存物品搜索" aria-checked={data.itemSearch}
+              disabled={busy} onClick={()=>void save('itemSearch',!data.itemSearch)}><span>{data.itemSearch&&<Check size={12}/>}</span></button></div>}
           <div><strong>图形渲染器</strong><div className="town-renderers" role="group" aria-label="图形渲染器">
             {([['default','沿用实例'],...(data.supportsZink?[['zink','Zink']]:[]),['mobileglues','MobileGlues']]).map(([value,label])=>
               <button key={value} type="button" className="small-action" aria-pressed={(data.renderer||'default')===value} disabled={busy}

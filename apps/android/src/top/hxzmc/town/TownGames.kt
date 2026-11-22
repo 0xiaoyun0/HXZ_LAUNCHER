@@ -127,6 +127,7 @@ class TownGames(private val activity: TownCommunityActivity, private val directo
             val args = p.getVersionSetting(name).javaArgs.orEmpty()
             val graphics = TownMobileGraphics(activity, dir)
             val models = TownModelLoading(activity, root, args)
+            val itemSearch = if (isolated) runCatching { TownItemSearch(dir) }.getOrNull() else null
             if (save) when (input.optString("option")) {
                 "swap" -> {
                     val enabled = input.opt("enabled") as? Boolean ?: error("内存选项无效。")
@@ -144,12 +145,17 @@ class TownGames(private val activity: TownCommunityActivity, private val directo
                 }
                 "renderer" -> TownRenderer.save(activity, root, input.optString("renderer"))
                 "tier" -> TownMemory.saveTier(activity, root, input.optString("tier"))
+                "itemSearch" -> {
+                    val enabled = input.opt("enabled") as? Boolean ?: error("物品搜索选项无效。")
+                    checkNotNull(itemSearch) { "请在独立实例中调整物品搜索选项。" }.save(enabled)
+                }
                 else -> error("请选择一个有效的实例选项。")
             }
             TownMemory.status(activity, root, args).put("isolated", isolated)
                 .put("mobileGraphics", isolated && graphics.mode == "mobile")
                 .put("modelsEnabled", models.enabled).put("modelsAvailable", isolated && models.available)
                 .put("renderer", TownRenderer.selection(activity,root)).put("supportsZink", TownRenderer.supportsZink(activity))
+                .put("itemSearch", runCatching { itemSearch?.enabled() }.getOrNull() ?: JSONObject.NULL)
         }
     }
     suspend fun versions(): JSONArray = withContext(io) {

@@ -9,7 +9,7 @@ import WebSocket from 'ws';
 const {values}=parseArgs({options:{
   serial:{type:'string'},notice:{type:'string'},server:{type:'string'},instance:{type:'string'},
   install:{type:'boolean',default:false},'client-compat':{type:'boolean',default:false},'mobile-graphics':{type:'boolean',default:false},
-  memory:{type:'string'},'dynamic-models':{type:'boolean',default:false},renderer:{type:'string'},tier:{type:'string'},
+  memory:{type:'string'},'dynamic-models':{type:'boolean',default:false},'lean-search':{type:'boolean',default:false},renderer:{type:'string'},tier:{type:'string'},
   package:{type:'string',default:'top.hxzmc.launcher.third.communityqa'}
 }});
 const {serial,notice,server,instance,install,package:app}=values;
@@ -40,8 +40,9 @@ function interact(action,label){
     if(button.getAttribute('aria-pressed')==='true')return 'saved';
     button.click();return 'saving';
   }
-  if(action==='memory'||action==='models'){
-    const sw=document.querySelector(action==='models'?'[role=switch][aria-label="按需加载模型"]':'[role=switch][aria-label="将系统虚拟内存计入游戏预算"]');
+  if(['memory','models','search'].includes(action)){
+    const labelText={models:'按需加载模型',memory:'将系统虚拟内存计入游戏预算',search:'低内存物品搜索'}[action];
+    const sw=document.querySelector('[role=switch][aria-label="'+labelText+'"]');
     if(!sw)return '';
     if(sw.getAttribute('aria-checked')===(label==='on'?'true':'false'))return 'saved';
     if(!sw.disabled){sw.click();return 'saving';}
@@ -95,10 +96,10 @@ try{
     return reply;
   }
   await polling(()=>run('click','幻想镇社区首页'),15000,'已完成首次设置的社区首页');
-  if(values.memory||values['dynamic-models']||values.renderer){
+  if(values.memory||values['dynamic-models']||values.renderer||values['lean-search']){
     await polling(()=>run('click','游戏库'),10000,'游戏库');
     await polling(()=>run('click',instance+' 实例设置'),12000,'实例设置');
-    for(const [action,target] of [['memory',values.memory],['models',values['dynamic-models']?'on':null]]){
+    for(const [action,target] of [['memory',values.memory],['models',values['dynamic-models']?'on':null],['search',values['lean-search']?'on':null]]){
       if(target)await polling(async()=>{const state=await run(action,target);assert.notEqual(state,'unavailable','此设备或实例不支持这项设置');return state==='saved';},10000,'实例选项已保存');
     }
     if(values.renderer)await polling(async()=>(await run('renderer',values.renderer))==='saved',10000,'渲染器已保存');
