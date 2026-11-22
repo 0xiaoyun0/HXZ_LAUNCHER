@@ -4,7 +4,7 @@ body{margin:0}
 [data-theme=dark] .launcher-frame{--desk-bg:#191e2a;--desk-surface:#242b39;--desk-ink:#e6eaf5;--desk-muted:#b4bfd5;--desk-line:#3c465b;--surface:#242b39;--text:#e6eaf5;--muted:#b4bfd5}
 .launcher-frame *{box-sizing:border-box}.launcher-frame *:focus-visible{outline:2px solid var(--desk-accent);outline-offset:2px}.launcher-frame a{color:var(--accent-text,var(--desk-accent))}
 .launcher-bar,.launcher-status{display:flex;align-items:center;background:var(--desk-surface);padding-inline:var(--desk-inset);gap:12px;min-width:0;z-index:2}
-.launcher-bar{border-bottom:1px solid var(--desk-line);user-select:none;padding-right:12px}.launcher-bar a{color:inherit;text-decoration:none}
+.launcher-bar{position:relative;border-bottom:1px solid var(--desk-line);user-select:none;padding-right:12px}.launcher-bar a{color:inherit;text-decoration:none}
 .launcher-brand{display:inline-flex;align-items:center;gap:9px;margin-right:10px;flex:none}.launcher-brand img{width:36px;height:36px}.launcher-brand>span{display:grid;line-height:1.12}.launcher-brand strong{font-size:1.125rem}.launcher-brand small{font-size:0.5rem;letter-spacing:.15em;color:var(--desk-muted);margin-top:4px}
 .launcher-bar nav,.launcher-tools,.window-buttons,.desk-actions,.instance-toolbar,.home-links,.launcher-mini{display:flex;align-items:center;gap:5px}
 .launcher-bar nav{flex:none;min-width:0}.launcher-bar nav>a,.toolbar-settings{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:39px;padding:0 10px;border:1px solid transparent;border-radius:9px;white-space:nowrap;font:inherit;font-size:0.8125rem;color:var(--desk-muted);background:transparent;text-decoration:none;cursor:pointer}

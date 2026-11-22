@@ -10,15 +10,21 @@ const subscribeMotionPreference=(listener:()=>void)=>{const query=motionPreferen
 // this preference while the launcher is already open.
 export function useReducedMotionPreference(){return useSyncExternalStore(subscribeMotionPreference,()=>motionPreference()?.matches??false,()=>false);}
 
-const pending=new Map<symbol,string>(),listeners=new Set<()=>void>();let revision=0;
-const changed=()=>{revision++;listeners.forEach(fn=>fn());};
+const pending=new Map<symbol,string>(),listeners=new Set<()=>void>();
+const changed=()=>listeners.forEach(fn=>fn());
+const subscribeLoading=(listener:()=>void)=>{listeners.add(listener);return()=>{listeners.delete(listener);};};
+const isPageLoading=()=>{for(const path of pending.values())if(path===location.hash)return true;return false;};
 export function beginPageLoad(){const id=Symbol();pending.set(id,location.hash);changed();return()=>{if(pending.delete(id))changed();};}
 export function PageLoadIndicator(){
- const route=useLocation(),[visible,setVisible]=useState(false);
- useSyncExternalStore(fn=>{listeners.add(fn);return()=>{listeners.delete(fn);};},()=>revision);
- const loading=[...pending.values()].some(path=>path===location.hash);
- useEffect(()=>{setVisible(false);if(!loading)return;const timer=setTimeout(()=>setVisible(true),180);return()=>clearTimeout(timer);},[loading,route.pathname,route.search]);
- return visible?<div className="page-load-indicator" role="status" aria-label="正在加载页面内容"><span/></div>:null;
+ const route=useLocation(),[visibleFor,setVisibleFor]=useState<string|null>(null);
+ const loading=useSyncExternalStore(subscribeLoading,isPageLoading,()=>false);
+ useEffect(()=>{
+   setVisibleFor(null);
+   if(!loading)return;
+   const timer=setTimeout(()=>setVisibleFor(route.key),180);
+   return()=>clearTimeout(timer);
+ },[loading,route.key]);
+ return loading&&visibleFor===route.key?<div className="page-load-indicator" role="status" aria-label="正在加载页面内容"><span/></div>:null;
 }
 export function PageSkeleton({label='正在加载页面…'}:{label?:string}){return <div className="page-skeleton" role="status"><p>{label}</p><div className="skeleton-title"/><div className="skeleton-cards">{[0,1,2].map(n=><div className="skeleton-card" key={n}><i/><i/><i/></div>)}</div></div>;}
 // Reveal only the visible content inside each card. RGL owns the outer card

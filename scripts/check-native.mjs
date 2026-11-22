@@ -1,3 +1,4 @@
+import {checkPlayerSurfaces} from './check-player-surfaces.mjs';
 import assert from 'node:assert/strict';
 import {checkLocalGames,checkCommunityGames,checkGuestCatalog} from './check-desktop-arcade.mjs';
 import {checkLiteHome,openFullWorkspace,switchWorkspace} from './check-desktop-lite.mjs';
@@ -97,6 +98,7 @@ try {
    await page.locator('.login-gate').getByRole('heading',{name:'积分排行榜'}).waitFor();
    assert.equal(await page.locator('.points-ranking').count(),0);
    await page.getByRole('button',{name:'登录账号',exact:true}).click();await fixture.login(page);
+   await checkPlayerSurfaces(page,native,capture,fixture.url);
    const {verifyDesktopLayout}=await import('./desktop-layout.mjs');await verifyDesktopLayout(page,native,artifacts);
  }else{
    const nav=page.getByRole('navigation',{name:'主导航'});
