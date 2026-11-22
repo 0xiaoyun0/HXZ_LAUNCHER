@@ -383,7 +383,13 @@ class TownGames(private val activity: TownCommunityActivity, private val directo
                 listOf("mobile" to "使用手机画质", "original" to "使用整合包原画质"))
             withContext(io) { preset.select(mode == "mobile") }
         }
-        val address = s?.let { publish("working","正在读取服务器连接地址"); TownServerAddress.resolve(it.address) }
+        val address = s?.let { server ->
+            publish("working", "正在读取服务器连接地址")
+            val version = withContext(io) { p.repository.getGameVersion(name).orElse("0.0") }
+            // Quick Play resolves the public name when the game is ready, including the SRV port and virtual host.
+            if (com.tungsten.fclcore.util.versioning.GameVersionNumber.compare(version, "1.20") >= 0) server.address
+            else TownServerAddress.resolve(server.address)
+        }
         val dynamicModels = isolated && withContext(io) {
             val models = TownModelLoading(activity, p.repository.getVersionRoot(name), p.getVersionSetting(name).javaArgs.orEmpty())
             models.enabled && models.available

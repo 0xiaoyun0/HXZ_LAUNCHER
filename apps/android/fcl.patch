@@ -906,6 +906,19 @@ index d645355..02a05f5 100644
              applicationContext.getDir("runtime", 0).absolutePath + "/java/" + jre,
              applicationContext.cacheDir.toString() + "/fclauncher",
              Renderer(
+diff --git a/FCL/src/main/java/com/tungsten/fclcore/launch/DefaultLauncher.java b/FCL/src/main/java/com/tungsten/fclcore/launch/DefaultLauncher.java
+index c1d5ad4..5aecd3a 100644
+--- a/FCL/src/main/java/com/tungsten/fclcore/launch/DefaultLauncher.java
++++ b/FCL/src/main/java/com/tungsten/fclcore/launch/DefaultLauncher.java
+@@ -284,7 +284,7 @@ public class DefaultLauncher {
+                     res.add(parsed.getPort() >= 0 ? String.valueOf(parsed.getPort()) : "25565");
+                 } else {
+                     res.add("--quickPlayMultiplayer");
+-                    res.add(parsed.getPort() < 0 ? address + ":25565" : address);
++                    res.add(address);
+                 }
+             } catch (IllegalArgumentException e) {
+                 LOG.warning("Invalid server address: " + address + "\n" + e);
 diff --git a/FCL/src/main/java/com/tungsten/fclcore/mod/modrinth/ModrinthCompletionTask.java b/FCL/src/main/java/com/tungsten/fclcore/mod/modrinth/ModrinthCompletionTask.java
 index cb9b832..0b6ccbf 100644
 --- a/FCL/src/main/java/com/tungsten/fclcore/mod/modrinth/ModrinthCompletionTask.java
