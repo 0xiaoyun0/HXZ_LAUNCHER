@@ -1,6 +1,7 @@
 import {checkPlayerSurfaces} from './check-player-surfaces.mjs';
 import assert from 'node:assert/strict';
 import {checkLocalGames,checkCommunityGames,checkGuestCatalog} from './check-desktop-arcade.mjs';
+import {checkFirstVisit} from './check-first-visit.mjs';
 import {checkLiteHome,openFullWorkspace,switchWorkspace} from './check-desktop-lite.mjs';
 import {scan as measureInsets} from './desktop-insets.mjs';
 import fs from 'node:fs/promises';
@@ -89,6 +90,7 @@ try {
    await page.screenshot({path:path.join(artifacts,name+'.png'),animations:'disabled'});
  };
  const denied=async action=>{const result=await native(action);assert.equal(result.ok,false,action);assert.match(result.error,/登录|未在本应用/);};
+ if(layoutOnly||startLite)await checkFirstVisit(page,native,capture,startLite);
  if(!layoutOnly||startLite)await checkLiteHome(page,native,{names,searchedInstance,capture,cold:startLite});
  if(layoutOnly){
    await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor();

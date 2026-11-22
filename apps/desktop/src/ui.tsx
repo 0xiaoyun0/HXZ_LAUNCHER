@@ -5,7 +5,17 @@ export function DialogSections({children,actions}:{children:React.ReactNode;acti
 }
 export function Button({children,icon:Icon,onClick,tone='',className='',disabled=false,...props}:any){const [busy,setBusy]=useState(false);return <button {...props} disabled={disabled||busy} className={`button ${tone} ${className}`} onClick={async e=>{if(!onClick)return;setBusy(true);try{await onClick(e);}catch(error:any){reportFailure(error);}finally{setBusy(false);}}}>{busy?<LoaderCircle className="spin" size={17}/>:Icon?<Icon size={17}/>:null}{children}</button>}
 export function IconButton({icon:Icon,label,...props}:any){return <Button {...props} className={'icon-button '+(props.className||'')} icon={Icon} title={label} aria-label={label}/>}
-export function Modal({open,onClose,title,children,wide=false,description}:any){const origin=React.useRef<HTMLElement|null>(null),descriptionId=React.useId();return <Dialog.Root open={open} onOpenChange={v=>!v&&onClose?.()}><Dialog.Portal><Dialog.Overlay className="modal-backdrop"/><Dialog.Content className={'modal '+(wide?'wide':'')} aria-describedby={description?descriptionId:undefined} onOpenAutoFocus={()=>{origin.current=document.activeElement as HTMLElement;}} onCloseAutoFocus={e=>{if(origin.current?.isConnected){e.preventDefault();origin.current.focus({preventScroll:true});}}}><header><div><Dialog.Title>{title}</Dialog.Title>{description&&<Dialog.Description id={descriptionId}>{description}</Dialog.Description>}</div><Dialog.Close asChild><IconButton icon={X} label="关闭"/></Dialog.Close></header><div className="modal-body">{children}</div></Dialog.Content></Dialog.Portal></Dialog.Root>}
+export function Modal({open,onClose,title,children,wide=false,description}:any){const origin=React.useRef<HTMLElement|null>(null),descriptionId=React.useId();return <Dialog.Root open={open} onOpenChange={v=>!v&&onClose?.()}><Dialog.Portal><Dialog.Overlay className="modal-backdrop"/><Dialog.Content className={'modal '+(wide?'wide':'')} aria-describedby={description?descriptionId:undefined} onOpenAutoFocus={event=>{
+ const source=document.activeElement as HTMLElement,content=event.target;
+ origin.current=source;
+ if(!(content instanceof HTMLElement)||!source||source===document.body)return;
+ const from=source.getBoundingClientRect(),to=content.getBoundingClientRect();
+ if(!to.width||!to.height)return;
+ const x=Math.max(-1,Math.min(1,(from.left+from.width/2-to.left-to.width/2)/(to.width/2)));
+ const y=Math.max(-1,Math.min(1,(from.top+from.height/2-to.top-to.height/2)/(to.height/2)));
+ content.style.setProperty('--origin-x',(50+x*44)+'%');content.style.setProperty('--origin-y',(50+y*44)+'%');
+ content.style.setProperty('--approach-x',x*.48+'em');content.style.setProperty('--approach-y',y*.48+'em');
+ }} onCloseAutoFocus={e=>{if(origin.current?.isConnected){e.preventDefault();origin.current.focus({preventScroll:true});}}}><header><div><Dialog.Title>{title}</Dialog.Title>{description&&<Dialog.Description id={descriptionId}>{description}</Dialog.Description>}</div><Dialog.Close asChild><IconButton icon={X} label="关闭"/></Dialog.Close></header><div className="modal-body">{children}</div></Dialog.Content></Dialog.Portal></Dialog.Root>}
 export function Select({value,onChange,options,label,disabled=false}:any){
  const [open,setOpen]=useState(false),[query,setQuery]=useState(''),[title,setTitle]=useState('');
  const entries=options.map((o:any)=>typeof o==='object'?o:{value:o,label:String(o)});

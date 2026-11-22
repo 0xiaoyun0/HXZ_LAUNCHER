@@ -21,7 +21,7 @@ const routes=[
   ['/community/inbox','.inbox-page'],['/community/guild','.guild-columns'],['/community/linking','.archive-viewport iframe'],
   ['/community/playtime','.pt-toolbar'],['/community/worlds','.hub-page'],['/community/blueprints','.blueprint-grid'],
   ['/community/wallet','.music-find'],['/community/backpack','.inventory-ui .inventory-tabs'],['/community/shop','.shop-products'],
-  ['/community/saved','.hub-page'],['/community/events','.hub-page'],['/community/appeals','.hub-page'],['/lite','.lite-workspace'],['/lite/download','.lite-install-panels'],['/lite/settings','.memory-setting'],['/lite/settings/wallpaper','.wallpaper-modes'],['/lite/settings/account','.instance-lines'],['/lite/download/addons','.resource-browser'],['/lite/download/packs','.catalog-panel']
+  ['/community/saved','.hub-page'],['/community/events','.hub-page'],['/community/appeals','.hub-page'],['/lite','.lite-workspace'],['/lite/download','.lite-install-panels'],['/lite/settings','.memory-setting'],['/lite/settings/downloads','input[aria-label="下载总限速"]'],['/lite/settings/launcher','input[aria-label="动画速度"]'],['/lite/settings/wallpaper','.wallpaper-modes'],['/lite/settings/account','.instance-lines'],['/lite/download/addons','.resource-browser'],['/lite/download/packs','.catalog-panel']
 ];
 
 function titlebarIssues(){
@@ -164,7 +164,10 @@ function measure(){
     if(!insideScroller)errors.push('控件超出工作区或所属卡片 '+(el.ariaLabel||el.innerText||el.name||el.tagName).slice(0,30));
   }
   for(const group of main.querySelectorAll('.choice-group,.desk-actions,.instance-toolbar,.memory-controls,.card-actions,.lobby-tabs,.social-sections,.desktop-panel-grid')){
-    const children=[...group.children].filter(el=>{const r=bounds(el);return r.width>2&&r.height>2;});
+    const children=[...group.children].filter(el=>{
+      if(el.matches('.choice-glide[aria-hidden=true]')&&getComputedStyle(el).pointerEvents==='none')return false;
+      const r=bounds(el);return r.width>2&&r.height>2;
+    });
     children.forEach((element,i)=>{const box=bounds(element);
       for(const other of children.slice(i+1)){const r=bounds(other);
         if(Math.min(box.right,r.right)-Math.max(box.left,r.left)>2&&Math.min(box.bottom,r.bottom)-Math.max(box.top,r.top)>2){
@@ -256,6 +259,17 @@ async function checkDesktopMotion(page,native){
   await page.waitForFunction(()=>document.querySelector('main')?.getAnimations({subtree:true}).some(a=>{
     const target=a.effect?.target;return target?.matches('.launch-title,.preference-section')&&a.effect.getKeyframes().some(k=>String(k.transform).includes('translate'));
   }),null,{timeout:2500});
+  const modes=page.getByRole('radiogroup',{name:'内存分配方式'});
+  await modes.locator('label').filter({hasText:'自动分配'}).click();
+  await modes.getByRole('radio',{name:'自动分配'}).press('ArrowRight');
+  await modes.getByRole('radio',{name:'手动设置'}).waitFor();
+  assert.ok(await modes.getByRole('radio',{name:'手动设置'}).isChecked());
+  await page.waitForFunction(()=>{
+    const group=document.querySelector('[aria-label="内存分配方式"]');
+    const option=group.querySelector('input:checked').parentElement,marker=group.querySelector('.choice-glide');
+    const a=option.getBoundingClientRect(),b=marker.getBoundingClientRect(),hit=document.elementFromPoint(a.left+a.width/2,a.top+a.height/2);
+    return option.contains(hit)&&Math.abs(a.left-b.left)<1.5&&Math.abs(a.width-b.width)<1.5;
+  });
   await page.getByRole('button',{name:'搜索实例或功能'}).click();
   const modal=page.getByRole('dialog');await modal.waitFor();
   assert.equal(await modal.evaluate(el=>getComputedStyle(el).animationName),'desk-dialog-in');
@@ -300,10 +314,16 @@ export async function verifyDesktopLayout(page,native,directory){
           firstHome=await page.evaluate(homeGeometry);await exerciseCardWidth(page);
         }
         textInsets=await page.evaluate(measureInsets);
-        assert.ok(textInsets.inspected,'页面应具有可测量的文字');
+        if(route!=='/community/linking')assert.ok(textInsets.inspected,'页面应具有可测量的文字');
         issues=[...await page.evaluate(titlebarIssues),...await page.evaluate(measure),...await page.evaluate(cardHeadingIssues),...textInsets.issues];
         if(route==='/community/linking'){
           const archive=await page.locator('.archive-viewport iframe').elementHandle();
+          const region=await page.locator('.archive-viewport iframe').evaluate(el=>{
+            const r=el.getBoundingClientRect(),m=document.querySelector('#workspace-main').getBoundingClientRect();
+            return [r.top-m.top,m.bottom-r.bottom,r.left-m.left,m.right-r.right];
+          });
+          if(region.some(inset=>Math.abs(inset)>2))issues.push('档案馆未占满工作区 '+JSON.stringify(region));
+          assert.equal(await page.locator('.archive-viewport .social-connection,.archive-viewport .community-page-heading').count(),0);
           const frame=await archive.contentFrame();
           await frame.locator('.activity-card').first().waitFor({state:'visible'});
           const reader=await frame.evaluate(measureInsets,'body');

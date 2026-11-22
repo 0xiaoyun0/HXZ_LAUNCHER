@@ -1,26 +1,77 @@
-import {useState} from 'react';
-import {ArrowRight,Eye,EyeOff,Minus,Square,X,ArrowUpRight,LoaderCircle} from 'lucide-react';
-import {invoke,reload,state,ui,errorMessage} from './model';
-import {connect,disconnect} from '../../../packages/community/client';
+import {useRef,useState,type FormEvent} from 'react';
+import * as Dialog from '@radix-ui/react-dialog';
+import {ArrowLeft,ArrowRight,ArrowUpRight,Eye,EyeOff,KeyRound,LoaderCircle,UserRound} from 'lucide-react';
+import {invoke,reload,ui} from './model';
+import {useSnapshot} from 'valtio';
+import {IssueHelp} from './IssueHelp';
+import {playerError} from '../../../packages/engine/core/player-errors.mjs';
+import {WindowButtons} from './launcher/WindowButtons';
 import './welcome.css';
 
-export function Welcome({ready,error,onBrowse}:{ready:boolean,error:string,onBrowse:()=>void}) {
- const [username,setUsername]=useState(''),[password,setPassword]=useState(''),[visible,setVisible]=useState(false),[busy,setBusy]=useState(false),[failure,setFailure]=useState('');
- async function login(e:React.FormEvent){e.preventDefault();if(busy)return;setBusy(true);setFailure('');try{await invoke('account.login',{username:username.trim(),password});setPassword('');await reload();ui.dialog='';disconnect();if(state.settings.selectedAccount)void connect();}catch(e){setFailure(errorMessage(e));}finally{setBusy(false);}}
- const open=(url:string)=>invoke('external.open',{url}).catch(e=>setFailure(errorMessage(e)));
- return <div className="welcome-screen" data-testid="welcome-screen">
-  <div className="welcome-grid" aria-hidden="true"/><div className="welcome-orbit orbit-one" aria-hidden="true"/><div className="welcome-orbit orbit-two" aria-hidden="true"/>
-  <header className="welcome-bar" data-tauri-drag-region><div className="welcome-brand"><img src="./media/brand/launcher.svg" alt=""/><strong>幻想镇 <small>FANTASY TOWN</small></strong></div><div className="welcome-controls">{[{action:'minimize',title:'最小化',Icon:Minus},{action:'maximize',title:'最大化',Icon:Square},{action:'close',title:'关闭',Icon:X}].map(({action,title,Icon})=><button key={action} aria-label={title} onClick={()=>invoke('window.control',{action})}><Icon size={18}/></button>)}</div></header>
-  <main className="welcome-content"><section className="welcome-story"><h1>欢迎回到<br/>幻想镇<span>。</span></h1><p>登录后继续上次的世界，<br/>或先打开本机游戏库。</p></section>
-   <section className="welcome-form-card" aria-labelledby="welcome-title"><h2 id="welcome-title">登录幻想镇</h2><p className="welcome-subtitle">使用幻想镇皮肤站账号</p>
-    {!ready?<div className="welcome-loading" role="status"><LoaderCircle className="welcome-spinner"/>正在读取本地账号…</div>:error?<div className="welcome-error" role="alert"><p>{error}</p><button onClick={()=>reload().catch(()=>{})}>重新读取</button></div>:<form onSubmit={login}>
-      <label>邮箱或用户名<input name="username" autoComplete="username" autoFocus required maxLength={254} value={username} onChange={e=>setUsername(e.target.value)} placeholder="你的皮肤站账号" disabled={busy}/></label>
-      <label>密码<div className="welcome-password"><input name="password" autoComplete="current-password" type={visible?'text':'password'} required maxLength={1024} value={password} onChange={e=>setPassword(e.target.value)} placeholder="输入密码" disabled={busy}/><button type="button" aria-label={visible?'隐藏密码':'显示密码'} onClick={()=>setVisible(v=>!v)}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></label>
-      {failure&&<p className="welcome-error" role="alert">{failure}</p>}
-      <button className="welcome-submit" disabled={busy} type="submit">{busy?<LoaderCircle className="welcome-spinner" size={19}/>:<ArrowRight size={19}/>}<span>{busy?'正在验证账号…':'登录并进入'}</span></button>
-      <div className="welcome-links"><button type="button" onClick={()=>open('https://skin.hxzmc.top/auth/register')}>注册皮肤站账号<ArrowUpRight size={14}/></button><button type="button" onClick={()=>open('https://skin.hxzmc.top/auth/forgot')}>忘记密码</button></div>
-    </form>}
-    <p className="welcome-note"><button type="button" className="browse-3rd" onClick={onBrowse}>先浏览本机游戏库 <ArrowRight size={14}/></button></p>
-   </section></main><footer className="welcome-footer"><span>幻想镇 · 游戏与社区</span><span>连接属于你的世界</span></footer>
- </div>;
+type WelcomeProps={
+  ready:boolean;error:string;onBrowse:()=>void;onSignedIn?:()=>void;
+  firstVisit?:boolean;onBusyChange?:(busy:boolean)=>void;
+};
+
+export function Welcome({ready,error,onBrowse,onSignedIn,firstVisit=true,onBusyChange}:WelcomeProps){
+  const [username,setUsername]=useState(''),[password,setPassword]=useState('');
+  const [visible,setVisible]=useState(false),[busy,setBusy]=useState(false),[failure,setFailure]=useState<ReturnType<typeof playerError>|null>(null);
+  const submitting=useRef(false);
+  async function login(event:FormEvent){
+    event.preventDefault();
+    if(submitting.current||!username.trim()||!password)return;
+    submitting.current=true;onBusyChange?.(true);setBusy(true);setFailure(null);
+    try{
+      await invoke('account.login',{username:username.trim(),password});
+      setPassword('');await reload();ui.toast='';onSignedIn?.();
+    }catch(cause){setFailure(playerError(cause,'account.login'));}
+    finally{submitting.current=false;onBusyChange?.(false);setBusy(false);}
+  }
+  async function openSkin(path:'register'|'forgot'){
+    try{await invoke('external.open',{url:'https://skin.hxzmc.top/auth/'+path});}
+    catch(cause){setFailure(playerError(cause,'external.open'));}
+  }
+  return <div className="welcome-screen" data-testid="welcome-screen">
+    <header className="welcome-bar" data-tauri-drag-region>
+      <span className="welcome-brand" data-tauri-drag-region><img src="./media/brand/launcher.svg" alt=""/>幻想镇</span>
+      <WindowButtons/>
+    </header>
+    <div className="welcome-scroll"><div className="welcome-spread">
+      <div className="welcome-picture"><img src="./media/hero.webp" alt="" fetchPriority="high"/><span aria-hidden="true">{firstVisit?'欢迎来到幻想镇':'欢迎回来'}</span></div>
+      <section className="welcome-form-card" aria-labelledby="welcome-heading">
+        <header><h1 id="welcome-heading">登录幻想镇</h1><p>使用你的皮肤站账号</p></header>
+        {!ready?<p role="status">正在读取本地账号…</p>:error?<div role="alert"><p>{error}</p><button className="entry-secondary" onClick={()=>void reload().catch(()=>{})}>重新读取</button></div>:
+        <form onSubmit={login} aria-busy={busy}>
+          <label className="entry-field"><span>邮箱或用户名</span><span className="entry-input"><UserRound size={17} aria-hidden/><input name="username" autoComplete="username" maxLength={254} required value={username} onChange={e=>setUsername(e.target.value)} disabled={busy}/></span></label>
+          <div className="entry-field"><div className="entry-label-line"><label htmlFor="town-login-password">密码</label><button type="button" className="entry-link" onClick={()=>void openSkin('forgot')}>忘记密码</button></div>
+            <div className="entry-input"><KeyRound size={17} aria-hidden/><input id="town-login-password" name="password" autoComplete="current-password" type={visible?'text':'password'} maxLength={1024} required value={password} onChange={e=>setPassword(e.target.value)} disabled={busy}/>
+              <button type="button" className="entry-eye" aria-label={visible?'隐藏密码':'显示密码'} aria-pressed={visible} onClick={()=>setVisible(v=>!v)}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></div>
+          {failure&&<IssueHelp issue={failure}/>}
+          <button type="submit" className="entry-submit" disabled={busy||!username.trim()||!password}>
+            <span>{busy?'正在登录…':'登录幻想镇'}</span>{busy?<LoaderCircle className="entry-spin" size={17} aria-hidden/>:<ArrowRight size={17} aria-hidden/>}
+          </button>
+          <button className="entry-register entry-link" type="button" onClick={()=>void openSkin('register')}>注册皮肤站账号<ArrowUpRight size={14} aria-hidden/></button>
+        </form>}
+        <footer><button type="button" className="entry-link entry-return" onClick={onBrowse} disabled={busy}>{firstVisit?'先以游客身份浏览':'返回上一页'}{firstVisit?<ArrowRight size={15}/>:<ArrowLeft size={15}/>}</button></footer>
+      </section>
+    </div></div>
+  </div>;
+}
+
+export function AccountEntryDialog(){
+  const u=useSnapshot(ui),open=u.dialog==='account'||u.dialog==='welcome';
+  const busy=useRef(false),origin=useRef<HTMLElement|null>(null),content=useRef<HTMLDivElement>(null);
+  const first=useRef(false);if(open)first.current=u.dialog==='welcome';
+  function leave(){
+    if(ui.dialog==='welcome')ui.onboarding=true;
+    ui.dialog='';
+  }
+  return <Dialog.Root open={open} onOpenChange={next=>{if(!next&&!busy.current)leave();}}>
+    <Dialog.Portal><Dialog.Content ref={content} className="entry-dialog" aria-describedby={undefined}
+      onOpenAutoFocus={e=>{origin.current=document.activeElement as HTMLElement;e.preventDefault();content.current?.querySelector<HTMLInputElement>('input[name=username]')?.focus({preventScroll:true});}}
+      onCloseAutoFocus={e=>{if(origin.current?.isConnected){e.preventDefault();origin.current.focus({preventScroll:true});}}}>
+      <Dialog.Title className="visually-hidden">登录幻想镇</Dialog.Title>
+      <Welcome ready error="" firstVisit={first.current} onBusyChange={value=>{busy.current=value;}} onBrowse={leave} onSignedIn={leave}/>
+    </Dialog.Content></Dialog.Portal>
+  </Dialog.Root>;
 }

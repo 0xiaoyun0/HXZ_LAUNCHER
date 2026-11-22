@@ -4,7 +4,10 @@ export async function switchWorkspace(page,lite){
   const desired=lite?'lite':'full';
   if(await page.locator('.launcher-frame').getAttribute('data-shell')===desired)return;
   if(lite)await page.getByRole('button',{name:'设置',exact:true}).click();
-  else await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'设置',exact:true}).click();
+  else {
+    await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'设置',exact:true}).click();
+    await page.getByRole('navigation',{name:'极简设置分类'}).getByRole('link',{name:'启动器',exact:true}).click();
+  }
   await page.getByRole('button',{name:'切换到'+(lite?'极简版':'完整工作台'),exact:true}).click({timeout:40000});
   await page.locator('.launcher-frame[data-shell='+desired+']').waitFor();
 }
@@ -14,7 +17,7 @@ export async function checkLiteHome(page,native,{names,searchedInstance,capture,
   if(!cold)await switchWorkspace(page,true);
   const main=page.locator('main'),nav=page.getByRole('navigation',{name:'主导航'});
   const home=main.getByRole('heading',{name:'极简启动',exact:true}),full=main.getByRole('heading',{name:'启动游戏',exact:true});
-  const liteLabel=page.locator('.workspace-name').filter({hasText:'极简版'}),prompt=page.getByRole('dialog',{name:'切换工作区'});
+  const liteLabel=page.locator('.launcher-frame[data-shell=lite]'),prompt=page.getByRole('dialog',{name:'切换工作区'});
   await home.waitFor({timeout:40000});await liteLabel.waitFor();
   assert.deepEqual(await nav.getByRole('link').allTextContents(),['启动','下载','设置']);
   await main.getByRole('heading',{name:names[0],exact:true}).waitFor();
@@ -30,7 +33,7 @@ export async function checkLiteHome(page,native,{names,searchedInstance,capture,
   await page.goBack();await main.getByRole('heading',{name:'下载安装',exact:true}).waitFor();
   const brandHome=page.getByRole('link',{name:'幻想镇首页'});
   assert.equal(await brandHome.locator('strong').textContent(),'幻想镇');
-  assert.equal((await liteLabel.textContent()).trim(),'极简版');
+  assert.equal((await page.locator('.launcher-brand').innerText()).trim(),'幻想镇');
   await brandHome.click();
   await home.waitFor();assert.equal(await prompt.count(),0);
   await main.getByRole('button',{name:'版本设置',exact:true}).click();
@@ -51,7 +54,7 @@ export async function checkLiteHome(page,native,{names,searchedInstance,capture,
   await main.getByRole('heading',{name:searchedInstance,exact:true}).waitFor();
   assert.equal((await native('state',{localOnly:true})).value.settings.selectedInstance,searchedInstance);
   await main.getByRole('button',{name:'启动游戏',exact:true}).click();
-  await page.getByRole('dialog',{name:'你的幻想镇身份'}).waitFor();await page.keyboard.press('Escape');
+  await page.getByRole('dialog',{name:'登录幻想镇'}).waitFor();await page.keyboard.press('Escape');
 
   await nav.getByRole('link',{name:'设置',exact:true}).click();
   await main.getByRole('link',{name:'账号与角色'}).click();

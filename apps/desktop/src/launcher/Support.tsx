@@ -1,3 +1,4 @@
+import {GuideLink} from './DesktopGuide';
 import {useState} from 'react';
 import {useLocation} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
@@ -15,7 +16,7 @@ export function Support(){
     try{await invoke(action);await status.reload();}finally{setBusy(false);}
   }
   const pending=Number(status.data?.pending)||0;
-  return <section className="launch-page"><header className="launch-title"><h1>帮助与反馈</h1></header>
+  return <section className="launch-page"><header className="launch-title"><h1>帮助与反馈</h1><GuideLink/></header>
     <section className="preference-section"><h2>我的工单</h2>
       {role?.authenticated&&role.uuid?<FeedbackCenter key={role.id+role.uuid+s.settings.communityUrl} core summary={location.state?.summary||''}/>:<div className="setting-line"><span>登录并选择角色，即可联系管理员或查看之前的回复。</span><button className="small-action" onClick={()=>ui.dialog='account'}>登录账号</button></div>}
     </section>

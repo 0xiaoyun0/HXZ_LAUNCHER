@@ -14,7 +14,7 @@ const icons=[LayoutGrid,LibraryBig,NotebookPen];
 export function StartupPreference(){
  const navigate=useNavigate(),lite=isLitePage(useLocation().pathname),[saving,setSaving]=useState(false);
  const next=lite?'完整工作台':'极简版';
- return <section className="preference-section"><h2>工作区</h2><div className="setting-line"><span><strong>{lite?'极简版':'完整工作台'}</strong><small>切换后下次打开沿用这套界面，角色、实例和游玩记录共用。</small></span>
+ return <section className="preference-section"><h2>工作区</h2><div className="setting-line"><span><strong>{lite?'极简版':'完整工作台'}</strong><small>下次打开时沿用选择。</small></span>
    <button className="small-action" disabled={saving} onClick={()=>perform(async()=>{setSaving(true);try{await saveSettings({liteStartup:!lite});navigate(lite?'/':'/lite',{replace:true,state:{desktopEntry:true}});}finally{setSaving(false);}})}><LayoutGrid size={16}/>切换到{next}</button></div></section>;
 }
 export function Workspaces(){

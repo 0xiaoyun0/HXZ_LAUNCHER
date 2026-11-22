@@ -24,6 +24,14 @@ export function GameRuntimeSettings(){
   <div className="setting-line"><span><strong>游戏目录</strong><small>{settings.gameRoot||'尚未选择目录'}</small></span><button className="small-action" disabled={busy} onClick={()=>action(chooseRoot)}><FolderOpen size={15}/>选择目录</button></div>
   <div className="setting-line"><span><strong>Java 运行环境</strong><small>{settings.javaPath||'根据实例版本自动匹配'}</small></span>{settings.javaPath&&<button className="small-action" disabled={busy} onClick={()=>action(()=>saveSettings({javaPath:''}))}>恢复自动</button>}<button className="small-action" disabled={busy} onClick={()=>action(async()=>{const path=await invoke('java.choose');if(path)await saveSettings({javaPath:path});})}>选择 Java</button></div><MemorySetting/></section>;
 }
+export function InterfaceTuning({settings}:{settings:{fontSize?:number;animationSpeed?:number}}){
+ return <><div className="setting-line"><strong>界面字号</strong><StepChoice label="界面字号" value={settings.fontSize||16} options={Array.from({length:10},(_,i)=>[13+i,(13+i)+' px'] as const)} onChange={v=>saveSettings({fontSize:Number(v)})}/></div>
+  <div className="setting-line"><strong>动画速度</strong><StepChoice label="动画速度" value={settings.animationSpeed??1} options={[[0,'减少动效'],[.5,'舒缓'],[1,'标准'],[1.5,'敏捷'],[2,'快速']]} onChange={v=>saveSettings({animationSpeed:Number(v)})}/></div></>;
+}
+export function AfterLaunchSetting(){
+ const {settings}=useSnapshot(state);
+ return <div className="setting-line"><strong>启动游戏后</strong><ChoiceGroup label="启动游戏后" value={settings.gameWindowAction||'minimize'} options={[['minimize','最小化'],['keep','保留窗口'],['hide','隐藏到托盘']]} onChange={gameWindowAction=>perform(()=>saveSettings({gameWindowAction}))}/></div>;
+}
 export function Preferences(){
  const musicEnabled=useSnapshot(extension).modules.music?.active;
  const s=useSnapshot(state),settings=s.settings,[busy,setBusy]=useState(false);
@@ -33,10 +41,7 @@ export function Preferences(){
  {current==='game'&&<><StartupPreference/><GameRuntimeSettings/><RuntimePreferences/><RemovedInstances key={settings.gameRoot}/></>}
  {current==='appearance'&&<><AppearanceSettings/><section className="preference-section"><h2>显示与启动行为</h2>
   <ArchiveSignalPreference/><div className="setting-line"><strong>明暗模式</strong><ChoiceGroup label="明暗模式" value={settings.theme} options={[['light','浅色'],['dark','深色']]} onChange={theme=>action(()=>saveSettings({theme}))}/></div>
-  <div className="setting-line"><strong>界面字号</strong><StepChoice label="界面字号" value={settings.fontSize||16} options={Array.from({length:10},(_,i)=>[13+i,(13+i)+' px'] as const)} onChange={v=>saveSettings({fontSize:Number(v)})}/></div>
-  <div className="setting-line"><strong>动画速度</strong><StepChoice label="动画速度" value={settings.animationSpeed??1} options={[[0,'减少动效'],[.5,'舒缓'],[1,'标准'],[1.5,'敏捷'],[2,'快速']]} onChange={v=>saveSettings({animationSpeed:Number(v)})}/></div>
-
-  <div className="setting-line"><strong>启动游戏后</strong><ChoiceGroup label="启动游戏后" value={settings.gameWindowAction||'minimize'} options={[['minimize','最小化'],['keep','保留窗口'],['hide','隐藏到托盘']]} onChange={gameWindowAction=>action(()=>saveSettings({gameWindowAction}))}/></div></section></>}
+  <InterfaceTuning settings={settings}/><AfterLaunchSetting/></section></>}
  {current==='downloads'&&<>
    <SettingsSection title="下载策略"><DownloadPolicy/></SettingsSection>
    <LauncherUpdate enabled={settings.autoCheckUpdates!==false} onChange={v=>saveSettings({autoCheckUpdates:v})}
@@ -49,7 +54,8 @@ export function Preferences(){
 }
 export function Identity({minimal=false}:{minimal?:boolean}={}){
  const s=useSnapshot(state),selected=account(s);
- return <section className="launch-page"><header className="launch-title"><h1>账号与角色</h1><button className="small-action" onClick={()=>ui.dialog='account'}>{selected?'添加账号':'登录账号'}</button></header><div className="instance-lines">
+ const communityEnabled=useSnapshot(extension).active;
+ return <section className={minimal?'lite-identity-settings':'launch-page'}><header className="launch-title">{minimal?<h2>账号与角色</h2>:<h1>账号与角色</h1>}<button className="small-action" onClick={()=>ui.dialog='account'}>{selected?'添加账号':'登录账号'}</button></header><div className="instance-lines">
  {s.accounts.map((a:any)=><div className="setting-line" key={a.id}><PlayerAvatar role={a} size={38}/><span><strong>{a.name||a.username}</strong><small>{a.id===selected?.id?'当前账号':'已保存的账号'}</small></span>{a.id!==selected?.id&&<button className="small-action" onClick={()=>perform(()=>saveSettings({selectedAccount:a.id}))}>切换账号</button>}{a.id===selected?.id&&a.profiles?.length>0&&<Select label="选择角色" value={a.uuid} options={a.profiles.map((p:any)=>({value:p.id,label:p.name}))} onChange={async(uuid:string)=>{await invoke('account.profile',{id:a.id,uuid});await reload();}}/>}<button className="small-action" onClick={()=>{ui.confirm={title:'退出这个账号？',message:'此设备上的登录状态将被移除。',action:async()=>{await invoke('account.remove',{id:a.id});await reload();}};}}>退出</button></div>)}
- {!selected&&<div className="setting-line">使用幻想镇皮肤站账号登录，并选择游戏角色。</div>}</div><SkinConnection/>{!minimal&&<div className="desk-actions"><Link className="small-action" to="/points">查看我的积分</Link></div>}{!minimal&&<div className="desk-actions"><Link className="small-action" to="/support">我的工单</Link>{selected?.authenticated&&<><Link className="small-action" to="/community/wallet">我的积分</Link><Link className="small-action" to="/community/backpack">我的背包</Link></>}</div>}</section>;
+ {!selected&&<div className="setting-line">使用幻想镇皮肤站账号登录，并选择游戏角色。</div>}</div><SkinConnection/>{!minimal&&<div className="desk-actions"><Link className="small-action" to="/points">查看我的积分</Link><Link className="small-action" to="/support">我的工单</Link>{selected?.authenticated&&communityEnabled&&<Link className="small-action" to="/community/backpack">我的背包</Link>}</div>}</section>;
 }

@@ -1,3 +1,4 @@
+import {Check,LoaderCircle,Save,TriangleAlert} from 'lucide-react';
 import {useEffect,useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {playerError} from '../../../../packages/engine/core/player-errors.mjs';
@@ -20,6 +21,8 @@ export function MemorySetting(){
     <div><strong>默认游戏内存</strong><small>跟随全局的实例使用此值。「启动前检查」可查看实际内存上限。</small></div>
     <div className="memory-controls"><ChoiceGroup label="内存分配方式" value={mode} disabled={busy} options={[['auto','自动分配'],['manual','手动设置']]} onChange={value=>{setMode(value);setMessage('');}}/>
     {mode==='manual'&&<label><input aria-label="最大内存 MB" type="number" value={amount} min={512} max={131072} onChange={e=>{setAmount(e.target.value);setMessage('');}}/> MB</label>}
-    <button className="small-action" type="submit" disabled={busy}>保存内存</button></div>
+    <button className="small-action save-memory" type="submit" disabled={busy}>
+      <span className="action-status" aria-hidden>{busy?<LoaderCircle className="status-busy"/>:message&&!error?<Check className="status-saved"/>:error?<TriangleAlert/>:<Save/>}</span>保存内存
+    </button></div>
     {message&&<small className={error?'inline-error':'saved-note'} role={error?'alert':'status'}>{message}</small>}</form>;
 }

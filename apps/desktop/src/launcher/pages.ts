@@ -1,4 +1,4 @@
-import {Download,LayoutGrid,Gamepad2,Play,MessagesSquare,MessageCircle,Music2,BookOpen,ScrollText,Clock3,LibraryBig,PackageOpen,Network,Settings2,Stethoscope,UserRound} from 'lucide-react';
+import {Compass,Download,LayoutGrid,Gamepad2,Play,MessagesSquare,MessageCircle,Music2,BookOpen,ScrollText,Clock3,LibraryBig,PackageOpen,Network,Settings2,Stethoscope,UserRound} from 'lucide-react';
 import {communityPages} from './community-pages';
 export function isLitePage(path:string){
  const pathname=path.split('?')[0];
@@ -17,6 +17,10 @@ export const pages=[
  {path:'/lite/download/packs',label:'整合包',terms:'极简 下载 导入 安装 整合包',icon:PackageOpen,primary:false,member:false},
  {path:'/lite/download',label:'下载安装',terms:'极简版 Minecraft 安装游戏 加载器 下载',icon:Download,primary:false,member:false},
  {path:'/lite/settings',label:'启动设置',terms:'极简版 Java 内存 游戏目录 默认启动方式',icon:Settings2,primary:false,member:false},
+ {path:'/lite/settings/downloads',label:'下载设置',terms:'极简 下载来源 镜像 并发 限速',icon:Download,primary:false,member:false},
+ {path:'/lite/settings/launcher',label:'启动器设置',terms:'极简 外观 背景 动效 字号 工作区 切换',icon:Settings2,primary:false,member:false},
+ {path:'/lite?guide=start',label:'新手引导',terms:'极简 入门 教程 第一次 帮助',icon:Compass,primary:false,member:false},
+ {path:'/?guide=start',label:'新手引导',terms:'入门 教程 第一次 帮助',icon:Compass,primary:false,member:false},
  {path:'/lite/settings/wallpaper',label:'玩家壁纸',terms:'极简版 自定义背景 静态图片 动态视频',icon:LayoutGrid,primary:false,member:false},
  {path:'/lite/settings/account',label:'账号与角色',terms:'极简版 皮肤站 登录 切换角色',icon:UserRound,primary:false,member:false},
  {path:'/library',label:'游戏库',terms:'实例 收藏 存档 文件 管理',icon:LibraryBig,primary:true,member:false},

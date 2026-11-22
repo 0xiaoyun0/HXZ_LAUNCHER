@@ -43,6 +43,8 @@ try{
   }
   assert.ok(page);await page.setViewportSize({width:1360,height:880});
   await page.locator('.home-server-list a').first().waitFor();
+  const welcome=page.getByRole('dialog',{name:'登录幻想镇'});
+  if(await welcome.isVisible()){await welcome.getByRole('button',{name:'先以游客身份浏览'}).click();await page.getByRole('button',{name:'跳过引导'}).click();}
   const state=await page.evaluate(async()=>(await window.launcher.invoke('state',{localOnly:true})).value);
   assert.equal(state.settings.gameRoot,library.root);assert.equal(state.accounts.length,0);
   assert.deepEqual(state.settings.lastPlayed??null,library.lastPlayed);
@@ -72,7 +74,7 @@ try{
   await page.locator('.lite-game h2').waitFor();
   assert.deepEqual((await page.evaluate(measureInsets)).issues,[]);
   await page.screenshot({path:'.preview/installed-lite-start.png',animations:'disabled'});
-  await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'设置',exact:true}).click();await page.getByRole('button',{name:'切换到完整工作台'}).waitFor();
+  await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'设置',exact:true}).click();await page.getByRole('navigation',{name:'极简设置分类'}).getByRole('link',{name:'启动器',exact:true}).click();await page.getByRole('button',{name:'切换到完整工作台'}).waitFor();
   await page.screenshot({path:'.preview/installed-workspace-switch.png',animations:'disabled'});
   assert.equal((await page.locator('.launcher-frame').getAttribute('data-shell')),'lite');
   await openFullWorkspace(page);

@@ -1,3 +1,4 @@
+import {useChoiceGlide} from './useChoiceGlide';
 import {useEffect,useId,useRef,useState} from 'react';
 import {perform} from '../model';
 
@@ -11,10 +12,10 @@ export function PreferenceSwitch({name,caption,checked,disabled=false,change}:{n
 type Option=readonly [string|number,string];
 type ChoiceProps={label:string;value:string|number;options:ReadonlyArray<Option>;disabled?:boolean;onChange:(value:string)=>unknown};
 export function ChoiceGroup({label,value,options,disabled,onChange}:ChoiceProps){
-  const name=useId();
-  return <div className="choice-group" role="radiogroup" aria-label={label}>
+  const name=useId(),group=useChoiceGlide(value);
+  return <div ref={group} className="choice-group" role="radiogroup" aria-label={label}>
     {options.map(([id,title])=><label className="choice-option" key={id}><input type="radio" name={name} value={id} checked={String(id)===String(value)}
-      disabled={disabled} onChange={()=>onChange(String(id))}/><span>{title}</span></label>)}
+      disabled={disabled} onChange={()=>onChange(String(id))}/><span>{title}</span></label>)}<i className="choice-glide" aria-hidden/>
   </div>;
 }
 export function StepChoice({label,value,options,onChange}:Omit<ChoiceProps,'disabled'>){
