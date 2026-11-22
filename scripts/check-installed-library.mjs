@@ -25,6 +25,10 @@ const oldSettings=JSON.parse((await fs.readFile(tracked[0],'utf8')).replace(/^\u
 const oldWallpaper=oldSettings.backgroundVideo||oldSettings.backgroundImage;
 if(mediaReference(oldWallpaper))tracked.push(mediaPath(old,oldWallpaper));
 const fingerprint=()=>Promise.all(tracked.map(file=>fs.readFile(file).then(bytes=>createHash('sha256').update(bytes).digest('hex'),e=>{if(e.code==='ENOENT')return null;throw e;})));
+const {communityExtension}=await import('../engine/community-extension.mjs');
+const definition=JSON.parse(await fs.readFile('.runtime/official-extensions.json','utf8')).music;
+const zip=path.resolve('release',version,'extensions',definition.name);
+await communityExtension({home,id:'music',definition,choose:async()=>({filePaths:[zip]})})('extension.import');
 const before=await fingerprint(),listener=net.createServer();
 listener.listen(0,'127.0.0.1');await once(listener,'listening');const port=listener.address().port;await new Promise(r=>listener.close(r));
 const proc=spawn(exe,[],{windowsHide:true,stdio:'ignore',env:{...process.env,HXZ3_QA_INSTANCE:'1',HXZ3_QA_BACKGROUND:'1',HXZ3_HOME:home,
@@ -68,9 +72,9 @@ try{
   await page.locator('.lite-game h2').waitFor();
   assert.deepEqual((await page.evaluate(measureInsets)).issues,[]);
   await page.screenshot({path:'.preview/installed-lite-start.png',animations:'disabled'});
-  await page.getByRole('button',{name:'切换工作区，当前为极简版'}).click();await page.getByRole('dialog',{name:'切换工作区'}).waitFor();
+  await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'设置',exact:true}).click();await page.getByRole('button',{name:'切换到完整工作台'}).waitFor();
   await page.screenshot({path:'.preview/installed-workspace-switch.png',animations:'disabled'});
-  await page.getByRole('button',{name:'留在极简版'}).click();
+  assert.equal((await page.locator('.launcher-frame').getAttribute('data-shell')),'lite');
   await openFullWorkspace(page);
   await page.locator('.home-server-list a').last().click();
   await page.locator('.default-server-card').first().waitFor();

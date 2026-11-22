@@ -6,6 +6,7 @@ import {account,cfg,invoke,perform,reload,saveSettings,state,ui} from '../model'
 import {CardHeading} from '../CardBoard';
 import {Avatar,Select,DetailDialog} from '../ui';
 
+import {PlayerAvatar} from './PlayerAvatar';
 export function playDuration(seconds:number){
   if(seconds>=3600)return Math.floor(seconds/3600)+' 小时 '+Math.floor(seconds%3600/60)+' 分钟';
   return seconds>=60?Math.floor(seconds/60)+' 分钟':seconds+' 秒';
@@ -32,7 +33,7 @@ export function HomeServers(){
 export function HomeRole(){
   const s=useSnapshot(state),role=account(s),settings=s.settings;
   return <><CardHeading title={<><ContactRound size={16}/>我的角色</>}/>
-      <div className="home-role"><Avatar name={role?.name||'旅'} image={role?.avatar} size={44}/><div><strong>{role?.name||'本地游客'}</strong>
+      <div className="home-role"><PlayerAvatar role={role} size={44}/><div><strong>{role?.name||'本地游客'}</strong>
         <small>{role?.authenticated?(role.uuid?'已登录 · 当前游戏角色':'已登录 · 请选择角色'):'使用幻想镇皮肤站账号登录'}</small></div></div>
       {s.accounts.length>1&&<div className="home-picker"><span>切换账号</span><Select label="切换当前账号" value={settings.selectedAccount} options={s.accounts.map((a:any)=>({value:a.id,label:a.name||a.username}))} onChange={(id:string)=>saveSettings({selectedAccount:id})}/></div>}
       {role?.profiles?.length>1&&<div className="home-picker"><span>当前角色</span><Select label="切换当前角色" value={role.uuid||''} options={role.profiles.map((p:any)=>({value:p.id,label:p.name}))} onChange={async(uuid:string)=>{await invoke('account.profile',{id:role.id,uuid});await reload();}}/></div>}

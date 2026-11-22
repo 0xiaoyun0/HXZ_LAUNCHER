@@ -66,7 +66,10 @@ export async function verifyCustomization(page,directory){
   const stored=(await snapshot()).cardLayouts['home.wide'];assert.equal(stored.items.find(i=>i.i==='library').manualHeight,true);
   const moveGrip=board.getByRole('button',{name:'拖动游戏实例'});await moveGrip.scrollIntoViewIfNeeded();
   const box=await moveGrip.boundingBox();await page.mouse.move(box.x+10,box.y+10);await page.mouse.down();await page.mouse.move(box.x+52,box.y+25,{steps:5});
-  await page.locator('.card-drag-preview').waitFor();await capture('live-card-drag');await page.keyboard.press('Escape');await page.mouse.up();
+  await page.locator('.card-drag-preview').waitFor();
+  const moving=await moveGrip.boundingBox();
+  assert.ok(Math.abs(moving.x-box.x)>10||Math.abs(moving.y-box.y)>6,'移动过程中握柄和卡片应当跟随指针');
+  await capture('live-card-drag');await page.keyboard.press('Escape');await page.mouse.up();
   assert.deepEqual((await snapshot()).cardLayouts['home.wide'],stored);
   await resize.dblclick();await board.locator('.instances-card:not([data-fixed])').waitFor();
   console.log('三套材质、设置重载、命名方案、宽窄窗独立布局、锁定、通用卡片和跨页移动通过');

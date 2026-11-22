@@ -4,7 +4,7 @@ export function boardCards(specs,saved){
   const active=specs.map((spec,index)=>{
     const item=byId.get(spec.id);
     const storedFixed=!!saved?.fixed?.includes(spec.id),manualHeight=item?.manualHeight===true;
-    return {...spec,storedFixed,manualHeight,column:item?.x??spec.x,w:item?.w??spec.w??12,h:item?.h??spec.h??14,order:item?item.y*13+item.x:100000+index,
+    return {...spec,storedFixed,manualHeight,column:item?.x??spec.x,gridRow:item?.y,w:item?.w??spec.w??12,h:item?.h??spec.h??14,order:item?item.y*13+item.x:100000+index,
       visible:!saved?.hidden?.includes(spec.id),locked:!!saved?.locked?.includes(spec.id),fixed:storedFixed&&(!spec.fit||manualHeight)};
   });
   return active.sort((a,b)=>a.order-b.order);
@@ -22,6 +22,17 @@ export function updateBoard(specs,saved,instruction){
   const row=rows[index];
   if(row.locked&&instruction.op!=='lock')throw Error('请先解锁这张卡片');
   switch(instruction.op){
+    case 'layout': {
+      const geometry=new Map(instruction.items.map(item=>[item.i,item]));
+      for(const current of rows){
+        const next=geometry.get(current.id);if(!next)continue;
+        current.w=Math.max(current.minW||2,Math.min(12,Math.round(next.w)));
+        current.column=Math.max(0,Math.min(12-current.w,Math.round(next.x)));
+        current.gridY=Math.max(0,Math.min(500,Math.round(next.y)));
+      }
+      if(Number.isFinite(instruction.height)){row.storedFixed=true;row.manualHeight=true;row.h=Math.max(5,Math.min(100,instruction.height));}
+      break;
+    }
     case 'place':
     case 'move': {
       const to=rows.findIndex(other=>other.id===instruction.to);
@@ -51,7 +62,8 @@ export function updateBoard(specs,saved,instruction){
   const items=rows.map((r,order)=>{
     const x=Number.isFinite(r.column)?Math.max(0,Math.min(12-r.w,r.column)):nextColumn+r.w>12?0:nextColumn;
     nextColumn=(x+r.w)%12;
-    return {i:r.id,x,y:order,w:r.w,h:r.h,...(r.manualHeight?{manualHeight:true}:{})};
+    const preserveRow=['visible','lock','height','width','size'].includes(instruction.op);
+    return {i:r.id,x,y:r.gridY??(preserveRow?r.gridRow:undefined)??order,w:r.w,h:r.h,...(r.manualHeight?{manualHeight:true}:{})};
   });
   return {...saved,items:[...items,...(saved?.items||[]).filter(r=>!ids.has(r.i))],
     hidden:[...extras(saved?.hidden),...rows.filter(r=>!r.visible).map(r=>r.id)],

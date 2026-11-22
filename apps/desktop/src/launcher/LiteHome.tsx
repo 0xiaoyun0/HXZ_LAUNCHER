@@ -5,14 +5,15 @@ import {ArrowLeft,ArrowRight,Check,ChevronRight,Download,FolderOpen,GalleryVerti
 import {resumeTarget} from '../../../../packages/engine/core/resume.mjs';
 import {PackIcon} from '../GameLibrary';
 import {account,chooseRoot,perform,selectInstance,startOrStopInstance,state,task,ui} from '../model';
-import {Avatar,Modal} from '../ui';
+import {PlayerAvatar} from './PlayerAvatar';
+import {Modal} from '../ui';
 
 type Game={id:string;name:string;version?:string;loader?:string;installed?:boolean;placeholder?:boolean;error?:string};
 function description(game:Game){
   return [game.version,game.loader,game.installed?'已安装':'可安装'].filter(Boolean).join(' · ');
 }
 
-function InstancePicker({games,current,initialSearch,close}:{games:readonly Game[];current?:string;initialSearch:string;close:()=>void}){
+export function InstancePicker({games,current,initialSearch,close}:{games:readonly Game[];current?:string;initialSearch:string;close:()=>void}){
   const root=useSnapshot(state).settings.gameRoot;
   const [search,setSearch]=useState(initialSearch),[page,setPage]=useState(0),[saving,setSaving]=useState(false);
   const term=search.trim().toLowerCase(),matches=games.filter(game=>[game.name,game.id,game.version,game.loader].some(v=>String(v??'').toLowerCase().includes(term)));
@@ -55,10 +56,9 @@ export function LiteHome(){
     <div className="lite-rail">
       <header className="lite-rail-heading"><h1 id="lite-title">极简启动</h1></header>
       <div className="lite-identity">
-        <Avatar name={role?.name||'旅'} image={role?.avatar} size={54}/>
+        <PlayerAvatar role={role} size={54}/>
         <strong>{role?.name||'本地游客'}</strong>
-        {role?.authenticated?<Link className="text-action" to="/lite/account"><UserRound size={14}/>管理角色</Link>
-        :<button className="text-action" onClick={()=>{ui.dialog='account';}}><UserRound size={14}/>登录幻想镇账号</button>}
+        {!role?.authenticated&&<button className="text-action" onClick={()=>{ui.dialog='account';}}><UserRound size={14}/>登录幻想镇账号</button>}
       </div>
       <section className="lite-game" aria-label="版本与启动">
         <div className="lite-version-info">
@@ -76,20 +76,7 @@ export function LiteHome(){
         </div>
       </section>
     </div>
-    <div className="lite-scene"><Link className="small-action" to="/lite/settings/wallpaper"><Image size={15}/>更换背景</Link></div>
+    <div className="lite-scene" aria-hidden/>
     {picking&&<InstancePicker initialSearch={query.get('versions')||''} games={games} current={game?.id} close={()=>setPicking(false)}/>}
-  </section>;
-}
-
-export function LiteMore(){
-  return <section className="launch-page lite-more"><header className="launch-title"><h1>更多功能</h1></header>
-    <nav aria-label="极简版工具">
-      <Link to="/lite?versions="><GalleryVerticalEnd size={19}/><span>版本选择</span><ChevronRight size={15}/></Link>
-      <Link to="/lite/points"><LayoutGrid size={19}/><span>我的积分</span><ChevronRight size={15}/></Link>
-      <Link to="/lite/account"><UserRound size={19}/><span>账号与角色</span><ChevronRight size={15}/></Link>
-      <Link to="/lite/settings/wallpaper"><Image size={19}/><span>玩家壁纸</span><ChevronRight size={15}/></Link>
-    </nav>
-    <section className="lite-workspace-exit"><div><h2>完整工作台</h2><p>联机大厅、社区、小游戏和音乐播放器可在完整工作台中使用。</p></div>
-      <Link to="/" className="small-action"><LayoutGrid size={16}/>切换到完整工作台</Link></section>
   </section>;
 }

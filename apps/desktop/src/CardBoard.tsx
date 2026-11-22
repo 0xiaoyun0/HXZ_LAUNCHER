@@ -1,13 +1,13 @@
 import {SectionHeading} from './SectionHeading';
 import {Children,Fragment,Suspense,createContext,isValidElement,lazy,useContext,useEffect,useLayoutEffect,useRef,useState,type CSSProperties,type ReactElement,type ReactNode} from 'react';
-import {ArrowDown,ArrowUp,Check,Ellipsis,GripVertical,LayoutGrid,LockKeyhole,Plus,RotateCcw,Undo2,UnlockKeyhole} from 'lucide-react';
+import {ArrowDown,ArrowUp,Check,Ellipsis,GripVertical,LayoutGrid,LockKeyhole,MoveUpRight,Plus,RotateCcw,Undo2,UnlockKeyhole} from 'lucide-react';
 import {useSnapshot} from 'valtio';
 import {boardCards,updateBoard} from '../../../packages/engine/core/board-preferences.mjs';
 import {CARD_PAGES,normalizeCardPlacements,isPortableCard} from '../../../packages/engine/core/card-extras.mjs';
 import {ChoiceGroup} from './launcher/ChoiceControls';
 import {cardHeightEm,cardPositions,useCardGrid} from './CardGrid';
 import {CardGestures} from './CardGestures';
-import {CardHarvest,ForeignCard,HarvestedCards,moveCard} from './PortableCards';
+import {CardHarvest,ForeignCard,HarvestedCards,moveCard,startCardTravel} from './PortableCards';
 import {state,ui,saveSettings,perform} from './model';
 import {DialogSections,Modal} from './ui';
 
@@ -67,7 +67,7 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
   }
   const grouped=!!columns&&!compact&&!custom;
   const packed=!compact&&!grouped;
-  useCardGrid(grid,packed,JSON.stringify(visible.map(r=>[r.id,r.column,r.w,r.h,r.fixed])));
+  useCardGrid(grid,packed,JSON.stringify(visible.map(r=>[r.id,r.column,r.gridRow,r.w,r.h,r.fixed,r.locked])));
   function modify(command:any){
     const positions=!compact&&grid.current?cardPositions(grid.current):[];
     return write(old=>updateBoard(specs,old,{...command,positions}));
@@ -86,9 +86,9 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
   const renderCard=(row:typeof rows[number])=>{
         const {id:cardId,title}=row,span=Math.min(12,Math.max(row.minW||2,row.w));
         const handle=(kind:'move'|'size')=><CardGestures kind={kind} id={cardId} title={title} compact={compact} locked={busy||row.locked} onEdit={modify} onChoose={()=>show(cardId)}/>;
-        return <section key={cardId} data-card-id={cardId} data-column={row.column} data-locked={row.locked||undefined} data-size={span<=6?'narrow':'wide'} data-fixed={row.fixed||undefined} aria-label={title||undefined}
+        return <section key={cardId} data-card-id={cardId} data-min-width={row.minW||2} data-row={row.gridRow} data-column={row.column} data-locked={row.locked||undefined} data-size={span<=6?'narrow':'wide'} data-fixed={row.fixed||undefined} aria-label={title||undefined}
           className={(home?'desk-card ':'desktop-panel ')+(row.className||'')} style={{'--panel-span':span,'--card-height':row.h*cardHeightEm+'em'} as CSSProperties}>
-          <CardControls.Provider value={{id:cardId,title,show,move:handle('move')}}>
+          <CardControls.Provider value={{id:cardId,title,show,move:<>{editing&&transferable&&(row.origin||isPortableCard(id,cardId))&&<button className="card-options" type="button" disabled={busy||row.locked} aria-label={'跨页拖动'+title} onPointerDown={e=>startCardTravel(e,row.origin||{source:id,card:cardId,title,w:row.w,minW:row.minW},id)} onClick={e=>{if(e.detail===0)show(cardId);}}><MoveUpRight size={15}/></button>}{handle('move')}</>}}>
             {row.native?row.content:<><CardHeading title={title} className="board-card-heading"/><div className="desktop-panel-body">{row.content}</div></>}
           </CardControls.Provider>{handle('size')}</section>;
 
@@ -97,7 +97,7 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
     {pageTitle?<header className="launch-title"><h1>{label}</h1><div className="board-actions">{actions}{open}</div></header>:
       <div className="board-toolbar">{label&&<strong>{label}</strong>}{actions}{open}</div>}
     {beforeCards}
-    <div ref={grid} data-card-grid="" data-packed={packed||undefined} data-compact={compact||undefined} className={home?'game-board':'desktop-panel-grid'} data-columns={grouped||undefined} data-custom={custom||undefined} data-editing={editing||undefined}>
+    <div ref={grid} data-card-grid="" data-card-board={id} data-packed={packed||undefined} data-compact={compact||undefined} className={home?'game-board':'desktop-panel-grid'} data-columns={grouped||undefined} data-custom={custom||undefined} data-editing={editing||undefined}>
       {grouped?columns!.map(group=><div key={group[0]} className="board-column">{group.map(id=>{const row=visible.find(item=>item.id===id);return row&&renderCard(row);})}</div>):visible.map(renderCard)}
     </div>
     {failure&&!manage&&<p role="alert">{failure}</p>}
@@ -107,6 +107,7 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
         {undo?.key===key&&<button className="small-action" disabled={busy} onClick={()=>write(()=>undo.value,false)}><Undo2 size={15}/>撤销</button>}
         <button className="launch-primary" onClick={()=>setManage(false)}><Check size={15}/>完成</button></footer>}><div className="board-editor">
       <div className="board-editor-tools"><span>{compact?'窄窗布局':'宽窗布局'} · 已显示 {visible.length} 张</span>
+        {transferable&&<button className="small-action" onClick={()=>{setManage(false);setEditing(true);}}><MoveUpRight size={15}/>跨页整理</button>}
         {supportsWidgets&&<button className="small-action" onClick={()=>{setManage(false);setAdd(true);}}><Plus size={15}/>添加卡片</button>}</div>
       {selected&&cardSettings(selected)}
       <div className="board-rows">{rows.map((row,index)=>{

@@ -32,13 +32,15 @@ export function usePageEnter(key:unknown){
   // Changing the speed cancels an in-flight reveal, but never replays the page.
   if(s.settings.animationSpeed===0||reduced)return;
   const animations=new Set<Animation>();
-  const speed=s.settings.animationSpeed||1,duration=Math.min(800,420/speed);
+  const speed=s.settings.animationSpeed||1,duration=Math.min(520,245/speed);
   let seen=new WeakSet<Element>(),frame=0,switchFrame=0,order=0,stopped=false,includeTitle=true;
   let timeout:ReturnType<typeof setTimeout>|undefined,settleTimeout:ReturnType<typeof setTimeout>|undefined;
   const reveal=()=>{
    frame=0;if(stopped||document.hidden)return;
-   const viewport=el.closest('.app-main')?.getBoundingClientRect()||{top:0,bottom:innerHeight};
-   const selector=includeTitle?'.page-header,.card-page-title,.air-card':'.air-card';
+   const viewport=el.closest('.app-main,.launcher-content')?.getBoundingClientRect()||{top:0,bottom:innerHeight};
+   const desktop=el.classList.contains('launcher-content');
+   const panels='[data-card-id],.preference-section,.resource-section,.lite-game,.lite-identity,.resource-target,.installation-summary,.hub-page>header,.hub-page>.hub-panel';
+   const selector=desktop?(includeTitle?'.launch-title,.lite-rail-heading,.page-header,'+panels:panels):includeTitle?'.page-header,.card-page-title,.air-card':'.air-card';
    let nodes=Array.from(el.querySelectorAll<HTMLElement>(selector));
    // Non-card result pages still reveal their changing list, never a game canvas.
    if(!nodes.length)nodes=Array.from(el.querySelectorAll<HTMLElement>('.forum-list,.rank-list,.blueprint-list,.resource-results'));
@@ -53,10 +55,10 @@ export function usePageEnter(key:unknown){
    }
    for(const {node} of candidates){
     seen.add(node);
-    const layers=node.classList.contains('air-card')?Array.from(node.querySelectorAll<HTMLElement>(':scope > .card-heading,:scope > .card-content')):[node];
-    const delay=Math.min(order++*28,112)/speed;
+    const layers=node.hasAttribute('data-card-id')?Array.from(node.querySelectorAll<HTMLElement>(':scope > header,:scope > .desktop-panel-body')):node.classList.contains('air-card')?Array.from(node.querySelectorAll<HTMLElement>(':scope > .card-heading,:scope > .card-content')):[node];
+    const delay=Math.min(order++*16,64)/speed;
     for(const [index,layer] of layers.entries()){
-     const animation=layer.animate([{opacity:0,transform:'translateY(10px)'},{opacity:1,transform:'translateY(0)'}],{duration,delay:delay+index*24/speed,easing:'cubic-bezier(.22,.61,.36,1)',fill:'backwards'});
+     const animation=layer.animate([{opacity:.4,transform:'translateY(.32em)'},{opacity:1,transform:'translateY(0)'}],{duration,delay:delay+index*24/speed,easing:'cubic-bezier(.22,.61,.36,1)',fill:'backwards'});
      animations.add(animation);animation.onfinish=()=>animations.delete(animation);
     }
    }

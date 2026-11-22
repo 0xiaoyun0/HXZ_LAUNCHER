@@ -10,6 +10,11 @@ import {createCommunity} from '../apps/community-server/src/server.mjs';
 export async function communityFixture(temp, dist, title) {
   const profile={id:randomUUID().replaceAll('-',''),name:'林间旅人'};
   const token=randomUUID(),password=randomUUID();
+  const {default:sharp}=await import('sharp');
+  const texture=await sharp({create:{width:64,height:64,channels:4,background:{r:64,g:110,b:170,alpha:1}}}).png().toBuffer();
+  const filename=createHash('sha256').update(texture).digest('hex')+'.png',skinCache=path.join(temp,'skin-cache',profile.id);
+  await fs.mkdir(skinCache,{recursive:true});await fs.writeFile(path.join(skinCache,filename),texture);
+  await fs.writeFile(path.join(skinCache,'profile.json'),JSON.stringify({...profile,textures:{SKIN:{file:filename}},verifiedAt:Date.now()}));
   const definition=JSON.parse(await fs.readFile('.runtime/community-extension.json','utf8'));
   const plugin=await fs.readFile(path.resolve('release',definition.version,'extensions',definition.name));
   let delivery='good',skinOffline=false,probeJar;

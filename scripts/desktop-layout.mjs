@@ -8,12 +8,12 @@ import {scan as measureInsets,cardHeadingIssues} from './desktop-insets.mjs';
 // Exercise the installed WebView. Routes with their own content surface declare its selector.
 const routes=[
   ['/', '.game-home'],['/library','.play-library'],['/servers','.default-server-card'],['/multiplayer','.lobby-block'],
-  ['/workshop','.standard-page'],['/workshop/install','.desktop-panel'],['/workshop/addons','.list-toolbar'],
+  ['/workshop','.standard-page'],['/workshop/install','.desktop-panel'],['/workshop/addons','.resource-browser'],
   ['/workshop/sources','.standard-page'],['/workshop/blueprints','.preference-section'],['/music','.player-now'],
   ['/arcade','.game-catalog-grid'],['/arcade/play/runner','.canvas-stage'],['/community/ranking','.points-ranking'],
   ['/community/arcade/board/gomoku','.strategy-board'],['/community/arcade/social/werewolf','.wolf-layout'],['/community/arcade/coop/tanks','.coop-mode-toolbar'],
   ['/playtime','.playtime-summary'],['/playtime?date=2025-01-01','.panel-value'],['/account','.preference-section'],['/check','.check-list'],['/support','.feedback-center'],
-  ['/updates','.launcher-updates'],['/points','.preference-section'],['/lite/points','.preference-section'],['/settings','.memory-setting'],['/settings?section=appearance','input[aria-label="界面字号"]'],
+  ['/updates','.launcher-updates'],['/points','.preference-section'],['/settings','.memory-setting'],['/settings?section=appearance','input[aria-label="界面字号"]'],
   ['/settings?section=appearance&panel=surface','.design-options'],['/settings?section=appearance&panel=wallpaper','.wallpaper-modes'],
   ['/settings?section=downloads','input[aria-label="下载总限速"]'],['/settings?section=network','input[type=url]'],
   ['/settings?section=migration','.preference-section'],['/settings/extensions','.extension-actions'],
@@ -21,7 +21,7 @@ const routes=[
   ['/community/inbox','.inbox-page'],['/community/guild','.guild-columns'],['/community/linking','.archive-viewport iframe'],
   ['/community/playtime','.pt-toolbar'],['/community/worlds','.hub-page'],['/community/blueprints','.blueprint-grid'],
   ['/community/wallet','.music-find'],['/community/backpack','.inventory-ui .inventory-tabs'],['/community/shop','.shop-products'],
-  ['/community/saved','.hub-page'],['/community/events','.hub-page'],['/community/appeals','.hub-page'],['/lite','.lite-workspace'],['/lite/download','.lite-install-panels'],['/lite/settings','.memory-setting'],['/lite/settings/wallpaper','.wallpaper-modes'],['/lite/account','.instance-lines'],['/lite/more','.lite-more nav']
+  ['/community/saved','.hub-page'],['/community/events','.hub-page'],['/community/appeals','.hub-page'],['/lite','.lite-workspace'],['/lite/download','.lite-install-panels'],['/lite/settings','.memory-setting'],['/lite/settings/wallpaper','.wallpaper-modes'],['/lite/settings/account','.instance-lines'],['/lite/download/addons','.resource-browser'],['/lite/download/packs','.catalog-panel']
 ];
 
 function titlebarIssues(){
@@ -249,6 +249,28 @@ async function checkWallpaperContrast(page,native,output){
     }
   }
 }
+async function checkDesktopMotion(page,native){
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await native('settings.save',{animationSpeed:1,fontSize:16});await page.reload();
+  await page.getByRole('button',{name:'设置',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('main')?.getAnimations({subtree:true}).some(a=>{
+    const target=a.effect?.target;return target?.matches('.launch-title,.preference-section')&&a.effect.getKeyframes().some(k=>String(k.transform).includes('translate'));
+  }),null,{timeout:2500});
+  await page.getByRole('button',{name:'搜索实例或功能'}).click();
+  const modal=page.getByRole('dialog');await modal.waitFor();
+  assert.equal(await modal.evaluate(el=>getComputedStyle(el).animationName),'desk-dialog-in');
+  await page.keyboard.press('Escape');await modal.waitFor({state:'detached'});
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.waitForFunction(()=>document.documentElement.dataset.motion==='off');
+  await page.getByRole('button',{name:'搜索实例或功能'}).click();await modal.waitFor();
+  assert.equal(await modal.evaluate(el=>parseFloat(getComputedStyle(el).animationDuration)),0);
+  await page.keyboard.press('Escape');await page.emulateMedia({reducedMotion:'no-preference'});
+  await native('settings.save',{animationSpeed:0});await page.reload();
+  await page.waitForFunction(()=>document.documentElement.dataset.motion==='off');
+  await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'游戏',exact:true}).click();
+  await page.getByRole('heading',{name:'启动游戏',exact:true}).or(page.locator('.game-home h1')).first().waitFor();
+  assert.equal(await page.evaluate(()=>document.querySelector('.game-home').getAnimations({subtree:true}).some(a=>a.effect?.getTiming().duration>1)),false);
+}
 export async function verifyDesktopLayout(page,native,directory){
   const output=path.join(directory,'layout');await fs.mkdir(output,{recursive:true});
   const observations=[],overlays=[],failures=[];
@@ -399,5 +421,6 @@ export async function verifyDesktopLayout(page,native,directory){
   await fs.writeFile(path.join(output,'dialogs.json'),JSON.stringify(overlays,null,2));
   assert.equal(failures.length,0,JSON.stringify(failures.map(({route,control,width,font,issues})=>({route,control,width,font,issues}))));
   await checkWallpaperContrast(page,native,output);
+  await checkDesktopMotion(page,native);
   console.log(routes.length+' desktop routes × '+windows.length+' window and font combinations, '+overlays.length+' dialogs passed.');
 }

@@ -7,19 +7,18 @@ export function isLitePage(path:string){
 export const liteTabs=[
  {path:'/lite',label:'启动',icon:Play},
  {path:'/lite/download',label:'下载',icon:Download},
- {path:'/lite/settings',label:'设置',icon:Settings2},
- {path:'/lite/more',label:'更多',icon:LayoutGrid}
+ {path:'/lite/settings',label:'设置',icon:Settings2}
 ];
 export const pages=[
  {path:'/points',label:'我的积分',terms:'账户 余额 积分 本周 排行榜',icon:ScrollText,primary:false,member:true},
- {path:'/lite/points',label:'我的积分',terms:'极简版 账户 积分 本周 排行榜 余额',icon:ScrollText,primary:false,member:true},
  {path:'/',label:'游戏',terms:'首页 继续 上次 游玩 启动',icon:Play,primary:true,member:false},
  {path:'/lite',label:'极简启动',terms:'极简版 PCL 简洁模式 继续游戏 当前实例 切换实例',icon:Play,primary:false,member:false},
- {path:'/lite/more',label:'极简版更多功能',terms:'完整工作台 游戏库 更多工具 游戏目录',icon:LayoutGrid,primary:false,member:false},
+ {path:'/lite/download/addons',label:'模组与资源',terms:'本地 联网 模组 MOD 材质 资源包 光影 重复 实例',icon:PackageOpen,primary:false,member:false},
+ {path:'/lite/download/packs',label:'整合包',terms:'极简 下载 导入 安装 整合包',icon:PackageOpen,primary:false,member:false},
  {path:'/lite/download',label:'下载安装',terms:'极简版 Minecraft 安装游戏 加载器 下载',icon:Download,primary:false,member:false},
  {path:'/lite/settings',label:'启动设置',terms:'极简版 Java 内存 游戏目录 默认启动方式',icon:Settings2,primary:false,member:false},
  {path:'/lite/settings/wallpaper',label:'玩家壁纸',terms:'极简版 自定义背景 静态图片 动态视频',icon:LayoutGrid,primary:false,member:false},
- {path:'/lite/account',label:'账号与角色',terms:'极简版 皮肤站 登录 切换角色',icon:UserRound,primary:false,member:false},
+ {path:'/lite/settings/account',label:'账号与角色',terms:'极简版 皮肤站 登录 切换角色',icon:UserRound,primary:false,member:false},
  {path:'/library',label:'游戏库',terms:'实例 收藏 存档 文件 管理',icon:LibraryBig,primary:true,member:false},
  {path:'/workshop',label:'资源',terms:'整合包 模组 下载',icon:PackageOpen,primary:true,member:false},
  {path:'/servers',label:'默认服务器',terms:'原版生存群组服 模组一服 模组二服 人数 名单 更新 入服 状态 监控',icon:Network,primary:false,member:false},

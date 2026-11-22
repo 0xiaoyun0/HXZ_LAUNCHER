@@ -1,17 +1,21 @@
 import {SectionHeading} from '../SectionHeading';
 import {useState} from 'react';
+import {useLocation,useNavigate} from 'react-router-dom';
 import {Check,LayoutGrid,LibraryBig,NotebookPen,SlidersHorizontal} from 'lucide-react';
 import {useSnapshot} from 'valtio';
 import {WORKSPACES,WORKSPACE_MODULES,workspaceLayout,workspaceModules,workspaceShelf} from '../../../../packages/engine/core/desktop-workspace.mjs';
 import {perform,saveSettings,state} from '../model';
 import {LayoutSharing} from '../LayoutSharing';
 import {PreferenceSwitch} from './ChoiceControls';
+import {isLitePage} from './pages';
 import {Modal} from '../ui';
 
 const icons=[LayoutGrid,LibraryBig,NotebookPen];
 export function StartupPreference(){
- const settings=useSnapshot(state).settings;
- return <section className="preference-section"><h2>默认启动入口</h2><PreferenceSwitch name="默认打开极简版" caption="下次从普通入口启动时生效。当前窗口可以通过左上角切换工作区。" checked={settings.liteStartup===true} change={on=>saveSettings({liteStartup:on})}/></section>;
+ const navigate=useNavigate(),lite=isLitePage(useLocation().pathname),[saving,setSaving]=useState(false);
+ const next=lite?'完整工作台':'极简版';
+ return <section className="preference-section"><h2>工作区</h2><div className="setting-line"><span><strong>{lite?'极简版':'完整工作台'}</strong><small>切换后下次打开沿用这套界面，角色、实例和游玩记录共用。</small></span>
+   <button className="small-action" disabled={saving} onClick={()=>perform(async()=>{setSaving(true);try{await saveSettings({liteStartup:!lite});navigate(lite?'/':'/lite',{replace:true,state:{desktopEntry:true}});}finally{setSaving(false);}})}><LayoutGrid size={16}/>切换到{next}</button></div></section>;
 }
 export function Workspaces(){
   const s=useSnapshot(state).settings,active=workspaceLayout(s.workspaceLayout),modules=workspaceModules(s.workspaceModules);
@@ -28,7 +32,6 @@ export function Workspaces(){
         </button>;
       })}</div>
     </section>
-    <StartupPreference/>
     <section className="preference-section"><h2>界面模块</h2><div className="module-options">
       {WORKSPACE_MODULES.map(item=><PreferenceSwitch key={item.id} name={item.name} caption={item.caption} checked={modules[item.id]}
         change={on=>saveSettings({workspaceModules:{[item.id]:on}})}/>)}

@@ -219,9 +219,9 @@ try {
      assert.ok(rankedRun.ok&&rankedRun.value.id,rankedRun.error);
      assert.equal((await native('arcade.score',{route:'/api/session',method:'GET'})).ok,false);
      await switchWorkspace(page,true);
-     await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'更多'}).click();
-     await page.getByRole('link',{name:'我的积分'}).click();
-     await page.getByText('可用余额',{exact:true}).waitFor();
+     await page.locator('.lite-identity .player-head img').waitFor();
+     assert.ok(await page.locator('.lite-identity .player-head img').evaluate(async img=>{await img.decode();return img.naturalWidth===64&&img.naturalHeight===64;}));
+     assert.equal(await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'我的积分'}).count(),0);
      assert.deepEqual((await native('points.overview')).value,plainBalance.value);
      await openFullWorkspace(page);
      const launchPanel=startLite?page.locator('.lite-game'):resume;
@@ -339,8 +339,7 @@ try {
      assert.equal(await page.evaluate(async path=>(await fetch('/'+path)).status,installedPath),404);
      assert.ok(Object.values((await native('extension.status')).value.modules).every(m=>!m.active));
      assert.deepEqual((await native('points.overview')).value,priorWallet);
-     await switchWorkspace(page,true);await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'更多'}).click();
-     await page.getByRole('link',{name:'我的积分',exact:true}).click();await page.getByText('可用余额',{exact:true}).waitFor();
+     await switchWorkspace(page,true);await page.getByRole('heading',{name:'极简启动'}).waitFor();
      assert.deepEqual((await native('points.overview')).value,priorWallet);
      assert.equal((await native('arcade.score',{method:'GET',route:'/api/arcade/tanks?period=week'})).ok,false);
      console.log('Signed-in launcher: native login, real Java 17 fixture main ran, stop, persisted last played and lobby controls.');

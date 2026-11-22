@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 
 export async function switchWorkspace(page,lite){
-  const from=lite?'完整工作台':'极简版',to=lite?'极简版':'完整工作台';
-  await page.getByRole('button',{name:'切换工作区，当前为'+from}).click({timeout:40000});
-  const prompt=page.getByRole('dialog',{name:'切换工作区',exact:true});
-  await prompt.getByRole('button',{name:'切换到'+to,exact:true}).click();
-  await page.getByRole('button',{name:'切换工作区，当前为'+to}).waitFor();
+  const desired=lite?'lite':'full';
+  if(await page.locator('.launcher-frame').getAttribute('data-shell')===desired)return;
+  if(lite)await page.getByRole('button',{name:'设置',exact:true}).click();
+  else await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'设置',exact:true}).click();
+  await page.getByRole('button',{name:'切换到'+(lite?'极简版':'完整工作台'),exact:true}).click({timeout:40000});
+  await page.locator('.launcher-frame[data-shell='+desired+']').waitFor();
 }
 export const openFullWorkspace=page=>switchWorkspace(page,false);
 
@@ -13,9 +14,9 @@ export async function checkLiteHome(page,native,{names,searchedInstance,capture,
   if(!cold)await switchWorkspace(page,true);
   const main=page.locator('main'),nav=page.getByRole('navigation',{name:'主导航'});
   const home=main.getByRole('heading',{name:'极简启动',exact:true}),full=main.getByRole('heading',{name:'启动游戏',exact:true});
-  const liteLabel=page.getByRole('button',{name:'切换工作区，当前为极简版'}),prompt=page.getByRole('dialog',{name:'切换工作区'});
+  const liteLabel=page.locator('.workspace-name').filter({hasText:'极简版'}),prompt=page.getByRole('dialog',{name:'切换工作区'});
   await home.waitFor({timeout:40000});await liteLabel.waitFor();
-  assert.deepEqual(await nav.getByRole('link').allTextContents(),['启动','下载','设置','更多']);
+  assert.deepEqual(await nav.getByRole('link').allTextContents(),['启动','下载','设置']);
   await main.getByRole('heading',{name:names[0],exact:true}).waitFor();
   await capture('lite-start');
 
@@ -52,14 +53,18 @@ export async function checkLiteHome(page,native,{names,searchedInstance,capture,
   await main.getByRole('button',{name:'启动游戏',exact:true}).click();
   await page.getByRole('dialog',{name:'你的幻想镇身份'}).waitFor();await page.keyboard.press('Escape');
 
-  await nav.getByRole('link',{name:'更多',exact:true}).click();
+  await nav.getByRole('link',{name:'设置',exact:true}).click();
   await main.getByRole('link',{name:'账号与角色'}).click();
   await main.getByRole('heading',{name:'账号与角色',exact:true}).waitFor();await liteLabel.waitFor();
-  assert.equal(new URL(page.url()).hash,'#/lite/account');
-  await nav.getByRole('link',{name:'更多',exact:true}).click();
-  await main.getByRole('link',{name:'切换到完整工作台'}).click();
-  await prompt.getByRole('button',{name:'留在极简版'}).click();
-  assert.equal(new URL(page.url()).hash,'#/lite/more');await liteLabel.waitFor();
+  assert.equal(new URL(page.url()).hash,'#/lite/settings/account');
+  await nav.getByRole('link',{name:'下载',exact:true}).click();
+  await main.getByRole('link',{name:'模组与资源'}).click();
+  await main.getByRole('button',{name:'切换实例'}).click();
+  await picker.getByRole('textbox').fill(names[0]);await picker.getByRole('button',{name:new RegExp(names[0])}).first().click();
+  await main.locator('.resource-target strong').filter({hasText:names[0]}).waitFor();
+  await main.getByRole('button',{name:'切换实例'}).click();await picker.getByRole('textbox').fill(searchedInstance);
+  await picker.getByRole('button',{name:new RegExp(searchedInstance)}).click();
+  assert.equal(new URL(page.url()).hash,'#/lite/download/addons');
   await nav.getByRole('link',{name:'启动',exact:true}).click();
   await main.getByRole('heading',{name:searchedInstance,exact:true}).waitFor();
   await openFullWorkspace(page);await full.waitFor();
@@ -67,16 +72,15 @@ export async function checkLiteHome(page,native,{names,searchedInstance,capture,
   await page.goBack();await prompt.getByRole('button',{name:'留在完整工作台'}).click();
   assert.equal(new URL(page.url()).hash,'#/');
 
-  await page.getByRole('link',{name:'外观',exact:true}).click();
-  await page.getByRole('switch',{name:'默认打开极简版'}).check();
+  await switchWorkspace(page,true);
   await page.waitForFunction(async()=> (await window.launcher.invoke('state',{localOnly:true})).value.settings.liteStartup===true);
   await page.getByRole('link',{name:'幻想镇首页'}).click();
   assert.ok((await native('settings.save',{selectedInstance:names[1]})).ok);
-  await page.reload();await full.waitFor();
+  await page.reload();await home.waitFor();
   const entry=new URL(page.url());entry.hash='';
   await page.goto('about:blank');await page.goto(entry.href);await home.waitFor({timeout:40000});
   await openFullWorkspace(page);await full.waitFor();
   assert.ok((await native('settings.save',{liteStartup:false})).ok);
   await page.reload();await full.waitFor();
-  console.log('Workspace boundary: independent addresses, refresh, history, scoped search, cancellation and explicit switch. Shared selection, guest gate and cold-start preference passed.');
+  console.log('单一启动入口、设置切换与冷启动记忆、共用实例、同页资源切换、历史返回和游客登录门禁均通过。');
 }
