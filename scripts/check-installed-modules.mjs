@@ -59,6 +59,7 @@ try{
   await fs.writeFile(path.join(world,'山谷.json'),JSON.stringify({id:'山谷',mainClass:'net.minecraft.client.main.Main'}));
   const legacy=JSON.stringify({gameRoot:root,selectedInstance:'山谷',fecEnabled:false,memoryMode:'manual',defaultMemoryMB:7168,unknownFixture:701});
   const legacyFile=path.join(old,'settings.json');await fs.writeFile(legacyFile,legacy);
+  await fs.mkdir(app,{recursive:true});await fs.writeFile(path.join(app,'幻想镇 极简版.exe'),'previous-install-wrapper');
   // /D= must be NSIS's final, unquoted argument, including on Windows temp paths containing spaces.
   execFileSync(path.join(release,'HXZ-3rd-'+version+'-setup-'+arch+'.exe'),['/S','/NOSHELL','/D='+app],{windowsHide:true,windowsVerbatimArguments:true,timeout:180000});
   await fs.access(path.join(app,'no-shell.flag'));

@@ -15,7 +15,7 @@ if(result.status!==0)process.exit(result.status??1);
 const target=path.resolve(process.env.HXZ3_DESKTOP_DIST||path.join('release',pkg.version,'windows-'+architecture));
 await fs.mkdir(target,{recursive:true});
 await fs.copyFile(path.join('native/target',triple,'release/hxz-launcher.exe'),path.join(target,'幻想镇 3rd.exe'));
-await fs.copyFile(path.join('native/target',triple,'release/hxz-lite.exe'),path.join(target,'幻想镇 极简版.exe'));
+await fs.rm(path.join(target,'幻想镇 极简版.exe'),{force:true});
 const engine=path.join(target,'engine');
 await fs.cp(workerDirectory,engine,{recursive:true});
 await fs.copyFile('LICENSE',path.join(target,'LICENSE'));

@@ -16,6 +16,7 @@ SetCompressor /SOLID lzma
 Section
   SetOutPath "$INSTDIR"
   File /r "${SOURCE_DIR}\*"
+  Delete "$INSTDIR\幻想镇 极简版.exe"
   FileOpen $0 "$INSTDIR\installed.flag" w
   IfFileExists "$EXEDIR\extensions\HXZ-Community-Plugin-${PRODUCT_VERSION}.zip" 0 +2
   FileWriteUTF16LE /BOM $0 "$EXEDIR\extensions"
@@ -31,7 +32,7 @@ Section
   Goto registration_done
   register_shell:
   CreateShortCut "$SMPROGRAMS\幻想镇 3rd.lnk" "$INSTDIR\幻想镇 3rd.exe"
-  CreateShortCut "$SMPROGRAMS\幻想镇 极简版.lnk" "$INSTDIR\幻想镇 极简版.exe"
+  Delete "$SMPROGRAMS\幻想镇 极简版.lnk"
   WriteRegStr HKCU "Software\HXZ\Third" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Classes\hxz3-room" "" "URL:幻想镇 3rd 房间邀请"
   WriteRegStr HKCU "Software\Classes\hxz3-room" "URL Protocol" ""

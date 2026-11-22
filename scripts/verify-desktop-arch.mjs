@@ -4,7 +4,8 @@ import path from 'node:path';
 export async function verifyDesktopArchitecture(dir,architecture){
   const machine={x64:0x8664,ia32:0x14c}[architecture];
   if(!machine)throw Error('未知 Windows 架构 '+architecture);
-  for(const name of ['幻想镇 3rd.exe','幻想镇 极简版.exe','engine/node.exe']){
+  if(await fs.stat(path.join(dir,'幻想镇 极简版.exe')).then(()=>true,e=>{if(e.code==='ENOENT')return false;throw e;}))throw Error('安装目录残留独立极简版程序');
+  for(const name of ['幻想镇 3rd.exe','engine/node.exe']){
     const file=await fs.open(path.join(dir,name));
     try{
       const dos=Buffer.alloc(64),pe=Buffer.alloc(6);
