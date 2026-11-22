@@ -18,7 +18,7 @@ export async function instanceFilePaths(settings,id,kind){
  await noLinks(active);await noLinks(disabled);
  return{type,active,disabled,shared:settings.instanceSettings?.[id]?.isolated===false};
 }
-async function resolveEntry(paths,key){
+export async function resolveEntry(paths,key){
  if(typeof key!=='string')throw Error('无效文件');
  const match=/^(active|disabled|legacy)\/(.+)$/.exec(key);if(!match)throw Error('无效文件');
  const [,state,name]=match;filename(name);

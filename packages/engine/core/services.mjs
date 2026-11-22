@@ -32,7 +32,8 @@ import {launchHistory} from './launch-history.mjs';
 import {gamePlaytime} from './game-playtime.mjs';
 import {inspectWorldArchive,extractWorldArchive,exportWorld,putWorldReceipt} from './worlds.mjs';
 import {readLayoutPackage,exportLayoutPackage,applyLayoutPackage,LAYOUT_LIMIT} from './layout-package.mjs';
-import {addonWorlds,addonSearch,addonInstall,modDetails} from './addons.mjs';
+import {addonWorlds,addonSearch,addonInstall,modDetails,publicPost,addonReleases} from './addons.mjs';
+import {createResourceInventory,localRelease,embeddedResource} from './resource-inventory.mjs';
 import {INSTANCE_FILE_TYPES,instanceFilePaths,listInstanceFiles,toggleInstanceFile,importInstanceFiles,removeInstanceFile} from './instance-files.mjs';
 import {importMedia,mediaReference,mediaPath} from './media.mjs';
 import {crashReport,diagnosticText,redactDiagnostic} from "./diagnostics.mjs";
@@ -407,6 +408,26 @@ export async function createServices({
     await saveAccounts();
     return a;
   }
+  const skinHeads = new Map();
+  async function roleSkinHead({id,uuid}) {
+    const role = accounts.find(a => a.id === id && a.uuid === uuid);
+    if (!role || !/^[a-f0-9]{32}$/i.test(uuid) || !nativeImage) return null;
+    let profile = await cachedSkin(data,role).catch(() => null);
+    if (!profile) { await rememberSkin(role); profile = await cachedSkin(data,role).catch(() => null); }
+    else if (Date.now()-profile.verifiedAt > 3600000) void rememberSkin(role);
+    const name = profile?.textures?.SKIN?.file;
+    if (!/^[a-f0-9]{64}\.png$/.test(name || '')) return null;
+    const key = uuid+'/'+name;
+    if (!skinHeads.has(key)) {
+      if (skinHeads.size >= 64) skinHeads.delete(skinHeads.keys().next().value);
+      const texture = path.join(data,'skin-cache',uuid,name);
+      await noLinks(texture);
+      const png = await nativeImage.thumbnail(texture,{skinHead:true});
+      skinHeads.set(key,'data:image/png;base64,'+png.toString('base64'));
+    }
+    return skinHeads.get(key);
+  }
+  const inventory=createResourceInventory(data,publicPost);
   const skinTasks=new Map();
   async function rememberSkin(a){if(skinTasks.has(a.uuid))return skinTasks.get(a.uuid);const task=cacheSkin(data,a).catch(e=>log('[皮肤缓存] '+e.message)).finally(()=>skinTasks.delete(a.uuid));skinTasks.set(a.uuid,task);return task;}
   async function ensureAccount() {
@@ -1772,19 +1793,25 @@ export async function createServices({
         !/^[\w-]{1,100}$/.test(input.project)
       )
         throw Error("无效模组项目");
-      const target = instanceTarget(
-        await readVersion(settings.gameRoot, input.instance)
-      );
-      const plan = await modPlan(target, input.project, input.version, {
-        versions: catalog.modVersions,
-        version: catalog.modVersion
-      });
-      const dir = await modDirectory(settings, input.instance),
-        staging = path.join(dependencies, "mod-downloads", randomUUID()),
-        installed = [];
       const controller = new AbortController();
       task = controller;
+      const installed = [],staging = path.join(dependencies, "mod-downloads", randomUUID());
       try {
+        const target = instanceTarget(await readVersion(settings.gameRoot, input.instance));
+        const releases = await modPlan(target, input.project, input.version, {
+          versions: catalog.modVersions,
+          version: catalog.modVersion
+        });
+        const dir = await modDirectory(settings, input.instance);
+        const {items}=await inventory.scan(settings,input.instance,'mod');
+        const plan=[];
+        for(const file of releases){
+          const local=localRelease(items,file.projectId,file.hashes.sha512);
+          if(local?.state==='installed')continue;
+          if(local?.state==='disabled')throw Error('相同模组已经下载并停用，请在本地列表启用：'+local.item.name);
+          if(local?.state==='other'&&local.item.enabled)throw Error('当前实例已启用同一模组的其他版本，请先停用：'+local.item.name);
+          plan.push(file);
+        }
         await noLinks(dir);
         await fs.mkdir(dir, { recursive: true });
         await fs.mkdir(staging, { recursive: true });
@@ -1805,6 +1832,9 @@ export async function createServices({
         }
         for (const f of plan) {
           controller.signal.throwIfAborted();
+          const embedded=await embeddedResource(path.join(staging,f.filename),'mod');
+          const active=embedded.slug&&items.find(item=>item.enabled&&item.slug===embedded.slug);
+          if(active)throw Error('当前实例正在加载同一模组，请先停用旧版本：'+active.name);
           const dest = modFile(dir, f.filename);
           await noLinks(dest);
           if (await exists(dest)) {
@@ -1818,6 +1848,7 @@ export async function createServices({
           );
           installed.push(dest);
         }
+        for (const f of releases) await inventory.record(f.hashes.sha512,{project_id:f.projectId,id:f.versionId,version_number:f.versionNumber});
         phase({
           phase: "MOD 安装完成",
           busy: false,
@@ -1839,13 +1870,25 @@ export async function createServices({
         await fs.rm(staging, { recursive: true, force: true });
       }
     },
+    "account.skinHead": roleSkinHead,
+    "addons.local": ({instance,kind})=>inventory.scan(settings,instance,kind),
+    "addons.identify": ({instance,kind})=>inventory.identify(settings,instance,kind),
+    "addons.releases": input=>addonReleases(settings,input),
     async "addons.worlds"(input){return addonWorlds(settings,input.instance);},
     async "addons.search"(input){return addonSearch(settings,input);},
-    async "addons.install"(input){busy();const controller=new AbortController();task=controller;try{phase({phase:'下载游戏资源包',busy:true});const result=await addonInstall(settings,input,{signal:controller.signal,onTransfer:p=>phase({phase:'下载游戏资源包',busy:true,completed:p.bytes,total:p.total,unit:'bytes',detail:p.source})});phase({phase:'资源安装完成',busy:false});return result;}catch(e){phase({phase:'资源下载未完成',busy:false,failed:!controller.signal.aborted,failure:e.message});throw e;}finally{controller.abort();task=null;}},
+    async "addons.install"(input){busy();const controller=new AbortController();task=controller;try{phase({phase:'下载游戏资源包',busy:true});const result=await addonInstall(settings,input,{inventory,signal:controller.signal,onTransfer:p=>phase({phase:'下载游戏资源包',busy:true,completed:p.bytes,total:p.total,unit:'bytes',detail:p.source})});phase({phase:'资源安装完成',busy:false});return result;}catch(e){phase({phase:'资源下载未完成',busy:false,failed:!controller.signal.aborted,failure:e.message});throw e;}finally{controller.abort();task=null;}},
     async "mods.details"(input){return modDetails(settings,input.id,data);},
     async "instance.files.list"(input){return listInstanceFiles(settings,input.id,input.kind);},
     async "instance.files.open"(input){const {active}=await instanceFilePaths(settings,input.id,input.kind);await fs.mkdir(active,{recursive:true});const error=await shell.openPath(active);if(error)throw Error(error);return{ok:true};},
-    async "instance.files.toggle"(input){busy();return toggleInstanceFile(settings,input.id,input.kind,input.key);},
+    async "instance.files.toggle"(input){
+      busy();
+      if(input.kind==='mods'&&!String(input.key).startsWith('active/')){
+        const {items}=await inventory.scan(settings,input.id,'mod'),item=items.find(row=>row.key===input.key);
+        const active=item&&items.find(row=>row.enabled&&((item.digest&&item.digest===row.digest)||(item.project&&item.project===row.project)||(item.slug&&item.slug===row.slug)));
+        if(active)throw Error('相同模组已经启用，请先停用：'+active.name);
+      }
+      return toggleInstanceFile(settings,input.id,input.kind,input.key);
+    },
     async "instance.files.remove"(input){busy();return removeInstanceFile(settings,input.id,input.kind,input.key,file=>shell.trashItem(file));},
     async "instance.files.import"(input){
       busy();await instanceFilePaths(settings,input.id,input.kind);let files=input.files;

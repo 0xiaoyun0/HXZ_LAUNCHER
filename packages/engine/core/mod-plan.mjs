@@ -78,7 +78,7 @@ export async function modPlan(
       throw Error("模组文件名称冲突：" + file.filename);
     if (!names.has(name)) {
       names.set(name, file.hashes.sha512);
-      plan.push(file);
+      plan.push({...file,projectId:match.project_id,versionId:match.id,versionNumber:match.version_number});
     }
   }
   await resolve(project, selected);

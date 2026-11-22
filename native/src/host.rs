@@ -148,7 +148,9 @@ pub fn dispatch(
                 (1600, 900)
             };
             let mut bytes = Cursor::new(Vec::new());
-            if input["avatar"] == true {
+            if input["skinHead"] == true {
+                skin_head(&original)?.write_to(&mut bytes, image::ImageFormat::Png).map_err(|e| e.to_string())?;
+            } else if input["avatar"] == true {
                 original
                     .resize_to_fill(width, height, image::imageops::FilterType::Lanczos3)
                     .write_to(&mut bytes, image::ImageFormat::Png)
@@ -197,5 +199,47 @@ pub fn dispatch(
             Ok(Value::Null)
         }
         _ => Err("未知本机操作".into()),
+    }
+}
+fn skin_head(texture: &image::DynamicImage) -> Result<image::DynamicImage, String> {
+    let (width, height) = (texture.width(), texture.height());
+    if width < 64 || width % 64 != 0 || !(height == width || height == width / 2) {
+        return Err("皮肤尺寸不符合角色贴图格式".into());
+    }
+    let unit = width / 64;
+    let mut face = texture.crop_imm(8 * unit, 8 * unit, 8 * unit, 8 * unit).to_rgba8();
+    let hat = texture.crop_imm(40 * unit, 8 * unit, 8 * unit, 8 * unit).to_rgba8();
+    // Some legacy 64x32 skins use the entire unused hat layer as an opaque background.
+    if height == width || hat.pixels().any(|p| p[3] != 255) {
+        image::imageops::overlay(&mut face, &hat, 0, 0);
+    }
+    Ok(image::DynamicImage::ImageRgba8(face).resize_exact(64, 64, image::imageops::FilterType::Nearest))
+}
+
+#[cfg(test)]
+mod avatar_tests {
+    use super::skin_head;
+    use image::{DynamicImage, Rgba, RgbaImage};
+
+    #[test]
+    fn face_and_hat_preserve_pixel_edges_on_standard_and_hd_skins() {
+        for unit in [1, 2] {
+            let mut skin = RgbaImage::new(64 * unit, 64 * unit);
+            for y in 8 * unit..16 * unit {
+                for x in 8 * unit..16 * unit {
+                    skin.put_pixel(x, y, Rgba([60, 90, 120, 255]));
+                }
+            }
+            for y in 8 * unit..9 * unit {
+                for x in 40 * unit..41 * unit {
+                    skin.put_pixel(x, y, Rgba([210, 100, 30, 255]));
+                }
+            }
+            let head = skin_head(&DynamicImage::ImageRgba8(skin)).unwrap().to_rgba8();
+            assert_eq!(head.dimensions(), (64, 64));
+            assert_eq!(head.get_pixel(7, 7).0, [210, 100, 30, 255]);
+            assert_eq!(head.get_pixel(8, 8).0, [60, 90, 120, 255]);
+        }
+        assert!(skin_head(&DynamicImage::new_rgba8(48, 64)).is_err());
     }
 }
