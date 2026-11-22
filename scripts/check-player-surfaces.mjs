@@ -46,6 +46,14 @@ export async function checkPlayerSurfaces(page,native,capture,communityUrl){
   await reader.locator('.activity-card').first().waitFor();
   assert.equal(await reader.getByRole('button',{name:'管理活动'}).count(),0);
   assert.equal(await page.getByRole('button',{name:/作者工具|随包剧情预览/}).count(),0);
+  const readerRoot=reader.locator('html[data-player-reader=true]');
+  await readerRoot.waitFor({state:'attached'});
+  const pageId=await readerRoot.evaluate(el=>el.dataset.fixtureVisit=String(performance.now()));
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await reader.locator('html[data-reduced=true]').waitFor({state:'attached'});
+  assert.equal(await readerRoot.getAttribute('data-fixture-visit'),pageId);
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await reader.locator('html[data-reduced=false]').waitFor({state:'attached'});
   await capture('entry-linking');
   try{
     assert.ok((await native('settings.save',{communityUrl:'http://127.0.0.1:9'})).ok);await page.reload();

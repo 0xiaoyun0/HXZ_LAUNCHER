@@ -1,3 +1,4 @@
+import {checkMicroInteractions} from './check-desktop-micro.mjs';
 import {checkPlayerSurfaces} from './check-player-surfaces.mjs';
 import assert from 'node:assert/strict';
 import {checkLocalGames,checkCommunityGames,checkGuestCatalog} from './check-desktop-arcade.mjs';
@@ -16,13 +17,14 @@ import {chromium} from 'playwright-core';
 const {version}=JSON.parse(await fs.readFile('package.json','utf8'));
 const architecture=process.argv.includes('--ia32')?'ia32':'x64';
 const withAccount=process.argv.includes('--fixture-account');
-const layoutOnly=withAccount&&process.argv.includes('--layout-only');
+const motionOnly=withAccount&&process.argv.includes('--motion-only');
+const layoutOnly=withAccount&&(process.argv.includes('--layout-only')||motionOnly);
 const startLite=process.argv.includes('--lite');
 const title='幻想镇 3rd.exe';
 const dist=path.resolve(process.env.HXZ3_TEST_DIST||path.join('release',version,'windows-'+architecture));
 let exe=path.join(dist,title);
 const home=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-third-check-'));
-const gameRoot=path.join(home,'game'),artifacts=path.resolve('.preview',architecture==='x64'?'':'ia32');
+const gameRoot=path.join(home,'game'),artifacts=path.resolve(process.env.HXZ3_TEST_ARTIFACTS||path.join('.preview',architecture==='x64'?'':'ia32'));
 const sampleDays={};
 for(const [offset,minutes] of [[0,42],[1,80],[2,24],[4,115],[6,90],[8,25],[11,127],[13,40],[17,65],[22,33],[31,122],[40,83],[42,39],[49,63],[53,31],[61,75],[73,92],[88,24],[94,124],[108,40],[127,68],[141,131],[160,36]]){
   const day=new Date(Date.now()+8*3600000-offset*86400000).toISOString().slice(0,10);sampleDays[day]=minutes*60000;
@@ -90,18 +92,19 @@ try {
    await page.screenshot({path:path.join(artifacts,name+'.png'),animations:'disabled'});
  };
  const denied=async action=>{const result=await native(action);assert.equal(result.ok,false,action);assert.match(result.error,/登录|未在本应用/);};
- if(layoutOnly||startLite)await checkFirstVisit(page,native,capture,startLite);
+ if(!motionOnly&&(layoutOnly||startLite))await checkFirstVisit(page,native,capture,startLite);
  if(!layoutOnly||startLite)await checkLiteHome(page,native,{names,searchedInstance,capture,cold:startLite});
  if(layoutOnly){
    await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor();
-   await checkGuestCatalog(page);
+   if(!motionOnly)await checkGuestCatalog(page);
    await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'小游戏'}).click();
    await page.getByRole('link',{name:'积分排行榜'}).click();
    await page.locator('.login-gate').getByRole('heading',{name:'积分排行榜'}).waitFor();
    assert.equal(await page.locator('.points-ranking').count(),0);
    await page.getByRole('button',{name:'登录账号',exact:true}).click();await fixture.login(page);
    await checkPlayerSurfaces(page,native,capture,fixture.url);
-   const {verifyDesktopLayout}=await import('./desktop-layout.mjs');await verifyDesktopLayout(page,native,artifacts);
+   await checkMicroInteractions(page,native,capture);
+   if(!motionOnly){const {verifyDesktopLayout}=await import('./desktop-layout.mjs');await verifyDesktopLayout(page,native,artifacts);}
  }else{
    const nav=page.getByRole('navigation',{name:'主导航'});
    await page.getByRole('heading',{name:'启动游戏',exact:true}).waitFor({timeout:40000});
@@ -204,7 +207,7 @@ try {
    await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'游戏与 Java'}).click();assert.equal(await amount.inputValue(),'768');await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
    await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'外观与启动器'}).click();await page.getByRole('radio',{name:'浅色',exact:true}).click();await page.waitForFunction(()=>document.documentElement.dataset.theme==='light');await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'游戏与 Java'}).click();await capture('launcher-settings');
    await page.locator('footer').getByRole('link',{name:'音乐播放器',exact:true}).click();await page.getByRole('button',{name:'播放 小镇晨间',exact:true}).click();
-   await page.getByRole('button',{name:'暂停',exact:true}).waitFor();await page.waitForFunction(()=>Number(document.querySelector('input[aria-label="播放进度"]').value)>0);const volumeName=page.locator(' .volume-line>label>span');
+   await page.getByRole('button',{name:'暂停',exact:true}).waitFor();await page.waitForFunction(()=>Number(document.querySelector('input[aria-label="播放进度"]').value)>0);const volumeName=page.locator('.volume-line>label').getByText('音量',{exact:true});
    assert.ok(await volumeName.evaluate(el=>{const range=document.createRange();range.selectNodeContents(el);return range.getClientRects().length===1;}),'volume label should remain on one line');
    await capture('launcher-music');await nav.getByRole('link',{name:'游戏库'}).click();await page.locator('footer').getByRole('button',{name:'暂停当前音乐'}).click();
    await nav.getByRole('link',{name:'游戏',exact:true}).click();await page.getByRole('link',{name:'游玩记录'}).click();await page.getByRole('heading',{name:'游玩记录',exact:true}).waitFor();

@@ -107,7 +107,16 @@ export async function communityFixture(temp, dist, title) {
       await page.getByText('我们在出生点集合，一起修一座桥。',{exact:true}).first().waitFor();
       const reply=page.locator('main textarea').last();await reply.fill('我来准备木材。');await page.getByRole('button',{name:'发布回复',exact:true}).click();
       await page.getByText('我来准备木材。',{exact:true}).first().waitFor();
-      await page.reload();await page.getByText('我来准备木材。',{exact:true}).first().waitFor({timeout:22000});await capture('community-forum');
+      for(const label of ['点赞帖子','收藏帖子','点赞回复']){
+        const reaction=page.getByRole('button',{name:label,exact:true});
+        await reaction.click();
+        const pressed=page.getByRole('button',{name:'取消'+label,exact:true});
+        await pressed.waitFor();assert.equal(await pressed.getAttribute('aria-pressed'),'true');
+        await pressed.locator('.reaction-face[data-changed]').waitFor();
+      }
+      await page.reload();await page.getByText('我来准备木材。',{exact:true}).first().waitFor({timeout:22000});
+      assert.equal(await page.getByRole('button',{name:'取消点赞帖子',exact:true}).getAttribute('aria-pressed'),'true');
+      await capture('community-forum');
       const visitColumn=async(name)=>{await nav.getByRole('button',{name:'全部栏目'}).click();await page.getByRole('dialog',{name:'社区栏目'}).getByRole('link',{name,exact:true}).click();};
       await nav.getByRole('button',{name:'全部栏目'}).click();const directory=page.getByRole('dialog',{name:'社区栏目'});await capture('community-directory');
       await directory.getByRole('link',{name:'活动与赛事'}).click();const scope=page.getByRole('group',{name:'范围'});await scope.getByRole('button',{name:'我的内容'}).click();await page.getByRole('button',{name:'查找',exact:true}).click();await scope.getByRole('button',{name:'我的内容',pressed:true}).waitFor();

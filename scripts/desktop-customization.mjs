@@ -62,7 +62,7 @@ export async function verifyCustomization(page,directory){
   await page.waitForFunction(()=>{const ids=[...document.querySelectorAll('[data-board=home] .game-board>[data-card-id]')].map(el=>el.dataset.cardId);return ids.indexOf('roles')>ids.indexOf('monitor');});
   const resize=board.getByRole('button',{name:'调整大小游戏实例',exact:true});await resize.scrollIntoViewIfNeeded();const corner=await resize.boundingBox();
   await page.mouse.move(corner.x+corner.width/2,corner.y+corner.height/2);await page.mouse.down();await page.mouse.move(corner.x+corner.width/2-80,corner.y+corner.height/2+46,{steps:12});await page.mouse.up();
-  await board.locator('.instances-card[data-fixed]').waitFor();await capture('card-arrangement');await page.reload();await board.locator('.instances-card[data-fixed]').waitFor();
+  await board.locator('.instances-card[data-fixed][data-landed]').waitFor();await capture('card-arrangement');await page.reload();await board.locator('.instances-card[data-fixed]').waitFor();
   const stored=(await snapshot()).cardLayouts['home.wide'];assert.equal(stored.items.find(i=>i.i==='library').manualHeight,true);
   const moveGrip=board.getByRole('button',{name:'拖动游戏实例'});await moveGrip.scrollIntoViewIfNeeded();
   const box=await moveGrip.boundingBox();await page.mouse.move(box.x+10,box.y+10);await page.mouse.down();await page.mouse.move(box.x+52,box.y+25,{steps:5});
@@ -70,6 +70,7 @@ export async function verifyCustomization(page,directory){
   const moving=await moveGrip.boundingBox();
   assert.ok(Math.abs(moving.x-box.x)>10||Math.abs(moving.y-box.y)>6,'移动过程中握柄和卡片应当跟随指针');
   await capture('live-card-drag');await page.keyboard.press('Escape');await page.mouse.up();
+  assert.equal(await board.locator('.instances-card').getAttribute('data-landed'),null);
   assert.deepEqual((await snapshot()).cardLayouts['home.wide'],stored);
   await resize.dblclick();await board.locator('.instances-card:not([data-fixed])').waitFor();
   console.log('三套材质、设置重载、命名方案、宽窄窗独立布局、锁定、通用卡片和跨页移动通过');
