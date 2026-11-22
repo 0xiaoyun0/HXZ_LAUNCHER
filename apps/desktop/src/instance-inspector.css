@@ -22,7 +22,6 @@
 .instance-manager-drawer .instance-title-line {flex-wrap:wrap;row-gap:.35em}
 .instance-manager-drawer .instance-title-line h2 {overflow-wrap:anywhere}
 .instance-overview-tools {display:flex;align-items:center;flex-wrap:wrap;gap:.45em;margin-inline-start:auto}
-.instance-manager-drawer .instance-overview-tools+.tab-refresh {margin-inline-start:0}
 .instance-manager-drawer .board-toolbar {margin-block-end:var(--desk-gap)}
 .instance-manager-drawer .desktop-panel {
   margin:0;padding:0;min-inline-size:0;border:1px solid var(--edge);border-radius:var(--desk-radius);
