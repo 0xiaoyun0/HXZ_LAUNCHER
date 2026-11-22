@@ -12,15 +12,35 @@ import {WALLPAPER_DEFAULTS,wallpaperPatch,wallpaperPreferences} from '../../../p
 import {workspacePatch} from '../../../packages/engine/core/desktop-workspace.mjs';
 export const defaults={...presetAppearance(),...WALLPAPER_DEFAULTS,workspaceLayout:'classic',liteStartup:false,workspaceModules:{},workspaceShelf:null,libraryView:'auto',desktopThemes:{active:DEFAULT_DESKTOP_THEME.id,entries:[]},fontSize:16,cardLayouts:{},cardPlacements:{},widgets:[],shortcuts:{},shortcutEnabled:true,voiceOverlay:false,gameWindowAction:'minimize',gameSleep:true,keepLauncherAvailable:true,autoReportErrors:false,memoryOptimization:true,onboardingDone:false,onboardingVersion:0,cardStyle:{...presetAppearance().cardStyle,gap:20},animationSpeed:1,gameRoot:'',javaPath:'',selectedAccount:'',selectedInstance:'',communityUrl:'https://qqbot.hxzmc.top',memoryMode:'auto',defaultMemoryMB:8192,downloadConcurrency:32,downloadSpeedMBps:0,downloadMode: "official",hxzupPopup:true,promptJavaDownload:true,chinesePaths:true,confirmUnsaved:true,chatHistoryDays:0,voiceMode:'open',voiceKey:'KeyT',voiceSounds:true,showCover:true,backgroundMusic:'',musicVolume:.3,videoQuality:'balanced',defaultCover:'',instanceSettings:{},hiddenInstances:[],hiddenLinks:[],pinnedLinks:[],columns:{sidebar:{color:'',opacity:1,visible:true,label:'导航'},workspace:{color:'',opacity:1,visible:true,label:'工作区'},dock:{color:'',opacity:1,visible:true,label:'任务'}},showLinking:true,linkingDiscovered:false,fecEnabled:true,communityRelayEnabled:true};
 export const state=proxy<any>({settings:{...defaults},accounts:[],instances:[],system:{memoryMB:0,freeMemoryMB:0},running:false,sessions:[],ready:false,error:''});
-export const ui=proxy<any>({dialog:'',instance:'',pack:null,toast:'',toastError:false,issue:null,issueOpen:false,tasks:false,decision:null,crash:null,pending:false});
+export const ui=proxy<any>({dialog:'',instance:'',pack:null,toast:'',toastId:0,toastError:false,toastDuration:0,issue:null,issueOpen:false,tasks:false,decision:null,crash:null,pending:false});
 export const task=proxy<any>({...newTaskProgress(),logs:[]});
 const listeners=new Set<()=>void>();
 export function watchSettings(getter:()=>unknown,fn:()=>void){let previous=JSON.stringify(getter());return subscribe(state,()=>{const next=JSON.stringify(getter());if(next!==previous){previous=next;fn();}});}
 export function errorMessage(e:any){return requestFailureMessage(e);}
-let toastTimer:any;
+let toastTimer:ReturnType<typeof setTimeout>|undefined,noticeRemaining=0,noticeStarted=0;
+const noticeHolds=new Set<string>();
+function runNoticeClock(id:number){
+  noticeStarted=performance.now();
+  toastTimer=setTimeout(()=>{if(id===ui.toastId)ui.toast='';},noticeRemaining);
+}
+export function holdNotice(id:number,reason:string,hold:boolean){
+  if(id!==ui.toastId||!ui.toast||hold===noticeHolds.has(reason))return;
+  if(hold){
+    if(!noticeHolds.size){
+      clearTimeout(toastTimer);
+      noticeRemaining=Math.max(0,noticeRemaining-(performance.now()-noticeStarted));
+    }
+    noticeHolds.add(reason);
+  }else{
+    noticeHolds.delete(reason);
+    if(!noticeHolds.size)runNoticeClock(id);
+  }
+}
 function toast(message:string,error=false){
-  ui.toast=message;ui.toastError=error;clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>{ui.toast='';},error?12000:4000);
+  clearTimeout(toastTimer);noticeHolds.clear();
+  ui.toastId++;ui.toast=message;ui.toastError=error;
+  noticeRemaining=ui.toastDuration=error?12000:4000;
+  runNoticeClock(ui.toastId);
 }
 export function reportFailure(error:unknown,operation=''){
   const issue=playerError(error,operation||(error as any)?.operation||'interface');

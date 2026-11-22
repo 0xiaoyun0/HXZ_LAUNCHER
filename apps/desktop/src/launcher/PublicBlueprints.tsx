@@ -3,7 +3,7 @@ import {Link} from 'react-router-dom';
 import {useData,request} from '../data';
 import {invoke,perform,state,notify,saveSettings} from '../model';
 import {Button,Modal,Select} from '../ui';
-
+import {SpringCheck} from './micro/SpringCheck';
 export function PublicBlueprints(){
   const [text,setText]=useState(''),[query,setQuery]=useState(''),[page,setPage]=useState(0);
   const [selected,setSelected]=useState(''),[destination,setDestination]=useState(''),[remember,setRemember]=useState(false);
@@ -18,7 +18,7 @@ export function PublicBlueprints(){
     <Modal open={!!selected} onClose={()=>setSelected('')} title={detail.data?.title||'蓝图详情'}>
       {detail.error?<p role="alert">{detail.error} <Button onClick={detail.reload}>重试</Button></p>:detail.data?<><p>{detail.data.description||'暂无说明'}</p><p>{[detail.data.mc,detail.data.loader,detail.data.create_version].filter(Boolean).join(' · ')}</p>
         <div className="setting-line"><span>保存位置</span><Select label="蓝图保存位置" value={ready} onChange={setDestination} options={[{value:'',label:'另存为文件…'},...(targets.data||[]).map((row:any)=>({value:row.id,label:row.name||row.id}))]}/></div>
-        <label className="setting-line">记住保存位置<input type="checkbox" checked={remember} onChange={e=>setRemember(e.target.checked)}/></label>
+        <label className="setting-line">记住保存位置<SpringCheck checked={remember} onChange={e=>setRemember(e.target.checked)}/></label>
         <Button tone="solid" disabled={!detail.data.size||targets.loading} onClick={()=>perform(async()=>{const result=await invoke('blueprints.download',{id:selected,instance:ready});if(result.ok){if(remember)await saveSettings({blueprintInstance:ready});notify('已保存到 '+result.file);setSelected('');}})}>保存蓝图</Button></>:<p>正在读取详情…</p>}
     </Modal></section>;
 }

@@ -1,6 +1,7 @@
 import {useChoiceGlide} from './useChoiceGlide';
 import {useEffect,useId,useRef,useState} from 'react';
 import {perform} from '../model';
+import {WakeRange} from './micro/WakeRange';
 
 export function PreferenceSwitch({name,caption,checked,disabled=false,change}:{name:string;caption?:string;checked:boolean;disabled?:boolean;change:(on:boolean)=>Promise<unknown>}){
   const [pending,setPending]=useState<boolean|null>(null);
@@ -40,7 +41,7 @@ export function StepChoice({label,value,options,onChange}:Omit<ChoiceProps,'disa
       }
     });
   }
-  return <div className="step-choice"><input type="range" aria-label={label} aria-valuetext={options[draft][1]} min={0} max={options.length-1} step={1} value={draft}
+  return <div className="step-choice"><WakeRange aria-label={label} aria-valuetext={options[draft][1]} min={0} max={options.length-1} step={1} value={draft}
     onChange={e=>{const next=Number(e.target.value);pending.current=next;setDraft(next);}} onPointerUp={commit} onPointerCancel={commit} onKeyUp={commit} onBlur={commit}/>
     <output>{options[draft][1]}</output></div>;
 }

@@ -3,7 +3,7 @@ export interface Archive {id:string;title:string;en:string;category:string;depar
 export interface Task {id:string;title:string;description:string;type:'read'|'code'|'manual'|'guild'|'stat';archiveId?:string;guildId?:string;server?:string;metric?:string;value?:number;requires:string[];available:boolean;completed:boolean;effect?:'music-archive'|'archive-signal';reward?:{item:string;title:string;quantity:number;claimed:boolean;available:boolean};submission?:{id:number;status:string;note:string;updated:number}|null}
 export interface Chapter {id:string;title:string;subtitle:string;archives:Archive[];tasks:Task[];revision:number;manager:boolean;preview?:boolean;prerequisites?:{chapter:string;task:string}[];user:{uid:string;name:string};progress:{read:number;total:number;completed:number;tasks:number}}
 export let chapter:Chapter;
-export let host:{theme?:string;reducedMotion?:boolean;mobile?:boolean;playerOnly?:boolean}={};
+export let host:{theme?:string;animationSpeed?:number;reducedMotion?:boolean;mobile?:boolean;playerOnly?:boolean}={};
 export function setHost(value:typeof host){host=value;}
 export function setChapter(value:Chapter){if(chapter&&value.revision!==chapter.revision){location.reload();return;}chapter=value;window.dispatchEvent(new CustomEvent('linking-progress'));}
 export function previewChapter(value:Chapter){chapter=value;}

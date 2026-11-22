@@ -4,6 +4,7 @@ import {ArrowDown,ArrowUp,Check,Ellipsis,GripVertical,LayoutGrid,LockKeyhole,Mov
 import {useSnapshot} from 'valtio';
 import {boardCards,updateBoard} from '../../../packages/engine/core/board-preferences.mjs';
 import {CARD_PAGES,normalizeCardPlacements,isPortableCard} from '../../../packages/engine/core/card-extras.mjs';
+import {SpringCheck} from './launcher/micro/SpringCheck';
 import {ChoiceGroup} from './launcher/ChoiceControls';
 import {cardHeightEm,cardPositions,useCardGrid} from './CardGrid';
 import {CardGestures} from './CardGestures';
@@ -19,7 +20,7 @@ type Props={id:string;cards:CardSpec[];label?:string;pageTitle?:boolean;classNam
 const CardControls=createContext<{show:(id:string)=>void;id:string;title:string;move:ReactNode}|null>(null);
 function CardMenu(){
   const card=useContext(CardControls);
-  return card?<span className="card-heading-tools">{card.move}<button className="card-options" type="button" aria-label={card.title+'卡片选项'} title="卡片选项" onClick={()=>card.show(card.id)}><Ellipsis size={17}/></button></span>:null;
+  return card?<span className="card-heading-tools">{card.move}<button className="card-options" type="button" aria-label={card.title+'卡片选项'} data-hint="卡片选项" onClick={()=>card.show(card.id)}><Ellipsis size={17}/></button></span>:null;
 }
 function panels(children:ReactNode):ReactElement<any>[]{
   return Children.toArray(children).flatMap(child=>isValidElement<any>(child)?child.type===Fragment?panels((child.props as {children?:ReactNode}).children):[child]:[]);
@@ -56,21 +57,26 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
   const show=(focus='')=>{setTarget(focus||rows[0]?.id||'');setFailure('');setManage(true);};
   useEffect(()=>{setUndo(null);setLocal(undefined);},[key]);
   async function write(edit:(old:any)=>any,remember=true){
-    if(busy)return;setBusy(true);setFailure('');
+    if(busy)return false;setBusy(true);setFailure('');
     try{
       setPending({key,value:edit(stored)});
       let previous:any;
       if(transient){previous=local;setLocal(edit(local));}
       else await saveSettings((settings:any)=>{const map={...settings.cardLayouts};previous=map[key];const next=edit(previous);if(next)map[key]=next;else delete map[key];return {cardLayouts:map};});
       if(remember)setUndo({key,value:previous});else setUndo(null);
-    }catch(e){setFailure((e as Error).message);}finally{setPending(null);setBusy(false);}
+      return true;
+    }catch(e){setFailure((e as Error).message);return false;}finally{setPending(null);setBusy(false);}
   }
   const grouped=!!columns&&!compact&&!custom;
   const packed=!compact&&!grouped;
   useCardGrid(grid,packed,JSON.stringify(visible.map(r=>[r.id,r.column,r.gridRow,r.w,r.h,r.fixed,r.locked])));
-  function modify(command:any){
+  async function modify(command:any){
     const positions=!compact&&grid.current?cardPositions(grid.current):[];
-    return write(old=>updateBoard(specs,old,{...command,positions}));
+    const saved=await write(old=>updateBoard(specs,old,{...command,positions}));
+    if(saved&&['layout','move','place','width','height'].includes(command.op)){
+      const card=Array.from(grid.current?.querySelectorAll<HTMLElement>('[data-card-id]')||[]).find(el=>el.dataset.cardId===command.id);
+      if(card){card.dataset.landed=card.dataset.landed==='a'?'b':'a';}
+    }
   }
   const open=<>{undo?.key===key&&!manage&&<button className="small-action" disabled={busy} onClick={()=>write(()=>undo.value,false)}><Undo2 size={15}/>撤销</button>}{editing&&<button className="launch-primary" onClick={()=>perform(async()=>{await ui.layoutUnsaved?.save();setEditing(false);})}><Check size={15}/>完成整理</button>}<button className="small-action board-launch" onClick={()=>show()}><LayoutGrid size={15}/>卡片</button></>;
   function cardSettings(row:typeof rows[number]){
@@ -115,7 +121,7 @@ function PlayerBoard({id,cards,label,className='',home=false,pageTitle=false,act
         return <div id={'arrange-'+row.id} className="board-edit-row" key={row.id} data-selected={target===row.id||undefined}
           onDragOver={e=>{if(drag&&!row.locked)e.preventDefault();}} onDrop={e=>{e.preventDefault();if(drag)void modify({id:drag,op:'move',to:row.id});setDrag('');}}>
           <div className="board-row-title"><span className="drag-grip" draggable={!busy&&!row.locked} title="拖动排序" onDragStart={e=>{e.dataTransfer.setData('text/plain',row.id);e.dataTransfer.effectAllowed='move';setDrag(row.id);}} onDragEnd={()=>setDrag('')}><GripVertical size={16}/></span>
-            <label><input type="checkbox" aria-label={'显示'+row.title} checked={row.visible} disabled={busy||row.locked} onChange={e=>void cmd('visible',e.target.checked)}/>{row.title||'面板'}</label></div>
+            <label><SpringCheck aria-label={'显示'+row.title} checked={row.visible} disabled={busy||row.locked} onChange={e=>void cmd('visible',e.target.checked)}/>{row.title||'面板'}</label></div>
           <div className="board-row-controls">
             <button type="button" className="board-size-toggle" aria-pressed={target===row.id} aria-label={'调整'+row.title+'的尺寸与位置'} onClick={()=>setTarget(row.id)}>尺寸与位置</button>
             <button aria-label={'上移'+row.title} disabled={busy||row.locked||!index||rows[index-1].locked} onClick={()=>modify({id:row.id,op:'move',to:rows[index-1].id})}><ArrowUp size={15}/></button>

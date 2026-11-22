@@ -7,6 +7,7 @@ import {CardHeading} from '../CardBoard';
 import {Avatar,Select,DetailDialog} from '../ui';
 
 import {PlayerAvatar} from './PlayerAvatar';
+import {FolderGlyph} from './micro/Feedback';
 export function playDuration(seconds:number){
   if(seconds>=3600)return Math.floor(seconds/3600)+' 小时 '+Math.floor(seconds%3600/60)+' 分钟';
   return seconds>=60?Math.floor(seconds/60)+' 分钟':seconds+' 秒';
@@ -48,7 +49,7 @@ export function InstanceSummary({game}:{game:any}){
     settings.memoryMode==='manual'?settings.defaultMemoryMB+' MB · 全局':'自动分配';
   return <><CardHeading title={<><Box size={16}/>实例详情</>}/>{game?<><h3>{game.name||game.id}</h3><small>{[game.version===game.id?'本地实例':game.version,game.loader].filter(Boolean).join(' · ')}</small>
       <dl className="detail-rows"><div><dt>状态</dt><dd>{game.error?'需要检查':game.installed?'已安装':'待安装'}</dd></div><div><dt>Java</dt><dd>{options.javaMode==='custom'||(options.javaMode==='inherit'&&settings.javaPath)?'指定运行环境':'自动匹配'}</dd></div><div><dt>最大内存</dt><dd>{memory}</dd></div></dl>
-      {game.installed&&<DetailDialog title="常用文件夹"><div className="desk-actions">{[['versions','版本目录'],['screenshots','截图'],['saves','存档']].map(([kind,label])=><button className="small-action" key={kind} onClick={()=>perform(()=>invoke('instance.folder',{id:game.id,kind}))}>{label}</button>)}</div></DetailDialog>}
+      {game.installed&&<DetailDialog title="常用文件夹" icon={<FolderGlyph/>}><div className="desk-actions">{[['versions','版本目录'],['screenshots','截图'],['saves','存档']].map(([kind,label])=><button className="small-action" key={kind} onClick={()=>perform(()=>invoke('instance.folder',{id:game.id,kind}))}>{label}</button>)}</div></DetailDialog>}
       <div className="desk-actions"><button className="small-action" onClick={()=>{ui.instance=game.id;ui.dialog='instance';}}><Settings2 size={15}/>实例配置</button><Link className="small-action" to={'/check?id='+encodeURIComponent(game.id)}><Stethoscope size={15}/>启动前检查</Link></div></>:<p>选择游戏实例后可查看配置。</p>}
     </>;
 }

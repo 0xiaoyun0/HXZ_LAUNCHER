@@ -1,6 +1,7 @@
 import {useState} from 'react';
 import {Link,useSearchParams} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
+import {FolderGlyph} from './micro/Feedback';
 import {ArrowLeft,ArrowRight,Check,ChevronRight,Download,FolderOpen,GalleryVerticalEnd,Image,LayoutGrid,Play,Search,Settings2,Square,UserRound} from 'lucide-react';
 import {resumeTarget} from '../../../../packages/engine/core/resume.mjs';
 import {PackIcon} from '../GameLibrary';
@@ -35,7 +36,7 @@ export function InstancePicker({games,current,initialSearch,close}:{games:readon
         <PackIcon game={game}/><span><strong>{game.name}</strong><small>{description(game)}</small></span>{game.id===current&&<Check size={17} aria-label="当前实例"/>}
       </button>)}</div>
     {!matches.length&&<p role="status">没有找到匹配的实例。可以换一个名称或版本号。</p>}
-    <div className="lite-picker-directory"><span><strong>游戏目录</strong><small>{root||'尚未选择'}</small></span><button className="small-action" disabled={saving} onClick={()=>perform(chooseRoot)}><FolderOpen size={15}/>{root?'更换目录':'选择目录'}</button></div>
+    <div className="lite-picker-directory"><span><strong>游戏目录</strong><small>{root||'尚未选择'}</small></span><button className="small-action" disabled={saving} onClick={()=>perform(chooseRoot)}><FolderGlyph/>{root?'更换目录':'选择目录'}</button></div>
     {pages>1&&<nav className="lite-pagination" aria-label="实例分页"><button className="small-action" aria-label="上一页" disabled={index===0} onClick={()=>setPage(index-1)}><ArrowLeft size={15}/></button><span>{index+1} / {pages}</span><button className="small-action" aria-label="下一页" disabled={index+1===pages} onClick={()=>setPage(index+1)}><ArrowRight size={15}/></button></nav>}
   </Modal>;
 }

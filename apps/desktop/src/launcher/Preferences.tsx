@@ -11,7 +11,8 @@ import {MemorySetting} from './MemorySetting';
 import {SkinConnection} from './SkinConnection';
 import {useState} from 'react';
 import {useSnapshot} from 'valtio';
-import {BookOpen,FolderOpen,ChevronRight,LifeBuoy} from 'lucide-react';
+import {FolderGlyph} from './micro/Feedback';
+import {BookOpen,ChevronRight,LifeBuoy} from 'lucide-react';
 import {account,chooseRoot,invoke,notify,perform,reload,saveSettings,state,ui} from '../model';
 import {DownloadPolicy,NetworkPreferences,RemovedInstances,RuntimePreferences} from './GamePreferences';
 import {LauncherUpdate} from '../LauncherUpdate';
@@ -21,7 +22,7 @@ export function GameRuntimeSettings(){
  const settings=useSnapshot(state).settings,[busy,setBusy]=useState(false);
  const action=(fn:()=>Promise<unknown>)=>perform(async()=>{setBusy(true);try{await fn();}finally{setBusy(false);}});
  return <section className="preference-section"><h2>游戏与 Java</h2>
-  <div className="setting-line"><span><strong>游戏目录</strong><small>{settings.gameRoot||'尚未选择目录'}</small></span><button className="small-action" disabled={busy} onClick={()=>action(chooseRoot)}><FolderOpen size={15}/>选择目录</button></div>
+  <div className="setting-line"><span><strong>游戏目录</strong><small>{settings.gameRoot||'尚未选择目录'}</small></span><button className="small-action" disabled={busy} onClick={()=>action(chooseRoot)}><FolderGlyph/>选择目录</button></div>
   <div className="setting-line"><span><strong>Java 运行环境</strong><small>{settings.javaPath||'根据实例版本自动匹配'}</small></span>{settings.javaPath&&<button className="small-action" disabled={busy} onClick={()=>action(()=>saveSettings({javaPath:''}))}>恢复自动</button>}<button className="small-action" disabled={busy} onClick={()=>action(async()=>{const path=await invoke('java.choose');if(path)await saveSettings({javaPath:path});})}>选择 Java</button></div><MemorySetting/></section>;
 }
 export function InterfaceTuning({settings}:{settings:{fontSize?:number;animationSpeed?:number}}){

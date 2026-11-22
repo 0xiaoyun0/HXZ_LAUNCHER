@@ -16,6 +16,7 @@ function loadHead(id:string,uuid:string){
 export function PlayerAvatar({role,size}:{role?:Role;size:number}){
   const id=role?.id,uuid=role?.uuid,key=id+'/'+uuid;
   const [resolved,setResolved]=useState({key:'',url:''});
+  const [decoded,setDecoded]=useState(''),[broken,setBroken]=useState('');
   useEffect(()=>{
     if(!id||!uuid||role?.avatar)return;
     let current=true,loaded=false,retry:ReturnType<typeof setTimeout>|undefined;
@@ -33,5 +34,11 @@ export function PlayerAvatar({role,size}:{role?:Role;size:number}){
     return()=>{current=false;clearTimeout(retry);window.removeEventListener('online',online);document.removeEventListener('visibilitychange',fetchHead);};
   },[id,uuid,key,role?.avatar]);
   const src=role?.avatar||(resolved.key===key?resolved.url:'');
-  return <span className="avatar player-head" style={{width:size,height:size}}>{src?<img src={src} alt={(role?.name||'角色')+'的头像'} data-pixel={!role?.avatar||undefined}/>:<UserRound size="52%" aria-label={role?.name?'角色头像暂无缓存':'游客'}/>}</span>;
+  const ready=!!src&&src===decoded&&src!==broken;
+  return <span className="avatar player-head" style={{width:size,height:size}}>
+    {!ready&&<UserRound className="head-placeholder" size="52%" aria-label={role?.name?'角色头像暂无缓存':'游客'}/>}
+    {src&&src!==broken&&<span key={src} className="avatar-reveal" data-ready={ready}>
+      <img src={src} alt={(role?.name||'角色')+'的头像'} data-pixel={!role?.avatar||undefined}
+        onLoad={()=>setDecoded(src)} onError={()=>setBroken(src)}/></span>}
+  </span>;
 }

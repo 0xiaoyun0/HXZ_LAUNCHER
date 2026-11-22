@@ -1,3 +1,4 @@
+import {StatusMark,LatticeGlyph} from './micro/Feedback';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import {Link,useNavigate,useSearchParams} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
@@ -13,7 +14,7 @@ export function Preflight(){
  const labels:Record<string,string>={memory:'内存设置',directory:'选择目录',java:'Java 设置',account:role?.authenticated?'管理角色':'登录账号',library:'查看实例',install:'查看安装选项'};
  const act=(key:string)=>perform(async()=>{if(key==='directory'){if(await chooseRoot())await run();}else if(key==='account'){if(role?.authenticated)navigate('/account');else ui.dialog='account';}else if(key==='java'||key==='memory')navigate('/settings?tab=game');else navigate('/library?q='+encodeURIComponent(id||''));});
  return <section className="launch-page"><Link className="quiet-link" to="/">〈 返回首页</Link><header className="launch-title"><div><h1>启动前检查</h1><p>{result?.name||id||'先在游戏库选择实例'}</p></div><button className="small-action" onClick={run} disabled={busy||!id}><RefreshCw size={15}/>重新检查</button></header>
- {busy&&<p role="status">正在读取本机文件并匹配 Java…</p>}{error&&<p className="inline-error" role="alert">{error}</p>}
- {result&&<div className="check-list">{result.checks.map((c:Row)=>{const Icon=symbols[c.status];return <div key={c.id} className={'check-row '+c.status}><Icon size={19}/><div><strong>{c.title}</strong><p>{c.detail}</p></div>{c.action&&c.status!=='ok'&&c.status!=='unknown'&&<button className="small-action" onClick={()=>act(c.action!)}>{labels[c.action]}</button>}</div>;})}</div>}
+ {busy&&<p className="micro-wait" role="status"><LatticeGlyph/>正在读取本机文件并匹配 Java…</p>}{error&&<p className="inline-error" role="alert">{error}</p>}
+ {result&&<div className="check-list">{result.checks.map((c:Row)=>{const Icon=symbols[c.status];return <div key={c.id} className={'check-row '+c.status}>{c.status==='ok'?<StatusMark status="done"/>:<Icon size={19}/>}<div><strong>{c.title}</strong><p>{c.detail}</p></div>{c.action&&c.status!=='ok'&&c.status!=='unknown'&&<button className="small-action" onClick={()=>act(c.action!)}>{labels[c.action]}</button>}</div>;})}</div>}
  </section>;
 }

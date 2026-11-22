@@ -3,10 +3,10 @@ import {useLayoutEffect,useRef} from 'react';
 // A single decorative layer follows the real option. The controls keep their native layout and focus order.
 export function useChoiceGlide(value:string|number){
   const group=useRef<HTMLDivElement>(null);
-  const previous=useRef<{value:string|number;top:number;box:string}|null>(null);
+  const previous=useRef<{value:string|number;left:number;top:number;box:string}|null>(null);
   useLayoutEffect(()=>{
     const root=group.current;
-    const selected=root?.querySelector<HTMLInputElement>('input:checked')?.parentElement;
+    const selected=root?.querySelector<HTMLInputElement>('input:checked')?.parentElement??root?.querySelector<HTMLElement>(':scope>button[aria-pressed=true]');
     if(!root||!selected){if(root)delete root.dataset.glide;previous.current=null;return;}
     function measure(){
       if(!root||!selected)return;
@@ -16,13 +16,14 @@ export function useChoiceGlide(value:string|number){
       const from=previous.current;
       if(from?.box===box&&from.value===value)return;
       root.dataset.glide=from&&from.value!==value&&Math.abs(from.top-top)<height/2?'moving':'ready';
+      root.dataset.direction=from&&left<from.left?'left':'right';
       root.style.setProperty('--glide-x',left+'px');root.style.setProperty('--glide-y',top+'px');
       root.style.setProperty('--glide-width',width+'px');root.style.setProperty('--glide-height',height+'px');
-      previous.current={value,top,box};
+      previous.current={value,left,top,box};
     }
     measure();
     const resize=new ResizeObserver(measure);
-    resize.observe(root);for(const option of root.querySelectorAll('label'))resize.observe(option);
+    resize.observe(root);for(const option of root.querySelectorAll(':scope>label,:scope>button'))resize.observe(option);
     return ()=>resize.disconnect();
   },[value]);
   return group;

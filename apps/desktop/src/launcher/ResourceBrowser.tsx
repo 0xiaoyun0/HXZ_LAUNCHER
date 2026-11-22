@@ -1,5 +1,6 @@
 import {useEffect,useState} from 'react';
 import {useSnapshot} from 'valtio';
+import {FolderGlyph,LatticeGlyph} from './micro/Feedback';
 import {Box,Boxes,Check,Download,FolderOpen,Search} from 'lucide-react';
 import {invoke,notify,perform,state,task} from '../model';
 import {useData} from '../data';
@@ -68,20 +69,20 @@ function InventoryResults({instance,kind,query}:{instance:string;kind:Kind;query
     await local.reload();setProject(null);notify('资源已安装到当前实例');
   }
   return <>{kind==='datapack'&&<label className="resource-world">安装到存档<Select label="目标存档" value={world} options={[{value:'',label:'选择存档'},...(worlds.data||[])]} onChange={setWorld}/></label>}
-    <div className="resource-results" data-paired={!!localKind||undefined}>{localKind&&<section className="resource-section" aria-label="本地资源"><header><h2><FolderOpen size={17}/>本地资源</h2><small>{local.data?.shared?'共享游戏目录':'当前实例'} · {visible.length} 项</small></header>
-      {local.error?<SearchStatus error={local.error} retry={local.reload}/>:local.loading&&!local.data?<p role="status">正在识别本地文件…</p>:!visible.length?<p>本地没有匹配的文件。</p>:visible.slice(0,limit).map(row=><div className="resource-row" key={row.key}><Boxes size={17}/><div><strong>{row.title||row.releaseName||row.name}</strong><small>{[row.title||row.releaseName?row.name:'',row.version,row.enabled?'已启用':'已停用',row.digest&&(duplicates.get(row.digest)||0)>1?'有相同文件':'',(siblings.get(row.project||row.slug||'')?.size||0)>1?'本地有多个版本':'',row.unreadable?'暂时无法读取':''].filter(Boolean).join(' · ')}</small></div><button className="small-action" disabled={t.busy} onClick={()=>perform(()=>toggle(row))}>{row.enabled?'停用':'启用'}</button></div>)}
+    <div className="resource-results" data-paired={!!localKind||undefined}>{localKind&&<section className="resource-section" aria-label="本地资源"><header><h2><FolderGlyph/>本地资源</h2><small>{local.data?.shared?'共享游戏目录':'当前实例'} · {visible.length} 项</small></header>
+      {local.error?<SearchStatus error={local.error} retry={local.reload}/>:local.loading&&!local.data?<p className="micro-wait" role="status"><LatticeGlyph/>正在识别本地文件…</p>:!visible.length?<p>本地没有匹配的文件。</p>:visible.slice(0,limit).map(row=><div className="resource-row" key={row.key}><Boxes size={17}/><div><strong>{row.title||row.releaseName||row.name}</strong><small>{[row.title||row.releaseName?row.name:'',row.version,row.enabled?'已启用':'已停用',row.digest&&(duplicates.get(row.digest)||0)>1?'有相同文件':'',(siblings.get(row.project||row.slug||'')?.size||0)>1?'本地有多个版本':'',row.unreadable?'暂时无法读取':''].filter(Boolean).join(' · ')}</small></div><button className="small-action" disabled={t.busy} onClick={()=>perform(()=>toggle(row))}>{row.enabled?'停用':'启用'}</button></div>)}
       {visible.length>limit&&<button className="text-action" onClick={()=>setLimit(limit+20)}>显示更多本地文件</button>}
       {identity.error&&<SearchStatus error="在线文件识别暂时不可用，仍可按本地名称搜索。" retry={identity.reload}/>}
     </section>}
     <section className="resource-section" aria-label="在线资源"><header><h2><Download size={17}/>在线资源</h2><small>Modrinth · 兼容此实例</small></header>
-      {online.error?<SearchStatus error={online.error} retry={online.reload}/>:online.loading?<p role="status">正在搜索兼容资源…</p>:!hits.length?<p>没有匹配的在线项目。</p>:hits.map(hit=>{
+      {online.error?<SearchStatus error={online.error} retry={online.reload}/>:online.loading?<p className="micro-wait" role="status"><LatticeGlyph/>正在搜索兼容资源…</p>:!hits.length?<p>没有匹配的在线项目。</p>:hits.map(hit=>{
         const versions=rows.filter(row=>row.project===hit.project_id);
         return <div className="resource-row" key={hit.project_id}>{hit.icon_url?<img src={hit.icon_url} loading="lazy" alt=""/>:<Box size={22}/>}<div><strong>{hit.title}</strong><small>{versions.length?'本地已有 · '+versions.map(v=>v.version||v.name).join('、'):hit.description}</small></div><button className="small-action" onClick={()=>setProject(hit)}>查看版本</button></div>;
       })}
       {(n>0||online.data?.total_hits>20)&&<nav className="lite-pagination" aria-label="在线资源分页"><button className="small-action" disabled={!n} onClick={()=>setPage({query,n:n-1})}>上一页</button><span>{n+1}</span><button className="small-action" disabled={(n+1)*20>=(online.data?.total_hits||0)} onClick={()=>setPage({query,n:n+1})}>下一页</button></nav>}
     </section></div>
     <Modal open={!!project} title={project?.title||'选择版本'} onClose={()=>setProject(null)}>
-      {releases.error?<SearchStatus error={releases.error} retry={releases.reload}/>:releases.loading?<p role="status">正在读取兼容版本…</p>:!releases.data?.length?<p>没有适配当前实例的版本。</p>:releases.data.map(release=>{
+      {releases.error?<SearchStatus error={releases.error} retry={releases.reload}/>:releases.loading?<p className="micro-wait" role="status"><LatticeGlyph/>正在读取兼容版本…</p>:!releases.data?.length?<p>没有适配当前实例的版本。</p>:releases.data.map(release=>{
         const same=rows.find(r=>r.digest===release.digest),other=rows.find(r=>r.enabled&&r.project===project?.project_id),conflict=kind==='mod'&&!same&&!!other;
         return <div className="resource-row release-row" key={release.id}><div><strong>{release.version||release.name}</strong><small>{same?'本地文件 · '+same.name:conflict?'请先停用 '+other!.name:release.filename}</small></div>{same?.enabled?<span className="resource-installed"><Check size={15}/>已安装</span>:<button className="small-action" disabled={t.busy||local.loading||!!local.error||conflict||kind==='datapack'&&!world} onClick={()=>perform(()=>same?toggle(same):install(release))}>{same?'启用已有文件':'安装'}</button>}</div>;
       })}

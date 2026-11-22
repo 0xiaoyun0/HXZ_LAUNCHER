@@ -1,5 +1,6 @@
 import {useEffect,useLayoutEffect,useRef,useState,useSyncExternalStore} from 'react';
-import {useLocation} from 'react-router-dom';
+import {useLocation,useNavigationType} from 'react-router-dom';
+import {LatticeGlyph} from './launcher/micro/Feedback';
 import {useSnapshot} from 'valtio';
 import {state} from './model';
 
@@ -26,15 +27,20 @@ export function PageLoadIndicator(){
  },[loading,route.key]);
  return loading&&visibleFor===route.key?<div className="page-load-indicator" role="status" aria-label="正在加载页面内容"><span/></div>:null;
 }
-export function PageSkeleton({label='正在加载页面…'}:{label?:string}){return <div className="page-skeleton" role="status"><p>{label}</p><div className="skeleton-title"/><div className="skeleton-cards">{[0,1,2].map(n=><div className="skeleton-card" key={n}><i/><i/><i/></div>)}</div></div>;}
+export function PageSkeleton({label='正在加载页面…'}:{label?:string}){return <div className="page-skeleton" role="status"><p className="micro-wait"><LatticeGlyph/>{label}</p><div className="skeleton-title"/><div className="skeleton-cards">{[0,1,2].map(n=><div className="skeleton-card" key={n}><i/><i/><i/></div>)}</div></div>;}
 // Reveal only the visible content inside each card. RGL owns the outer card
 // geometry; transforming that element (or the whole page) can cross its bounds.
 export function usePageEnter(key:unknown){
  const ref=useRef<HTMLDivElement>(null),last=useRef<unknown>(Symbol()),s=useSnapshot(state),reduced=useReducedMotionPreference();
+ const previousIndex=useRef<number|null>(null),navigation=useNavigationType(),location=useLocation();
  useLayoutEffect(()=>{
   const el=ref.current;if(!el)return;
   el.dataset.motionScope='page';
-  const entering=last.current!==key;last.current=key;
+  const entering=last.current!==key,index=window.history.state?.idx;
+  // Browser Back and Forward are both POP operations; the router's entry index distinguishes them.
+  const back=navigation==='POP'&&typeof index==='number'&&previousIndex.current!==null&&index<previousIndex.current;
+  if(entering)el.dataset.pageDirection=back?'back':'forward';
+  last.current=key;previousIndex.current=typeof index==='number'?index:null;
   // Changing the speed cancels an in-flight reveal, but never replays the page.
   if(s.settings.animationSpeed===0||reduced)return;
   const animations=new Set<Animation>();
@@ -64,7 +70,9 @@ export function usePageEnter(key:unknown){
     const layers=node.hasAttribute('data-card-id')?Array.from(node.querySelectorAll<HTMLElement>(':scope > header,:scope > .desktop-panel-body')):node.classList.contains('air-card')?Array.from(node.querySelectorAll<HTMLElement>(':scope > .card-heading,:scope > .card-content')):[node];
     const delay=Math.min(order++*16,64)/speed;
     for(const [index,layer] of layers.entries()){
-     const animation=layer.animate([{opacity:.4,transform:'translateY(.32em)'},{opacity:1,transform:'translateY(0)'}],{duration,delay:delay+index*24/speed,easing:'cubic-bezier(.22,.61,.36,1)',fill:'backwards'});
+     const heading=layer.matches('.launch-title,.page-header,.lite-rail-heading');
+     const from=heading?(back?'translateX(-.48em)':'translateX(.48em)'):(back?'translateY(-.22em)':'translateY(.32em)');
+     const animation=layer.animate([{opacity:.55,transform:from},{opacity:1,transform:'translate(0)'}],{duration,delay:delay+index*24/speed,easing:'cubic-bezier(.22,.76,.25,1)',fill:'backwards'});
      animations.add(animation);animation.onfinish=()=>animations.delete(animation);
     }
    }
@@ -86,6 +94,6 @@ export function usePageEnter(key:unknown){
   const hidden=()=>{if(document.hidden)stop();};
   window.addEventListener('resize',stop);el.addEventListener('pointerdown',stop);el.addEventListener('click',switchContent,true);document.addEventListener('visibilitychange',hidden);
   return()=>{stop();window.removeEventListener('resize',stop);el.removeEventListener('pointerdown',stop);el.removeEventListener('click',switchContent,true);document.removeEventListener('visibilitychange',hidden);};
- },[key,s.settings.animationSpeed,reduced]);
+ },[key,s.settings.animationSpeed,reduced,navigation,location.key]);
  return ref;
 }

@@ -2,6 +2,9 @@ let serial=0;
 const waiting=new Map<string,{resolve:(value:any)=>void,reject:(error:Error)=>void,timer:ReturnType<typeof setTimeout>}>();
 window.addEventListener('message',event=>{
   if(event.source!==parent||event.data?.channel!=='hxz-linking-v1')return;
+  if(event.data.kind==='appearance-changed'&&event.origin===location.origin){
+    window.dispatchEvent(new Event('linking-appearance'));return;
+  }
   const task=waiting.get(event.data.id);if(!task)return;waiting.delete(event.data.id);clearTimeout(task.timer);
   if(event.data.error)task.reject(Error(event.data.error));else task.resolve(event.data.value);
 });
@@ -21,7 +24,11 @@ let navigating=false;
 export async function navigate(params:Record<string,string>={}){
   if(navigating||navigationGuard&&!await navigationGuard())return;navigating=true;
   const url=new URL(location.href);url.search='';for(const [key,value]of Object.entries(params))url.searchParams.set(key,value);
+  const viewport=document.querySelector<HTMLElement>('#viewport');
   document.body.classList.add('activity-departing');
-  if(document.documentElement.dataset.reduced!=='true'&&!matchMedia('(prefers-reduced-motion:reduce)').matches)await new Promise(resolve=>setTimeout(resolve,180));
+  if(viewport&&document.documentElement.dataset.reduced!=='true'&&!matchMedia('(prefers-reduced-motion:reduce)').matches){
+    const fade=viewport.getAnimations().find(animation=>animation instanceof CSSTransition&&animation.transitionProperty==='opacity');
+    if(fade)await fade.finished.catch(()=>{});
+  }
   location.replace(url.href);
 }

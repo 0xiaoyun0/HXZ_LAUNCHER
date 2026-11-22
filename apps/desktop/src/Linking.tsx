@@ -3,6 +3,7 @@ import {createPortal} from 'react-dom';
 import {useSnapshot} from 'valtio';
 import {Library,RefreshCw} from 'lucide-react';
 import {state} from './model';
+import {useReducedMotionPreference} from './PageFeedback';
 import {community,connect,communityRequest} from '../../../packages/community/client';
 import {playerError} from '../../../packages/engine/core/player-errors.mjs';
 import {mountLinkingBridge} from '../../../packages/linking/host';
@@ -12,6 +13,8 @@ export function Linking(){
   const c=useSnapshot(community),[sessionUser,setSessionUser]=useState(community.connected?community.user?.uid||'':'');
   const frame=useRef<HTMLIFrameElement>(null),[slot,setSlot]=useState<HTMLElement|null>(null);
   const mobile=window.launcher?.platform==='android';
+  const preferences=useSnapshot(state).settings,reduced=useReducedMotionPreference();
+  const {animationSpeed,theme}=preferences;
   // A reconnect updates the status without restarting the reader or its current chapter.
   useEffect(()=>{if(c.connected&&c.user?.uid)setSessionUser(c.user.uid);},[c.connected,c.user?.uid]);
   useLayoutEffect(()=>{setSlot(document.getElementById('archive-status-actions'));},[]);
@@ -22,8 +25,14 @@ export function Linking(){
       const result=await communityRequest(path,{method,headers:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)},true);
       if(method==='POST'&&path.endsWith('/action'))window.dispatchEvent(new Event('hxz-linking-progress'));
       return result;
-    },()=>({theme:state.settings.theme,reducedMotion:state.settings.animationSpeed===0||matchMedia('(prefers-reduced-motion:reduce)').matches,mobile,playerOnly:!mobile}));
+    },()=>({theme:state.settings.theme,animationSpeed:state.settings.animationSpeed,reducedMotion:state.settings.animationSpeed===0||matchMedia('(prefers-reduced-motion:reduce)').matches,mobile,playerOnly:!mobile}));
   },[sessionUser,mobile]);
+  useEffect(()=>{
+    const reader=frame.current;
+    if(!reader||mobile)return;
+    const origin=new URL(reader.src,location.href).origin;
+    reader.contentWindow?.postMessage({channel:'hxz-linking-v1',kind:'appearance-changed'},origin==='null'?'*':origin);
+  },[theme,animationSpeed,reduced,mobile,sessionUser]);
   const retry=sessionUser&&!c.connected?<button type="button" disabled={c.connecting} onClick={()=>void connect()}><RefreshCw size={14}/>{c.connecting?'正在重连':'连接中断 · 重试'}</button>:null;
   const issue=c.error?playerError(c.error,'community.connect'):null;
   return <section className="linking-archive-host" aria-label="LINKING 档案馆">

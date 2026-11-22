@@ -75,22 +75,23 @@ export async function openReading(a:Archive){
   if(!chapter.preview)try{await action('read',a.id);readingNavigation();}catch(e){notice('阅读进度未保存：'+(e as Error).message,true);}
 }
 export function renderReading(root:HTMLElement){
-  root.replaceChildren();const title=element('div','','activity-reader-heading');title.append(element('p','LINKING / 档案阅读','activity-eyebrow'),element('h1',chapter.title),element('p',chapter.subtitle));root.append(title);
+  const first=root.dataset.chapter!==chapter.id;root.dataset.chapter=chapter.id;
+  root.replaceChildren();const title=element('div','','activity-reader-heading');if(first)title.dataset.arrival='';title.append(element('p','LINKING / 档案阅读','activity-eyebrow'),element('h1',chapter.title),element('p',chapter.subtitle));root.append(title);
   if(chapter.preview)title.append(element('p','草稿只读预览 · 可查看全部正文；正式玩家须依次解锁。不会记录进度、验证口令或发放奖励。','activity-preview'));
   let last='';try{last=sessionStorage.getItem('linking-last:'+chapter.id)||'';}catch{}
   const next=chapter.archives.find(a=>a.id===last&&a.unlocked)||chapter.archives.find(a=>a.unlocked&&!a.readAt)||chapter.archives.find(a=>a.unlocked);
   if(next)title.append(button('继续阅读 · '+next.title,()=>openReading(next),'primary'));
   title.append(button('本卷任务与进度',()=>showTasks()));
-  const grid=element('div','','activity-grid');for(const a of chapter.archives){const card=element('article','','activity-card archive-card');card.append(element('small',a.category,'activity-eyebrow'),element('h2',a.title),element('p',a.summary),element('span',a.readAt?'已读':a.unlocked?t('unlocked'):t('locked'),'activity-badge'),button(a.unlocked?t('read'):'查看解锁条件',()=>openReading(a),a.unlocked?'primary':''));grid.append(card);}root.append(grid);
+  const grid=element('div','','activity-grid');for(const a of chapter.archives){const card=element('article','','activity-card archive-card');if(first&&grid.childElementCount<6){card.dataset.arrival='';card.style.setProperty('--reader-index',String(grid.childElementCount));}card.append(element('small',a.category,'activity-eyebrow'),element('h2',a.title),element('p',a.summary),element('span',a.readAt?'已读':a.unlocked?t('unlocked'):t('locked'),'activity-badge'),button(a.unlocked?t('read'):'查看解锁条件',()=>openReading(a),a.unlocked?'primary':''));grid.append(card);}root.append(grid);
 }
 export function renderHeader(config:any,manager:boolean){
   const root=document.querySelector<HTMLElement>('#linking-host')!;root.replaceChildren();const brand=element('div','','activity-brand');brand.append(element('b',config.title||'LINKING'),element('span',chapter?.title||config.intro||'档案探索'));
   const actions=element('nav','','activity-actions');actions.setAttribute('aria-label','活动操作');actions.append(button(t('chapters'),()=>navigate()));if(chapter){actions.append(button(t('tasks'),showTasks,'primary'),button(new URL(location.href).searchParams.get('mode')==='read'?t('threeMode'):t('readMode'),()=>navigate({chapter:chapter.id,...(new URL(location.href).searchParams.get('mode')==='read'?{}:{mode:'read'})})));}if(manager)actions.append(button(t('manage'),()=>navigate({manage:'1'})));root.append(brand,actions);
 }
 export async function renderCatalog(catalog:any,root:HTMLElement){
-  root.replaceChildren();const lead=element('div','','activity-reader-heading');lead.append(element('p','FANTASY TOWN / LINKING','activity-eyebrow'),element('h1',catalog.config.title),element('p',catalog.config.intro));root.append(lead);
+  root.replaceChildren();const lead=element('div','','activity-reader-heading');lead.dataset.arrival='';lead.append(element('p','FANTASY TOWN / LINKING','activity-eyebrow'),element('h1',catalog.config.title),element('p',catalog.config.intro));root.append(lead);
   const grid=element('div','','activity-grid');root.append(grid);
-  for(const c of catalog.chapters){const card=element('article','','activity-card chapter-card');card.append(element('small',c.status==='open'?'正在开放':c.status==='scheduled'?t('waiting'):t('ended'),'activity-eyebrow'),element('h2',c.title),element('p',c.subtitle),element('p',`${c.read} / ${c.total} 份已读 · ${c.completed} / ${c.tasks} 项任务`));if(c.opensAt)card.append(element('small',formatDate(c.opensAt)+' 开放（北京时间）'));
+  for(const c of catalog.chapters){const card=element('article','','activity-card chapter-card');if(grid.childElementCount<6){card.dataset.arrival='';card.style.setProperty('--reader-index',String(grid.childElementCount));}card.append(element('small',c.status==='open'?'正在开放':c.status==='scheduled'?t('waiting'):t('ended'),'activity-eyebrow'),element('h2',c.title),element('p',c.subtitle),element('p',`${c.read} / ${c.total} 份已读 · ${c.completed} / ${c.tasks} 项任务`));if(c.opensAt)card.append(element('small',formatDate(c.opensAt)+' 开放（北京时间）'));
     card.prepend(element('small','卷序 '+(catalog.chapters.indexOf(c)+1),'activity-eyebrow'));
     card.append(element('p',c.locked?(c.lockReason||'完成前卷任务后开放。'):c.completed===c.tasks&&c.read===c.total?'本卷已完成，可重读档案或前往下一卷。':'下一步：阅读开放档案，完成本卷任务。',c.locked?'activity-lock-reason':'activity-muted'));
     if(c.locked){const prerequisite=c.prerequisites?.find((r:any)=>!r.completed);if(prerequisite)card.append(button('前往前卷完成条件',()=>navigate({chapter:prerequisite.chapter,mode:'read'})));}

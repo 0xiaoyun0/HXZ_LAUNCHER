@@ -1,10 +1,13 @@
-import React,{useState} from 'react';import * as Dialog from '@radix-ui/react-dialog';import {X,ListFilter,Check,LoaderCircle,Search,ArrowUpRight} from 'lucide-react';import {perform,notify,errorMessage,reportFailure} from './model';
+import React,{useState} from 'react';import * as Dialog from '@radix-ui/react-dialog';import {X,ListFilter,Check,Search,ArrowUpRight} from 'lucide-react';import {perform,notify,errorMessage,reportFailure} from './model';
+import {RefineImage} from './launcher/micro/RefineImage';
+import {LatticeGlyph} from './launcher/micro/Feedback';
+import {useChoiceGlide} from './launcher/useChoiceGlide';
 import {ChoiceGroup} from './launcher/ChoiceControls';
 export function DialogSections({children,actions}:{children:React.ReactNode;actions:React.ReactElement}){
  return <div className="dialog-sections"><div className="dialog-scroll">{children}</div>{actions}</div>;
 }
-export function Button({children,icon:Icon,onClick,tone='',className='',disabled=false,...props}:any){const [busy,setBusy]=useState(false);return <button {...props} disabled={disabled||busy} className={`button ${tone} ${className}`} onClick={async e=>{if(!onClick)return;setBusy(true);try{await onClick(e);}catch(error:any){reportFailure(error);}finally{setBusy(false);}}}>{busy?<LoaderCircle className="spin" size={17}/>:Icon?<Icon size={17}/>:null}{children}</button>}
-export function IconButton({icon:Icon,label,...props}:any){return <Button {...props} className={'icon-button '+(props.className||'')} icon={Icon} title={label} aria-label={label}/>}
+export function Button({children,icon:Icon,onClick,tone='',className='',disabled=false,busyIndicator=true,...props}:any){const [busy,setBusy]=useState(false);return <button {...props} disabled={disabled||busy} aria-busy={busy||undefined} className={`button ${tone} ${className}`} onClick={async e=>{if(!onClick)return;setBusy(true);try{await onClick(e);}catch(error:any){reportFailure(error);}finally{setBusy(false);}}}>{busy&&busyIndicator?<LatticeGlyph/>:Icon?<Icon size={17}/>:null}{children}</button>}
+export function IconButton({icon:Icon,label,...props}:any){return <Button {...props} className={'icon-button '+(props.className||'')} icon={Icon} data-hint={props['data-hint']||label} aria-label={label}/>}
 export function Modal({open,onClose,title,children,wide=false,description}:any){const origin=React.useRef<HTMLElement|null>(null),descriptionId=React.useId();return <Dialog.Root open={open} onOpenChange={v=>!v&&onClose?.()}><Dialog.Portal><Dialog.Overlay className="modal-backdrop"/><Dialog.Content className={'modal '+(wide?'wide':'')} aria-describedby={description?descriptionId:undefined} onOpenAutoFocus={event=>{
  const source=document.activeElement as HTMLElement,content=event.target;
  origin.current=source;
@@ -34,9 +37,9 @@ export function Select({value,onChange,options,label,disabled=false}:any){
      <div className="picker-options">{matches.map((o:any)=><button type="button" key={o.value} aria-pressed={String(o.value)===String(value)} disabled={o.disabled} onClick={()=>choose(o.value)}><span>{o.label}</span>{String(o.value)===String(value)&&<Check size={16}/>}</button>)}
        {!matches.length&&<p role="status">没有匹配的选项</p>}</div></div></Modal></>;
 }
-export function DetailDialog({title,children,wide=false}:{title:string;children:React.ReactNode;wide?:boolean}){
+export function DetailDialog({title,children,wide=false,icon}:{title:string;children:React.ReactNode;wide?:boolean;icon?:React.ReactNode}){
  const [open,setOpen]=useState(false);
- return <><button type="button" className="small-action detail-launch" aria-haspopup="dialog" onClick={()=>setOpen(true)}>{title}<ArrowUpRight size={14}/></button>
+ return <><button type="button" className="small-action detail-launch" aria-haspopup="dialog" onClick={()=>setOpen(true)}>{icon}{title}<ArrowUpRight size={14}/></button>
    <Modal open={open} title={title} onClose={()=>setOpen(false)} wide={wide}><div className="detail-dialog-content">{children}</div></Modal></>;
 }
 function ActionList({items,close}:{items:any[];close:()=>void}){
@@ -64,7 +67,7 @@ export function PageTitle({eyebrow,title,children,actions,tabs}:any){return <hea
 export function Avatar({name='',image,size=32}:any){const [failed,setFailed]=useState('');return <span className="avatar" style={{width:size,height:size}}>{image&&image!==failed?<img src={image} alt={name+'的头像'} onError={()=>setFailed(image)}/>:(name?.slice(0,1)||'旅')}</span>}
 export function CoverImage({src,alt='',fallback=null}: {src?:string;alt?:string;fallback?:React.ReactNode}) {
  const [failed,setFailed]=useState('');
- return src&&src!==failed?<img src={src} alt={alt} loading="lazy" decoding="async" onError={()=>setFailed(src)}/>:fallback;
+ return src&&src!==failed?<RefineImage src={src} alt={alt} loading="lazy" decoding="async" onError={()=>setFailed(src)}/>:fallback;
 }
-export function Segments({value,onChange,items}:any){return <div className="segments">{items.map((i:any)=><button key={i.id} aria-pressed={value===i.id} className={value===i.id?'selected':''} onClick={()=>onChange(i.id)}>{i.icon&&<i.icon size={16}/>}<span>{i.label}</span>{i.count!=null&&<small>{i.count}</small>}</button>)}</div>}
+export function Segments({value,onChange,items}:any){const group=useChoiceGlide(value);return <div ref={group} className="segments">{items.map((i:any)=><button key={i.id} aria-pressed={value===i.id} className={value===i.id?'selected':''} onClick={()=>onChange(i.id)}>{i.icon&&<i.icon size={16}/>}<span>{i.label}</span>{i.count!=null&&<small>{i.count}</small>}</button>)}<i className="choice-glide" aria-hidden hidden/></div>}
 export const date=(n:any)=>new Date(n).toLocaleString('zh-CN',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});

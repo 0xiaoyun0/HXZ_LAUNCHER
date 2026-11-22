@@ -7,6 +7,7 @@ import {wallpaperSource} from '../../../../packages/engine/core/desktop-wallpape
 import {homeLayoutKey,workspaceLayout,workspaceModules} from '../../../../packages/engine/core/desktop-workspace.mjs';
 import {chooseRoot,importPack,perform,startOrStopInstance,state,task,ui} from '../model';
 import {CardBoard,CardHeading} from '../CardBoard';
+import {FolderGlyph} from './micro/Feedback';
 import {PackIcon} from '../GameLibrary';
 import {HomeRole,HomeServers,InstanceSummary,PlayCalendar} from './HomeSidebar';
 
@@ -42,7 +43,7 @@ export function Home(){
         {running?<Square size={15}/>:<Play size={15}/>}<span>{running?'停止游戏':game.installed?(isLast&&previous?.reason==='last'?'继续游玩':'启动'):'安装并启动'}</span></button>
     </article>;
   }
-  const instances=<><CardHeading title={<><Layers3 size={16}/>游戏实例</>}>{!s.settings.gameRoot&&<button className="text-action" onClick={()=>perform(chooseRoot)}><FolderOpen size={15}/>选择游戏目录</button>}</CardHeading>
+  const instances=<><CardHeading title={<><Layers3 size={16}/>游戏实例</>}>{!s.settings.gameRoot&&<button className="text-action" onClick={()=>perform(chooseRoot)}><FolderGlyph/>选择游戏目录</button>}</CardHeading>
     {featured&&gameRow(featured,true)}
     <div className="instance-toolbar"><label><Search size={16}/><input aria-label="搜索实例" placeholder="搜索实例" value={query} onChange={event=>setQuery(event.target.value)}/></label>
       <button className="small-action" onClick={()=>perform(()=>importPack())}><FileUp size={15}/>导入</button><Link className="small-action" to="/workshop/install"><Download size={15}/>下载</Link></div>

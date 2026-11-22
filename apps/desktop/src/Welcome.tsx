@@ -1,11 +1,12 @@
 import {useRef,useState,type FormEvent} from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
-import {ArrowLeft,ArrowRight,ArrowUpRight,Eye,EyeOff,KeyRound,LoaderCircle,UserRound} from 'lucide-react';
+import {ArrowLeft,ArrowRight,ArrowUpRight,Eye,EyeOff,KeyRound,UserRound} from 'lucide-react';
 import {invoke,reload,ui} from './model';
 import {useSnapshot} from 'valtio';
 import {IssueHelp} from './IssueHelp';
 import {playerError} from '../../../packages/engine/core/player-errors.mjs';
 import {WindowButtons} from './launcher/WindowButtons';
+import {LatticeGlyph} from './launcher/micro/Feedback';
 import './welcome.css';
 
 type WelcomeProps={
@@ -48,7 +49,7 @@ export function Welcome({ready,error,onBrowse,onSignedIn,firstVisit=true,onBusyC
               <button type="button" className="entry-eye" aria-label={visible?'隐藏密码':'显示密码'} aria-pressed={visible} onClick={()=>setVisible(v=>!v)}>{visible?<EyeOff size={18}/>:<Eye size={18}/>}</button></div></div>
           {failure&&<IssueHelp issue={failure}/>}
           <button type="submit" className="entry-submit" disabled={busy||!username.trim()||!password}>
-            <span>{busy?'正在登录…':'登录幻想镇'}</span>{busy?<LoaderCircle className="entry-spin" size={17} aria-hidden/>:<ArrowRight size={17} aria-hidden/>}
+            <span>{busy?'正在登录…':'登录幻想镇'}</span>{busy?<LatticeGlyph/>:<ArrowRight size={17} aria-hidden/>}
           </button>
           <button className="entry-register entry-link" type="button" onClick={()=>void openSkin('register')}>注册皮肤站账号<ArrowUpRight size={14} aria-hidden/></button>
         </form>}

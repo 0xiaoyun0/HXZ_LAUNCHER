@@ -45,3 +45,18 @@ body.activity-three .loading-mark{animation:archive-breathe 2.6s ease-in-out inf
 .chapter-symbol svg{color:inherit}
 /* Keep primary text and surface paired when the generic button hover rule applies. */
 #linking-host button.primary:is(:hover,:focus-visible,:active),.activity-reading button.primary:is(:hover,:focus-visible,:active),.activity-overlay button.primary:is(:hover,:focus-visible,:active){background:var(--activity-ink);color:var(--activity-surface);border-color:transparent}
+
+:root[data-player-reader=true] button:focus-visible {outline:2px solid var(--activity-ink);outline-offset:3px}
+@keyframes reader-arrival {from{opacity:.55;translate:0 .45em}to{opacity:1;translate:0}}
+@keyframes reader-sheet {from{opacity:.58;translate:0 .65em;scale:.991}to{opacity:1;translate:0;scale:1}}
+@media(prefers-reduced-motion:no-preference) {
+  :root[data-player-reader=true][data-reduced=false] [data-arrival] {animation:reader-arrival var(--reader-motion) cubic-bezier(.16,.84,.22,1) backwards;animation-delay:calc(var(--reader-index,0)*var(--reader-motion)*.055)}
+  :root[data-player-reader=true][data-reduced=false] .activity-panel {animation:reader-sheet var(--reader-motion) cubic-bezier(.18,.82,.28,1)}
+  :root[data-player-reader=true][data-reduced=false] :is(.activity-panel,.activity-reading,#linking-host) button {transition:background-color calc(var(--reader-motion)*.55),scale calc(var(--reader-motion)*.45)}
+  :root[data-player-reader=true][data-reduced=false] button:active:not(:disabled) {scale:.97}
+  :root[data-player-reader=true][data-reduced=false] .chapter-symbol {transition:rotate var(--reader-motion),translate var(--reader-motion)}
+  :root[data-player-reader=true][data-reduced=false] .chapter-card:focus-within .chapter-symbol {rotate:-3deg;translate:0 -.12em}
+  :root[data-player-reader=true][data-reduced=false] body.activity-departing #viewport {transition-duration:calc(var(--reader-motion)*.48);transform:translateY(-.25em)}
+}
+:root[data-reduced=true] *::after {animation:none!important;transition:none!important}
+:root[data-reduced=true] body.activity-departing #viewport {opacity:1}

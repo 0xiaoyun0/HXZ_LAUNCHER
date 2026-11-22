@@ -5,9 +5,26 @@ import {button,element,renderCatalog,renderHeader,renderReading,openReading} fro
 import {t} from './localization';
 const viewport=document.querySelector<HTMLElement>('#viewport')!,hostRoot=document.querySelector<HTMLElement>('#linking-host')!;
 hostRoot.append(element('p',t('loading')));
+function applyAppearance(value:typeof host){
+  const root=document.documentElement;
+  root.dataset.hostTheme=value.theme||'light';
+  root.dataset.reduced=String(!!value.reducedMotion||value.animationSpeed===0);
+  const setting=value.animationSpeed??1,speed=Number.isFinite(setting)&&setting>0?setting:1;
+  root.style.setProperty('--reader-motion',Math.round(Math.min(450,220/speed))+'ms');
+}
 async function start(){
   try{
-    setHost(await hostPreferences());document.documentElement.dataset.hostTheme=host.theme||'light';document.documentElement.dataset.reduced=String(!!host.reducedMotion);
+    setHost(await hostPreferences());applyAppearance(host);
+    document.documentElement.dataset.playerReader=String(!!host.playerOnly);
+    if(host.playerOnly){
+      let revision=0;
+      const refresh=async()=>{
+        const current=++revision;
+        try{const settings=await hostPreferences();if(current===revision)applyAppearance(settings);}catch{}
+      };
+      window.addEventListener('linking-appearance',refresh);
+      void refresh();
+    }
     const params=new URL(location.href).searchParams;
     if(params.has('manage')&&!host.playerOnly){const {startManagement}=await import('./manage');document.body.classList.add('activity-reading');hostRoot.replaceChildren(element('strong','LINKING · 管理活动'),button(t('back'),()=>navigate()));await startManagement(viewport);return;}
     const catalog=await api('/api/linking/catalog'),id=params.get('chapter');

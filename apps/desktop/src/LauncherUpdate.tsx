@@ -3,6 +3,7 @@ import {Download,RefreshCw} from 'lucide-react';
 import {Button} from './ui';
 import {invoke,perform} from './model';
 import {PreferenceSwitch} from './launcher/ChoiceControls';
+import {TransferMeter} from './launcher/micro/Feedback';
 import {SettingsSection} from './launcher/SettingsSection';
 import {version} from '../../../package.json';
 
@@ -26,7 +27,7 @@ export function LauncherUpdate({enabled,onChange,links}:{
       checked={enabled} change={async value=>{await onChange(value);}}/>}
     <div className="settings-content">
       <p className="settings-description" role="status">{status.installed?status.phase:'可使用下一版完整包升级。账号、设置和游玩记录保存在独立的用户目录。'}</p>
-      {status.percent>0&&!status.ready&&<progress aria-label="启动器下载进度" max={100} value={status.percent}/>}
+      {status.percent>0&&!status.ready&&<TransferMeter label="启动器下载进度" value={status.percent} running={busy}/>}
       {(status.installed||links)&&<div className="settings-actions">
         {status.installed&&<Button icon={RefreshCw} disabled={busy} onClick={()=>act('app-update.check')}>检查更新</Button>}
         {status.available&&!status.ready&&<Button icon={Download} disabled={busy} onClick={()=>act('app-update.download')}>下载更新</Button>}

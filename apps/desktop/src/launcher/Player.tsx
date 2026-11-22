@@ -1,12 +1,31 @@
-import {Fragment,useEffect,useState} from 'react';
+import {Fragment,useEffect,useRef,useState} from 'react';
 import {useSnapshot} from 'valtio';
 import {ChevronLeft,Headphones,Pause,Play,Plus,SkipBack,SkipForward,Trash2} from 'lucide-react';
 import {ChoiceGroup} from './ChoiceControls';
+import {WakeRange} from './micro/WakeRange';
 import {CardBoard} from '../CardBoard';
 import {Link} from 'react-router-dom';
 import {account,invoke,notify,perform,saveSettings,state,ui} from '../model';
-import {loadMusic,music,musicTime,nextTrack,playTrack,removeTrack,seekMusic,setMusicVolume,toggleMusic} from '../music-player';
+import {loadMusic,music,musicTime,nextTrack,playTrack,removeTrack,seekMusic,previewMusicVolume,setMusicVolume,toggleMusic} from '../music-player';
 import {LyricsCard,loadLyrics,NeteaseAccount} from '../Lyrics';
+
+function PlayerVolume(){
+  const persisted=useSnapshot(state).settings.musicVolume??.3;
+  const [draft,setDraft]=useState<number>(persisted),pending=useRef<number|null>(null),saving=useRef(0),sequence=useRef(0);
+  useEffect(()=>{if(!saving.current&&pending.current===null)setDraft(persisted);},[persisted]);
+  function commit(){
+    if(pending.current===null)return;
+    const value=pending.current,id=++sequence.current;pending.current=null;saving.current=id;
+    void perform(async()=>{
+      try{await setMusicVolume(value);}
+      catch(error){if(saving.current===id&&pending.current===null)setDraft(previewMusicVolume(state.settings.musicVolume??.3));throw error;}
+      finally{if(saving.current===id)saving.current=0;}
+    });
+  }
+  return <label><span>音量</span><WakeRange aria-label="音量" aria-valuetext={Math.round(draft*100)+'%'} min={0} max={1} step=".05" value={draft}
+    onChange={e=>{const level=e.currentTarget.valueAsNumber;pending.current=level;setDraft(previewMusicVolume(level));}}
+    onPointerUp={commit} onPointerCancel={commit} onBlur={commit} onKeyUp={commit}/></label>;
+}
 
 export function Player(){
   const m=useSnapshot(music),s=useSnapshot(state);
@@ -22,7 +41,7 @@ export function Player(){
     <section className="player-now"><Headphones size={30}/><div><h2>{m.current?.title||'选择一首音乐'}</h2><p>{m.current?.artist||'从本机导入，或添加在线歌曲。'}</p></div>
     <div className="play-buttons"><button aria-label="上一首" disabled={!m.items.length} onClick={()=>perform(()=>nextTrack(-1))}><SkipBack/></button><button aria-label={m.playing?'暂停':'播放'} disabled={!m.items.length} onClick={()=>perform(toggleMusic)}>{m.playing?<Pause/>:<Play/>}</button><button aria-label="下一首" disabled={!m.items.length} onClick={()=>perform(()=>nextTrack(1))}><SkipForward/></button></div>
     <label className="player-progress"><span>{musicTime(m.position)}</span><input aria-label="播放进度" type="range" min="0" max={m.duration||0} step=".1" value={m.position||0} onChange={e=>seekMusic(Number(e.target.value))}/><span>{musicTime(m.duration)}</span></label></section>
-    <div className="volume-line"><ChoiceGroup label="播放模式" value={s.settings.musicPlayMode||'list'} options={[['list','列表循环'],['single','单曲循环'],['shuffle','随机播放']]} onChange={mode=>perform(async()=>{await saveSettings({musicPlayMode:mode});music.mode=mode;})}/><label><span>音量</span><input type="range" aria-label="音量" min="0" max="1" step=".05" value={s.settings.musicVolume??.3} onChange={e=>perform(()=>setMusicVolume(Number(e.target.value)))}/></label></div>
+    <div className="volume-line"><ChoiceGroup label="播放模式" value={s.settings.musicPlayMode||'list'} options={[['list','列表循环'],['single','单曲循环'],['shuffle','随机播放']]} onChange={mode=>perform(async()=>{await saveSettings({musicPlayMode:mode});music.mode=mode;})}/><PlayerVolume/></div>
     </>;
   const lyricsPanel=<div className="lyrics-tools">{lyrics?<LyricsCard inline/>:<button className="small-action" disabled={!m.current} onClick={()=>setLyrics(true)}>{m.current?'显示同步歌词':'播放后查看歌词'}</button>}</div>;
   const messages=<>{m.notice&&<p role="status">{m.notice}</p>}{(error||m.error)&&<p className="inline-error" role="alert">{error||m.error}</p>}

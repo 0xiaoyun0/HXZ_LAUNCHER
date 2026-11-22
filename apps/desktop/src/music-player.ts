@@ -62,7 +62,12 @@ export async function toggleMusic(){
 }
 export async function nextTrack(direction=1){const list=music.items;if(!list.length)return;const index=list.findIndex((t:any)=>t.id===music.current?.id);let next=(index+direction+list.length)%list.length;if(music.mode==='shuffle'&&list.length>1){next=(Math.max(0,index)+1+Math.floor(Math.random()*(list.length-1)))%list.length;}await playTrack(list[next]);}
 export function seekMusic(position:number){if(audio&&Number.isFinite(audio.duration))audio.currentTime=Math.max(0,Math.min(audio.duration,position));}
-export function setMusicVolume(value:number){const level=Math.max(0,Math.min(1,value));if(localGain)localGain.gain.value=level;else if(audio)audio.volume=level;return saveSettings({musicVolume:level});}
+export function previewMusicVolume(value:number){
+ const level=Math.max(0,Math.min(1,value));
+ if(localGain)localGain.gain.value=level;else if(audio)audio.volume=level;
+ return level;
+}
+export function setMusicVolume(value:number){return saveSettings({musicVolume:previewMusicVolume(value)});}
 export async function shareMusic(enabled:boolean){
  if(!enabled){shareRoomMusic(null);return;}
  if(!community.room)throw Error('请先加入一起听房间');if(!music.current)throw Error('请先选择一首音乐');

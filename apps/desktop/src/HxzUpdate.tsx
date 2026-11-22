@@ -1,3 +1,4 @@
+import {TransferMeter} from './launcher/micro/Feedback';
 import {DetailDialog} from './ui';
 import {useEffect,useState} from 'react';
 import './hxzup-cards.css';
@@ -7,7 +8,7 @@ export function HxzUpdate(){
  useEffect(()=>{if(!open||!t.busy)return;const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[open,t.busy]);
  const hide=()=>ui.hxzup={...ui.hxzup,hidden:true},Icon=t.failed?AlertCircle:t.busy?Download:Check,elapsed=t.started?Math.max(0,Math.floor(((t.ended||now)-t.started)/1000)):0;
  return <Modal open={open} title="HXZ UP · 整合包更新" onClose={hide} wide><div className="hxzup-cards">
-  <section className={'hxzup-summary '+(t.failed?'failed':'')}><div className="hxzup-symbol"><Icon size={26}/></div><div><span className="muted">{s.instances.find((i:any)=>i.id===u.hxzup?.id)?.name||u.hxzup?.id}</span><h3>{t.phase}</h3></div><strong>{pct===null?(t.busy?'进行中':t.failed?'未完成':'已完成'):pct.toFixed(1)+'%'}</strong><progress aria-label="HXZ UP 当前步骤" value={pct===null?undefined:t.completed} max={t.total||1}/><span className="hxzup-measure">{t.total>0?(t.unit==='bytes'?bytes(t.completed)+' / '+bytes(t.total):t.completed+' / '+t.total+' '+t.unit):'正在等待当前步骤的进度数据'}<small>当前步骤</small></span>{t.detail&&<p className="hxzup-file">{t.detail}</p>}</section>
+  <section className={'hxzup-summary '+(t.failed?'failed':'')}><div className="hxzup-symbol"><Icon size={26}/></div><div><span className="muted">{s.instances.find((i:any)=>i.id===u.hxzup?.id)?.name||u.hxzup?.id}</span><h3>{t.phase}</h3></div><strong>{pct===null?(t.busy?'进行中':t.failed?'未完成':'已完成'):pct.toFixed(1)+'%'}</strong><TransferMeter label="HXZ UP 当前步骤" value={pct===null?undefined:t.completed} max={t.total||1} running={t.busy}/><span className="hxzup-measure">{t.total>0?(t.unit==='bytes'?bytes(t.completed)+' / '+bytes(t.total):t.completed+' / '+t.total+' '+t.unit):'正在等待当前步骤的进度数据'}<small>当前步骤</small></span>{t.detail&&<p className="hxzup-file">{t.detail}</p>}</section>
   <section className="hxzup-metric"><HardDriveDownload size={20}/><span>已接收</span><strong>{bytes(t.traffic||t.received)}</strong><small>{t.busy&&t.speed>0?bytes(t.speed)+'/s':'等待传输或正在校验'}</small></section>
   <section className="hxzup-metric"><Clock3 size={20}/><span>本次用时</span><strong>{elapsed>=60?Math.floor(elapsed/60)+' 分 ':''}{elapsed%60} 秒</strong><small>关闭此窗口后任务继续</small></section>
   <section className="hxzup-record"><DetailDialog title="连接与校验记录"><pre>{t.logs.slice(-30).join('\n')||'暂无记录'}</pre></DetailDialog></section>

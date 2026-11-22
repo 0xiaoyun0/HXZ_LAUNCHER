@@ -11,6 +11,7 @@ type Gesture={grid:HTMLElement;card:HTMLElement;button:HTMLButtonElement;pointer
   cells:Map<string,Cell>;original:string;preview?:HTMLElement;frame:number;active:boolean};
 const clamp=(value:number,min:number,max:number)=>Math.min(Math.max(value,min),Math.max(min,max));
 function begin(p:Gesture){
+  delete p.card.dataset.landed;
   p.active=true;p.grid.dataset.dragging='true';p.grid.style.position='relative';p.grid.style.minHeight=p.height+'px';
   for(const cell of p.cells.values()){
     Object.assign(cell.node.style,{position:'absolute',gridArea:'auto',left:cell.left+'px',top:cell.top+'px',width:cell.width+'px',height:cell.height+'px',margin:'0',boxSizing:'border-box'});
@@ -96,7 +97,7 @@ export function CardGestures({kind,id,title,compact,locked,onEdit,onChoose}:Prop
     finish();onEdit(command);
   }
   return <button type="button" className={'canvas-grip '+kind} aria-label={label} disabled={locked}
-    title={kind==='move'?'拖动或使用方向键移动卡片':'拖动调整宽高，双击恢复内容高度'} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={finish} onLostPointerCapture={finish}
+    data-hint={kind==='move'?'拖动或使用方向键移动卡片':'拖动调整宽高，双击恢复内容高度'} onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={finish} onLostPointerCapture={finish}
     onDoubleClick={()=>{if(kind==='size')onEdit({id,op:'height',value:0});}}
     onKeyDown={e=>{
       if(e.key==='Enter'||e.key===' '){e.preventDefault();onChoose();return;}
