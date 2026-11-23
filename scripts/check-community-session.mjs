@@ -25,7 +25,8 @@ export async function communityFixture(temp, dist, title) {
     const input=body.length?JSON.parse(Buffer.concat(body)):{};let status=200,result={};
     if(req.url==='/downloads/community.zip'){
       if(delivery==='offline'){res.writeHead(503);res.end();return;}
-      const data=delivery==='bad'?plugin.subarray(0,100):plugin;
+      const data=delivery==='bad'?Buffer.from(plugin):delivery==='short'?plugin.subarray(0,100):plugin;
+      if(delivery==='bad')data[0]^=1;
       res.writeHead(200,{'Content-Type':'application/zip','Content-Length':data.length});res.end(data);return;
     }else if(skinOffline && req.url.startsWith('/authserver/')){
       status=503;result={error:'皮肤站暂时不可用'};

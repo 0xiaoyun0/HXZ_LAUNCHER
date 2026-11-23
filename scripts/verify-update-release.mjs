@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {createReadStream} from 'node:fs';
 import {createHash} from 'node:crypto';
-import {verifyRelease} from '../packages/engine/core/update-sources.mjs';
+import {verifyRelease,RELEASE_ROOT} from '../packages/engine/core/update-sources.mjs';
 
 export async function verifyUpdateRelease(dir,version){
   for(const arch of ['x64','ia32']){
@@ -22,6 +22,8 @@ export async function verifyUpdateRelease(dir,version){
   const catalog=JSON.parse(await fs.readFile('.runtime/official-extensions.json','utf8'));
   for(const id of ['community','music','arcade']){
     const asset=catalog[id];assert.equal(asset.version,version,id);
+    assert.equal(asset.url,RELEASE_ROOT+'/download/v'+version+'/'+asset.name,id+' 发布地址');
+    await assert.rejects(fs.access(path.join('apps/desktop/dist',asset.entry)),{code:'ENOENT'});
     const filename=path.join(dir,'extensions',asset.name),digest=createHash('sha256');
     assert.equal((await fs.stat(filename)).size,asset.size,id);
     for await(const bytes of createReadStream(filename))digest.update(bytes);

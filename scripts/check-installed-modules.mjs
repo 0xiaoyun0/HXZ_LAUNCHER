@@ -5,6 +5,9 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
+import http from 'node:http';
+import {createReadStream} from 'node:fs';
+import {pipeline} from 'node:stream/promises';
 import {setTimeout as wait} from 'node:timers/promises';
 import {verifyDesktopArchitecture} from './verify-desktop-arch.mjs';
 import {chromium} from 'playwright-core';
@@ -17,6 +20,30 @@ const app=path.join(tmp,'program'),home=path.join(tmp,'new-profile'),appData=pat
 const old=path.join(appData,'幻想镇启动器'),root=path.join(tmp,'sample-game'),world=path.join(root,'versions','山谷');
 const ids=['community','music','arcade'],catalog=JSON.parse(await fs.readFile('.runtime/official-extensions.json','utf8'));
 let proc,browser,page;
+let attachments;
+const useGitHub=process.argv.includes('--github');
+const fetched=new Set();
+async function routeDraftAttachments(){
+  const worker=path.join(app,'engine','engine.cjs'),original=await fs.readFile(worker,'utf8');
+  attachments=http.createServer(async(req,res)=>{
+    const [,route,name]=req.url.split('/');
+    const entry=Object.values(catalog).find(entry=>entry.name===name);
+    if(!entry){res.writeHead(404).end();return;}
+    if(route==='release'){res.writeHead(302,{Location:'/assets/'+name}).end();return;}
+    if(route!=='assets'){res.writeHead(404).end();return;}
+    fetched.add(name);res.writeHead(200,{'Content-Type':'application/zip','Content-Length':entry.size});
+    await pipeline(createReadStream(path.join(release,'extensions',name)),res).catch(()=>{});
+  });
+  attachments.listen(0,'127.0.0.1');await once(attachments,'listening');
+  let code=original;
+  for(const entry of Object.values(catalog)){
+    const published='https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v'+version+'/'+entry.name;
+    assert.equal(entry.url,published);assert.ok(code.includes(published));
+    code=code.replaceAll(published,'http://127.0.0.1:'+attachments.address().port+'/release/'+entry.name);
+  }
+  await fs.writeFile(worker,code);
+  return ()=>fs.writeFile(worker,original);
+}
 async function start(args=[]){
   const socket=net.createServer();socket.listen(0,'127.0.0.1');await once(socket,'listening');
   const port=socket.address().port;await new Promise(r=>socket.close(r));
@@ -65,9 +92,15 @@ try{
   await fs.access(path.join(app,'no-shell.flag'));
   await verifyDesktopArchitecture(app,arch);
   await start();await states(false,false);
+  // First boot uses the untouched installer. The isolated worker routes only the
+  // three pinned URLs to the staged attachments while a release is still a draft.
+  let restore;
+  if(!useGitHub){await close();restore=await routeDraftAttachments();await start();}
   const initial=(await call('state',{localOnly:true})).value;
   assert.equal(initial.settings.gameRoot,root);assert.equal(initial.settings.fecEnabled,false);
   assert.equal(initial.settings.defaultMemoryMB,7168);assert.equal(initial.settings.memoryMode,'manual');
+  assert.equal(initial.settings.autoCheckUpdates,true,'安装版默认检查后续签名更新');
+  assert.equal((await call('settings.save',{autoCheckUpdates:false})).value.autoCheckUpdates,false);
   assert.equal((await call('points.overview')).ok,false);
   assert.equal((await call('arcade.score',{route:'/api/arcade/runner?period=week',method:'GET'})).ok,false);
   await call('settings.save',{onboardingDone:true});await page.reload();
@@ -83,8 +116,11 @@ try{
     assert.ok(await ready.isVisible());
   }
   await states(true,false);await page.reload();await states(true,false);
-  await close();await start(['--disable-plugins']);await states(true,false);await close();
+  await close();
+  if(restore){assert.equal(fetched.size,3);await restore();}
+  await start(['--disable-plugins']);await states(true,false);await close();
   await start();await states(true,true);
+  assert.equal((await call('state',{localOnly:true})).value.settings.autoCheckUpdates,false,'关闭更新检查后重启仍然关闭');
   const nav=page.getByRole('navigation',{name:'主导航'});
   for(const name of ['社区','小游戏'])await nav.getByRole('link',{name,exact:true}).waitFor();
   await page.locator('footer').getByRole('link',{name:'音乐播放器',exact:true}).waitFor();
@@ -97,8 +133,9 @@ try{
   for(const id of ids)assert.equal(await fs.stat(path.join(home,'extensions',id,catalog[id].sha256)).catch(()=>null),null);
   assert.equal(await fs.readFile(legacyFile,'utf8'),legacy);
   if(play)assert.deepEqual(await fs.readFile(sentinel),play);
-  console.log(arch+' 安装程序、0.9.2 首启迁移、三个扩展冷启动/安全模式/移除及游客权限通过。');
+  console.log(arch+' 安装程序、0.9.2 首启迁移、三个扩展下载、冷启动、安全模式、移除及游客权限通过。下载来源：'+(useGitHub?'公开 GitHub Release':'本机 HTTP 草稿附件，含 302 跳转'));
 } finally {
   await close();
+  if(attachments)await new Promise(resolve=>attachments.close(resolve));
   if(path.dirname(tmp)===os.tmpdir()&&path.basename(tmp).startsWith('hxz-installed-'))await fs.rm(tmp,{recursive:true,force:true,maxRetries:5,retryDelay:400});
 }

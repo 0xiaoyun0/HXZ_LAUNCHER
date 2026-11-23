@@ -1,5 +1,5 @@
 import path from 'node:path';
-import fs from 'node:fs/promises';
+import {existsSync} from 'node:fs';
 import {connectHost} from './wire.mjs';
 import {createServices} from '../packages/engine/core/services.mjs';
 import {createLatencyMonitor} from '../packages/engine/core/monitor-latency.mjs';
@@ -25,8 +25,9 @@ const choose=options=>host('dialog.open',options);
 const vault=async(action,bytes)=>Buffer.from(await host(action,{bytes:Buffer.from(bytes).toString('base64')}),'base64');
 const rtc=createPeerTransport(emit);
 const previousAppData=process.env.APPDATA;
+const installed=existsSync(path.join(resources,'../../installed.flag'));
 const engine=createServices({
-  data:home,dependencyRoot:path.join(home,'cache'),resources,version:pkg.version,emit,
+  data:home,dependencyRoot:path.join(home,'cache'),resources,version:pkg.version,emit,defaultAutoCheckUpdates:installed,
   initialRoot:async()=>'',initialLibrary:()=>installedLibrary(previousAppData),initialServerCache:()=>installedServerCache(previousAppData),scanInstances:root=>host('library.scan',{root}),spawnGame:wire.spawnGame,
   window:()=>null,dialog:{showOpenDialog:(_,options)=>choose(options),showSaveDialog:(_,options)=>host('dialog.save',options)},
   shell:{openPath:path=>host('file.open',{path}),showItemInFolder:path=>host('file.reveal',{path}),trashItem:path=>host('file.trash',{path}),openExternal:url=>host('url.open',{url})},
@@ -37,8 +38,8 @@ const engine=createServices({
 const identity=service=>emit({type:'identity-changed',authenticated:service.hasAuthenticatedAccount()});
 engine.then(identity).catch(()=>{}); // The local UI receives initialization errors through the request that triggered it.
 const latency=createLatencyMonitor({targets:async()=>monitorEndpoints(await (await engine).invoke('monitor.targets'))});
-const updater=Promise.all([engine,fs.access(path.join(resources,'../../installed.flag')).then(()=>true,()=>false)]).then(([service,installed])=>updates({home,version:pkg.version,architecture:process.arch,installed,channel:__HXZ_UPDATE_CHANNEL__,emit,isBusy:()=>service.isBusy(),launch:input=>host('update.install',input)}));
-const officialExtensions=new Map(Object.entries(__HXZ_OFFICIAL_EXTENSIONS__).map(([id,definition])=>[id,communityExtension({home,choose,resources,id,definition,emit})]));
+const updater=engine.then(service=>updates({home,version:pkg.version,architecture:process.arch,installed,channel:__HXZ_UPDATE_CHANNEL__,emit,isBusy:()=>service.isBusy(),launch:input=>host('update.install',input)}));
+const officialExtensions=new Map(Object.entries(__HXZ_OFFICIAL_EXTENSIONS__).map(([id,definition])=>[id,communityExtension({home,choose,id,definition,emit})]));
 const cards=cardPlugins({home,choose,emit,safeMode:process.env.HXZ3_SAFE_MODE==='1',request:async()=>{throw Error('请从本机导入卡片');}});
 const local={
   'profile.cards':()=>legacyCardPackage(previousAppData),

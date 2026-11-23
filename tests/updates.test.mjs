@@ -21,5 +21,7 @@ test('signed update retries without publishing partial bytes and verifies the in
  const restarted=updates(common);assert.equal((await restarted.invoke('app-update.check')).ready,true);await assert.rejects(restarted.invoke('app-update.install'),/结束/);
  busy=false;await restarted.invoke('app-update.install');assert.deepEqual(calls,[{sha256:hash}]);
  await fs.writeFile(path.join(home,'updates',hash+'.exe'),'altered');await assert.rejects(restarted.invoke('app-update.install'),/下载/);
+ const damaged=await restarted.invoke('app-update.status');assert.equal(damaged.ready,false);assert.equal(damaged.available,true);
+ assert.equal((await restarted.invoke('app-update.download')).ready,true);await restarted.invoke('app-update.install');assert.equal(calls.length,2);
  const local=updates({...common,channel:null});assert.equal((await local.invoke('app-update.check')).managed,false);
 });

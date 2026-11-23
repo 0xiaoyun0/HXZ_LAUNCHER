@@ -58,17 +58,21 @@ const descriptions:Record<ModuleId,string>={community:'聊天、论坛、冒险�
 function ModuleSetting({id}:{id:ModuleId}){
   const all=useSnapshot(extension),s=useSnapshot(state),t=useSnapshot(task),e=all.modules[id]||(id==='community'?all:missing);
   const [busy,setBusy]=useState(false),[error,setError]=useState<any>(null);
+  const [percent,setPercent]=useState<number|null>(null);
+  useEffect(()=>window.launcher?.subscribe(event=>{
+    if(event.type==='extension-progress'&&event.id===id)setPercent(event.percent);
+  }),[id]);
   const pending=e.active!==e.installed;
   async function change(action:string){
-    if(busy)return;setBusy(true);setError(null);
+    if(busy)return;setBusy(true);setError(null);setPercent(null);
     try{await invoke('extension.'+action,{id});await refreshExtension();}
     catch(cause){setError(playerError(cause,'extension.'+action));}finally{setBusy(false);}
   }
   const status=!e.available?'当前构建缺少扩展清单':e.incompatible?'版本不匹配或文件损坏，请重新安装':e.safeMode&&e.installed?'本次已跳过':pending?(e.installed?'已下载 · 重启后启用':'已停用 · 重启后移除'):e.active?'已启用':'未安装';
   return <section className="preference-section"><h2><StatusMark status={busy?'running':error||e.incompatible?'failed':e.active?'done':'pending'}/> {id==='community'?'社区插件':names[id]}</h2>
-    <div className="setting-line"><span><strong>{status}</strong><small>{descriptions[id]} · {e.version||'—'}{e.size?' · '+(e.size<1048576?Math.ceil(e.size/1024)+' KB':(e.size/1048576).toFixed(1)+' MB'):''}</small></span></div>
+    <div className="setting-line"><span><strong>{busy&&percent!==null?(percent===100?'正在校验并安装':'正在接收扩展 · '+percent+'%'):status}</strong><small>{descriptions[id]} · {e.version||'—'}{e.size?' · '+(e.size<1048576?Math.ceil(e.size/1024)+' KB':(e.size/1048576).toFixed(1)+' MB'):''}</small></span></div>
     <div className="desk-actions extension-actions">
-      {e.installed?<button className="small-action" disabled={busy} onClick={()=>change('disable')}>{pending?'取消启用':id==='community'?'停用插件':'移除'+names[id]}</button>:<>
+      {e.installed&&<button className="small-action" disabled={busy} onClick={()=>change('disable')}>{pending?'取消启用':id==='community'?'停用插件':'移除'+names[id]}</button>}{(!e.installed||e.incompatible)&&<>
         <button className="small-action" disabled={busy||!e.available} onClick={()=>change('install')}><Download size={15}/>{busy?'正在处理…':id==='community'?'下载社区插件':'安装'+names[id]}</button>
         <button className="small-action" aria-label={'从本地安装'+names[id]} disabled={busy||!e.available} onClick={()=>change('import')}>从本地安装</button></>}
       {pending&&!e.safeMode&&<button className="launch-primary" disabled={busy||s.running||t.busy} onClick={()=>change('restart')}><RotateCcw size={15}/>重启启动器</button>}

@@ -5,6 +5,7 @@ import path from 'node:path';
 import {pipeline} from 'node:stream/promises';
 import yazl from 'yazl';
 import {filesUnder} from './archive.mjs';
+import {RELEASE_ROOT} from '../packages/engine/core/update-sources.mjs';
 import './ensure-linking.mjs';
 
 const {version}=JSON.parse(await fs.readFile('package.json','utf8'));
@@ -45,7 +46,7 @@ for(const [id,label,source] of [
   }
   zip.end();await written;
   const hash=createHash('sha256');for await(const bytes of createReadStream(temp))hash.update(bytes);
-  const definition={version,name,entry:entry.file,css:entry.css||[],size:(await fs.stat(temp)).size,sha256:hash.digest('hex'),url:'https://www.hxzmc.top/api/release-file/'+name,files};
+  const definition={version,name,entry:entry.file,css:entry.css||[],size:(await fs.stat(temp)).size,sha256:hash.digest('hex'),url:RELEASE_ROOT+'/download/v'+version+'/'+name,files};
   await fs.rename(temp,path.join(out,name));
   catalog[id]=definition;
   console.log(id+' · '+name+' · '+definition.size+' 字节');

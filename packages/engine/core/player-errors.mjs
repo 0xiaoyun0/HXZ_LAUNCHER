@@ -1,7 +1,11 @@
 // Only catalogued text may leave the device in a shareable summary.
 const catalogue = {
-  pluginMismatch: ['社区插件与启动器版本不匹配', '重新下载本版本的社区插件，或选择对应的本地插件包。验证通过后才能启用。', 'retry', 'player'],
-  pluginDownload: ['社区插件下载暂时不可用', '稍后重新下载，或在扩展设置中从本地安装同版本的插件包。如多人持续遇到，请联系发布管理员。', 'retry', 'admin-if-repeated'],
+  updateSignature: ['更新清单的签名未通过', '启动器已停止这次更新。稍后重新检查。如果仍然出现，将摘要交给发布管理员。', 'retry', 'admin-if-repeated'],
+  updateFile: ['更新安装包不完整', '在「下载与更新」再次点击「下载更新」。启动器会重新校验文件，现有安装仍可使用。', 'retry', 'player'],
+  pluginMismatch: ['扩展包与当前版本不匹配', '重新下载本版本的扩展，或从本地选择对应版本的 ZIP。之前的安装状态已保留。', 'retry', 'player'],
+  pluginMissing: ['GitHub 上暂未提供此版本的扩展', '稍后重试。如果手上有同版本的扩展 ZIP，可以直接选择「从本地安装」。', 'retry', 'admin-if-repeated'],
+  pluginInterrupted: ['扩展包没有下载完整', '网络恢复后再次点击安装。临时文件已清理，之前的安装状态已保留。', 'retry', 'player'],
+  pluginDownload: ['暂时无法下载扩展', '请检查能否访问 GitHub，再次点击安装。也可以从本地选择同版本的扩展 ZIP。', 'retry', 'admin-if-repeated'],
   stopped: ['操作已取消', '可以返回原页面，需要时再继续。', 'resume', 'player'],
   disk: ['可用磁盘空间不足', '打开游戏目录所在的磁盘，腾出空间后重试。已经通过校验的下载可以继续使用。', 'free-space', 'player'],
   locked: ['文件正被其他程序使用', '先退出使用这个实例的游戏或程序，再重试刚才的操作。', 'resume', 'player'],
@@ -31,6 +35,7 @@ const catalogue = {
   page: ['当前页面没有正确载入', '重新打开这个页面。若问题可以重复出现，可将排查摘要和重现步骤交给维护者。', 'retry', 'ai']
 };
 const contexts = {
+  'app-update': ['启动器更新未完成', '回到「下载与更新」重新检查版本，或从 GitHub 正式发布页获取安装包。'],
   extension: ['社区插件操作中断', '回到扩展设置重试。已安装的游戏可以照常使用。'],
   settings: ['设置未能保存', '重试保存。若再次失败，请检查本机资料目录能否写入。'],
   state: ['无法读取本机资料', '关闭其他正在写入资料的启动器，再重新读取。'],
@@ -61,8 +66,12 @@ export function playerError(value, operation = '') {
   const skin = ['skin','account'].includes(area) || has(/皮肤站|yggdrasil|authserver/i);
   const download = ['install','pack'].includes(area) || has(/下载|HXZUP|镜像/);
   let code;
-  if (area==='extension' && has(/校验|checksum|版本不匹配/i)) code='pluginMismatch';
-  else if(area==='extension' && has(/HTTP|fetch|下载中断|timeout|ENOTFOUND|ECONN/i)) code='pluginDownload';
+  if (area==='app-update' && has(/签名|更新清单|发布清单/)) code='updateSignature';
+  else if (area==='app-update' && has(/校验|重新下载|超过清单大小/)) code='updateFile';
+  else if (area==='extension' && has(/校验|checksum|版本不匹配/i)) code='pluginMismatch';
+  else if(area==='extension' && has(/HTTP 404/i)) code='pluginMissing';
+  else if(area==='extension' && has(/下载中断|terminated|premature close|ECONNRESET/i)) code='pluginInterrupted';
+  else if(area==='extension' && has(/HTTP|fetch|timeout|timed out|ENOTFOUND|ECONN/i)) code='pluginDownload';
   else if (has(/用户取消|已取消|AbortError|operation cancelled/i)) code = 'stopped';
   else if (has(/ENOSPC|no space left|空间不足|磁盘空间不够/i)) code = 'disk';
   else if (has(/EBUSY|sharing violation|being used|正被.+使用|占用中|文件.*占用/i)) code = 'locked';

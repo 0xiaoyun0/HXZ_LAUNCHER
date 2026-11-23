@@ -17,7 +17,7 @@ export function updates({home,version,architecture,channel,installed,launch,isBu
  async function readManifest(){
    const response=await fetcher(remote(channel.url),{signal:AbortSignal.timeout(12000),redirect:'follow'});
    if(response.url)remote(response.url);
-   if(!response.ok)throw Error('更新源暂时不可用');
+   if(!response.ok){await response.body?.cancel();throw Error('更新源暂时不可用，稍后可以重新检查');}
    let length=0;const chunks=[];for await(const chunk of response.body){length+=chunk.length;if(length>256*1024)throw Error('更新清单过大');chunks.push(chunk);}
    const envelope=JSON.parse(Buffer.concat(chunks).toString('utf8')),payload=Buffer.from(envelope.payload,'base64');
    const key=createPublicKey({key:Buffer.from(channel.publicKey,'base64'),format:'der',type:'spki'});
@@ -46,7 +46,7 @@ export function updates({home,version,architecture,channel,installed,launch,isBu
    await fs.mkdir(dir,{recursive:true});const temp=path.join(dir,randomUUID()+'.part');
    try{
      const response=await fetcher(manifest.url,{signal:AbortSignal.timeout(180000),redirect:'follow'});
-     if(!response.ok)throw Error('安装包下载失败');if(response.url)remote(response.url);
+     if(!response.ok){await response.body?.cancel();throw Error('安装包下载失败，可以重新下载');}if(response.url)remote(response.url);
      let count=0,last=-1;const h=createHash('sha256'),legacy=manifest.sha512?createHash('sha512'):null;
      await pipeline(response.body,new Transform({transform(chunk,_,cb){count+=chunk.length;if(count>manifest.size){cb(Error('更新内容超过清单大小'));return;}h.update(chunk);legacy?.update(chunk);const pct=Math.floor(100*count/manifest.size);if(pct!==last){last=pct;set({phase:'正在下载',percent:pct});}cb(null,chunk);}}),createWriteStream(temp,{flags:'wx'}));
      if(count!==manifest.size||h.digest('hex')!==manifest.sha256||(legacy&&legacy.digest('base64')!==manifest.sha512))throw Error('安装包完整性校验失败');
@@ -61,9 +61,17 @@ export function updates({home,version,architecture,channel,installed,launch,isBu
    try{
      if(action==='app-update.check')return await check();
      if(action==='app-update.download')return await download();
-     if(action==='app-update.install'){if(isBusy())throw Error('请先结束正在运行的游戏和下载');if(!await validFile())throw Error('请重新下载更新');await launch({sha256:manifest.sha256});return set({phase:'正在打开安装程序'});}
+     if(action==='app-update.install'){
+       if(isBusy())throw Error('请先结束正在运行的游戏和下载');
+       if(!await validFile())throw Error('安装包校验失败，请重新下载更新');
+       await launch({sha256:manifest.sha256});return set({phase:'正在打开安装程序'});
+     }
      throw Error('未知版本操作');
-   }catch(e){set({phase:e.message});throw e;}finally{active=false;}
+   }catch(e){
+     const invalid=action==='app-update.download'||(action==='app-update.install'&&!await validFile());
+     set({phase:e.message,...(invalid?{ready:false,percent:0}:{})});
+     throw e;
+   }finally{active=false;}
  }
  return {invoke,autoCheck(enabled){
    if(!enabled){clearTimeout(timer);timer=undefined;autoChecked=false;return;}

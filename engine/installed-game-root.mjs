@@ -13,7 +13,7 @@ async function readProfileFile(dir,name,limit){
 
 function runtimePreferences(old){
   const values={},validHeap=v=>Number.isInteger(v)&&v>=512&&v<=131072;
-  for(const key of ['fecEnabled','communityRelayEnabled'])if(typeof old[key]==='boolean')values[key]=old[key];
+  for(const key of ['fecEnabled','communityRelayEnabled','autoCheckUpdates'])if(typeof old[key]==='boolean')values[key]=old[key];
   if(old.memoryMode==='auto'||(old.memoryMode==='manual'&&validHeap(old.defaultMemoryMB)))values.memoryMode=old.memoryMode;
   if(validHeap(old.defaultMemoryMB))values.defaultMemoryMB=old.defaultMemoryMB;
   const instances={};

@@ -6,6 +6,8 @@ import {createHash} from 'node:crypto';
 import {pipeline} from 'node:stream/promises';
 import os from 'node:os';
 import path from 'node:path';
+import http from 'node:http';
+import {once} from 'node:events';
 import yazl from 'yazl';
 import {communityExtension} from '../engine/community-extension.mjs';
 
@@ -23,7 +25,7 @@ test('a checked package is committed after transfer, supports local import and s
   const start=async()=>{const p=op('extension.install');while(!respond)await new Promise(r=>setTimeout(r,3));return {p};};
   assert.deepEqual(await op('extension.import'),{changed:false});
   let run=await start();await assert.rejects(op('extension.install'),/正在处理/);
-  respond(new Response(bytes.subarray(0,3)));respond=null;await assert.rejects(run.p,/校验/);
+  respond(new Response(bytes.subarray(0,3)));respond=null;await assert.rejects(run.p,/下载中断/);
   await assert.rejects(fs.access(marker));run=await start();respond(new Response(bytes));respond=null;await run.p;
   assert.equal(JSON.parse(await fs.readFile(marker)).sha256,sha256);
   assert.equal(await fs.readFile(path.join(home,'extensions/community',sha256,'assets/community.js'),'utf8'),'export default 42;');
@@ -35,7 +37,16 @@ test('a checked package is committed after transfer, supports local import and s
   await fs.mkdir(installerSource,{recursive:true});await fs.mkdir(installedApp,{recursive:true});
   await fs.writeFile(path.join(installedApp,'installed.flag'),'\uFEFF'+installerSource,'utf16le');
   await fs.copyFile(sample,path.join(installerSource,definition.name));
-  await op('extension.disable');await op('extension.install');
+  const server=http.createServer((req,res)=>{
+    if(req.url==='/release'){res.writeHead(302,{Location:'/attachment'});res.end();return;}
+    res.end(bytes);
+  });
+  server.listen(0,'127.0.0.1');await once(server,'listening');t.after(()=>server.close());
+  definition.url='http://127.0.0.1:'+server.address().port+'/release';
+  let fetched=false;
+  const download=communityExtension({home,resources:path.join(installedApp,'engine/resources'),definition,
+    fetcher:(url,options)=>{fetched=true;return fetch(url,options);}});
+  await op('extension.disable');await download('extension.install');assert.equal(fetched,true);
   assert.equal(JSON.parse(await fs.readFile(marker)).sha256,sha256);
   assert.equal(requested,3);
 });
