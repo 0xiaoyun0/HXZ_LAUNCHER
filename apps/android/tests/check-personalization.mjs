@@ -1,0 +1,83 @@
+import assert from 'node:assert/strict';
+import path from 'node:path';
+
+export async function checkPersonalization(page){
+  const dialog=page.getByRole('dialog',{name:'外观与动效'});
+  const button=name=>dialog.getByRole('button',{name,exact:true});
+  const tab=name=>dialog.getByRole('tab',{name,exact:true}).click();
+  const picker=label=>dialog.getByLabel(label);
+  const cover=page.locator('.town-hall-cover img'),backdrop=page.locator('.town-backdrop img');
+  const open=()=>page.getByRole('button',{name:'自定义社区大厅'}).click();
+  const close=()=>button('关闭').click();
+  await open();
+  await button('大厅实景').click();
+  await cover.waitFor({state:'attached'});
+  assert.match(await cover.getAttribute('src'),/town-hall\.webp$/);
+  const media=path.resolve('public/media/town');
+  await picker('头图图片文件').setInputFiles(path.join(media,'mod-2.png'));
+  await page.waitForFunction(()=>document.querySelector('.town-hall-cover img')?.getAttribute('src')?.startsWith('blob:'));
+  await button('靠下').click();
+  const saved=await cover.getAttribute('src');
+  await picker('头图图片文件').setInputFiles({name:'broken.png',mimeType:'image/png',buffer:Buffer.from('invalid bitmap')});
+  await dialog.getByRole('alert').filter({hasText:'读不出来'}).waitFor();
+  assert.equal(await cover.getAttribute('src'),saved,'失败的导入保留原头图');
+  await tab('背景');
+  await picker('背景图片文件').setInputFiles(path.join(media,'survival.png'));
+  await backdrop.waitFor({state:'attached'});
+  await picker('背景视频文件').setInputFiles(path.resolve('apps/android/tests/motion.mp4'));
+  const playing=()=>{const video=document.querySelector('.town-backdrop video');return video?.muted&&video.loop&&!video.paused&&video.currentTime>0;};
+  await page.waitForFunction(playing);
+  await page.evaluate(()=>window.dispatchEvent(new Event('town-pause')));
+  await page.waitForFunction(()=>document.querySelector('.town-backdrop video')?.paused);
+  await page.evaluate(()=>window.dispatchEvent(new Event('town-resume')));
+  await page.waitForFunction(playing);
+  await button('轻').click();
+  await page.waitForFunction(()=>document.querySelector('.town-backdrop-wash')?.style.opacity==='0.28');
+  await tab('首页卡片');
+  await button('将近期讨论上移').click();
+  await dialog.getByRole('switch',{name:'显示服务器公告'}).click();
+  await close();
+  await page.reload();
+  await page.waitForFunction(()=>document.querySelector('.town-hall-cover img')?.naturalWidth>0&&document.querySelector('.town-backdrop img')?.naturalWidth>0);
+  await page.waitForFunction(playing);
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.locator('.town-backdrop video').waitFor({state:'detached'});
+  const hasFrame=await backdrop.evaluate(img=>{
+    const probe=document.createElement('canvas');probe.width=8;probe.height=8;
+    const context=probe.getContext('2d');context.drawImage(img,0,0,8,8);
+    return context.getImageData(0,0,8,8).data.some((v,i)=>i%4===3&&v>0);
+  });
+  assert.ok(hasFrame,'减少动效显示已解码的视频帧');
+  await page.emulateMedia({reducedMotion:'no-preference'});
+  await page.waitForFunction(playing);
+  assert.equal(await cover.evaluate(e=>e.style.objectPosition),'50% 100%');
+  assert.equal(await backdrop.evaluate(e=>e.style.objectPosition),'50% 50%');
+  assert.deepEqual(await page.locator('.town-home-cards > section').evaluateAll(els=>els.map(el=>el.dataset.homeCard)),['servers','topics']);
+  await open();
+  await button('简洁标题').click();
+  await cover.waitFor({state:'detached'});
+  assert.ok(await backdrop.count(),'独立更换头图和背景');
+  await button('移除自选头图').click();
+  await tab('背景');
+  await button('移除自选背景').click();
+  await backdrop.waitFor({state:'detached'});
+  await tab('首页卡片');
+  for(const name of ['社区服务器','近期讨论'])await dialog.getByRole('switch',{name:'显示'+name}).click();
+  await close();
+  await page.getByRole('button',{name:'管理首页卡片'}).click();
+  await button('恢复默认顺序与显示').click();
+  await page.setViewportSize({width:320,height:568});
+  await page.evaluate(()=>document.documentElement.style.fontSize='19px');
+  const usable=await dialog.evaluate(el=>{
+    const panel=el.getBoundingClientRect(),close=el.querySelector('button[aria-label="关闭"]').getBoundingClientRect();
+    return panel.left>=0&&panel.right<=innerWidth+1&&close.top>=0&&close.bottom<=innerHeight&&
+      [...el.querySelectorAll('[role=tab],.town-card-tools button')].every(control=>{
+        const b=control.getBoundingClientRect();return b.left>=panel.left&&b.right<=panel.right+1&&b.height>=43&&b.width>=43;
+      });
+  });
+  assert.ok(usable,'窄屏大字号下的外观标签和卡片控件完整且可触达');
+  await page.evaluate(()=>document.documentElement.style.removeProperty('font-size'));
+  await page.setViewportSize({width:390,height:844});
+  await close();
+  assert.deepEqual(await page.locator('.town-home-cards > section').evaluateAll(els=>els.map(el=>el.dataset.homeCard)),['servers','notices','topics']);
+}

@@ -34,7 +34,7 @@ try{
  const communityInitial=await toggle.boundingBox();assert(communityInitial.x<15,'independent community default stays left');
  await toggle.tap();await page.waitForTimeout(200);assert.equal(await title.textContent(),'蓝图');
  await drag(100,-90);const communityMoved=await toggle.boundingBox();assert(communityMoved.x>80);assert.equal(await title.textContent(),'蓝图');
- await nav.getByRole('button',{name:'游戏',exact:true}).tap();await page.waitForTimeout(220);assert.equal(await toggle.isVisible(),false);
+ await nav.getByRole('button',{name:'发现',exact:true}).tap();await page.waitForTimeout(220);assert.equal(await toggle.isVisible(),false);
  await nav.getByRole('button',{name:'聊天',exact:true}).tap();await page.waitForTimeout(200);assert.equal(await title.textContent(),'语音');assert(Math.abs((await toggle.boundingBox()).x-moved.x)<2);
  await nav.getByRole('button',{name:'社区',exact:true}).tap();await page.waitForTimeout(200);assert.equal(await title.textContent(),'蓝图');assert(Math.abs((await toggle.boundingBox()).x-communityMoved.x)<2);
  const saved=await page.evaluate(()=>localStorage.getItem('hxz-mobile-switch-positions-v1'));assert(saved);

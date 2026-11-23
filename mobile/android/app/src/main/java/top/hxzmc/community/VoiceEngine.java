@@ -19,6 +19,9 @@ final class VoiceEngine implements AutoCloseable {
     private final AudioManager manager;
     private final AudioFocusRequest focus;
     private volatile boolean running;
+    private final ArrayDeque<short[]> musicFrames=new ArrayDeque<>();
+    void clearMusic(){synchronized(musicFrames){musicFrames.clear();}}
+    void music(byte[] bytes){if(!running||!app.musicSharing||bytes.length==0||bytes.length>9600||bytes.length%1920!=0)return;synchronized(musicFrames){for(int at=0;at<bytes.length;at+=1920){short[] frame=new short[FRAME];for(int i=0;i<FRAME;i++)frame[i]=(short)((bytes[at+i*2]&255)|(bytes[at+i*2+1]<<8));while(musicFrames.size()>=10)musicFrames.poll();musicFrames.offer(frame);}}}
     private AudioRecord recorder;
     private AudioTrack player;
     private AcousticEchoCanceler echo;
@@ -51,17 +54,24 @@ final class VoiceEngine implements AutoCloseable {
         capture=new Thread(this::capture,"HXZ microphone");playback=new Thread(this::play,"HXZ voice mixer");capture.start();playback.start();
         app.voiceSettings(CommunityApp.obj("muted",app.muted,"deafened",app.deafened,"ptt",app.ptt));
     }
+    private void activity(String id,short[] samples,int length){long now=SystemClock.elapsedRealtime();if(now-app.voiceActivity.getOrDefault(id,0L)<160)return;double sum=0;int n=0;for(int i=0;i<length;i+=4){sum+=(double)samples[i]*samples[i];n++;}if(n>0&&sum/n>161000)app.voiceActivity.put(id,now);}
     private void capture() {
         android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
         try {
             OpusEncoder encoder=new OpusEncoder(RATE,1,OpusApplication.OPUS_APPLICATION_VOIP);
             encoder.setBitrate(24000);encoder.setComplexity(3);encoder.setUseDTX(true);
-            short[] pcm=new short[FRAME];byte[] compressed=new byte[4000];int sequence=0,epoch=new java.security.SecureRandom().nextInt();
+            short[] pcm=new short[FRAME];byte[] compressed=new byte[4000];int sequence=0,epoch=new java.security.SecureRandom().nextInt();boolean musicMode=false;long lastSilence=0;float previousInput=0,previousOutput=0,inputGain=1;
             while(running){
                 int read=0;while(running&&read<FRAME){int n=recorder.read(pcm,read,FRAME-read,AudioRecord.READ_BLOCKING);if(n<0)throw new Exception("麦克风读取失败 "+n);read+=n;}
                 if(!running)break;
-                if(app.muted||app.ptt&&!app.pressing)continue;
+                boolean micMuted=app.muted||app.ptt&&!app.pressing;short[] music=null;if(app.musicSharing){synchronized(musicFrames){music=musicFrames.poll();}}if(micMuted&&music==null)continue;
+                int peak=1;for(int i=0;i<FRAME;i++){float sample=micMuted?0:pcm[i],filtered=sample-previousInput+.9902f*previousOutput;previousInput=sample;previousOutput=filtered;pcm[i]=(short)Math.max(-32767,Math.min(32767,filtered));peak=Math.max(peak,Math.abs((int)pcm[i]));}
+                float target=Math.min(1f,22000f/peak);inputGain=target<inputGain?target:Math.min(target,inputGain+.025f);
+                for(int i=0;i<FRAME;i++){float sample=pcm[i]*inputGain+(music==null?0:music[i]*.8f);pcm[i]=(short)(32767*Math.tanh(sample/32767f));}
+                if(musicMode!=app.musicSharing){musicMode=app.musicSharing;encoder.setBitrate(musicMode?64000:24000);encoder.setUseDTX(!musicMode);}
+                if(!micMuted)activity(app.selfId,pcm,FRAME);
                 int length=encoder.encode(pcm,0,FRAME,compressed,0,compressed.length);
+                if(!musicMode&&length<=3){long now=SystemClock.elapsedRealtime();if(now-lastSilence<400)continue;lastSilence=now;}
                 WebSocket socket=app.socket;
                 if(length<=1||socket==null||socket.queueSize()>16000)continue;
                 ByteBuffer packet=ByteBuffer.allocate(9+length).put((byte)1).putInt(epoch).putInt(++sequence).put(compressed,0,length);
@@ -74,8 +84,8 @@ final class VoiceEngine implements AutoCloseable {
         String id=new String(bytes,1,36,StandardCharsets.US_ASCII);
         if(!id.matches("[a-fA-F0-9-]{36}"))return;
         Peer peer=peers.get(id);
-        if(peer==null){if(peers.size()>=19)return;peer=new Peer();peers.put(id,peer);}
-        synchronized(peer){while(peer.queue.size()>=6)peer.queue.poll();peer.queue.offer(bytes);peer.last=SystemClock.elapsedRealtime();}
+        if(peer==null){if(peers.size()>=49)return;peer=new Peer();peers.put(id,peer);}
+        synchronized(peer){if(peer.queue.size()>=12)while(peer.queue.size()>3)peer.queue.poll();peer.queue.offer(bytes);peer.last=SystemClock.elapsedRealtime();}
     }
     private void play() {
         android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_AUDIO);
@@ -86,18 +96,20 @@ final class VoiceEngine implements AutoCloseable {
                 long now=SystemClock.elapsedRealtime();
                 for(Map.Entry<String,Peer> entry:peers.entrySet()){
                     Peer peer=entry.getValue();byte[] data;
-                    synchronized(peer){data=peer.queue.poll();}
-                    if(data==null){if(now-peer.last>3000)peers.remove(entry.getKey());continue;}
+                    synchronized(peer){if(!peer.started&&(peer.queue.size()>=3||now-peer.first>=70))peer.started=true;data=peer.started?peer.queue.poll():null;}
+                    if(data==null){if(now-peer.last>3000)peers.remove(entry.getKey());if(!app.deafened&&peer.started){for(int i=0;i<FRAME;i++){peer.tail*=.996f;sums[i]+=(int)peer.tail;}}continue;}
                     if(app.deafened)continue;
                     try{
                         ByteBuffer packet=ByteBuffer.wrap(data);int epoch=packet.getInt(37);long seq=Integer.toUnsignedLong(packet.getInt(41));
                         if(peer.decoder==null||peer.epoch!=epoch||seq-peer.sequence>25){peer.decoder=new OpusDecoder(RATE,1);peer.epoch=epoch;peer.sequence=-1;}
                         if(seq<=peer.sequence)continue;peer.sequence=seq;
                         int count=peer.decoder.decode(data,45,data.length-45,peer.pcm,0,FRAME,false);
+                        activity(entry.getKey(),peer.pcm,count);
                         for(int i=0;i<count;i++)sums[i]+=peer.pcm[i];
+                        peer.tail=count>0?peer.pcm[count-1]:0;
                     }catch(Exception ignored){peer.decoder=null;}
                 }
-                for(int i=0;i<FRAME;i++)mix[i]=(short)Math.max(-32768,Math.min(32767,sums[i]));
+                for(int i=0;i<FRAME;i++)mix[i]=(short)(32767*Math.tanh(sums[i]/32767f));
                 int written=0;while(running&&written<FRAME){int n=player.write(mix,written,FRAME-written,AudioTrack.WRITE_BLOCKING);if(n<0)throw new Exception("扬声器播放失败 "+n);written+=n;}
             }
         }catch(Exception e){if(running)app.main.post(()->{app.event("error","语音播放中断："+CommunityApp.reason(e));app.leave();});}
@@ -105,7 +117,7 @@ final class VoiceEngine implements AutoCloseable {
     void tone(boolean join){ToneGenerator t=tone;if(t!=null&&!app.deafened)t.startTone(join?ToneGenerator.TONE_PROP_BEEP:ToneGenerator.TONE_PROP_BEEP2,100);}
     void speaker(boolean enabled){manager.setSpeakerphoneOn(enabled);}
     @Override public void close(){
-        running=false;
+        running=false;clearMusic();
         try{if(recorder!=null)recorder.stop();}catch(Exception ignored){}
         try{if(player!=null)player.pause();}catch(Exception ignored){}
         // Never block UI/WebSocket threads while waiting for an AudioRecord driver.
@@ -117,5 +129,5 @@ final class VoiceEngine implements AutoCloseable {
         manager.abandonAudioFocusRequest(focus);manager.setSpeakerphoneOn(false);manager.setMode(previousMode);
         if(wake!=null&&wake.isHeld())wake.release();
     }
-    private static final class Peer { final ArrayDeque<byte[]> queue=new ArrayDeque<>();final short[] pcm=new short[FRAME];OpusDecoder decoder;int epoch;long sequence=-1,last; }
+    private static final class Peer { final ArrayDeque<byte[]> queue=new ArrayDeque<>();final short[] pcm=new short[FRAME];OpusDecoder decoder;int epoch;long sequence=-1,last,first=SystemClock.elapsedRealtime();boolean started;float tail; }
 }

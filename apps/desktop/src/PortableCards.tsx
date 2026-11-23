@@ -1,0 +1,90 @@
+import React,{createContext,useContext,useEffect,useLayoutEffect,useState,useSyncExternalStore} from 'react';
+import {createPortal} from 'react-dom';
+import {useLocation,useNavigate} from 'react-router-dom';
+import {useSnapshot} from 'valtio';
+import {MoveUpRight,Grip,X} from 'lucide-react';
+import {state,ui,saveSettings,notify} from './model';
+import {Button,Modal} from './ui';
+import {CARD_PAGES,normalizeCardPlacements,normalizeWidgets,placeTransferredCard} from '../../../packages/engine/core/card-extras.mjs';
+import {boardMetrics,cardHeightUnit} from './CardGrid';
+import {homeLayoutKey} from '../../../packages/engine/core/desktop-workspace.mjs';
+import type {CardSpec} from './CardBoard';
+export const CardHarvest=createContext(false);
+type Move={source:string;card:string;title:string;w?:number;minW?:number;widget?:boolean};
+// Content is rendered by its source page directly into the destination host.
+// Publishing freshly-created React elements through an external store caused render loops.
+const hosts=new Map<string,Set<HTMLElement>>(),listeners=new Set<()=>void>();let registryRevision=0;
+const emit=()=>{registryRevision++;listeners.forEach(fn=>fn());};
+const subscribe=(fn:()=>void)=>{listeners.add(fn);return()=>{listeners.delete(fn);};};
+export function HarvestedCards({source,cards}:{source:string;cards:CardSpec[]}){
+ useSyncExternalStore(subscribe,()=>registryRevision,()=>0);
+ return <>{cards.flatMap(card=>Array.from(hosts.get(source+'.'+card.id)||[]).map(host=>createPortal(card.content,host,source+'.'+card.id)))}</>;
+}
+export function ForeignCard({source,card}:{source:string;card:string}){
+ const ref=React.useRef<HTMLDivElement>(null);
+ useLayoutEffect(()=>{const host=ref.current;if(!host)return;const key=source+'.'+card;let set=hosts.get(key);if(!set)hosts.set(key,set=new Set());set.add(host);emit();return()=>{set!.delete(host);if(!set!.size)hosts.delete(key);emit();};},[source,card]);
+ return <div ref={ref} className={'foreign-card-content source-'+source} data-card-source={source+'.'+card}/>;
+}
+export function PortableSources({render}:{render:(route:string)=>React.ReactNode}){
+ const s=useSnapshot(state),location=useLocation(),target=CARD_PAGES.find(p=>p[1]===location.pathname)?.[0];
+ const sources=Array.from(new Set(Object.values(normalizeCardPlacements(s.settings.cardPlacements)).filter((v:any)=>v.target===target).map((v:any)=>v.source)));
+ return <CardHarvest.Provider value={true}><div hidden aria-hidden>{sources.map(id=><React.Fragment key={id}>{render(CARD_PAGES.find(p=>p[0]===id)![1])}</React.Fragment>)}</div></CardHarvest.Provider>;
+}
+export async function moveCard(card:Move,target:string,drop?:{x:number;y:number;mode:string}){
+ if(ui.unsaved||ui.layoutUnsaved)throw Error('请先保存正在编辑的内容，再移动卡片');
+ await saveSettings((s:any)=>{
+  const current=card.widget?s.widgets?.find((w:any)=>w.id===card.card)?.page||card.source:normalizeCardPlacements(s.cardPlacements)[card.source+'.'+card.card]?.target||card.source;
+  const cardLayouts=placeTransferredCard(s.cardLayouts||{},card,target,current,drop,homeLayoutKey(s.workspaceLayout));
+  if(card.widget)return {cardLayouts,widgets:normalizeWidgets((s.widgets||[]).map((v:any)=>v.id===card.card?{...v,page:target}:v))};
+  const placements=normalizeCardPlacements(s.cardPlacements),key=card.source+'.'+card.card;
+  if(card.source===target)delete placements[key];else placements[key]={source:card.source,card:card.card,title:card.title,w:card.w,minW:card.minW,target};
+  return {cardLayouts,cardPlacements:normalizeCardPlacements(placements)};
+ });notify('已移到'+CARD_PAGES.find(p=>p[0]===target)?.[2]);
+}
+export function MoveCardDialog({card,current,onClose}:{card:Move;current:string;onClose:()=>void}){
+ return <Modal open onClose={onClose} title={'移动“'+card.title+'”'}><div className="card-destinations">{CARD_PAGES.filter(p=>p[0]!==current).map(p=><Button key={p[0]} icon={MoveUpRight} onClick={async()=>{await moveCard(card,p[0]);onClose();}}>{p[2]}</Button>)}</div></Modal>;
+}
+export function MovedCardRecovery({board}:{board:string}){const s=useSnapshot(state),items=Object.values(normalizeCardPlacements(s.settings.cardPlacements)).filter((v:any)=>v.source===board) as any[];return items.length?<div className="card-palette"><h3>已移到其他页面</h3>{items.map(v=><section key={v.card}><span>{v.title} · {CARD_PAGES.find(p=>p[0]===v.target)?.[2]}</span><Button onClick={()=>moveCard(v,board)}>移回本页</Button></section>)}</div>:null;}
+const dragListeners=new Set<()=>void>();let drag:{card:Move;from:string;x:number;y:number;over:string;pointerId:number}|null=null;
+const dragEmit=()=>dragListeners.forEach(fn=>fn());
+export function startCardTravel(e:React.PointerEvent,card:Move,from:string){
+ if(e.button!==0||drag)return;e.preventDefault();e.stopPropagation();
+ if(ui.unsaved||ui.layoutUnsaved){notify('请先保存正在编辑的内容',true);return;}
+ drag={card,from,x:e.clientX,y:e.clientY,over:'',pointerId:e.pointerId};dragEmit();
+}
+export function CardTravelLayer({destinations}:{destinations?:string[]}={}){
+ const allowed=(id:string)=>!destinations||destinations.includes(id);
+ const value=useSyncExternalStore(fn=>{dragListeners.add(fn);return()=>{dragListeners.delete(fn);};},()=>drag),navigate=useNavigate(),location=useLocation();
+ const ghost=React.useRef<HTMLDivElement>(null);
+ useEffect(()=>{
+  if(!value)return;
+  let hover='',timer:ReturnType<typeof setTimeout>|undefined,frame=0;
+  const paint=()=>{
+    frame=0;if(!drag)return;
+    const element=document.elementFromPoint(drag.x,drag.y),nav=element?.closest<HTMLElement>('[data-card-destination],.air-primary-nav a,.launcher-navigation a');
+    const target=nav?.dataset.cardDestination||CARD_PAGES.find(p=>nav?.getAttribute('href')==='#'+p[1])?.[0]||element?.closest<HTMLElement>('[data-card-board]')?.dataset.cardBoard||'';
+    const valid=allowed(target)&&CARD_PAGES.some(p=>p[0]===target)&&target!==drag.from?target:'';
+    if(valid!==drag.over){drag={...drag,over:valid};dragEmit();}
+    if(valid!==hover){
+      hover=valid;clearTimeout(timer);
+      if(valid)timer=setTimeout(()=>{const route=CARD_PAGES.find(p=>p[0]===valid)?.[1];if(route&&route!==location.pathname)navigate(route);},650);
+    }
+    ghost.current?.style.setProperty('--travel-x',drag.x+14+'px');ghost.current?.style.setProperty('--travel-y',drag.y+12+'px');
+  };
+  const end=(commit:boolean)=>{
+    const current=drag;clearTimeout(timer);cancelAnimationFrame(frame);drag=null;dragEmit();
+    if(!commit||!current?.over)return;
+    const board=document.elementFromPoint(current.x,current.y)?.closest<HTMLElement>('[data-card-board]'),geometry=board?boardMetrics(board):undefined;
+    const drop=board&&geometry&&board.dataset.cardBoard===current.over?{x:Math.floor((current.x-geometry.rect.left)/geometry.step),y:Math.floor((current.y-geometry.rect.top)/cardHeightUnit(board)),mode:board.hasAttribute('data-compact')?'compact':'wide'}:undefined;
+    void moveCard(current.card,current.over,drop).catch(e=>notify(e.message,true));
+  };
+  const move=(e:PointerEvent)=>{if(!drag||e.pointerId!==drag.pointerId)return;drag.x=e.clientX;drag.y=e.clientY;if(!frame)frame=requestAnimationFrame(paint);};
+  const up=(e:PointerEvent)=>{if(!drag||e.pointerId!==drag.pointerId)return;drag.x=e.clientX;drag.y=e.clientY;cancelAnimationFrame(frame);paint();end(true);};
+  const cancel=()=>end(false),key=(e:KeyboardEvent)=>{if(e.key==='Escape')cancel();};
+  window.addEventListener('pointermove',move);window.addEventListener('pointerup',up);window.addEventListener('pointercancel',cancel);window.addEventListener('blur',cancel);window.addEventListener('keydown',key);
+  return()=>{clearTimeout(timer);cancelAnimationFrame(frame);window.removeEventListener('pointermove',move);window.removeEventListener('pointerup',up);window.removeEventListener('pointercancel',cancel);window.removeEventListener('blur',cancel);window.removeEventListener('keydown',key);};
+ },[!!value,navigate,location.pathname]);
+ useEffect(()=>{document.body.classList.toggle('card-travelling',!!value);return()=>document.body.classList.remove('card-travelling');},[!!value]);
+ if(!value)return null;
+ return createPortal(<><div ref={ghost} className="card-travel-ghost" style={{left:0,top:0,'--travel-x':value.x+14+'px','--travel-y':value.y+12+'px'} as React.CSSProperties}><Grip size={19}/><strong>{value.card.title}</strong><span>{value.over?'松手放到'+CARD_PAGES.find(p=>p[0]===value.over)?.[2]:'拖到栏目或下方目标页'}</span></div><div className="card-travel-dock"><span>移动卡片 · Esc 取消</span><div>{CARD_PAGES.filter(p=>p[0]!==value.from&&allowed(p[0])).map(p=><button key={p[0]} data-card-destination={p[0]} className={value.over===p[0]?'active':''}>{p[2]}</button>)}</div></div></>,document.body);
+}

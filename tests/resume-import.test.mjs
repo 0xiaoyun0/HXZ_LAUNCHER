@@ -1,0 +1,46 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {createServices} from '../packages/engine/core/services.mjs';
+import {resumeTarget} from '../packages/engine/core/resume.mjs';
+import {importPreferences} from '../engine/profile-import.mjs';
+
+const installed=id=>({id,installed:true});
+test('resume keeps the last launched instance after browsing, and recovers from a moved root or missing world',()=>{
+  const worlds=[installed('a'),installed('b'),{id:'template',builtin:true,installed:false},{id:'broken',error:'metadata'}];
+  const settings={gameRoot:'Q:/library',selectedInstance:'b',lastPlayed:{id:'a',root:'Q:/library'}};
+  assert.equal(resumeTarget(worlds,settings).game.id,'a');
+  assert.equal(resumeTarget(worlds,settings,{id:'b',root:settings.gameRoot}).game.id,'b');
+  assert.equal(resumeTarget(worlds,settings,{id:'b',root:'R:/other'}).game.id,'a');
+  assert.equal(resumeTarget(worlds.filter(v=>v.id!=='a'),settings).game.id,'b');
+  assert.equal(resumeTarget(worlds,{...settings,gameRoot:'R:/library'}).reason,'selected');
+  assert.equal(resumeTarget(worlds,{...settings,lastPlayed:{...settings.lastPlayed,id:'template'}}).game.id,'b');
+  assert.equal(resumeTarget(worlds,{...settings,selectedInstance:'broken',lastPlayed:null}),null);
+});
+test('migrate 0.9.2 preferences and launch history, preserve unknown fields and originals through cancel, error and retry',async t=>{
+  const root=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-third-migrate-'));
+  t.after(()=>fs.rm(root,{recursive:true,force:true}));
+  const old=path.join(root,'旧资料'),home=path.join(root,'第三代'),gameRoot=path.join(root,'游戏');
+  await Promise.all([old,home,gameRoot].map(p=>fs.mkdir(p)));
+  const file=path.join(old,'settings.json'),history=path.join(old,'launch-history.json');
+  await fs.writeFile(path.join(home,'settings.json'),JSON.stringify({existingOnly:61,gameRoot,onboardingDone:true}));
+  const prior={gameRoot,selectedInstance:'b',fontSize:17,futureFeature:{mode:3},selectedAccount:'old-id'};
+  const historyText=JSON.stringify([{instance:'a',root:gameRoot,status:'normal',started:20},{instance:'b',root:gameRoot,status:'failed',started:25},{instance:'other',root:old,status:'normal',started:100}]);
+  await fs.writeFile(history,historyText);
+  const service=await createServices({data:home,resources:home,initialRoot:async()=>'',scanInstances:async()=>[installed('a'),installed('b')],emit(){},window:()=>null,safeStorage:{isEncryptionAvailable:()=>false}});
+  t.after(()=>service.dispose());const choice=async()=>({canceled:false,filePaths:[file]});
+  assert.deepEqual(await importPreferences(home,async()=>({canceled:true}),service),{cancelled:true});
+  await fs.writeFile(file,JSON.stringify({...prior,fontSize:88}));await assert.rejects(importPreferences(home,choice,service),/字号/);
+  assert.equal((await service.invoke('state',{localOnly:true})).settings.futureFeature,undefined);
+  const text='\uFEFF'+JSON.stringify(prior,null,2);await fs.writeFile(file,text);
+  for(let n=0;n<2;n++)await importPreferences(home,choice,service);
+  const state=await service.invoke('state',{localOnly:true});
+  assert.equal(state.settings.selectedAccount,'');assert.equal(state.settings.existingOnly,61);assert.deepEqual(state.settings.futureFeature,{mode:3});
+  assert.equal(resumeTarget(state.instances,state.settings).game.id,'a');assert.equal(state.settings.selectedInstance,'b');
+  assert.equal(await fs.readFile(file,'utf8'),text);assert.equal(await fs.readFile(history,'utf8'),historyText);
+  const originals=(await fs.readdir(path.join(home,'imports'))).filter(f=>f.endsWith('-source.json'));
+  const backups=await Promise.all(originals.map(f=>fs.readFile(path.join(home,'imports',f),'utf8')));
+  assert.equal(backups.filter(x=>x===text).length,2);
+});

@@ -1,0 +1,17 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import {archive} from './archive.mjs';
+const {version}=JSON.parse(await fs.readFile('package.json','utf8')),src=path.resolve('integrations/game-bridge');
+const out=path.resolve('release',version,'game-server'),kit=path.join(out,'游戏服务端工具'),parts=path.join(kit,'components'),stage=path.resolve('.runtime','mcdr-'+version);
+await fs.mkdir(stage,{recursive:true});await fs.mkdir(parts,{recursive:true});
+await fs.cp(path.join(src,'mcdr'),stage,{recursive:true,filter:p=>!p.split(path.sep).includes('__pycache__')});
+const metadata=path.join(stage,'mcdreforged.plugin.json'),manifest=JSON.parse(await fs.readFile(metadata,'utf8'));manifest.version=version;await fs.writeFile(metadata,JSON.stringify(manifest,null,2)+'\n');
+const script=path.join(stage,'hxz_community_bridge/__init__.py');await fs.writeFile(script,(await fs.readFile(script,'utf8')).replace("BRIDGE_VERSION = 'development'","BRIDGE_VERSION = '"+version+"'"));
+const mcdr='hxz-community-bridge-'+version+'-mcdr.mcdr',neo='hxz-community-bridge-'+version+'-neoforge-1.21.1.jar';
+await archive(stage,path.join(out,mcdr));
+await fs.copyFile(path.join(src,'neoforge/build/libs','hxz-community-bridge-neoforge-1.21.1-'+version+'.jar'),path.join(out,neo));
+for(const name of [mcdr,neo])await fs.copyFile(path.join(out,name),path.join(parts,name));
+for(const name of ['install-windows.ps1','start-origin.ps1'])await fs.copyFile(path.join(src,name),path.join(kit,name));
+await fs.cp('resources/hxzre',kit,{recursive:true});await fs.copyFile('LICENSE',path.join(kit,'LICENSE'));
+await fs.writeFile(path.join(kit,'release.json'),JSON.stringify({version},null,2));
+await archive(kit,path.join(out,'HXZ-MC-Server-Kit-'+version+'-windows.zip'));

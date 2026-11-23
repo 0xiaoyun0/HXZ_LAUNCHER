@@ -29,7 +29,8 @@ onUnmounted(()=>unregisterOverlay(id));
 <template>
   <Teleport to="body">
     <Transition name="overlay" @after-leave="restoreFocus">
-      <div v-if="open" ref="root" class="sheet-backdrop" :class="{'confirm-backdrop':kind==='confirm','picker-backdrop':kind==='picker'}" :style="{zIndex:40+level*10}" :role="kind==='confirm'?'alertdialog':'dialog'" aria-modal="true" :aria-label="label" tabindex="-1" @click.self="close" @keydown="keyboard"><slot/></div>
+      <div v-if="open" ref="root" class="sheet-backdrop" :class="{'confirm-backdrop':kind==='confirm','picker-backdrop':kind==='picker','fullscreen-backdrop':kind==='fullscreen'}" :style="{zIndex:40+level*10}" :role="kind==='confirm'?'alertdialog':'dialog'" aria-modal="true" :aria-label="label" tabindex="-1" @click.self="close" @keydown="keyboard"><slot/></div>
     </Transition>
   </Teleport>
 </template>
+<style scoped>.sheet-backdrop.fullscreen-backdrop{padding:0;align-items:stretch;background:var(--bg)}</style>

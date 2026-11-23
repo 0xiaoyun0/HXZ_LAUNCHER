@@ -1,0 +1,38 @@
+@keyframes town-page-enter {
+  from { opacity: .76; transform: translateY(.28rem); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes town-working { to { transform: rotate(1turn); } }
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-app=town-mobile][data-motion=on] {
+    --town-press-time: calc(var(--duration, .32s) * .35);
+    --town-settle-time: calc(var(--duration, .32s) * .62);
+    --town-settle: cubic-bezier(.2,.75,.25,1);
+  }
+  [data-motion=on] .town-main :is(.town-content,.social-content) > header,
+  [data-motion=on] .town-main .town-progress,
+  [data-motion=on] .town-instance-options [role=tabpanel]:not([hidden]) {
+    animation: town-page-enter var(--town-settle-time) var(--town-settle);
+  }
+  [data-app=town-mobile][data-motion=on] .town-main > :is(.launch-page,.social-workspace) { animation: none; }
+  [data-motion=on] .town-shell :is(.town-item,.small-action,.launch-primary,.icon-button,.town-nav a),
+  [data-motion=on] .town-instance-options :is(button,[role=tab]) {
+    transition: background-color var(--town-press-time), color var(--town-press-time), transform var(--town-press-time) var(--town-settle);
+  }
+  [data-motion=on] .town-shell :is(.town-item,.small-action,.launch-primary,.icon-button,.town-nav a):active:not(:disabled),
+  [data-motion=on] .town-instance-options button:active:not(:disabled) { transform: scale(.985); }
+  [data-motion=on] .town-nav-icon::before,
+  [data-motion=on] .town-switch span { transition: transform var(--town-settle-time) var(--town-settle), opacity var(--town-press-time); }
+  [data-motion=on] .town-switch::before { transition: background-color var(--town-settle-time); }
+  [data-motion=on] .town-busy-icon { animation: town-working 1.3s linear infinite; }
+}
+
+[data-app=town-mobile][data-motion=off] *,
+[data-app=town-mobile][data-motion=off] *::before,
+[data-app=town-mobile][data-motion=off] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+@media (prefers-reduced-motion: reduce) {
+  [data-app=town-mobile] *, [data-app=town-mobile] *::before, [data-app=town-mobile] *::after {
+    animation: none !important; transition: none !important; scroll-behavior: auto !important;
+  }
+}

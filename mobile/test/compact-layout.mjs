@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';await fs.mkdir('.runtime/mobile-audit060/boards',{recursive:true});
 import {pathToFileURL} from 'node:url';
-import {createBoard,legalMoves,playMove} from '../../server/shared/board-games.mjs';
+import {createBoard,legalMoves,playMove} from '../../packages/mobile-ui/server/shared/board-games.mjs';
 const {chromium}=await import(process.env.PLAYWRIGHT_PATH?pathToFileURL(process.env.PLAYWRIGHT_PATH).href:'playwright');
 const browser=await chromium.launch({channel:'msedge',headless:true});
 try{
  const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
  page.setDefaultTimeout(5000);
- let match;const errors=[],failures=[];page.on('pageerror',e=>errors.push(e.message));
+ let match;const errors=[],failures=[];page.on('pageerror',e=>{errors.push(e.message);console.error(e.stack)});
  await page.exposeBinding('nativeCall',async(_,raw)=>{
   const {id,op,input}=JSON.parse(raw);
   let data=op==='state'?{connected:true,hasAccount:true,user:{uid:'fixture',name:'测试角色'},profiles:[],users:[],messages:[],room:''}:op==='appUpdate'?{currentVersion:'0.4.5',currentBuild:40503,phase:'idle'}:op==='api'?{items:[],total:0,more:false,minecraft:[],create:[]}:true;
@@ -28,7 +29,7 @@ try{
  const label=await range.evaluate(el=>{const p=el.closest('label'),text=[...p.childNodes].find(n=>n.nodeType===3&&n.textContent.trim())||p.querySelector('span');const r=document.createRange();r.selectNodeContents(text);const b=r.getBoundingClientRect();return {width:b.width,height:b.height};});
  if(label.width<label.height)failures.push('聊天记录范围竖排: '+JSON.stringify(label));
  await range.tap();await page.getByRole('option',{name:'1 周',exact:true}).tap();assert.match(await range.textContent(),/1 周/);
- await nav.getByRole('button',{name:'游戏',exact:true}).tap();
+ await nav.getByRole('button',{name:'发现',exact:true}).tap();await page.locator('.discover-card').first().tap();
  for(const [game,name,columns,rows] of [['gomoku','五子棋',15,15],['xiangqi','象棋',9,10],['chess','国际象棋',8,8]]){
   await page.locator('.strategy-card').filter({has:page.locator('.strategy-art.'+game)}).tap();
   await page.getByRole('button',{name:'挑战机器人 · 初识',exact:true}).tap();
@@ -39,6 +40,7 @@ try{
     const board=el.getBoundingClientRect(),cells=[...el.querySelectorAll('.board-cell')];
     return {board:{width:board.width,height:board.height},cells:cells.map(c=>{const b=c.getBoundingClientRect(),p=c.querySelector('.board-piece'),r=p?.getBoundingClientRect(),s=p&&getComputedStyle(p),outline=s&&s.outlineStyle!=='none'?parseFloat(s.outlineWidth):0;return {width:b.width,height:b.height,piece:r?{width:r.width,height:r.height,outline}:null,inside:b.left>=board.left&&b.right<=board.right+1&&b.bottom<=board.bottom+1,pieceFits:!r||r.width+2*outline<=b.width+1&&r.height+2*outline<=b.height+1};}),overflow:document.documentElement.scrollWidth>innerWidth};
    });
+   await page.locator('.strategy-board').scrollIntoViewIfNeeded();await page.screenshot({path:'.runtime/mobile-audit060/boards/'+game+'-'+width+'-'+font+'.png'});
    if(sizes.cells.length!==columns*rows||sizes.cells.some(c=>Math.abs(c.width-c.height)>1||!c.inside||!c.pieceFits)||sizes.overflow)failures.push(game+' '+width+'px: '+JSON.stringify({board:sizes.board,cell:sizes.cells[0]}));
   }
   await page.setViewportSize({width:390,height:844});await page.evaluate(()=>document.documentElement.style.fontSize='15px');

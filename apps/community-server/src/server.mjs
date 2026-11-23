@@ -1,0 +1,260 @@
+import {createPluginMarket} from './plugin-market.mjs';
+import {createVoiceTools} from './voice-tools.mjs';
+import {createCommunityHub} from './hub/index.mjs';
+import {createTankRooms} from './tank-rooms.mjs';
+import {createWerewolf} from './werewolf.mjs';
+import {createLobbySignal} from './lobby-signal.mjs';
+import {createServerOnline} from './server-online.mjs';
+import {createFecAutoconfig} from './fec-autoconfig.mjs';
+import {createMusicAccess} from './music-access.mjs';
+import {createInventory} from './inventory.mjs';
+import {createChatMedia} from './chat-media.mjs';
+import {createInbox} from './inbox.mjs';
+import {createRewards} from './rewards.mjs';
+import {createDirectLobby} from './direct-lobby.mjs';
+import {createRoomRelay} from './room-relay.mjs';
+import {createPublicAPI} from './public-api.mjs';
+import {createContent} from "./content.mjs";
+import {createServerPresets} from "./server-presets.mjs";
+import {createBoardMatches} from "./board-matches.mjs";
+import {createPoints} from "./points.mjs";
+import {createArcade} from "./arcade.mjs";
+import {createLinking} from "./linking.mjs";
+import {VERSION} from "./version.mjs";
+import {relayVoice} from "./voice-relay.mjs";
+import {createUpdateLogs} from "./update-logs.mjs";
+import {avatarData} from "./avatars.mjs";
+import http from 'node:http';
+import {createAdmin} from './admin.mjs';
+import {createFeedback} from './feedback.mjs';
+import {createErrorReports} from './error-reports.mjs';
+import {communityUpdates} from './updates.mjs';
+import {createVoiceRooms} from './voice-rooms.mjs';
+import {createShop} from './shop.mjs';
+import {createMedia} from './media.mjs';
+import {createGuild} from './guild.mjs';
+import {createGameTelemetry} from './game-telemetry.mjs';
+import {createGameBridge} from './game-bridge.mjs';
+import {createPlaytime} from './playtime.mjs';
+import { isIP } from 'node:net';
+import { DatabaseSync } from 'node:sqlite';
+import { mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve, join } from 'node:path';
+import { randomBytes, createHmac, timingSafeEqual, randomUUID } from 'node:crypto';
+import { WebSocketServer, WebSocket } from 'ws';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+export const GROUPS = [{id:'survival',name:'原版生存群组'},{id:'mod-1',name:'模组一服'},{id:'mod-2',name:'模组二服'}];
+
+export function createCommunity(options={}) {
+  const data=resolve(options.data || process.env.HXZ_DATA || './data');mkdirSync(data,{recursive:true});
+  const keyPath=join(data,'session.key');if(!existsSync(keyPath))writeFileSync(keyPath,randomBytes(48),{mode:0o600,flag:'wx'});
+  const key=readFileSync(keyPath), db=new DatabaseSync(join(data,'community.sqlite'));
+  const appRoot=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+  const repoRoot=resolve(appRoot,'..','..');
+  const resources=options.resources || (existsSync(join(appRoot,'resources','hxzre'))?join(appRoot,'resources'):existsSync(join(appRoot,'integrations','hxzre'))?join(appRoot,'integrations'):join(repoRoot,'resources'));
+  const runningServer=process.argv[1]&&pathToFileURL(resolve(process.argv[1])).href===import.meta.url;
+  const fecAuto=createFecAutoconfig({data,resources,enabled:options.fecAuto ?? ((runningServer || process.env.HXZ_SUPERVISED==='1') && process.env.HXZ_FEC_AUTO !== '0'),log:message=>console.error(message)});
+  db.exec(`PRAGMA journal_mode=WAL; PRAGMA busy_timeout=5000;
+    CREATE TABLE IF NOT EXISTS messages(id INTEGER PRIMARY KEY AUTOINCREMENT,channel TEXT NOT NULL,uid TEXT NOT NULL,name TEXT NOT NULL,body TEXT NOT NULL,created INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS messages_channel ON messages(channel,id);
+    CREATE TABLE IF NOT EXISTS notices(id TEXT PRIMARY KEY,group_id TEXT NOT NULL,title TEXT NOT NULL,body TEXT NOT NULL,author TEXT NOT NULL,updated INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS banned(uid TEXT PRIMARY KEY);
+    CREATE TABLE IF NOT EXISTS profiles(uid TEXT PRIMARY KEY,avatar TEXT NOT NULL,version TEXT NOT NULL);`);
+  const skin=(options.skin || process.env.HXZ_SKIN_API || 'https://skin.hxzmc.top/api/yggdrasil').replace(/\/$/,'');
+  const adminIDs=new Set(options.adminIDs || (process.env.HXZ_ADMIN_IDS || '').split(',').filter(Boolean));
+  const origins=new Set((options.origins || (process.env.HXZ_ORIGINS || 'null,file://,http://tauri.localhost,https://appassets.androidplatform.net,http://localhost:9000,http://127.0.0.1:9000').split(',')).map(v=>v.trim()).filter(Boolean));
+  // Packaged Electron WebSockets use file://; opaque browser origins use null.
+  // Preserve compatibility with existing .env files that already trust desktop clients.
+  if(origins.has('null'))origins.add('file://');
+  const roomLimit=20, clients=new Map(), attempts=new Map();
+  function issue(identity) {const payload=Buffer.from(JSON.stringify({...identity,exp:Date.now()+12*3600000})).toString('base64url');return payload+'.'+createHmac('sha256',key).update(payload).digest('base64url');}
+  function verify(token) {
+    if(typeof token!=='string'||token.length>8192)throw Error('请先登录');
+    const [payload,sig]=token.split('.');const expected=createHmac('sha256',key).update(payload||'').digest();let actual=Buffer.from(sig||'','base64url');
+    if(actual.length!==expected.length||!timingSafeEqual(actual,expected))throw Error('登录已失效');
+    const user=JSON.parse(Buffer.from(payload,'base64url').toString());
+    if(user.exp<Date.now()||typeof user.uid!=='string'||db.prepare('SELECT 1 FROM banned WHERE uid=?').get(user.uid))throw Error('登录已失效或账号已被禁用');return user;
+  }
+  function auth(req) {return verify((req.headers.authorization||'').replace(/^Bearer /,''));}
+  function admin(req) {const user=auth(req);if(!adminIDs.has(user.uid)&&!user.consoleAdmin)throw Object.assign(Error('需要管理员权限'),{status:403});return user;}
+  function clientIP(req) {const remote=req.socket.remoteAddress;const forwarded=req.headers['x-real-ip'];if(process.env.HXZ_TRUST_PROXY==='loopback'&&['127.0.0.1','::1','::ffff:127.0.0.1'].includes(remote)&&typeof forwarded==='string'&&isIP(forwarded))return forwarded;return remote;}
+  function limit(id,max=30,window=60000) {if(attempts.size>=20000&&!attempts.has(id))throw Error('服务繁忙，请稍后重试');const now=Date.now();let value=attempts.get(id);if(!value||now-value.time>window)attempts.set(id,value={time:now,expires:now+window,count:0});if(++value.count>max)throw Error('操作过于频繁，请稍后再试');}
+  function send(res,status,value) {res.writeHead(status,{'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});res.end(JSON.stringify(value));}
+  async function body(req,max=32768) {let size=0,chunks=[];for await(const chunk of req){size+=chunk.length;if(size>max)throw Error('请求过大');chunks.push(chunk);}return JSON.parse(Buffer.concat(chunks).toString()||'{}');}
+  function text(value,max) {if(typeof value!=='string'||!value.trim()||value.length>max)throw Error('内容为空或超过长度限制');return value.trim();}
+  function history(channel) {return db.prepare('SELECT m.id,m.channel,m.uid,m.name,m.body,m.created,p.version AS avatarVersion FROM messages m LEFT JOIN profiles p ON p.uid=m.uid WHERE m.channel=? ORDER BY m.id DESC LIMIT 100').all(channel).reverse().map(chatMedia.hydrate);}
+  function packet(ws,value){if(ws.readyState===WebSocket.OPEN){if(ws.bufferedAmount>256*1024)ws.close(1013,'连接太慢');else ws.send(JSON.stringify(value));}}
+  function broadcast(value,filter=()=>true) {for(const [ws,c] of clients)if(filter(c))packet(ws,value);}
+  function avatarVersion(uid){return db.prepare("SELECT version FROM profiles WHERE uid=?").get(uid)?.version||"";}
+  function voiceEvent(c,action,room=c?.room){if(room)broadcast({type:'voice-event',action,room,voiceUser:{id:c.id,uid:c.user.uid,name:c.user.name}},member=>member.room===room||member.id===c.id);}
+  function presence(){const devices=new Map();for(const c of clients.values()){if(!devices.has(c.user.uid))devices.set(c.user.uid,new Set());devices.get(c.user.uid).add(c.platform);}broadcast({type:'presence',users:[...clients.values()].map(c=>({id:c.id,uid:c.user.uid,name:c.user.name,avatarVersion:avatarVersion(c.user.uid),room:c.room,muted:c.muted,platform:c.platform,devices:[...devices.get(c.user.uid)]}))});}
+  async function exchange(input) {
+    let response;
+    if(options.exchange)response=await options.exchange(input);
+    else {
+      if(typeof input.accessToken!=='string'||typeof input.clientToken!=='string')throw Error('缺少皮肤站登录凭据');
+      const upstream=await fetch(skin+'/authserver/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({accessToken:input.accessToken,clientToken:input.clientToken,requestUser:true}),signal:AbortSignal.timeout(15000),redirect:'error'}).catch(()=>{throw Object.assign(Error('暂时无法连接皮肤站，请稍后重连'),{status:503});});
+      if(!upstream.ok){
+        if(upstream.status===401||upstream.status===403)throw Object.assign(Error('皮肤站登录已过期，请重新登录'),{status:401});
+        throw Object.assign(Error('皮肤站暂时不可用，请稍后重连'),{status:503});
+      }let bytes=0;const chunks=[];for await(const chunk of upstream.body){bytes+=chunk.length;if(bytes>262144)throw Error('皮肤站响应过大');chunks.push(chunk);}response=JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    }
+    const p=response.selectedProfile;if(!p||!/^\w{1,64}$/.test(p.id)||typeof p.name!=='string')throw Error('请先在皮肤站选择游戏角色');
+    // Identity comes from the authenticated upstream response, never the caller's claimed UUID.
+    const identity={uid:p.id,name:p.name};content.recordMember(identity);return {token:issue(identity),user:{...identity,admin:adminIDs.has(identity.uid)},credentials:response};
+  }
+  const voiceRooms=createVoiceRooms({db,auth,admin,body,send,broadcast,onChange:rooms=>{const ids=new Set(rooms.map(r=>r.id));for(const c of clients.values())if(c.room&&!ids.has(c.room)){voiceEvent(c,'leave');c.room=null;c.muted=false;}presence();}});
+  const updateSources={};
+  const updateLogs=createUpdateLogs(()=>updateSources);
+  const inbox=createInbox({db,auth,admin,body,send,limit,broadcast,adminIDs});
+  const chatMedia=createChatMedia({data,db,auth,body,send,limit,broadcast,inbox});
+  const content=createContent({data,db,auth,admin,adminIDs,body,send,limit,inbox});
+  const adminRoute=createAdmin({redact:target=>inbox.redact(target),updateSources,data,db,issue,admin,send,body,limit,clients,broadcast,adminIDs});
+  const serverOnline=createServerOnline({data,admin,body,send,bridgeState:id=>gameBridge.state(id)});
+  const presetsRoute=createServerPresets({data,admin,body,send,broadcast,initialize:servers=>fecAuto.apply(servers)});
+  const points=createPoints({db,auth,admin,body,send,limit});
+  const media=createMedia({data,db,auth,admin,body,send,limit});
+  const inventory=createInventory({db,auth,admin,body,send,limit,points,media,inbox,broadcast});
+  const musicAccess=createMusicAccess({db,auth,admin,adminIDs,body,send,broadcast,inventory});
+  const guild=createGuild({db,auth,admin,body,send,limit,points,media,inbox,inventory});
+  const gameTelemetry=createGameTelemetry({db,auth,admin,body,send,limit});
+  const playtime=createPlaytime({db,auth,admin,body,send,limit,points,inbox});
+  const gameBridge=createGameBridge({db,auth,admin,body,send,limit,gameTelemetry,inbox,broadcast,playtime});
+  const linking=createLinking({db,auth,admin,body,send,limit,guild,gameTelemetry,inventory,points});
+  const rewards=createRewards({db,auth,admin,body,send,limit,points,inbox});
+  const shop=createShop({db,auth,admin,body,send,limit,points,media,inventory});
+  const updates=communityUpdates({data,admin,send,body});
+  const publicAPI=createPublicAPI({db,send,points,shop});
+  const boards=createBoardMatches({db,auth,admin,body,send,limit,points,broadcast});
+  const werewolf=createWerewolf({auth,body,send,limit,points,broadcast});
+  const tanks=createTankRooms({auth,body,send,limit,broadcast,points});
+  const arcadeRoute=createArcade({db,auth,admin,body,send,limit,broadcast,points});
+  const feedbackRoute=createFeedback({db,auth,admin,body,send,limit,inbox,adminIDs});
+  const pluginMarket=createPluginMarket({db,auth,admin,body,send,limit});
+  const errorReports=createErrorReports({db,auth,admin,body,send,limit});
+  const directLobby=createDirectLobby({db,auth,admin,adminIDs,body,send,limit,inventory});
+  // The relay is deliberately a separate, bounded transport. It only pairs
+  // authenticated guests with a host that has an active room lease; it never
+  // accepts arbitrary TCP destinations. Clients may disable it locally and
+  // administrators can disable it without taking direct/P2P rooms offline.
+  const roomRelay=createRoomRelay({db,auth,admin,verify,body,send,limit,canHost:user=>directLobby.canHost(user)});
+  const voiceTools=createVoiceTools({clients,auth,body,send,limit});
+  const hub=createCommunityHub({data,db,auth,admin,adminIDs,body,send,limit,broadcast,inbox,points,inventory,media,gameTelemetry,gameBridge,clients});
+  const p2pSignal=createLobbySignal({db,auth,admin,verify,body,send,limit,settings:()=>directLobby.settings(),canHost:user=>directLobby.canHost(user)});
+  const server=http.createServer(async(req,res)=>{
+    const origin=req.headers.origin;if(origin&&!origins.has(origin)&&!['http://','https://'].some(protocol=>origin===protocol+req.headers.host)){send(res,403,{error:'来源不允许'});return;}
+    if(origin){res.setHeader('Access-Control-Allow-Origin',origin);res.setHeader('Vary','Origin');}
+    res.setHeader('Access-Control-Allow-Headers','Content-Type, Authorization');res.setHeader('Access-Control-Allow-Methods','GET,POST,PUT,DELETE,OPTIONS');
+    if(req.method==='OPTIONS'){res.writeHead(204);res.end();return;}
+    try {
+      const url=new URL(req.url,'http://localhost'),path=url.pathname;limit((/^\/api\/(avatars|chat-media)\//.test(path)?'media-http:':'http:')+clientIP(req),/^\/api\/(avatars|chat-media)\//.test(path)?600:240);
+      if(path==='/api/admin/hxzre'){admin(req);if(req.method==='GET')return send(res,200,fecAuto.status());if(req.method==='POST'){limit('hxzre-probe',6);const input=await body(req);return send(res,200,await fecAuto.probe(input.id));}return send(res,405,{error:'不支持此操作'});}
+      if(await updates.route(req,res,url))return;
+      if(await gameBridge.route(req,res,url))return;
+      if(await playtime.route(req,res,url))return;
+      if(await hub.route(req,res,url))return;
+      if(await voiceRooms.route(req,res,url))return;
+      if(await voiceTools.route(req,res,url))return;
+      if(await publicAPI(req,res,url))return;
+      if(await media.route(req,res,url))return;
+      if(await chatMedia.route(req,res,url))return;
+      if(await inventory.route(req,res,url))return;
+      if(await guild.route(req,res,url))return;
+      if(await gameTelemetry.route(req,res,url))return;
+      if(await linking(req,res,url))return;
+      if(await presetsRoute(req,res,url))return;
+      if(await serverOnline(req,res,url))return;
+      if(await tanks.route(req,res,url))return;
+      if(await boards.route(req,res,url))return;
+      if(await musicAccess(req,res,url))return;
+      if(await inbox.route(req,res,url))return;
+      if(await rewards.route(req,res,url))return;
+      if(path==='/api/points/redeem'&&req.method==='POST'){const input=await body(req);if(await rewards.redeem(req,res,input))return;req.parsedPointsBody=input;}
+      if(await points.route(req,res,url))return;
+      if(await shop.route(req,res,url))return;
+      if(await werewolf.route(req,res,url))return;
+      if(await arcadeRoute(req,res,url))return;
+      if(await roomRelay.route(req,res,url))return;
+      if(await directLobby(req,res,url))return;
+      if(await feedbackRoute(req,res,url))return;
+      if(await errorReports(req,res,url))return;
+      if(await pluginMarket(req,res,url))return;
+      if(await content.route(req,res,url))return;
+      if(await adminRoute(req,res,url))return;
+      if(path==='/api/chat/history'&&req.method==='GET'){
+        const user=auth(req);limit('chat-history:'+user.uid,30);
+        const around=Number(url.searchParams.get('around')||0);
+        if(around){if(!Number.isSafeInteger(around)||around<1)throw Error('消息位置无效');if(!db.prepare("SELECT 1 FROM messages WHERE id=? AND channel='lobby'").get(around))return send(res,404,{error:'该消息已被删除'});const select="SELECT m.id,m.uid,m.name,m.body,m.created,p.version AS avatarVersion FROM messages m LEFT JOIN profiles p ON p.uid=m.uid WHERE m.channel='lobby' AND m.id";const earlier=db.prepare(select+'<=? ORDER BY m.id DESC LIMIT 40').all(around).reverse(),later=db.prepare(select+'>? ORDER BY m.id LIMIT 40').all(around);return send(res,200,{items:[...earlier,...later].map(chatMedia.hydrate),more:earlier.length===40,around});}
+        const before=Number(url.searchParams.get('before')||Number.MAX_SAFE_INTEGER),days=Number(url.searchParams.get('days')||0);
+        if(!Number.isSafeInteger(before)||before<1||![0,1,3,5,7,30].includes(days))throw Error('聊天记录范围无效');
+        const items=db.prepare('SELECT m.id,m.uid,m.name,m.body,m.created,p.version AS avatarVersion FROM messages m LEFT JOIN profiles p ON p.uid=m.uid WHERE m.channel=? AND m.id<? AND m.created>=? ORDER BY m.id DESC LIMIT 101').all('lobby',before,days?Date.now()-days*86400000:0);
+        const more=items.length>100;send(res,200,{items:items.slice(0,100).reverse().map(chatMedia.hydrate),more});return;
+      }
+      if(path==='/api/update-logs'&&req.method==='GET')return send(res,200,await updateLogs());
+      if(path==='/api/profile/avatar'&&req.method==='POST'){
+        const user=auth(req);limit('avatar:'+user.uid,12);const input=await body(req),value=avatarData(input.avatar);
+        db.prepare('INSERT INTO profiles VALUES(?,?,?) ON CONFLICT(uid) DO UPDATE SET avatar=excluded.avatar,version=excluded.version').run(user.uid,input.avatar,value.version);
+        broadcast({type:'avatar-changed',uid:user.uid,avatarVersion:value.version});presence();return send(res,200,{version:value.version});
+      }
+      if(path.startsWith('/api/avatars/')&&req.method==='GET'){
+        const uid=decodeURIComponent(path.slice(13));if(!/^\w{1,64}$/.test(uid))throw Error('角色标识无效');
+        const profile=db.prepare('SELECT avatar,version FROM profiles WHERE uid=?').get(uid);if(!profile?.avatar)return send(res,404,{error:'尚未设置头像'});
+        res.writeHead(200,{'Content-Type':'image/png','Cache-Control':'private, max-age=300','X-Content-Type-Options':'nosniff','ETag':'"'+profile.version+'"'});res.end(Buffer.from(profile.avatar.slice(22),'base64'));return;
+      }
+      if(path==='/health')return send(res,200,{ok:true,version:VERSION,service:'hxz-community'});
+      if(path==='/api/config')return send(res,200,{groups:GROUPS,skinSite:'https://skin.hxzmc.top/user',roomLimit,version:VERSION,voiceTransport:'ws-opus-v1',features:['blueprints','forum']});
+      if(path==='/api/session'&&req.method==='POST'){limit('login:'+clientIP(req),12);return send(res,200,await exchange(await body(req)));}
+      if(path==='/api/notices'&&req.method==='GET')return send(res,200,db.prepare('SELECT id,group_id AS groupId,title,body,author,updated FROM notices ORDER BY updated DESC LIMIT 100').all());
+      if(path==='/api/notices'&&req.method==='POST') {
+        const user=admin(req),input=await body(req);if(!GROUPS.some(g=>g.id===input.groupId))throw Error('未知公告分组');
+        const id=randomUUID();db.prepare('INSERT INTO notices VALUES(?,?,?,?,?,?)').run(id,input.groupId,text(input.title,100),text(input.body,12000),user.name,Date.now());
+        broadcast({type:'notices-changed'});return send(res,201,{id});
+      }
+      if(path.startsWith('/api/notices/')&&req.method==='DELETE'){admin(req);db.prepare('DELETE FROM notices WHERE id=?').run(path.split('/').pop());broadcast({type:'notices-changed'});return send(res,200,{ok:true});}
+      if(path==='/api/moderation'&&req.method==='POST') {admin(req);const input=await body(req);if(typeof input.uid!=='string')throw Error('无效角色');
+        if(input.banned)db.prepare('INSERT OR IGNORE INTO banned VALUES(?)').run(input.uid);else db.prepare('DELETE FROM banned WHERE uid=?').run(input.uid);
+        for(const [ws,c] of clients)if(c.user.uid===input.uid&&input.banned)ws.close(1008,'账号已禁用');return send(res,200,{ok:true});}
+      if(path==='/api/voice-config') {auth(req);return send(res,200,{transport:'ws-opus-v1',roomLimit,codec:'opus',sampleRate:48000});}
+      send(res,404,{error:'接口不存在'});
+    }catch(error){if(!res.headersSent&&!res.destroyed)send(res,error.status||400,{error:error.message||'请求失败'});}
+  });
+  server.requestTimeout=30000;server.headersTimeout=15000;server.maxConnections=1000;
+  const wss=new WebSocketServer({noServer:true,maxPayload:32768,perMessageDeflate:false});
+  server.on('upgrade',(req,socket,head)=>{
+    if(req.url==='/lobby-relay'){
+      if(req.headers.origin&&!origins.has(req.headers.origin)){socket.destroy();return;}
+      try{limit('relay-upgrade:'+clientIP(req),120);roomRelay.upgrade(req,socket,head);}catch{socket.destroy();}
+      return;
+    }
+    if(req.url==='/lobby-signal'){if(req.headers.origin&&!origins.has(req.headers.origin)){socket.destroy();return;}try{limit('p2p-upgrade:'+clientIP(req),90);p2pSignal.upgrade(req,socket,head);}catch{socket.destroy();}return;}
+    if(req.url!=='/ws'||(req.headers.origin&&!origins.has(req.headers.origin))){socket.destroy();return;}
+    try{limit('ws:'+clientIP(req),30);if(wss.clients.size>=500)throw Error('服务已满');wss.handleUpgrade(req,socket,head,ws=>wss.emit('connection',ws));}catch{socket.destroy();}
+  });
+  wss.on('connection',ws=>{
+    const timer=setTimeout(()=>ws.close(1008,'请登录'),5000);ws.alive=true;ws.on('pong',()=>{ws.alive=true;});
+    ws.on('message',(raw,isBinary)=>{try{
+      if(isBinary){const speaker=clients.get(ws);if(speaker?.room&&voiceTools.canSpeak(speaker))relayVoice(ws,raw,clients);return;}
+      const message=JSON.parse(raw.toString());let c=clients.get(ws);
+      if(!c){if(message.type!=='auth')throw Error('请先登录');const user=verify(message.token);content.recordMember(user);hub.visit(user);const platform=message.platform==='android'?'android':'desktop';
+        for(const [old,p] of clients)if(p.user.uid===user.uid&&p.platform===platform){voiceEvent(p,'leave');clients.delete(old);old.close(4001,'已在另一处登录此设备');}
+
+        c={id:randomUUID(),user,platform,room:null,muted:false,token:message.token};clients.set(ws,c);clearTimeout(timer);packet(ws,{type:'ready',heartbeatInterval:15000,voiceTransport:'ws-opus-v1',rooms:voiceRooms.rooms(),roomLimit,id:c.id,user:{...user,avatarVersion:avatarVersion(user.uid),admin:adminIDs.has(user.uid)},messages:history('lobby')});presence();return;}
+      verify(c.token);if(message.type==='coop-control'){tanks.input(c.user,message,c.id);return;}limit('client:'+c.id,120,10000);
+      if(message.type==='ping'){ws.alive=true;packet(ws,{type:'pong'});}
+      else if(message.type==='chat'){limit('chat:'+c.user.uid,8,10000);const value=text(message.body,1000);inbox.validateMentions(c.user,value);const created=Date.now();const inserted=db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)').run('lobby',c.user.uid,c.user.name,value,created);
+        inbox.mentions(c.user,value,{target:'/community?message='+inserted.lastInsertRowid,dedupe:'chat:'+inserted.lastInsertRowid});
+        broadcast({type:'chat',message:{id:Number(inserted.lastInsertRowid),channel:'lobby',uid:c.user.uid,name:c.user.name,avatarVersion:avatarVersion(c.user.uid),body:value,created}});}
+      else if(message.type==='voice-join'){const room=voiceRooms.rooms().find(r=>r.id===message.room);if(!room)throw Error('房间不存在或已关闭');if([...clients.values()].filter(p=>p.room===message.room&&p.id!==c.id).length>=room.capacity)throw Error('语音房间已满');if(message.transport!=='ws-opus-v1')throw Error('请更新启动器到 0.4.0 后使用语音');if(c.room&&c.room!==message.room)voiceEvent(c,'leave');const changed=c.room!==message.room;c.voiceTransport=message.transport;c.muted=false;c.deafened=false;c.audioEpoch=null;c.audioSeq=-1;c.room=message.room;voiceTools.joined(c);presence();if(changed)voiceEvent(c,'join');}
+      else if(message.type==='voice-leave'){voiceEvent(c,'leave');c.room=null;c.muted=false;c.deafened=false;presence();}
+      else if(message.type==='voice-mute'){c.muted=!!message.muted;presence();}
+      else if(message.type==='voice-deafen'){c.deafened=!!message.deafened;}
+      else if(message.type==='signal'){const peer=[...clients.entries()].find(([,p])=>p.id===message.to);if(!peer||!c.room||peer[1].room!==c.room)throw Error('语音目标不在同一房间');packet(peer[0],{type:'signal',from:c.id,data:message.data});}
+      else throw Error('未知消息');
+    }catch(error){packet(ws,{type:'error',error:error.message});}});
+    ws.on('error',()=>{});ws.on('close',()=>{clearTimeout(timer);voiceEvent(clients.get(ws),'leave');clients.delete(ws);presence();});
+  });
+  const sweep=setInterval(()=>{for(const [id,v] of attempts)if(Date.now()>v.expires)attempts.delete(id);for(const ws of wss.clients){const c=clients.get(ws);if(c&&c.user.exp<Date.now()){ws.close(1008,'登录已过期');continue;}if(!ws.alive){ws.terminate();continue;}ws.alive=false;ws.ping();}},15000);sweep.unref();
+  return {server,db,async close(){voiceTools.close();hub.close();gameBridge.close();playtime.close();roomRelay.close();await chatMedia.close();inventory.close();updates.close();tanks.close();werewolf.close();p2pSignal.close();await boards.close();await fecAuto.close();points.close();clearInterval(sweep);for(const ws of wss.clients)ws.terminate();await new Promise(r=>wss.close(r));await new Promise(r=>server.close(r));db.close();}};
+}
+if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){const service=createCommunity();const port=Number(process.env.PORT||8787),host=process.env.HOST||'127.0.0.1';service.server.listen(port,host,()=>{process.send?.({type:'hxz-ready',version:VERSION});console.log(`幻想镇社区服务 http://${host}:${port}\n网页管理：http://127.0.0.1:${port}/admin/\n初始密码见数据目录的 初始管理员密码.txt`);});let closing=false;const shutdown=()=>{if(closing)return;closing=true;void service.close().then(()=>process.exit());};process.on('message',message=>{if(message?.type==='hxz-shutdown')shutdown();});if(process.env.HXZ_SUPERVISED==='1')process.on('disconnect',shutdown);for(const sig of ['SIGINT','SIGTERM'])process.on(sig,shutdown);}

@@ -12,3 +12,8 @@ defineEmits(['choose']);
     </button>
   </div>
 </template>
+<style scoped>
+.role-choice>.avatar{flex:0 0 40px;width:40px;height:40px;min-width:40px;min-height:40px}
+.role-choice>.choice-label{flex:1 1 auto;min-width:0;overflow-wrap:anywhere}
+.role-choice>.icon,.role-choice>.choice-check-space{flex:0 0 22px;width:22px;height:22px}
+</style>

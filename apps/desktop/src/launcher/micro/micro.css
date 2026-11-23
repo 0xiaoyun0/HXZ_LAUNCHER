@@ -1,0 +1,128 @@
+/* The interactive element owns its hit area. The layers below only paint its state. */
+.wake-range {position:relative;display:inline-grid;align-items:center;flex:1 1 5em;min-inline-size:0;block-size:1.9em;isolation:isolate}
+.appearance-range>.wake-range {grid-column:1/-1}
+.volume-line label>.wake-range {flex:1 1 5em;min-inline-size:0}
+.wake-bars {display:flex;align-items:center;gap:clamp(1px,.1em,2px);height:1.2em;pointer-events:none}
+.wake-bars i {flex:1 1 0;min-inline-size:0;block-size:100%;border-radius:.18em;background:color-mix(in srgb,var(--desk-muted,var(--secondary)) 44%,transparent);transform:scaleY(.26)}
+.wake-bars i[data-lit] {background:var(--accent-text,var(--accent))}
+.launcher-frame .wake-range>input[type=range] {position:absolute;inset:0;inline-size:100%;block-size:100%;min-height:0;max-width:none;opacity:0;margin:0;cursor:pointer}
+.wake-range:has(input:focus-visible) {outline:2px solid var(--accent-text);outline-offset:2px;border-radius:.4em}
+.wake-range[data-disabled] {opacity:.5}
+
+.warm-hint {position:fixed;z-index:10005;inset:0 auto auto 0;pointer-events:none;box-sizing:border-box;max-inline-size:min(25em,calc(100vw - 1rem));padding:.45em .75em;border:1px solid var(--edge);border-radius:.55em;background:var(--solid,#fff);color:var(--foreground,#242937);font-size:.78rem;line-height:1.45;overflow-wrap:anywhere;box-shadow:0 .22rem .9rem #13233a24}
+.warm-hint[data-side=above] {--hint-offset:.22em}
+.warm-hint[data-side=below] {--hint-offset:-.22em}
+.micro-lattice {display:inline-grid;grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(3,1fr);inline-size:1em;block-size:1em;gap:.12em;vertical-align:-.08em;flex:none;color:var(--accent-text,var(--accent))}
+.micro-lattice i {border-radius:24%;background:currentColor;opacity:.7}
+.micro-lattice [data-hole] {visibility:hidden}
+.micro-wait {display:flex;align-items:center;gap:.55em}
+.module-opening .skeleton-cards {grid-template-columns:repeat(2,minmax(0,1fr));gap:var(--card-gap,1.25rem)}
+.module-opening .skeleton-card {padding:var(--panel-padding,1.35rem);background:var(--desk-surface);border:1px solid var(--desk-line);border-radius:var(--desk-radius)}
+.module-opening .skeleton-card:first-child {grid-column:1/-1}
+.module-opening .skeleton-card i {height:.65em;margin:0 0 .85em;background:var(--desk-line)}
+.module-opening .skeleton-card i:last-child {margin-bottom:0}
+@media(max-width:54rem) {.module-opening .skeleton-cards {grid-template-columns:minmax(0,1fr)}}
+.micro-status {inline-size:1.14em;block-size:1.14em;flex:none;vertical-align:-.18em}
+.micro-status .mark-track {stroke-opacity:.2}.micro-status .mark-ring {transform-origin:center;transform:rotate(-90deg)}
+.micro-status[data-status=done] {color:var(--success,var(--accent-text))}.micro-status[data-status=failed] {color:var(--danger,#c74242)}
+.micro-status[data-status=pending],.micro-status[data-status=cancelled] {color:var(--desk-muted,var(--secondary))}
+.micro-status .mark-ink {stroke-dasharray:1;stroke-dashoffset:0}
+.transfer-meter {position:relative;display:block;block-size:.5em;inline-size:100%;min-inline-size:0}
+.transfer-meter>progress {position:absolute;inset:0;inline-size:100%;block-size:100%;opacity:0}
+.transfer-track {position:absolute;inset:0;overflow:hidden;border-radius:1em;background:var(--cell,var(--edge));pointer-events:none}
+.transfer-track>i {display:block;position:relative;height:100%;width:var(--transfer-fill);border-radius:inherit;background:var(--accent)}
+.transfer-meter:not([data-known]) .transfer-track>i {width:28%;opacity:.75}
+.transfer-meter[data-active][data-mid] .transfer-track>i::after {content:"";position:absolute;inset:0 0 0 auto;width:min(100%,.85em);border-radius:45% 64% 55% 30%;background:color-mix(in srgb,var(--accent) 55%,white)}
+.hxzup-summary>.transfer-meter {grid-column:1/-1}
+
+.scrub-number {display:inline-flex;align-items:center;gap:.3em;min-inline-size:0}
+.scrub-unit {display:inline-flex;align-items:center;padding:.3em .4em;color:var(--desk-muted);cursor:ew-resize;touch-action:pan-y;user-select:none;border-radius:.35em;font-variant-numeric:tabular-nums}
+.scrub-unit:is(:hover,[data-scrubbing]) {color:var(--accent-text);background:var(--accent-soft)}
+.float-folder {inline-size:1.12em;block-size:1.12em;flex:none;overflow:visible}
+.folder-sheet {fill:var(--solid);opacity:0;transform-origin:50% 65%}
+.folder-cover {fill:var(--solid);transform-origin:50% 80%}
+.micro-check[type=checkbox] {appearance:none;display:inline-grid;place-content:center;flex:none;box-sizing:border-box;inline-size:1.13em;block-size:1.13em;min-inline-size:0;min-block-size:0;margin:0;padding:0;border:1.5px solid var(--desk-muted,var(--secondary));border-radius:.27em;background:var(--solid);color:var(--accent-ink,#fff);vertical-align:middle;cursor:pointer}
+.micro-check[type=checkbox]:checked {background:var(--accent);border-color:var(--accent)}
+.micro-check[type=checkbox]::before {content:"";inline-size:.68em;block-size:.55em;clip-path:polygon(0 48%,17% 30%,40% 57%,83% 0,100% 16%,42% 99%);background:currentColor;transform:scale(0)}
+.micro-check[type=checkbox]:checked::before {transform:scale(1)}
+.micro-check:disabled {opacity:.55;cursor:default}
+.micro-check:focus-visible {outline:2px solid var(--accent-text);outline-offset:2px}
+.micro-reaction[aria-pressed=true] .reaction-ink {fill:currentColor;color:var(--accent-text,var(--accent))}
+.micro-reaction .reaction-count {font-variant-numeric:tabular-nums}
+.micro-reaction .reaction-face {display:inline-flex;align-items:center;justify-content:center;gap:.4em}
+.player-head .avatar-reveal {display:grid;place-items:center;width:100%;height:100%;grid-area:1/1}
+.player-head>.head-placeholder {grid-area:1/1}
+.player-head .avatar-reveal[data-ready=false] {visibility:hidden}
+
+@keyframes micro-lattice-orbit {0%,55%,100%{opacity:.24}20%,32%{opacity:1}}
+@keyframes micro-mark-draw {from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+@keyframes micro-mark-spin {from{transform:rotate(-90deg)}to{transform:rotate(270deg)}}
+@keyframes micro-transfer-scan {from{transform:translateX(-100%)}to{transform:translateX(360%)}}
+@keyframes micro-meniscus {0%,100%{transform:scaleX(.65)}50%{transform:scaleX(1.15)}}
+@keyframes micro-hint-in {from{opacity:0;translate:0 var(--hint-offset)}to{opacity:1;translate:0}}
+@keyframes micro-check-fill {0%{transform:scale(.65)}60%{transform:scale(1.13)}100%{transform:scale(1)}}
+@keyframes micro-heart {0%{transform:scale(.54)}54%{transform:scale(1.23)}81%{transform:scale(.96)}100%{transform:scale(1)}}
+@keyframes micro-count {from{opacity:.4;translate:0 .24em}to{opacity:1;translate:0}}
+@keyframes micro-refine {from{opacity:.18;filter:blur(2px);transform:scale(1.05)}to{opacity:1;filter:blur(0);transform:scale(1)}}
+@media (prefers-reduced-motion:no-preference) {
+  :root[data-motion=on] .wake-bars i {transform:scaleY(var(--wake-height,.26));transition:transform calc(var(--duration)*.3) ease-out,background-color calc(var(--duration)*.2)}
+  :root[data-motion=on] .warm-hint {animation:micro-hint-in calc(var(--duration)*.38) ease-out}
+  :root[data-motion=on] .micro-lattice i:not([data-hole]) {animation:micro-lattice-orbit calc(var(--duration)*3.4) ease-in-out infinite;animation-delay:calc(var(--cell-step)*var(--duration)*-.4)}
+  :root[data-motion=on] .micro-status[data-spinning] .mark-ring {animation:micro-mark-spin calc(var(--duration)*3.1) linear infinite}
+  :root[data-motion=on] .micro-status .mark-ink {animation:micro-mark-draw calc(var(--duration)*.72) ease-out}
+  :root[data-motion=on] .micro-status .mark-ring {transition:stroke-dasharray calc(var(--duration)*.65) ease-out}
+  :root[data-motion=on] .transfer-meter[data-known] .transfer-track>i {transition:width calc(var(--duration)*.65) ease-out}
+  :root[data-motion=on] .transfer-meter[data-active]:not([data-known]) .transfer-track>i {animation:micro-transfer-scan calc(var(--duration)*4) ease-in-out infinite}
+  :root[data-motion=on] .transfer-meter[data-active][data-mid] .transfer-track>i::after {animation:micro-meniscus calc(var(--duration)*3.6) ease-in-out infinite;transform-origin:right}
+  :root[data-motion=on] .folder-sheet,:root[data-motion=on] .folder-cover {transition:transform calc(var(--duration)*.65) cubic-bezier(.18,.8,.3,1.2),opacity calc(var(--duration)*.4) ease-out}
+  :root[data-motion=on] :is(button,a):is(:hover,:focus-visible) .folder-sheet.rear {opacity:1;transform:translate(-1px,-2px) rotate(-9deg)}
+  :root[data-motion=on] :is(button,a):is(:hover,:focus-visible) .folder-sheet.front {opacity:1;transform:translate(1px,-2.5px) rotate(8deg)}
+  :root[data-motion=on] :is(button,a):is(:hover,:focus-visible) .folder-cover {transform:scaleY(.78) skewX(-5deg)}
+  :root[data-motion=on] .micro-check[type=checkbox] {transition:background-color calc(var(--duration)*.45),border-color calc(var(--duration)*.45)}
+  :root[data-motion=on] .micro-check:active:not(:disabled) {scale:.94}
+  :root[data-motion=on] .micro-check[data-changed]:checked::before {animation:micro-check-fill calc(var(--duration)*.77) ease-out}
+  :root[data-motion=on] .reaction-face[data-changed] .reaction-ink {animation:micro-heart calc(var(--duration)*.9) ease-out}
+  :root[data-motion=on] .reaction-face[data-changed] .reaction-count {animation:micro-count calc(var(--duration)*.65) ease-out}
+  :root[data-motion=on] :is(.player-head .avatar-reveal[data-ready=true],img[data-refine=ready]) {animation:micro-refine calc(var(--duration)*.85) ease-out}
+}
+@media (forced-colors:active){
+  .wake-range .wake-bars,.transfer-track {display:none}
+  .launcher-frame .wake-range>input[type=range],.transfer-meter>progress {opacity:1}
+  .micro-check[type=checkbox] {appearance:auto}.micro-check[type=checkbox]::before {display:none}
+  .micro-lattice i {background:CanvasText;forced-color-adjust:none}
+}
+
+.voice-pill {position:relative}
+.voice-pulses {display:none;align-items:center;justify-content:center;gap:.1em;block-size:1.05em;inline-size:1.05em;flex:none;color:var(--accent-text)}
+.voice-pill[data-transmitting]>.lucide {display:none}
+.voice-pill[data-transmitting] .voice-pulses {display:inline-flex}
+.voice-pulses i {inline-size:.15em;block-size:55%;background:currentColor;border-radius:1em}
+.voice-pulses i:nth-child(2) {height:100%;--phase:-.41s}.voice-pulses i:nth-child(3) {height:78%;--phase:-.25s}.voice-pulses i:nth-child(4) {height:46%;--phase:-.57s}
+@keyframes micro-speak {0%,100%{transform:scaleY(.55)}48%{transform:scaleY(1)}}
+@keyframes micro-land-a {from{outline:1px solid var(--accent);outline-offset:1px}to{outline:1px solid transparent;outline-offset:3px}}
+@keyframes micro-land-b {from{outline:1px solid var(--accent);outline-offset:1px}to{outline:1px solid transparent;outline-offset:3px}}
+@keyframes micro-bubble {from{opacity:.35;translate:var(--bubble-in,-.2em) .25em;scale:.984}to{opacity:1;translate:0;scale:1}}
+@keyframes micro-select-row {from{opacity:.58;translate:0 .18em}to{opacity:1;translate:0}}
+@media(prefers-reduced-motion:no-preference){
+  :root[data-motion=on] .voice-pill[data-transmitting] .voice-pulses i {animation:micro-speak calc(var(--duration)*2.2) var(--phase,0s) ease-in-out infinite}
+  :root[data-motion=on] [data-card-id][data-landed=a]:not([data-gesture]) {animation:micro-land-a var(--motion-panel) ease-out}
+  :root[data-motion=on] [data-card-id][data-landed=b]:not([data-gesture]) {animation:micro-land-b var(--motion-panel) ease-out}
+  :root[data-motion=on] .chat-message.own {--bubble-in:.2em}
+  :root[data-motion=on] .chat-message.chat-arrival>div>p {transform-origin:bottom left;animation:micro-bubble calc(var(--duration)*.83) cubic-bezier(.2,.73,.28,1)}
+  :root[data-motion=on] .chat-message.chat-arrival.own>div>p {transform-origin:bottom right}
+  :root[data-motion=on] :is(.finder-results,.picker-options)>button {animation:micro-select-row calc(var(--duration)*.55) ease-out}
+  :root[data-motion=on] :is(.launch-primary,.entry-submit,.chat-composer button[type=submit])>.lucide {transition:translate calc(var(--duration)*.47) ease-out,scale calc(var(--duration)*.47) ease-out}
+  :root[data-motion=on] :is(.launch-primary,.entry-submit):is(:hover,:focus-visible):not(:disabled)>:is(.lucide-play,.lucide-arrow-right) {translate:.12em 0}
+  :root[data-motion=on] .chat-composer button[type=submit]:is(:hover,:focus-visible):not(:disabled)>.lucide-send {translate:.09em -.09em}
+  :root[data-motion=on] .chat-composer button[type=submit]:active:not(:disabled)>.lucide-send {scale:.87;translate:-.08em .08em}
+  :root[data-motion=on] .game-favorite[data-chosen=true][aria-pressed=true]>svg {animation:micro-heart calc(var(--duration)*.92) ease-out}
+  :root[data-motion=on] .entry-eye[aria-pressed=true]>svg {animation:micro-count calc(var(--duration)*.48) ease-out}
+}
+.notice-fuse {display:none;position:absolute;inset:auto .75em .15em;block-size:.12em;border-radius:.3em;background:currentColor;opacity:.5;transform-origin:left;pointer-events:none}
+@keyframes micro-fuse {from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@media(prefers-reduced-motion:no-preference) {
+  :root[data-motion=on] .notice-fuse {display:block;animation:micro-fuse var(--notice-life) linear forwards}
+  :root[data-motion=on] .third-toast[data-paused] .notice-fuse {animation-play-state:paused}
+}
+:root[data-motion-paused] :is(.micro-lattice i,.micro-status .mark-ring,.transfer-track>i,.voice-pulses i),
+:root[data-motion-paused] .transfer-track>i::after {animation-play-state:paused!important}

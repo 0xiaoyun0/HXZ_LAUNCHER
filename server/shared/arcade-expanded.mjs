@@ -1,3 +1,4 @@
+import {FLIGHT_UPGRADES,availableFlightUpgrades,flightShieldCap} from './arcade-upgrades.mjs';
 // Deterministic 30 Hz rules. Arrays have explicit bounds for mobile and server replay.
 export const EXTRA_GAMES = [
   {id:'danmaku',name:'星庭流萤',tag:'弹幕 · 无尽模式',description:'在花瓣与星轨之间，寻找属于你的空隙',keys:'WASD / 方向键移动，Shift 精细移动；手机拖动画面',color:'#d0aff2',number:7},
@@ -11,7 +12,7 @@ export function createExpanded(s){
   Object.assign(s,{level:1,lives:3,event:null,invincible:0});
   if(s.game==='maze'){makeMaze(s);return;}
   Object.assign(s,{x:180,y:405,bullets:[],enemies:[],shots:[],drops:[],stageTick:0});
-  if(s.game==='fighter')Object.assign(s,{power:1,rapid:0,wings:0,shield:0,speed:0,phase:'flight',choices:[],kills:0});
+  if(s.game==='fighter')Object.assign(s,Object.fromEntries(FLIGHT_UPGRADES.map(v=>[v.id,0])),{power:1,phase:'flight',choices:[],kills:0});
 }
 function move(s,actions){
   const slow=actions.includes('focus'),v=(s.game==='fighter'?4.2+s.speed*.25:4)*(slow?.45:1);
@@ -24,12 +25,13 @@ function move(s,actions){
 function bullet(s,x,y,angle,speed,r=4,color=0){if(s.bullets.length<600)s.bullets.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r,color});}
 function hurt(s){
   if(s.invincible>s.tick)return;
-  if(s.shield){s.shield--;s.invincible=s.tick+45;}else{s.lives--;s.invincible=s.tick+75;if(s.lives<=0)s.over=true;}
+  const armor=(s.armor||0)*15;
+  if(s.shield){s.shield--;s.invincible=s.tick+45+armor;}else{s.lives--;s.invincible=s.tick+75+armor;if(s.lives<=0)s.over=true;}
   s.event={tick:s.tick,kind:'hurt',x:s.x,y:s.y};
 }
 function recover(s,cleared){if(cleared%5===0&&s.lives<3){s.lives++;s.event={tick:s.tick,kind:'recover',text:'通关补给 · 恢复一次机会'};}}
 function shotsHit(s){
-  for(const b of s.bullets){const ox=b.x,oy=b.y;b.x+=b.vx;b.y+=b.vy;const vx=b.x-ox,vy=b.y-oy,t=clamp(((s.x-ox)*vx+(s.y-oy)*vy)/(vx*vx+vy*vy||1),0,1);if(Math.hypot(ox+t*vx-s.x,oy+t*vy-s.y)<b.r+3){hurt(s);b.dead=true;}}
+  for(const b of s.bullets){const ox=b.x,oy=b.y,slow=s.slowfield&&Math.hypot(b.x-s.x,b.y-s.y)<80?1-s.slowfield*.12:1;b.x+=b.vx*slow;b.y+=b.vy*slow;const vx=b.x-ox,vy=b.y-oy,t=clamp(((s.x-ox)*vx+(s.y-oy)*vy)/(vx*vx+vy*vy||1),0,1);if(Math.hypot(ox+t*vx-s.x,oy+t*vy-s.y)<b.r+3-(s.afterburner||0)*.5){hurt(s);b.dead=true;}}
   s.bullets=s.bullets.filter(b=>!b.dead&&b.x>-20&&b.x<380&&b.y>-30&&b.y<500);
 }
 function danmaku(s,actions){
@@ -47,24 +49,44 @@ function danmaku(s,actions){
 }
 function choose(s,a){
   if(!a?.startsWith?.('upgrade:'))return false;const key=a.slice(8);if(!s.choices.includes(key))return false;
-  if(key==='power')s.power=Math.min(16,s.power+1);if(key==='rapid')s.rapid=Math.min(7,s.rapid+1);if(key==='wings')s.wings=Math.min(2,s.wings+1);if(key==='shield')s.shield=Math.min(3,s.shield+1);if(key==='repair')s.lives=Math.min(3,s.lives+1);if(key==='speed')s.speed=Math.min(6,s.speed+1);
-  s.phase='flight';s.choices=[];s.stageTick=0;s.kills=0;s.level++;s.invincible=s.tick+60;return true;
+  if(key==='repair')s.lives=Math.min(3,s.lives+1);
+  else if(key==='shield')s.shield=Math.min(flightShieldCap(s),s.shield+1);
+  else {s[key]++;if(key==='bulwark')s.shield++;}
+  s.phase='flight';s.choices=[];s.stageTick=0;s.kills=0;s.level++;s.invincible=s.tick+60;
+  s.shield=Math.min(flightShieldCap(s),s.shield+s.barrier);return true;
+}
+function damageEnemy(s,e,damage){
+  if(e.hp<=0)return;e.hp-=damage;
+  if(e.hp>0&&s.execute&&e.hp/e.max<=s.execute*.08)e.hp=0;
+  if(e.hp<=0){s.kills++;s.score+=e.heavy?80+s.level*4:15+s.level;if(s.drops.length<12&&rng(s)<.1+s.salvage*.05)s.drops.push({x:e.x,y:e.y,kind:rng(s)<.5?'shield':'burst'});s.event={tick:s.tick,kind:'explosion',x:e.x,y:e.y};}
 }
 function fighter(s,actions){
   if(s.phase==='upgrade'){for(const a of actions)if(choose(s,a))break;return;}
   move(s,actions);s.stageTick++;const t=s.stageTick,level=s.level;
-  if(t%Math.max(3,10-s.rapid)===0&&s.shots.length<140){for(let i=-s.wings;i<=s.wings;i++)s.shots.push({x:s.x+i*9,y:s.y-12,vx:i*.9,vy:-8,damage:s.power});}
-  const duration=660+Math.min(540,level*6),spacing=Math.max(12,40-Math.floor(level/3));
-  if(t<duration&&t%spacing===0&&s.enemies.length<36){const heavy=t%(spacing*7)===0,hp=Math.ceil((heavy?12:3)+level*(heavy?2:.55));s.enemies.push({x:24+rng(s)*312,y:-20,phase:rng(s)*TAU,hp,max:hp,heavy,age:0});}
+  const overclock=t<=180?s.overdrive:0;
+  const fire=(vx,vy)=>{if(s.shots.length<140)s.shots.push({x:s.x,y:s.y-12,vx,vy,damage:(s.power+overclock)*(rng(s)<s.critical*.1?2:1),hit:[]});};
+  if(t%Math.max(2,10-s.rapid-overclock)===0){for(let i=-s.wings;i<=s.wings;i++)fire(i*.9,-8);for(let i=1;i<=s.spread;i++){fire(-1.6-i*.8,-7);fire(1.6+i*.8,-7);}}
+  if(s.volley&&t%Math.max(8,36-s.volley*8)===0)fire(0,7);
+  const duration=660+Math.min(540,level*6),spacing=Math.max(10,40-Math.floor(level/2));
+  if(t<duration&&t%spacing===0&&s.enemies.length<36){const heavy=t%(spacing*6)===0,hp=Math.ceil((heavy?12:3)+level*(heavy?2.4:.65));s.enemies.push({id:t,x:24+rng(s)*312,y:-20,phase:rng(s)*TAU,hp,max:hp,heavy,age:0});}
+  if(s.pulse&&t%Math.max(120,330-s.pulse*60)===0){s.bullets=s.bullets.filter(b=>Math.hypot(b.x-s.x,b.y-s.y)>100);for(const e of s.enemies)if(Math.hypot(e.x-s.x,e.y-s.y)<130)damageEnemy(s,e,s.power*(2+s.pulse));s.event={tick:s.tick,kind:'pulse',x:s.x,y:s.y};}
   for(const e of s.enemies){e.age++;e.y+=e.heavy?.6+level*.003:1+Math.min(1.4,level*.012);e.x=clamp(e.x+Math.sin(e.age*.035+e.phase)*(e.heavy?.35:1.1),15,345);
     if(e.y>30&&e.y<350&&e.age%Math.max(25,100-Math.floor(level*.6))===0){const a=Math.atan2(s.y-e.y,s.x-e.x);for(let i=e.heavy?-1:0;i<=(e.heavy?1:0);i++)bullet(s,e.x,e.y,a+i*.2,1.7+Math.min(2.5,level*.03),4,e.heavy?3:0);}
     if(Math.hypot(e.x-s.x,e.y-s.y)<(e.heavy?22:15)){hurt(s);e.hp=0;}
   }
-  for(const b of s.shots){b.x+=b.vx;b.y+=b.vy;for(const e of s.enemies)if(e.hp>0&&Math.abs(e.x-b.x)<(e.heavy?23:13)&&Math.abs(e.y-b.y)<(e.heavy?25:17)){e.hp-=b.damage;b.dead=true;if(e.hp<=0){s.kills++;s.score+=e.heavy?80+level*4:15+level;if(s.drops.length<12&&rng(s)<.1)s.drops.push({x:e.x,y:e.y,kind:rng(s)<.5?'shield':'burst'});s.event={tick:s.tick,kind:'explosion',x:e.x,y:e.y};}break;}}
-  s.shots=s.shots.filter(b=>!b.dead&&b.y>-20&&b.x>0&&b.x<360);s.enemies=s.enemies.filter(e=>e.hp>0&&e.y<510);
-  for(const d of s.drops){d.y+=1.5;if(Math.hypot(d.x-s.x,d.y-s.y)<20){d.dead=true;if(d.kind==='shield')s.shield=Math.min(3,s.shield+1);else{s.bullets=[];for(const e of s.enemies)e.hp=Math.max(1,e.hp-s.power*5);}s.score+=20;}}
+  for(const b of s.shots){
+    if(s.homing&&t%6===0&&b.vy<0){let nearest=null,distance=Infinity;for(const e of s.enemies){const d=Math.abs(e.x-b.x)+Math.abs(e.y-b.y);if(e.hp>0&&e.y<b.y&&d<distance){distance=d;nearest=e;}}if(nearest)b.vx=clamp(b.vx+Math.sign(nearest.x-b.x)*s.homing*.3,-4,4);}
+    b.x+=b.vx;b.y+=b.vy;
+    for(const e of s.enemies)if(e.hp>0&&!b.hit.includes(e.id)&&Math.abs(e.x-b.x)<(e.heavy?23:13)&&Math.abs(e.y-b.y)<(e.heavy?25:17)){
+      damageEnemy(s,e,b.damage*(e.heavy?1+s.heavy*.4:1));b.hit.push(e.id);b.dead=b.hit.length>s.pierce;
+      if(s.chain&&!b.chained){const other=s.enemies.find(n=>n!==e&&n.hp>0&&Math.hypot(n.x-e.x,n.y-e.y)<80);if(other){damageEnemy(s,other,b.damage*s.chain*.4);b.chained=true;}}
+      if(b.dead)break;
+    }
+  }
+  s.shots=s.shots.filter(b=>!b.dead&&b.y>-20&&b.y<500&&b.x>0&&b.x<360);s.enemies=s.enemies.filter(e=>e.hp>0&&e.y<510);
+  for(const d of s.drops){d.y+=1.5;const distance=Math.hypot(d.x-s.x,d.y-s.y);if(s.magnet&&distance<30+s.magnet*35){d.x+=(s.x-d.x)*.14;d.y+=(s.y-d.y)*.14;}if(Math.hypot(d.x-s.x,d.y-s.y)<20){d.dead=true;if(d.kind==='shield')s.shield=Math.min(flightShieldCap(s),s.shield+1);else{s.bullets=[];for(const e of s.enemies)e.hp=Math.max(1,e.hp-s.power*5);}s.score+=20;}}
   s.drops=s.drops.filter(d=>!d.dead&&d.y<490);shotsHit(s);
-  if(!s.over&&t>=duration&&!s.enemies.length){s.score+=200*level;recover(s,level);s.bullets=[];s.shots=[];s.drops=[];if(level===100){s.over=true;s.won=true;}else{const pool=['power','rapid','wings','shield','repair','speed'].filter(k=>k==='power'?s.power<16:k==='rapid'?s.rapid<7:k==='wings'?s.wings<2:k==='speed'?s.speed<6:true);s.choices=[];const count=Math.min(3,pool.length);while(s.choices.length<count){const i=Math.floor(rng(s)*pool.length);s.choices.push(pool.splice(i,1)[0]);}s.phase='upgrade';}}
+  if(!s.over&&t>=duration&&!s.enemies.length){s.score+=200*level;recover(s,level);if(s.regeneration&&level%5!==0&&level%(5-s.regeneration)===0)s.lives=Math.min(3,s.lives+1);s.bullets=[];s.shots=[];s.drops=[];if(level===100){s.over=true;s.won=true;}else{const pool=availableFlightUpgrades(s);if(!pool.length)pool.push('repair');s.choices=[];const count=Math.min(3,pool.length);while(s.choices.length<count){const i=Math.floor(rng(s)*pool.length);s.choices.push(pool.splice(i,1)[0]);}s.phase='upgrade';}}
 }
 const DIRS=[[0,-1],[1,0],[0,1],[-1,0]];
 function makeMaze(s){

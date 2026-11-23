@@ -1,0 +1,50 @@
+import {useReflowList} from './launcher/micro/surface-motion';
+import {StatusMark,TransferMeter} from './launcher/micro/Feedback';
+import {SpringCheck} from './launcher/micro/SpringCheck';
+import {DetailDialog} from './ui';
+import {IssueHelp} from './IssueHelp';
+import {useEffect,useState} from 'react';
+import {useSnapshot} from 'valtio';
+import * as Dialog from '@radix-ui/react-dialog';
+import {X,Search,Download,Check,LoaderCircle,AlertCircle,Clock3,ShieldCheck,WifiOff} from 'lucide-react';
+import {ui,task,invoke,bytes,state,saveSettings,launch} from './model';
+import {playerError} from '../../../packages/engine/core/player-errors.mjs';
+import {Button,IconButton,date} from './ui';
+import {progressPercent} from '../../../packages/engine/core/task-progress.mjs';
+
+const duration=(ms:number)=>{const s=Math.max(0,Math.floor(ms/1000));return s>=60?`${Math.floor(s/60)} 分 ${s%60} 秒`:`${s} 秒`;};
+const count=(t:any)=>t.unit==='bytes'?`${bytes(t.completed)} / ${bytes(t.total)}`:`${t.completed.toLocaleString()} / ${t.total.toLocaleString()} ${t.unit}`;
+export function TaskDrawer(){
+ const u=useSnapshot(ui),t=useSnapshot(task),settings=useSnapshot(state).settings;
+ const [query,setQuery]=useState(''),[errors,setErrors]=useState(false),[jobs,setJobs]=useState<any[]>([]),[now,setNow]=useState(Date.now());
+ useEffect(()=>{if(u.tasks&&window.launcher)invoke('install.list').then(setJobs).catch(()=>{});},[u.tasks,t.busy]);
+ useEffect(()=>{if(!u.tasks||!t.busy)return;setNow(Date.now());const timer=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[u.tasks,t.busy]);
+ const matches=(v:string)=>v.toLowerCase().includes(query.toLowerCase()),logs=t.logs.filter((line:string)=>matches(line)&&(!errors||/error|exception|failed|失败|错误|异常/i.test(line)));
+ const percent=progressPercent(t),idle=Math.max(0,now-t.changed),speed=t.busy&&now-t.sampled<4000?t.speed:0,issue=playerError(t.failure,u.launchUpdateOnly?'install.update':'game.launch');
+ const files=t.activeFiles.filter(matches);
+ const fileList=useReflowList<HTMLUListElement>(JSON.stringify([u.tasks,...files]));
+ const hxzre=t.hxzre as any;
+ const hxzreCopy=hxzre?.state==='enabled'?['HXZRE 已启用','上传前向纠错补偿正在接管服务器连接。']:hxzre?.state==='checking'?['正在检查 HXZRE','正在确认服务器补偿节点和本机运行时。']:hxzre?.state==='fallback'?['HXZRE 未启用','补偿不可用，已回退原始连接，游戏仍会继续启动。']:hxzre?.state==='disabled'?['HXZRE 已关闭','本次启动使用原始连接。']:null;
+ const resume=async()=>{if(jobs.length===1)await invoke('install.resume',{id:jobs[0].id});else if(u.launchTarget)await launch(u.launchTarget,u.launchUpdateOnly);};
+ return <Dialog.Root open={u.tasks} modal={false} onOpenChange={v=>ui.tasks=v}><Dialog.Portal><Dialog.Content className="task-drawer" aria-describedby={undefined}>
+  <header><div><span className="eyebrow">任务中心</span><Dialog.Title>安装进度与日志</Dialog.Title></div><IconButton icon={X} label="收起任务" onClick={()=>ui.tasks=false}/></header>
+  <div className="task-scroll">
+   {t.failure&&<section className="task-issue" role="status"><AlertCircle size={22}/><IssueHelp issue={issue} details={t.failure}>{!t.busy&&(jobs.length===1||u.launchTarget)&&<Button tone="solid" onClick={resume}>继续安装 / 启动</Button>}{issue.action==='source'&&!t.busy&&<Button onClick={async()=>{await saveSettings({downloadMode:settings.downloadMode==='official'?'domestic':'official'});await resume();}}>切换为{settings.downloadMode==='official'?'镜像':'官方'}源{(jobs.length===1||u.launchTarget)?'并继续':''}</Button>}</IssueHelp></section>}
+   {hxzreCopy&&<section className={'task-runtime-badge '+(hxzre?.state==='enabled'?'active':'fallback')} role="status">{hxzre?.state==='enabled'?<ShieldCheck size={21}/>:<WifiOff size={21}/>}<div><strong>{hxzreCopy[0]}</strong><small>{hxzreCopy[1]}</small></div></section>}
+   <section className="task-live-card"><div className="task-stage-heading"><span>{t.busy?'当前步骤':t.failed?issue.title:t.started?'任务已结束':'等待任务'}</span><b>{percent!==null?`${percent.toFixed(2)}%`:t.busy?'处理中':'—'}</b></div><h3 className="task-phase-swap" key={t.phase}>{t.phase}</h3>
+    {(t.busy||percent!==null)&&<TransferMeter label="当前步骤进度" value={percent!==null?t.completed:undefined} max={t.total||1} running={t.busy}/>}
+    <div className="task-count">{percent!==null?count(t):t.busy?'此步骤未提供总量，完成后继续下一步':'开始安装或启动游戏后查看进度'}</div>
+    <div className="task-stats"><div><small>下载速度</small><strong>{bytes(speed)}/s</strong></div><div><small>本次接收</small><strong>{bytes(t.traffic)}</strong></div><div><small>已用时间</small><strong>{t.started?duration((t.ended||now)-t.started):'—'}</strong></div></div>
+    {t.detail&&<p className="task-source" title={t.detail}>{t.detail}</p>}
+    {t.busy&&t.total>0&&t.total-t.completed===1&&<p className="task-waiting">还剩最后 1 项，下载与校验完成后会自动继续。遇到持续低速的来源会尝试备用节点。</p>}
+    {t.busy&&idle>=15000&&<p className="task-waiting">这一步已有 {duration(idle)} 没有进展。你可以暂停后继续，已校验的下载会保留。</p>}
+   </section>
+
+   {jobs.map(j=><div className="recovery" key={j.id}><strong>{j.id}</strong><small>安装尚未完成 · 已校验的文件可继续使用</small><div><Button onClick={()=>invoke('install.resume',{id:j.id})} disabled={t.busy}>继续安装</Button><Button disabled={t.busy} onClick={()=>{ui.instance=j.id;ui.dialog='discard';}}>清理</Button></div></div>)}
+   <div className="search"><Search size={17}/><input placeholder="查找步骤、文件或错误" value={query} onChange={e=>setQuery(e.target.value)}/></div>
+   <section className="task-section"><h3>执行步骤 · {t.steps.filter((v:any)=>v.status==='done').length} 已完成</h3><ol className="task-stage-list">{t.steps.filter((v:any)=>matches(v.phase)).map((v:any)=>{const pct=progressPercent(v);return <li key={v.time+'-'+v.phase} data-status={v.status}><StatusMark status={v.status} progress={pct}/><div><div className="task-step-title"><strong>{v.phase}</strong><b>{v.status==='failed'?'失败':v.status==='cancelled'?'已取消':pct!==null?`${pct.toFixed(2)}%`:v.status==='done'?'完成':'处理中'}</b></div>{v.total>0&&<TransferMeter label={v.phase+'进度'} value={v.completed} max={v.total} running={v.status==='running'}/>}<small>{v.total>0&&<span>{count(v)}</span>}<span>{duration((v.ended||now)-v.time)}</span><span>{date(v.time)}</span></small></div></li>;})}</ol></section>
+   {t.activeFiles.length>0&&<section className="task-section"><h3>正在处理的文件 · 显示最多 8 项</h3><ul className="task-file-list flow-list" ref={fileList}>{files.map((file:string)=><li key={file} data-flow-key={file} title={file}>{file}</li>)}</ul></section>}
+   <DetailDialog title={'技术日志 · '+logs.length+' 行'} wide><label className="task-error-filter"><SpringCheck checked={errors} onChange={e=>setErrors(e.target.checked)}/>仅显示错误</label><pre className="log-output">{logs.join('\n')||'暂无匹配的日志'}</pre></DetailDialog>
+  </div><footer><Button icon={Download} onClick={()=>invoke('logs.export')}>导出日志</Button>{t.busy&&<Button tone="danger" onClick={()=>invoke('task.cancel')}>取消任务</Button>}</footer>
+ </Dialog.Content></Dialog.Portal></Dialog.Root>;
+}

@@ -1,0 +1,162 @@
+/* Materials live on the window. Page geometry is owned by workspace-layout.css. */
+:root[data-skin] {
+  --canvas-rgb: 226,232,246; --pane-rgb: 252,253,255; --chrome-rgb: 247,249,255;
+  --solid: #fafbff; --foreground: #202a44; --secondary: #47536c; --edge: rgba(73,91,135,.23);
+  --rim: rgba(255,255,255,.72); --shade: rgba(36,48,87,.12); --cell: rgba(68,83,131,.12);
+  --art-wash: .32; --paper-grid: none; color-scheme: light;
+}
+:root[data-skin=observatory] {
+  --canvas-rgb: 220,237,234; --pane-rgb: 244,253,250; --chrome-rgb: 237,247,246;
+  --solid: #f5fbf9; --foreground: #172f35; --secondary: #3d5e62; --edge: rgba(44,102,104,.28);
+}
+:root[data-skin=paper] {
+  --canvas-rgb: 235,230,219; --pane-rgb: 255,252,244; --chrome-rgb: 250,246,236;
+  --solid: #fffdf7; --foreground: #362e27; --secondary: #675b4e; --edge: rgba(119,97,68,.32);
+  --cell: rgba(107,86,60,.15); --shade: rgba(84,62,34,.08);
+  --paper-grid: radial-gradient(rgba(122,97,58,.16) .85px,transparent .9px);
+}
+:root[data-skin][data-theme=dark] {
+  color-scheme: dark; --canvas-rgb: 23,27,43; --pane-rgb: 35,41,62; --chrome-rgb: 25,31,49;
+  --solid: #252e45; --foreground: #f0f2fc; --secondary: #bdc8df; --edge: rgba(172,187,224,.27);
+  --rim: rgba(228,237,255,.08); --shade: rgba(6,8,17,.24); --cell: rgba(191,200,231,.14); --art-wash: .22;
+}
+:root[data-skin=observatory][data-theme=dark] {
+  --canvas-rgb: 9,23,34; --pane-rgb: 14,36,47; --chrome-rgb: 13,30,40;
+  --solid: #193441; --foreground: #e9f5f5; --secondary: #b1ccce; --edge: rgba(127,178,184,.30);
+  --rim: rgba(209,255,245,.10); --cell: rgba(130,195,193,.14); --art-wash: .18;
+}
+:root[data-skin=paper][data-theme=dark] {
+  --canvas-rgb: 38,33,30; --pane-rgb: 53,46,41; --chrome-rgb: 44,39,35;
+  --solid: #3a322d; --foreground: #f4ede2; --secondary: #d1bfa8; --edge: rgba(207,183,151,.32);
+  --cell: rgba(215,194,162,.15); --paper-grid: radial-gradient(rgba(239,215,176,.10) .85px,transparent .9px);
+}
+:root[data-skin] {
+  --theme-pane: rgba(var(--custom-pane-rgb,var(--pane-rgb)),var(--preview-opacity,var(--pane-opacity,.70)));
+  --chrome: rgba(var(--chrome-rgb),.93); --control: rgba(var(--pane-rgb),.91);
+  --desk-bg: rgb(var(--canvas-rgb)); --desk-surface: var(--solid); --desk-line: var(--edge);
+  --desk-ink: var(--foreground); --desk-muted: var(--secondary); --surface: var(--solid);
+  --text: var(--foreground); --ink: var(--foreground); --muted: var(--secondary); --line: var(--edge);
+}
+[data-skin] .launcher-frame {
+  --desk-bg: rgb(var(--canvas-rgb)); --desk-surface: var(--solid); --desk-line: var(--edge);
+  --desk-ink: var(--foreground); --desk-muted: var(--secondary); --desk-selection: var(--accent-soft);
+  --ink: var(--foreground); --text: var(--foreground); --surface: var(--solid); --muted: var(--secondary);
+  --desk-radius: var(--preview-radius,var(--pane-radius)); position: relative; isolation: isolate;
+  background: var(--custom-canvas,var(--desk-bg)); font-family: "Segoe UI Variable Text","Segoe UI","Microsoft YaHei UI",sans-serif;
+}
+[data-skin] .launcher-wallpaper {
+  inset: 0; overflow: hidden; z-index: 0; pointer-events: none;
+  background-color: var(--custom-canvas,rgb(var(--canvas-rgb)));
+  background-image: var(--paper-grid); background-size: 13px 13px;
+}
+.launcher-wallpaper :is(img,video) {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-position: var(--scene-position,center);
+  opacity: var(--preview-strength,var(--scene-strength,1));
+}
+.launcher-wallpaper:has(:is(img,video))::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(to bottom,
+    rgba(var(--canvas-rgb),.94) var(--titlebar-height),
+    rgba(var(--canvas-rgb),.88) calc(var(--titlebar-height) + var(--page-top) + 2.75rem),
+    transparent calc(var(--titlebar-height) + var(--page-top) + 10rem)),
+    rgba(var(--canvas-rgb),var(--wall-protection,.13));
+}
+[data-skin] .launcher-content {z-index: 1}
+[data-skin] :is(.launcher-bar,.launcher-status) {
+  background: var(--chrome); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+}
+[data-skin] .launcher-bar {box-shadow: inset 0 -1px 0 var(--rim)}
+[data-skin] .launcher-status {box-shadow: inset 0 1px 0 var(--rim)}
+[data-skin] .launcher-bar :is(nav a,.toolbar-settings,.role-button,.icon-button) {border-radius: var(--control-radius)}
+[data-skin] .launcher-bar nav a.active,[data-skin] .toolbar-settings.active {
+  box-shadow: inset 0 1px 0 var(--rim); color: var(--accent-text);
+}
+[data-skin] .launcher-content :is(.desk-card,.desktop-panel,.preference-section,.check-list,.instance-lines,.settings-rail,
+  .lobby-block,.lobby-secondary,.preference-more,.playtime-summary,.player-now,.social-chat>.chat-main,.social-chat>.people-panel,
+  .social-content>.inventory-ui,.social-content>.play-calendar,.launch-page>.launcher-updates,.direct-game-card,.default-server-card) {
+  background: var(--theme-pane); border: 1px solid var(--edge); border-radius: var(--desk-radius);
+  box-shadow: inset 0 1px 0 var(--rim),0 3px 14px -5px var(--shade);
+}
+[data-skin] .launcher-content :is(.desk-card,.preference-section,.desktop-panel,.direct-game-card,.player-now,.lobby-secondary) {
+  --desk-ink:var(--pane-fg,var(--foreground)); --desk-muted:var(--pane-muted,var(--secondary)); color:var(--desk-ink);
+}
+[data-skin] .launcher-content :is(.desk-card,.desktop-panel,.preference-section) a:not(.small-action,.button) {color:var(--pane-link,var(--accent-text))}
+[data-skin] .launcher-frame .small-action {color:var(--foreground)}
+[data-skin] .game-board .desk-card {
+  backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
+}
+[data-skin=paper] .game-board .desk-card {backdrop-filter: none; -webkit-backdrop-filter: none}
+[data-skin] .game-board h2 {display: inline-flex; align-items: center; gap: 8px; line-height: 1.4}
+[data-skin] .game-board h2 svg {color: var(--accent-text); flex: none; stroke-width: 1.65}
+[data-skin] .game-home .launch-title h1 {font-size: 1.48rem; font-weight: 680; letter-spacing: .01em}
+[data-skin] .preference-section>h2 {border-color: var(--edge)}
+[data-skin] .appearance-shortcut {background: var(--chrome)}
+[data-skin] .launcher-frame :is(.small-action,.instance-toolbar label,.setting-line select,.play-buttons button,.settings-switch select) {
+  background: var(--control); border-color: var(--edge); border-radius: var(--control-radius);
+}
+[data-skin] .launcher-frame :is(.launch-primary,.button.solid,.install-label) {border-radius: var(--control-radius)}
+[data-skin] .launcher-frame .launch-primary {background: var(--desk-accent); color: var(--accent-ink)}
+[data-skin] .launcher-frame .launch-primary:not(:disabled):hover {box-shadow: 0 2px 8px rgba(var(--accent-rgb),.34)}
+[data-skin] .launcher-frame :is(.small-action,.home-instance-row):not(:disabled):hover {background: rgba(var(--pane-rgb),.98); border-color: var(--accent-border)}
+[data-skin] .home-instance-row {border-radius: var(--control-radius)}
+[data-skin] .home-instance-row.focused {background: var(--accent-soft); border-color: var(--accent-border); box-shadow: inset 3px 0 var(--desk-accent)}
+[data-skin] .launcher-frame .home-instance-row.focused:hover {background: var(--accent-soft)}
+[data-skin] .desk-card>footer {border-color: var(--edge)}
+[data-skin] .game-board .time-periods {border-block: 1px solid var(--edge); padding-block: 11px; margin-top: 2px}
+[data-skin] .time-periods dd {font-variant-numeric: tabular-nums}
+[data-skin] .segmented {background: rgba(var(--chrome-rgb),.68); border: 1px solid var(--edge)}
+[data-skin] .segmented button[aria-pressed=true] {color: var(--accent-text); background: var(--solid)}
+[data-skin] .calendar-grid i[data-level="0"] {background: var(--cell)}
+[data-skin] .calendar-grid i[data-level="1"] {background: rgba(var(--accent-rgb),.38)}
+[data-skin] .calendar-grid i[data-level="2"] {background: rgba(var(--accent-rgb),.65)}
+[data-skin] .calendar-grid i[data-level="3"] {background: var(--accent)}
+[data-skin] .modal {color: var(--foreground); background: var(--solid); border: 1px solid var(--edge); border-radius: var(--pane-radius)}
+[data-skin] .modal-backdrop {background: rgba(15,21,34,.46)}
+[data-skin] .modal .launch-primary {background: var(--accent); color: var(--accent-ink)}
+.design-options {display: grid; grid-template-columns: repeat(auto-fit,minmax(min(11rem,100%),1fr)); gap: 12px; padding: var(--panel-pad)}
+.design-choice {display: grid; grid-template-rows: auto 1fr; gap: 0; min-width: 0; padding: 3px; text-align: left; cursor: pointer;
+  border: 1px solid var(--edge); border-radius: max(7px,var(--control-radius)); background: var(--control); color: var(--foreground); font: inherit}
+.design-choice:hover {border-color: var(--accent-border)}
+.design-choice[aria-pressed=true] {border-color: var(--accent-text); box-shadow: 0 0 0 1px var(--accent-text)}
+.design-sample {width: 100%; height: clamp(63px,6.5vw,101px); display: grid; place-items: center; overflow: hidden;
+  background-size: cover; background-position: center 51%; background-color: #b7c1e2; border-radius: max(4px,calc(var(--control-radius) - 2px))}
+.design-choice[data-design=paper] .design-sample {background-color: #eadfcb; background-image: radial-gradient(#c3ae8d .8px,transparent 1px); background-size: 8px 8px}
+.sample-window {display: grid; width: 52%; max-width: 126px; height: 69%; grid-template: 13% 1fr 1fr / 30% 1fr; gap: 4px;
+  padding: 5px; border: 1px solid #ffffff9c; border-radius: 7px; background: #e9eeffc2; box-shadow: 0 3px 10px #10162738}
+.sample-window i {grid-column: span 2; border-bottom: 1px solid #8593b3}
+.sample-window b {border: 1px solid #bac3d6; border-radius: 3px; background: #ffffffb8}
+.sample-window b:nth-child(2) {grid-row: span 2}
+.design-choice[data-design=observatory] .sample-window {background: #16313acf; border-color: #779c9d}
+.design-choice[data-design=observatory] .sample-window b {background: #234b50d9; border-color: #537379}
+.design-choice[data-design=paper] .sample-window {background: #f8f3e7; border-color: #bea98d; border-radius: 3px}
+.design-choice[data-design=paper] .sample-window b {background: #fffcf4; border-color: #d5c7af; border-radius: 1px}
+.design-caption {display: flex; align-items: center; justify-content: space-between; gap: 5px; padding: 9px 8px}
+.design-caption strong,.design-caption small {display: block; overflow-wrap: anywhere}
+.design-caption strong {font-size: .9rem; font-weight: 650}
+.design-caption small {font-size: .75rem; color: var(--secondary); margin-top: 3px}
+.design-caption>svg {flex: none; color: var(--accent-text)}
+.theme-shelf {border-top: 1px solid var(--edge)}
+.appearance-sliders {display: grid; grid-template-columns: repeat(auto-fit,minmax(min(10.8rem,100%),1fr)); gap: 16px 24px; padding: var(--panel-pad); border-bottom: 1px solid var(--edge)}
+.appearance-range {display: grid; grid-template-columns: 1fr auto; gap: 8px; min-width: 0; font-size: .82rem}
+.appearance-range output {color: var(--accent-text); font-variant-numeric: tabular-nums}
+.appearance-range input {width: 100%; grid-column: span 2; height: 20px; margin: 0; accent-color: var(--accent); cursor: pointer}
+.tone-picker,.appearance-actions {display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0}
+.tone-picker button {display: grid; place-items: center; width: 25px; height: 25px; padding: 0; border: 1px solid var(--edge); border-radius: 50%; color: white; cursor: pointer}
+.tone-picker button[aria-pressed=true] {outline: 1px solid var(--foreground); outline-offset: 2px}
+.native-color {display: inline-flex; align-items: center; gap: 6px; font-size: .8rem}
+.native-color input[type=color] {width: 27px; height: 26px; border: 1px solid var(--edge); border-radius: 5px; padding: 1px; cursor: pointer; background: var(--control)}
+.theme-form {display: grid; gap: 15px; color: var(--foreground); font-size: .9rem}
+.theme-form p {margin: 0; line-height: 1.65}
+.theme-form label {display: grid; gap: 6px}
+.theme-form input {padding: 9px; border: 1px solid var(--edge); border-radius: var(--control-radius); background: var(--solid); color: var(--foreground); font: inherit}
+.theme-form button {justify-self: end}
+@media (prefers-reduced-transparency: reduce) {
+  :root[data-skin] {--theme-pane: rgb(var(--pane-rgb)); --chrome: rgb(var(--chrome-rgb)); --control: var(--solid)}
+  [data-skin] :is(.game-board .desk-card,.launcher-bar,.launcher-status) {backdrop-filter: none}
+}
+@media (forced-colors: active) {
+  [data-skin] .launcher-wallpaper {display: none}
+  [data-skin] .calendar-grid i:not([data-level="future"]) {border: 1px solid GrayText}
+  [data-skin] .calendar-grid i:is([data-level="1"],[data-level="2"],[data-level="3"]) {background: Highlight; forced-color-adjust: none}
+  [data-skin] :is(.design-choice[aria-pressed=true],.home-instance-row.focused) {border: 2px solid Highlight}
+}

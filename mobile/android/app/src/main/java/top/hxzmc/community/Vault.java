@@ -14,7 +14,9 @@ import org.json.JSONObject;
 
 final class Vault {
     private final Context context;
-    Vault(Context context) { this.context = context; }
+    private final String entry;
+    Vault(Context context) { this(context,"credentials"); }
+    Vault(Context context,String entry) { this.context = context;this.entry=entry; }
     private SecretKey key() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore"); store.load(null);
         if (!store.containsAlias("hxz-community-session")) {
@@ -26,7 +28,7 @@ final class Vault {
         return (SecretKey) store.getKey("hxz-community-session", null);
     }
     synchronized JSONObject read() throws Exception {
-        String saved = context.getSharedPreferences("vault",0).getString("credentials", "");
+        String saved = context.getSharedPreferences("vault",0).getString(entry, "");
         if (saved.isEmpty()) return new JSONObject();
         String[] parts = saved.split(":");
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
@@ -36,7 +38,7 @@ final class Vault {
     synchronized void write(JSONObject data) throws Exception {
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding"); cipher.init(Cipher.ENCRYPT_MODE, key());
         String value = Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP) + ":" + Base64.encodeToString(cipher.doFinal(data.toString().getBytes(StandardCharsets.UTF_8)), Base64.NO_WRAP);
-        if (!context.getSharedPreferences("vault",0).edit().putString("credentials",value).commit()) throw new Exception("无法保存安全凭据");
+        if (!context.getSharedPreferences("vault",0).edit().putString(entry,value).commit()) throw new Exception("无法保存安全凭据");
     }
-    synchronized void clear() { context.getSharedPreferences("vault",0).edit().clear().commit(); }
+    synchronized void clear() { context.getSharedPreferences("vault",0).edit().remove(entry).commit(); }
 }

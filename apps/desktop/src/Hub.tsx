@@ -1,0 +1,51 @@
+import {useEffect,useLayoutEffect,useMemo,useRef} from 'react';
+import {useSnapshot} from 'valtio';
+import {useNavigate,useSearchParams,Link,Navigate} from 'react-router-dom';
+import {desktopDestination} from './launcher/community-pages';
+import {community} from '../../../packages/community/client';
+import {mountHub,hubSectionName} from '../../../packages/hub/ui.mjs';
+import {HUB_AREAS,hubDestination,resolveHubTarget,appDestination} from '../../../packages/hub/navigation.mjs';
+import {exportAsset} from '../../../packages/hub/asset-export.mjs';
+import '../../../packages/hub/style.css';
+import {request} from './data';
+import {CardBoard} from './CardBoard';
+import {PageTitle} from './ui';
+import {LibraryTabs,AccountTabs} from './HubNavigation';
+import {account,chooseRoot,invoke,reload,state,task,ui,notify} from './model';
+
+function Region({node}:{node:HTMLElement}){
+ const host=useRef<HTMLDivElement>(null);
+ useLayoutEffect(()=>{host.current?.append(node);return()=>node.remove();},[node]);
+ return <div ref={host}/>;
+}
+export function HubPage({area='events'}:{area?:string}){
+ const [params]=useSearchParams(),section=params.get('section');
+ const path=area==='legacy'?'/community/hub':HUB_AREAS[area]?.path;
+ const legacy=path?resolveHubTarget(path+'?'+params.toString()):null;
+ if(legacy?.retired)return <Navigate replace to={legacy.redirect}/>;
+ if(['people','creation','knowledge','games'].includes(area))return <Navigate replace to={area==='games'?'/arcade':'/community'}/>;
+ return <ActiveHubPage area={area}/>;
+}
+function ActiveHubPage({area:areaKey='events'}:{area?:string}){
+ const communityState=useSnapshot(community),snapshot=useSnapshot(state),user=communityState.user,uid=user?.uid||account(snapshot)?.uuid,navigate=useNavigate(),[params]=useSearchParams();
+ if(areaKey==='legacy'){areaKey=resolveHubTarget('/community/hub?'+params.toString())?.area||'events';if(areaKey==='all')areaKey='events';}
+ const scoped=true,area=scoped?(HUB_AREAS[areaKey]||HUB_AREAS.events):{sections:['desk',...Object.values(HUB_AREAS).flatMap((v:any)=>v.sections)]},candidate=params.get('section'),section=area.sections.includes(candidate)?candidate!:(areaKey==='personal'?'saved':area.sections[0]),item=params.get('item')||'',showSummary=!scoped||areaKey==='people';
+ const regions=useMemo(()=>Object.fromEntries(['nav','summary','board'].map(key=>[key,document.createElement('section')])) as Record<string,HTMLElement>,[]);
+ useEffect(()=>mountHub(regions.board,{request,uid,server:snapshot.settings.communityUrl,platform:window.launcher?.platform||'desktop',section,item,regions,area:scoped?areaKey:undefined,showSummary,sectionTitleInCard:true,
+  onSection:(next:string)=>{const target=desktopDestination(hubDestination(next));if(target)navigate(target);},
+  navigate:(url:string)=>{if(/^https?:\/\//.test(url))return invoke('external.open',{url});const original=appDestination(url);const target=original?desktopDestination(original):null;if(!target)throw Error('这个内容入口已不可用，历史记录仍保留');navigate(target);},
+  worldPlan:window.launcher?.platform==='android'?undefined:(record:string)=>invoke('world.plan',{record}),
+  saveWorld:window.launcher?.platform==='android'?(record:string,revision:number)=>invoke('android.world.save',{record,revision}):undefined,
+  exportAsset:(blob:Blob,name:string)=>exportAsset((input:any)=>invoke('asset.export',input),blob,name),
+  importWorld:async(input:any)=>{if(task.busy||(state.running&&state.settings.keepLauncherAvailable===false))throw Error('请等待当前任务或游戏结束');if(!state.settings.gameRoot&&!await chooseRoot())throw Error('尚未选择游戏目录');ui.tasks=true;await invoke('world.import',input);await reload();notify('世界已导入，可以在游戏实例中启动');},
+  downloadServer:async(id:string)=>{
+   if(!['HXZ-survival','HXZ-mod-1','HXZ-mod-2'].includes(id))throw Error('不支持这个服务器实例');
+   if(task.busy||(state.running&&state.settings.keepLauncherAvailable===false))throw Error('请等待当前任务或游戏结束后再安装');
+   if(!account()){ui.dialog='account';throw Error('请先选择登录角色');}
+   if(!state.settings.gameRoot&&!await chooseRoot())throw Error('尚未选择游戏目录，待办已保留');
+   ui.tasks=true;await invoke('game.update',{id});await reload();
+  }
+ }),[regions,uid,snapshot.settings.communityUrl,section,item,navigate,areaKey,showSummary,scoped]);
+ return <div className="hub-page"><Region node={regions.nav}/>{showSummary&&<Region node={regions.summary}/>}<section className="desktop-panel"><div className="desktop-panel-body"><Region node={regions.board}/></div></section></div>;
+}
+export function HubStandalone({area}:{area:string}){const spec=HUB_AREAS[area]||HUB_AREAS.events,c=useSnapshot(community);return <div className="standard-page"><PageTitle title={area==='worlds'?'我的游戏':area==='personal'?'账号与积分':spec.title} tabs={area==='worlds'?<LibraryTabs/>:area==='personal'?<AccountTabs/>:undefined} actions={area==='support'?<Link className="button" to="/settings?tab=support">返回帮助与反馈</Link>:undefined}/>{area==='admin'&&!c.user?.admin?<p className="muted">此入口仅向社区管理员开放。</p>:<HubPage area={area}/>}</div>;}

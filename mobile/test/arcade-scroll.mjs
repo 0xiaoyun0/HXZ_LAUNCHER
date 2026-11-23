@@ -5,7 +5,7 @@ try {
  const page=await browser.newPage({viewport:{width:320,height:640},isMobile:true,hasTouch:true}),cdp=await page.context().newCDPSession(page);
  const errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.goto(process.env.MOBILE_PREVIEW_URL||'http://127.0.0.1:5194');
- await page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:'游戏',exact:true}).click();
+ await page.getByRole('navigation',{name:'主导航'}).getByRole('button',{name:'发现',exact:true}).click();await page.locator('.discover-card').first().click();
  await page.waitForSelector('.arcade-card');await page.waitForTimeout(200);
  async function swipe(x,y){
   await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});

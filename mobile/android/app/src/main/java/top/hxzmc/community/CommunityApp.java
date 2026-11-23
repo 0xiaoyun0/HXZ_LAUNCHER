@@ -22,19 +22,49 @@ public final class CommunityApp extends Application {
     final OkHttpClient sockets = http.newBuilder().callTimeout(0,TimeUnit.SECONDS).pingInterval(15,TimeUnit.SECONDS).build();
     WeakReference<MainActivity> activity = new WeakReference<>(null);
     Vault vault;
+    Vault communityVault;
     AppUpdater updater;
+    GameEngine gameEngine;
+    GameLobby gameLobby;
     volatile JSONObject credentials = new JSONObject(), user = new JSONObject();
     volatile String base, token = "", connection = "未登录", selfId = "", room = "";
-    volatile boolean connected, foreground, muted, deafened, ptt, pressing;
+    volatile boolean connected, foreground, musicSharing, muted, deafened, ptt, pressing;
     volatile WebSocket socket;
     volatile VoiceEngine audio;
     volatile String recoveryRoom="";
-    JSONArray users = new JSONArray(), messages = new JSONArray();
+    JSONArray users = new JSONArray(), messages = new JSONArray(), voiceRooms = new JSONArray();
     private volatile long expires, generation, lastSeen;
     private int retries;
     private boolean connecting;
     private final Object authLock=new Object();
+    private final top.hxzmc.runtime.GameSessionLease gameSessionLease=new top.hxzmc.runtime.GameSessionLease();
+    private int gameSessionOwnerPid;
+    private final Object gameMetadataLock=new Object();
+    private String gameMetadata="";private long gameMetadataUntil;
+    /** Optional FCL-style metadata prefetch using Android's HTTPS/DNS stack, never credentials. */
+    String gameAuthMetadata() {synchronized(gameMetadataLock){
+        long now=android.os.SystemClock.elapsedRealtime();
+        if(!gameMetadata.isEmpty()&&now<gameMetadataUntil)return gameMetadata;
+        try {
+            OkHttpClient client=http.newBuilder().connectTimeout(5,TimeUnit.SECONDS).readTimeout(6,TimeUnit.SECONDS).callTimeout(8,TimeUnit.SECONDS).build();
+            try(Response response=client.newCall(new Request.Builder().url(SKIN).header("Accept","application/json").build()).execute()){
+                if(!response.isSuccessful()||response.body()==null)return "";
+                String text=new String(bounded(response.body().byteStream(),256*1024),StandardCharsets.UTF_8);
+                gameMetadata=top.hxzmc.runtime.AuthlibLaunchArguments.checkedMetadata(text);
+                gameMetadataUntil=android.os.SystemClock.elapsedRealtime()+300000;return gameMetadata;
+            }
+        }catch(Exception ignored){return "";} // Normal authlib online verification stays enabled.
+    }}
     private final Runnable retry = this::connect;
+    private final Runnable gameRecovery = new Runnable(){public void run(){
+        // Authentication may be waiting for HTTPS. Never wait for that lock on the UI thread.
+        try{jobs.execute(()->{
+            boolean released,watch;
+            synchronized(authLock){released=reconcileGameSession();watch=!gameSessionLease.id().isEmpty();}
+            if(watch)main.postDelayed(this,3000);
+            if(released)resumeCommunityAfterGame();
+        });}catch(RejectedExecutionException busy){main.postDelayed(this,3000);}
+    }};
     private final Runnable heartbeat = new Runnable() { public void run() {
         if (connected) {
             if (System.currentTimeMillis()-lastSeen > 50000) { failed(generation,false); return; }
@@ -42,9 +72,17 @@ public final class CommunityApp extends Application {
         }
     }};
     @Override public void onCreate() {
-        super.onCreate(); vault = new Vault(this);updater=new AppUpdater(this);
+        super.onCreate();
+        if(!getPackageName().equals(Application.getProcessName()))return;
+        android.content.SharedPreferences leasePrefs=getSharedPreferences("game-session-lease",0);
+        gameSessionOwnerPid=leasePrefs.getInt("owner",0);
+        gameSessionLease.restore(leasePrefs.getString("id",""),leasePrefs.getLong("until",0),android.os.SystemClock.elapsedRealtime(),gameOwnerAlive());
+        persistGameSessionLease();
+        vault = new Vault(this);communityVault=new Vault(this,"community-session");updater=new AppUpdater(this);gameEngine=new GameEngine(this);gameLobby=new GameLobby(this);
         base = getSharedPreferences("settings",0).getString("server","https://qqbot.hxzmc.top");
         try { credentials = vault.read(); } catch(Exception e) { vault.clear(); }
+        restoreCommunitySession();
+        if(!gameSessionLease.id().isEmpty())main.postDelayed(gameRecovery,3000);
     }
     static JSONObject obj(Object... values) {
         JSONObject o = new JSONObject(); try { for (int i=0;i<values.length;i+=2) o.put(String.valueOf(values[i]),values[i+1]); } catch(JSONException ignored) {} return o;
@@ -55,11 +93,16 @@ public final class CommunityApp extends Application {
         JSONObject selected = credentials.optJSONObject("selectedProfile");
         return obj("server",base,"user",user,"profiles",profiles==null?new JSONArray():profiles,"selectedProfile",selected==null?JSONObject.NULL:selected,
             "hasAccount",credentials.has("accessToken"),"connected",connected,"connection",connection,"users",users,"messages",messages,
-            "room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version","0.5.2",
+            "voiceRooms",voiceRooms,"room",room,"recoveringRoom",recoveryRoom,"muted",muted,"deafened",deafened,"ptt",ptt,"id",selfId,"version",BuildConfig.VERSION_NAME,
             "systemDark",(getResources().getConfiguration().uiMode & android.content.res.Configuration.UI_MODE_NIGHT_MASK)==android.content.res.Configuration.UI_MODE_NIGHT_YES);
     }
     void event(String name, Object value) { MainActivity a=activity.get(); if(a!=null)a.emit(name,value); }
-    void changed() { JSONObject update=state();update.remove("messages");event("state",update); }
+    final java.util.Map<String,Long> voiceActivity=new java.util.concurrent.ConcurrentHashMap<>();
+    VoiceOverlay voiceOverlay;
+    private long widgetObserved;
+    private int widgetOnline(){java.util.Set<String> ids=new java.util.HashSet<>();for(int i=0;i<users.length();i++){JSONObject u=users.optJSONObject(i);if(u!=null&&!u.optString("uid").isEmpty())ids.add(u.optString("uid"));}return ids.size();}
+    void changed() { JSONObject update=state();update.remove("messages");event("state",update);long n=System.currentTimeMillis();if(connected&&n-widgetObserved>30000){widgetObserved=n;getSharedPreferences("widget",0).edit().putLong("observed",n).putInt("online",widgetOnline()).apply();main.post(()->CommunityWidget.update(this));} }
+    void clearWidget(){widgetObserved=0;getSharedPreferences("widget",0).edit().clear().apply();main.post(()->CommunityWidget.update(this));}
     static String validBase(String raw) throws Exception {
         HttpUrl url = HttpUrl.parse(raw.trim());
         if(url==null || !url.isHttps() || !url.username().isEmpty() || !url.password().isEmpty() || url.query()!=null || url.fragment()!=null)
@@ -73,6 +116,10 @@ public final class CommunityApp extends Application {
         if(!pathname.matches("/(api/[A-Za-z0-9_/-]+|health)")) throw new IOException("接口路径无效");
         return base+path;
     }
+    static final class HttpFailure extends IOException {
+        final int status;
+        HttpFailure(int status,String message){super(message);this.status=status;}
+    }
     Object request(String url,String method,JSONObject body,String bearer) throws Exception {
         Request.Builder b=new Request.Builder().url(url).header("Accept","application/json");
         if(!bearer.isEmpty()) b.header("Authorization","Bearer "+bearer);
@@ -83,7 +130,7 @@ public final class CommunityApp extends Application {
             Object result=text.isEmpty()?obj("ok",true):new JSONTokener(text).nextValue();
             if(!r.isSuccessful()) {
                 String error = result instanceof JSONObject?((JSONObject)result).optString("errorMessage",((JSONObject)result).optString("error","HTTP "+r.code())):"HTTP "+r.code();
-                throw new IOException(error);
+                throw new HttpFailure(r.code(),error);
             }
             return result;
         }
@@ -95,16 +142,98 @@ public final class CommunityApp extends Application {
             return output.toByteArray();
         }
     }
+    JSONObject gameCredentials() throws Exception { synchronized(authLock){return new JSONObject(credentials.toString());} }
+    /** Launch-only validation at the skin site; never fall back to a cached invalid session. */
+    JSONObject gameLaunchCredentials(String expectedUuid) throws Exception { synchronized(authLock) {
+        JSONObject selected=credentials.optJSONObject("selectedProfile");
+        String access=credentials.optString("accessToken"),client=credentials.optString("clientToken");
+        if(selected==null||selected.optString("id").isEmpty()||access.isEmpty()||client.isEmpty())throw new IOException("请先在社区登录皮肤站并选择角色");
+        String uuid=selected.getString("id");
+        if(expectedUuid!=null&&!expectedUuid.isEmpty()&&!expectedUuid.equals(uuid))throw new IOException("社区角色已切换，请重新启动游戏");
+        boolean invalid=false;
+        try {request(SKIN+"/authserver/validate","POST",obj("accessToken",access,"clientToken",client),"");}
+        catch(HttpFailure failure) {
+            if(failure.status==403)invalid=true;
+            else throw new IOException("皮肤站暂时无法验证账号，请稍后重试");
+        } catch(Exception failure) {throw new IOException("皮肤站暂时无法验证账号，请检查网络后重试");}
+        if(invalid) {
+            Object response;
+            try {response=request(SKIN+"/authserver/refresh","POST",obj("accessToken",access,"clientToken",client,"requestUser",true),"");}
+            catch(HttpFailure failure) {throw new IOException(failure.status==403?"皮肤站登录凭据已失效，请返回社区重新登录":"皮肤站暂时无法刷新账号，请稍后重试");}
+            catch(Exception failure) {throw new IOException("皮肤站暂时无法刷新账号，请检查网络后重试");}
+            if(!(response instanceof JSONObject))throw new IOException("皮肤站返回的登录信息无效");
+            JSONObject renewed=(JSONObject)response,profile=renewed.optJSONObject("selectedProfile");
+            if(profile==null||!uuid.equals(profile.optString("id"))||profile.optString("name").isEmpty()||renewed.optString("accessToken").isEmpty()||!client.equals(renewed.optString("clientToken")))
+                throw new IOException("皮肤站返回的角色或登录信息不匹配，请重新登录");
+            saveCredentials(renewed);
+        }
+        return new JSONObject(credentials.toString());
+    }}
     synchronized void saveCredentials(JSONObject next) throws Exception {
         if(!next.has("accessToken"))throw new IOException("皮肤站没有返回有效登录凭据");
         if(!next.has("availableProfiles") && credentials.has("availableProfiles"))next.put("availableProfiles",credentials.get("availableProfiles"));
         if(!next.has("selectedProfile") && credentials.has("selectedProfile"))next.put("selectedProfile",credentials.get("selectedProfile"));
+        if(!next.has("loginUsername") && credentials.has("loginUsername"))next.put("loginUsername",credentials.get("loginUsername"));
+        if(!next.has("clientToken") && credentials.has("clientToken"))next.put("clientToken",credentials.get("clientToken"));
         vault.write(next); credentials=next;
     }
+    JSONObject beginGameSession(String uuid,String lease) throws Exception {synchronized(authLock){
+        reconcileGameSession();
+        long now=android.os.SystemClock.elapsedRealtime();
+        if(gameSessionLease.active(now))throw new IOException("已有游戏正在运行，请先退出后再启动");
+        // /api/session refreshes the skin token. Complete that before handing a token to Minecraft.
+        // Community availability is optional for a normal server launch; skin validation is mandatory.
+        try{session();}catch(Exception ignored){}
+        JSONObject account=gameLaunchCredentials(uuid);
+        gameSessionLease.begin(lease,android.os.SystemClock.elapsedRealtime());gameSessionOwnerPid=android.os.Binder.getCallingPid();persistGameSessionLease();
+        main.removeCallbacks(gameRecovery);main.postDelayed(gameRecovery,3000);return account;
+    }}
+    boolean pulseGameSession(String lease){synchronized(authLock){reconcileGameSession();boolean active=gameSessionLease.pulse(lease,android.os.SystemClock.elapsedRealtime());if(active)persistGameSessionLease();return active;}}
+    void endGameSessionLease(String lease){synchronized(authLock){
+        if(gameSessionLease.id().isEmpty()||!gameSessionLease.id().equals(lease))return;
+        gameSessionLease.end(lease);persistGameSessionLease();resumeCommunityAfterGame();
+    }}
+    /** Only our game Activity owns the account lease; JVM workers alone do not own it. */
+    private Boolean gameOwnerAlive(){
+        try{
+            android.app.ActivityManager manager=(android.app.ActivityManager)getSystemService(ACTIVITY_SERVICE);
+            java.util.List<android.app.ActivityManager.RunningAppProcessInfo> processes=manager==null?null:manager.getRunningAppProcesses();
+            if(processes==null)return null;
+            boolean ownProcessVisible=false;
+            for(android.app.ActivityManager.RunningAppProcessInfo process:processes){
+                if(process.uid!=android.os.Process.myUid())continue;
+                if((getPackageName()+":game").equals(process.processName)&&(gameSessionOwnerPid<=0||gameSessionOwnerPid==process.pid))return true;
+                if(process.pid==android.os.Process.myPid())ownProcessVisible=true;
+            }
+            return ownProcessVisible?Boolean.FALSE:null;
+        }catch(RuntimeException ignored){return null;}
+    }
+    private boolean reconcileGameSession(){
+        boolean released=gameSessionLease.reconcile(gameOwnerAlive(),android.os.SystemClock.elapsedRealtime());
+        if(released)persistGameSessionLease();return released;
+    }
+    private void resumeCommunityAfterGame(){main.post(()->{retries=0;main.removeCallbacks(retry);connect();});}
+    private void persistGameSessionLease(){if(gameSessionLease.id().isEmpty())gameSessionOwnerPid=0;getSharedPreferences("game-session-lease",0).edit().putString("id",gameSessionLease.id()).putLong("until",gameSessionLease.deadline()).putInt("owner",gameSessionOwnerPid).apply();}
+    private void restoreCommunitySession(){
+        try{
+            JSONObject saved=communityVault.read(),profile=credentials.optJSONObject("selectedProfile");long now=System.currentTimeMillis();
+            if(profile==null||!base.equals(saved.optString("base"))||!profile.optString("id").equals(saved.optString("profile"))
+                ||credentials.optString("clientToken").isEmpty()||!credentials.optString("clientToken").equals(saved.optString("client"))
+                ||saved.optLong("expires")<=now||saved.optLong("expires")-now>11*60*60*1000L||saved.optString("token").isEmpty()||saved.optJSONObject("user")==null){communityVault.clear();return;}
+            token=saved.getString("token");expires=saved.getLong("expires");user=saved.getJSONObject("user");
+        }catch(Exception ignored){communityVault.clear();}
+    }
+    private void persistCommunitySession(){
+        try{JSONObject profile=credentials.optJSONObject("selectedProfile");
+            if(profile!=null)communityVault.write(obj("base",base,"profile",profile.optString("id"),"client",credentials.optString("clientToken"),"token",token,"expires",expires,"user",user));
+        }catch(Exception ignored){/* A storage failure must not invalidate a live game or a successful login. */}
+    }
+    private void clearCommunitySession(){token="";expires=0;if(communityVault!=null)communityVault.clear();}
     Object login(JSONObject input) throws Exception { synchronized(authLock) {
+        endGameSession();
         disconnect(true);
         JSONObject next=(JSONObject)request(SKIN+"/authserver/authenticate","POST",obj("agent",obj("name","Minecraft","version",1),"username",input.getString("username"),"password",input.getString("password"),"clientToken",UUID.randomUUID().toString(),"requestUser",true),"");
-        credentials=new JSONObject(); saveCredentials(next); token=""; expires=0;
+        next.put("loginUsername",input.getString("username"));credentials=new JSONObject(); saveCredentials(next); clearCommunitySession();
         long websiteTicket=SkinSession.reset();String websiteUser=input.getString("username"),websitePassword=input.getString("password");jobs.execute(()->SkinSession.login(websiteTicket,websiteUser,websitePassword));
         JSONArray profiles=credentials.optJSONArray("availableProfiles");
         if(credentials.optJSONObject("selectedProfile")==null && profiles!=null && profiles.length()==1) selectProfile(profiles.getJSONObject(0).getString("id"));
@@ -114,34 +243,41 @@ public final class CommunityApp extends Application {
         JSONArray profiles=credentials.optJSONArray("availableProfiles"); JSONObject selected=null;
         if(profiles!=null)for(int i=0;i<profiles.length();i++)if(profiles.getJSONObject(i).optString("id").equals(id))selected=profiles.getJSONObject(i);
         if(selected==null)throw new IOException("角色不存在，请重新登录");
+        endGameSession();
         disconnect(true);
         saveCredentials((JSONObject)request(SKIN+"/authserver/refresh","POST",obj("accessToken",credentials.getString("accessToken"),"clientToken",credentials.getString("clientToken"),"selectedProfile",selected,"requestUser",true),""));
-        token=""; expires=0; user=new JSONObject(); messages=new JSONArray();
+        clearCommunitySession(); user=new JSONObject(); messages=new JSONArray();
         main.post(this::connect); return state();
     }}
     String session() throws Exception { synchronized(authLock) {
+        reconcileGameSession();
         if(!token.isEmpty() && expires>System.currentTimeMillis())return token;
+        if(gameSessionLease.active(android.os.SystemClock.elapsedRealtime()))throw new IOException("游戏运行期间暂缓重新验证社区，避免使游戏会话失效；退出游戏后将自动恢复");
         if(!credentials.has("accessToken"))return "";
         if(credentials.optJSONObject("selectedProfile")==null)throw new IOException("请先选择皮肤站角色");
         JSONObject result=(JSONObject)request(base+"/api/session","POST",obj("accessToken",credentials.getString("accessToken"),"clientToken",credentials.getString("clientToken")),"");
         saveCredentials(result.getJSONObject("credentials"));
         token=result.getString("token"); user=result.getJSONObject("user"); expires=System.currentTimeMillis()+11*60*60*1000L;
+        persistCommunitySession();
         return token;
     }}
     Object api(JSONObject input) throws Exception { synchronized(authLock) {
         String path=input.getString("path"), method=input.optString("method","GET");
         if(!Arrays.asList("GET","POST","PUT","DELETE").contains(method))throw new IOException("请求方式无效");
         String url=apiUrl(path), auth=session();
-        if(path.equals("/api/session")||path.startsWith("/api/admin/"))throw new IOException("此接口不向页面开放");
+        if(path.equals("/api/session")||(path.startsWith("/api/admin/")&&!path.matches("/api/admin/(inventory(?:/(items|mail|codes))?|guild(?:/[a-z0-9-]+)*|inbox/send|music|lobby/(grants|relay)|server-online|game-bridges|game-access|linking(?:/[a-z0-9-]+)*(?:\\?offset=[0-9]+)?)")))throw new IOException("此接口不向页面开放");
         return request(url,method,input.optJSONObject("body"),auth);
     }}
     void logout() { synchronized(authLock) {
-        disconnect(true); SkinSession.reset(); vault.clear(); credentials=new JSONObject(); token=""; expires=0; user=new JSONObject(); users=new JSONArray(); messages=new JSONArray(); connection="未登录"; changed();
+        endGameSession();
+        clearWidget();disconnect(true); SkinSession.reset(); vault.clear(); credentials=new JSONObject(); clearCommunitySession(); user=new JSONObject(); users=new JSONArray(); messages=new JSONArray(); connection="未登录"; changed();
     }}
     void setServer(String value) throws Exception { synchronized(authLock) {
-        String next=validBase(value); disconnect(true); base=next; token=""; expires=0; user=new JSONObject(); messages=new JSONArray(); users=new JSONArray();
+        endGameSession();
+        String next=validBase(value); clearWidget();disconnect(true); base=next; clearCommunitySession(); user=new JSONObject(); messages=new JSONArray(); users=new JSONArray();
         getSharedPreferences("settings",0).edit().putString("server",next).apply(); main.post(this::connect); changed();
     }}
+    private void endGameSession(){gameSessionLease.clear();persistGameSessionLease();if(gameEngine!=null)gameEngine.accountChanged();if(gameLobby!=null)gameLobby.close("账号或社区连接配置已更改");}
     synchronized void connect() {
         if(connected||connecting||(!foreground&&room.isEmpty()&&recoveryRoom.isEmpty()))return;
         if(credentials.optJSONObject("selectedProfile")==null){connection=credentials.has("accessToken")?"请选择角色":"未登录";changed();return;}
@@ -168,7 +304,7 @@ public final class CommunityApp extends Application {
         recoveryRoom=room.isEmpty()?recoveryRoom:room;room="";generation++;connecting=false;connected=false;selfId="";
         main.removeCallbacks(heartbeat);if(socket!=null){socket.cancel();socket=null;}
         VoiceEngine engine=audio;audio=null;if(engine!=null)engine.close();users=new JSONArray();
-        if(unauthorized){token="";expires=0;}
+        if(unauthorized){clearCommunitySession();}
         connection="连接中断，正在重试";changed();scheduleReconnect();
     }
     void scheduleReconnect(){main.removeCallbacks(retry);if(!foreground&&retries>=8){leave();return;}if(foreground||!recoveryRoom.isEmpty())main.postDelayed(retry,Math.min(30000,1500L*(1L<<Math.min(retries++,4)))+new Random().nextInt(700));}
@@ -179,9 +315,10 @@ public final class CommunityApp extends Application {
     synchronized void receive(JSONObject message) throws Exception {
         lastSeen=System.currentTimeMillis();String type=message.optString("type");
         if(type.equals("ready")){
-            connected=true;connecting=false;retries=0;connection="已连接";selfId=message.getString("id");user=message.getJSONObject("user");messages=message.getJSONArray("messages");
+            connected=true;connecting=false;retries=0;connection="已连接";selfId=message.getString("id");user=message.getJSONObject("user");messages=message.getJSONArray("messages");if(message.optJSONArray("rooms")!=null)voiceRooms=message.getJSONArray("rooms");
             main.removeCallbacks(heartbeat);main.postDelayed(heartbeat,15000);event("state",state());
             if(!recoveryRoom.isEmpty())voiceJoin(recoveryRoom);
+        }else if(type.equals("voice-rooms")){voiceRooms=message.getJSONArray("rooms");changed();
         }else if(type.equals("presence")){
             users=message.getJSONArray("users");String current="";
             for(int i=0;i<users.length();i++){JSONObject u=users.getJSONObject(i);if(u.optString("id").equals(selfId)&&!u.isNull("room"))current=u.optString("room");}
@@ -203,15 +340,17 @@ public final class CommunityApp extends Application {
     synchronized void chat(String body) throws Exception {if(!connected)throw new IOException("尚未连接社区");if(body.trim().isEmpty()||body.length()>1000)throw new IOException("消息需为 1–1000 字");send(obj("type","chat","body",body));}
     void voiceJoin(String requested) throws Exception {
         if(!connected)throw new IOException("请先连接社区");
-        if(!Arrays.asList("lobby","survival","mod-1","mod-2").contains(requested))throw new IOException("语音房间不存在");
+        boolean valid=false;for(int i=0;i<voiceRooms.length();i++)if(voiceRooms.getJSONObject(i).optString("id").equals(requested))valid=true;
+        if(!valid&&!Arrays.asList("lobby","survival","mod-1","mod-2").contains(requested))throw new IOException("语音房间不存在");
         send(obj("type","voice-join","room",requested,"transport","ws-opus-v1"));
         main.postDelayed(()->{if(room.isEmpty()){recoveryRoom="";stopAudio();}},12000);
     }
     synchronized void startAudio() {
+        if(voiceOverlay==null)voiceOverlay=new VoiceOverlay(this);voiceOverlay.refresh();
         if(audio!=null)return;
         try{audio=new VoiceEngine(this);audio.start();}catch(Exception e){event("error","无法开启语音："+reason(e));leave();}
     }
-    synchronized void leave(){send(obj("type","voice-leave"));room="";recoveryRoom="";pressing=false;stopAudio();changed();}
-    void stopAudio(){VoiceEngine engine=audio;audio=null;if(engine!=null)engine.close();stopService(new Intent(this,VoiceService.class));}
-    void voiceSettings(JSONObject input){muted=input.optBoolean("muted",muted);deafened=input.optBoolean("deafened",deafened);ptt=input.optBoolean("ptt",ptt);pressing=input.optBoolean("pressing",false);send(obj("type","voice-mute","muted",muted||ptt&&!pressing));send(obj("type","voice-deafen","deafened",deafened));changed();}
+    synchronized void leave(){send(obj("type","voice-leave"));room="";recoveryRoom="";pressing=false;musicSharing=false;stopAudio();changed();}
+    void stopAudio(){voiceActivity.clear();if(voiceOverlay!=null)main.post(()->voiceOverlay.close());VoiceEngine engine=audio;audio=null;if(engine!=null)engine.close();stopService(new Intent(this,VoiceService.class));}
+    void voiceSettings(JSONObject input){muted=input.optBoolean("muted",muted);deafened=input.optBoolean("deafened",deafened);ptt=input.optBoolean("ptt",ptt);pressing=input.optBoolean("pressing",false);send(obj("type","voice-mute","muted",!musicSharing&&(muted||ptt&&!pressing)));send(obj("type","voice-deafen","deafened",deafened));changed();}
 }

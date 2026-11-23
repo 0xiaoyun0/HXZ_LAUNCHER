@@ -1,0 +1,184 @@
+/* Shared dimensions for the desktop window, page headings, panels and controls. */
+.launcher-frame {
+  container: desktop-window / inline-size;
+  --titlebar-height: 70px;
+  --statusbar-height: 36px;
+  --desk-gap: 14px;
+  --desk-radius: 11px;
+  --desk-inset: clamp(16px, 2.1vw, 30px);
+  --control-height: max(34px, 2.15rem);
+  --panel-pad: clamp(14px, 1.25vw, 20px);
+  --page-width: 1600px;
+  --page-top: clamp(16px, 2vw, 28px);
+  --surface: var(--desk-surface);
+  --ink: var(--desk-ink);
+  --muted: var(--desk-muted);
+  --line: var(--desk-line);
+}
+.launcher-content :is(.launch-page,.standard-page,.play-library,.social-content) {
+  width: 100%; max-width: var(--page-width); min-width: 0; margin: 0 auto;
+  padding: var(--page-top) var(--desk-inset) 26px;
+}
+.game-board {
+  display: grid; grid-template-columns: minmax(14rem,32.4fr) minmax(0,67.6fr);
+  grid-template-areas: "role instances" "servers instances" "detail calendar";
+  gap: var(--desk-gap); align-items: start;
+}
+.game-board>.instances-card {grid-area: instances}
+.game-board>.home-role-card {grid-area: role}
+.game-board>.home-servers-card {grid-area: servers}
+.game-board>.calendar-card {grid-area: calendar}
+.game-board>.home-detail-card {grid-area: detail}
+.game-board .desk-card {min-width: 0; margin: 0; padding: var(--panel-pad)}
+.game-board .instances-card {padding-bottom: 0}
+.game-board .desk-card>footer {margin-inline: calc(-1 * var(--panel-pad)); padding-inline: var(--panel-pad)}
+.settings-switch {display: none}
+.social-workspace {max-width: none}
+.social-conversation {height:100%; min-height:0}
+.social-conversation>.social-content {display:flex; flex-direction:column; flex:1 0 auto; min-height:0}
+.social-conversation .social-chat {flex:1 0 16rem; grid-template-rows:minmax(0,1fr)}
+.social-conversation .chat-main,.social-conversation .people-panel {min-height:0}
+.social-chat .chat-title {display:flex; align-items:center; gap:.55rem}
+.social-chat .chat-title>b {margin-right:auto}
+.social-chat .chat-members-trigger {display:none}
+.social-chat>.people-panel {display:block}
+.social-chat .chat-composer:focus-within {outline:2px solid var(--accent-text); outline-offset:0}
+.social-chat .chat-composer textarea:focus {border-color:transparent; box-shadow:none; outline:0}
+@media (max-width:690px) {
+  .social-chat>.people-panel {display:none}
+  .social-chat .chat-members-trigger {display:inline-flex; align-items:center; gap:.4rem; min-height:2.75rem; padding:.3rem .6rem; background:transparent; border:0; border-radius:var(--control-radius); color:var(--desk-muted); font:inherit; font-size:.8125rem; cursor:pointer}
+}
+.social-workspace .social-connection {flex-wrap: wrap; padding: .6rem .9rem; margin-bottom: var(--desk-gap); border: 1px solid var(--desk-line); border-radius: var(--control-radius)}
+.launcher-bar nav a>svg,.launcher-status button>svg {flex: none}
+.launcher-status>button {min-width: 0; max-width: 35%}
+.launcher-status>button>span {overflow: hidden; text-overflow: ellipsis; white-space: nowrap}
+@container desktop-window (max-width: 70em) {
+  .launcher-bar .bar-shortcuts a span,.launcher-bar .bar-role-name {display: none}
+  .launcher-bar .bar-shortcuts a {width: 34px; padding: 0}
+}
+@container desktop-window (max-width: 62em) {
+  .launcher-bar {gap: 4px}
+  .launcher-bar .toolbar-settings span,.launcher-brand small {display: none}
+}
+.launcher-content :is(.launch-title,.page-header,.play-library-toolbar) {
+  margin: 0 0 var(--desk-gap); padding: 0; min-height: var(--control-height);
+}
+.launcher-content :is(.launch-title,.page-header-row,.play-library-toolbar) {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap;
+}
+.launcher-content .page-header {display: block; border: 0; background: transparent}
+.launcher-content .page-header-title {min-width: 0; width: auto; flex: 1 1 12em}
+.launcher-content .page-header-actions {flex: 0 1 auto; margin: 0}
+.launcher-content .page-header-actions:empty,.page-header-card-tools:empty {display: none}
+.launcher-content :is(.launch-title,.page-header-title,.play-library-toolbar,.social-content)>h1,
+.launcher-content .library-location>h1 {
+  margin: 0; font-size: 1.375rem; line-height: 1.4; font-weight: 700; overflow-wrap: anywhere;
+}
+.launcher-content .social-content>h1 {margin-bottom: var(--desk-gap)}
+.launcher-content .page-header-tabs {display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 12px}
+.launcher-content .page-header-tabs a {text-decoration: none; color: var(--desk-muted); padding: 6px 10px; border-radius: 7px; font-size: .875rem}
+.launcher-content .page-header-tabs a.active {color: var(--accent-text); background: var(--desk-selection)}
+.launcher-frame :is(.button,.small-action,.launch-primary,.toolbar-settings,.music-find select,.volume-line select,.setting-line select,.home-picker select) {
+  min-height: var(--control-height); max-width: 100%; line-height: 1.35; font-size: .875rem;
+}
+.launcher-frame :is(.music-find,.volume-line,.setting-line,.home-picker) select {
+  min-width: 0; border: 1px solid var(--desk-line); border-radius: 7px; background-color: var(--desk-surface); color: var(--desk-ink); padding: 5px 8px; font-family: inherit;
+}
+.launcher-content :is(.desk-actions,.music-find,.actions,.memory-controls,.card-actions) {min-width: 0; flex-wrap: wrap}
+.launcher-content :is(input,textarea,select),.modal :is(input,textarea,select) {max-width: 100%; min-width: 0}
+.launcher-content .instance-toolbar {align-items: stretch}
+.launcher-content .instance-toolbar>label {height: auto; min-height: var(--control-height)}
+.launcher-content .memory-controls :is(input,select),.launcher-content .setting-line>select {min-height: var(--control-height)}
+.launcher-content :is(.setting-line,.memory-setting) {flex-wrap: wrap}
+.launcher-content .setting-line>span:not(.avatar),.memory-setting>div:first-child {flex-basis: 12em; overflow-wrap: anywhere}
+.settings-sections>.preference-section {margin: 0}
+.launcher-content .preference-section>summary,.desktop-panel>summary {
+  padding: 12px var(--panel-pad); min-height: var(--control-height); cursor: pointer; font-size: .9375rem; font-weight: 650;
+}
+.launcher-content .preference-section>summary+*,.desktop-panel[open]>summary {border-top: 1px solid var(--desk-line)}
+.launcher-content .preference-section>:is(p,.desk-actions,.migration-preview,.feedback-center,.music-find,.pagination,.instance-line) {
+  margin-inline: var(--panel-pad); margin-block: 12px;
+}
+.launcher-content .preference-section>.small-action {margin: 10px var(--panel-pad)}
+.launcher-content .desk-card>header,.launcher-content .desktop-panel>h2 {overflow-wrap: anywhere}
+.launcher-content .desktop-panels {container-type: inline-size; min-width: 0}
+.desktop-panel-grid {display: grid; grid-template-columns: repeat(12,minmax(0,1fr)); gap: var(--desk-gap); align-items: start}
+.desktop-panel-grid>.desktop-panel {grid-column: span var(--panel-span,12)}
+.desktop-panel {
+  min-width: 0; border: 1px solid var(--desk-line); border-radius: var(--desk-radius); background: var(--desk-surface);
+}
+.desktop-panel>h2 {margin: 0; padding: 12px var(--panel-pad); font-size: .9375rem; line-height: 1.4; border-bottom: 1px solid var(--desk-line)}
+.desktop-panel-body {min-width: 0; padding: var(--panel-pad); overflow-wrap: anywhere}
+.desktop-panel-body>:first-child,.desktop-panel-body>section>:first-child {margin-top: 0}
+.desktop-panel-body>:last-child,.desktop-panel-body>section>:last-child {margin-bottom: 0}
+@container (max-width: 820px) {
+  .desktop-panel-grid>.desktop-panel[data-size=narrow] {grid-column: span 6}
+  .desktop-panel-grid>.desktop-panel[data-size=wide] {grid-column: 1/-1}
+}
+@container (max-width: 590px) {.desktop-panel-grid>.desktop-panel[data-size] {grid-column: 1/-1}}
+.voice-workspace {display: grid; grid-template-columns: minmax(0,3fr) minmax(240px,2fr); align-items: start; gap: var(--desk-gap)}
+.voice-tools-stack {display: grid; gap: var(--desk-gap); min-width: 0}
+.voice-room-row {display: flex; width: 100%; align-items: center; gap: 12px; padding: 14px var(--panel-pad); text-align: left; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer}
+.voice-room-row+.voice-room-row {border-top: 1px solid var(--desk-line)}
+.voice-room-row>span {flex: 1; min-width: 0}
+.voice-room-row strong,.voice-room-row small {display: block; overflow-wrap: anywhere}
+.voice-room-row strong,.voice-room-row b {font-size: .875rem}
+.voice-room-row small {color: var(--desk-muted); font-size: .8125rem}
+.voice-room-row b {white-space: nowrap; color: var(--accent-text)}
+.voice-room-row:not(:disabled):hover {background: var(--desk-selection)}
+.voice-controls .actions {margin-block: 10px 0}
+.voice-tools-stack .desk-actions {margin: 0}
+.guild-columns {margin-bottom: var(--desk-gap)}
+.guild-columns .desk-card>h2 {margin-bottom: 10px}
+.social-archive {height: 100%; min-height: 0; max-width: none}
+.social-archive>.archive-viewport,.archive-viewport>.linking-archive-host {
+  display: flex; flex: 1 1 0; min-width: 0; min-height: 0; flex-direction: column;
+}
+.launcher-content .archive-viewport iframe {display: block; width: 100%; flex: 1 1 0; height: 0; min-height: 0; border: 0}
+.volume-line {justify-content: space-between; gap: 12px}
+.volume-line label:last-child {flex: 0 1 290px}
+.music-find {margin-block: 10px; gap: 8px}
+.music-find>input {flex: 1 1 13em; min-height: var(--control-height)}
+.launcher-content .instance-lines>.minor-title {padding: 10px var(--panel-pad); margin: 0; background: var(--desk-bg)}
+.launcher-content :is(.detail-rows,.server-facts) dd {overflow-wrap: anywhere}
+.launcher-content .default-server-card {height: auto}
+.default-server-hub .default-server-card .content-card-copy {display: flex; flex-direction: column; align-items: stretch; gap: 10px}
+.default-server-hub .default-server-state,.default-server-hub .server-facts,.default-server-hub .default-server-card .card-actions {margin: 0}
+.default-server-hub .server-players-link {align-self: flex-start}
+.default-server-hub+.desk-actions {margin-block: var(--desk-gap)}
+.hub-page>.desktop-panel {margin-top: var(--desk-gap)}
+.launcher-content .default-server-card .card-actions>.button {min-width: 0}
+.launcher-content .server-reading>svg,.launcher-content .home-server-list small {flex: none}
+.launcher-content .home-server-list a {gap: 10px}
+.launcher-content .home-server-list span {min-width: 0; overflow-wrap: anywhere}
+.wallet-layout {display: grid; grid-template-columns: minmax(270px, 2fr) minmax(0, 3fr); align-items: start; gap: var(--desk-gap)}
+.wallet-balance {display: grid; gap: var(--desk-gap)}
+.wallet-balance>div>strong {font-size: 1.625rem; font-variant-numeric: tabular-nums; line-height: 1.2}
+.wallet-balance .music-find {margin: 0}
+.wallet-message {margin: 0; padding: var(--panel-pad); color: var(--desk-muted); font-size: .875rem}
+.launcher-content .social-content>:is(.inventory-ui,.play-calendar),.launcher-content .launch-page>.launcher-updates {
+  min-width: 0; padding: var(--panel-pad); border: 1px solid var(--desk-line); border-radius: var(--desk-radius); background: var(--desk-surface);
+}
+.launcher-content .social-content>.inventory-ui {--panel: var(--desk-surface); --text: var(--desk-ink); gap: var(--desk-gap)}
+.launcher-content .inventory-grid>.inventory-empty {grid-column: 1/-1}
+.launcher-content .social-content>.inventory-ui>.inventory-header {padding-bottom: var(--panel-pad); border-bottom: 1px solid var(--desk-line)}
+.launcher-content .inventory-ui>label {max-width: 38rem}
+.launcher-content .inbox-page>.preference-section>.list-toolbar {margin: 0; padding: 12px var(--panel-pad); border-bottom: 1px solid var(--desk-line)}
+.launcher-content .playtime-summary+.minor-title {font-size: .9375rem}
+.launcher-content .status-connection,.window-buttons {white-space: nowrap}
+.modal {max-height: calc(100dvh - 32px); max-width: calc(100vw - 32px)}
+.modal-body {min-width: 0; min-height: 0; overflow-y: auto}
+@media (max-width: 900px) {
+  .voice-workspace {grid-template-columns: minmax(0,1fr)}
+  .wallet-layout {grid-template-columns: minmax(0,1fr)}
+  .guild-columns {grid-template-columns: minmax(0,1fr)}
+}
+@container workspace (max-width: 54em) {
+  .launch-page,.standard-page,.play-library,.social-content {--desk-gap: 10px}
+  .game-board {grid-template-columns: minmax(0,1fr); grid-template-areas: "instances" "role" "servers" "calendar" "detail"}
+  .launcher-content .settings-layout {grid-template-columns: minmax(0,1fr); gap: var(--desk-gap)}
+  .settings-rail {display: block; position: static; padding: 8px var(--panel-pad)}
+  .settings-rail>a {display: none}
+  .settings-switch {display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--desk-muted); font-size: .875rem}
+  .settings-switch select {font: inherit; min-height: var(--control-height); min-width: 10em; max-width: 75%; padding: 4px 8px; border: 1px solid var(--desk-line); border-radius: 7px; color: var(--desk-ink); background: var(--desk-surface)}
+}

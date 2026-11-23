@@ -1,0 +1,115 @@
+/* The card canvas owns geometry. Page, input and feedback motion use separate surfaces. */
+.launcher-frame {--motion-fast:clamp(75ms,calc(var(--duration,.32s)*.44),220ms);--motion-panel:clamp(125ms,calc(var(--duration,.32s)*.78),420ms)}
+.player-head {flex:none;display:inline-grid;place-items:center;border-radius:29%;background:var(--accent-soft);color:var(--accent-text);overflow:hidden}
+.player-head img {display:block;width:100%;height:100%;object-fit:cover}.player-head img[data-pixel]{image-rendering:pixelated}
+.download-sections,.resource-browser .choice-group {display:flex;flex-wrap:wrap;align-items:center;gap:.4em}
+.download-sections {margin-block:0 1em}
+.download-sections a {display:inline-flex;min-height:2.5em;align-items:center;padding:.45em .95em;color:var(--desk-muted);border-radius:var(--control-radius);text-decoration:none}
+.download-sections a[aria-current=page] {background:var(--accent-soft);color:var(--accent-text);font-weight:650}
+.resource-browser {container:resources / inline-size;display:grid;min-width:0;gap:clamp(.75rem,1.5vw,1.25rem)}
+.resource-target,.resource-section,.lite-tools-page>.catalog-panel {min-width:0;border:1px solid var(--edge);background:var(--surface,var(--solid));border-radius:var(--desk-radius,1rem);padding:clamp(.9rem,2.1vw,1.5rem)}
+.catalog-panel>.resource-browser {margin:0}
+.resource-target {padding:.8em 1.15em}
+.resource-toolbar {display:flex;align-items:center;gap:.65em 1.1em;flex-wrap:wrap}
+.resource-toolbar>.choice-group {flex:0 1 auto;inline-size:fit-content;max-inline-size:100%}
+.resource-toolbar>.resource-search {flex:1 1 20em}
+.resource-results {display:grid;align-items:start;gap:clamp(.8em,1.5vw,1.25em);min-inline-size:0}
+@container resources (min-width:54em) {
+  .resource-results[data-paired] {grid-template-columns:minmax(0,.91fr) minmax(0,1.19fr)}
+}
+.resource-target,.resource-row,.resource-section header,.resource-search,.resource-search label,.resource-installed,.resource-feedback,.resource-world {display:flex;align-items:center;flex-wrap:wrap;gap:.55em .9em;min-width:0}
+.resource-target>div,.resource-row>div {flex:1 1 9rem;min-width:0;display:grid;gap:.24em;overflow-wrap:anywhere}
+.resource-target strong,.resource-row strong {line-height:1.45}
+.resource-browser small,.resource-browser p {color:var(--desk-muted,var(--secondary));line-height:1.6}
+.resource-section header {justify-content:space-between;padding-bottom:.7em;border-bottom:1px solid var(--edge)}
+.resource-section h2 {display:flex;align-items:center;gap:.5em;font-size:1rem;margin:0}
+.resource-section p {margin:.9em 0 .15em;font-size:.88rem}
+.resource-search label {flex:1 1 16em;flex-wrap:nowrap;border:1px solid var(--edge);background:var(--solid);padding:.45em .8em;border-radius:var(--control-radius);min-height:2.55em}
+.resource-search label:focus-within {outline:2px solid var(--accent);outline-offset:2px}
+.resource-search label input {width:100%;min-width:0;background:transparent;color:inherit;border:0;outline:0;padding:.15em}
+:root[data-skin] .launcher-content .resource-search label input:is(:focus,:focus-visible) {outline:0!important;box-shadow:none!important;border-color:transparent}
+.resource-row {padding:.8em 0;border-bottom:1px solid var(--edge)}.resource-row:last-child {border-bottom:0}
+.resource-row>img {width:2.1em;height:2.1em;border-radius:.55em;object-fit:contain}
+.resource-row small {display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.release-row small {overflow-wrap:anywhere}.resource-feedback {padding:.7em 0}.resource-installed {color:var(--accent-text);font-size:.84em}
+@container resources (max-width:24em) {
+  .resource-search label {flex-basis:100%}.resource-search>button {margin-inline-start:auto}
+  .resource-target>div,.resource-row>div {flex-basis:55%}
+}
+[data-card-grid][data-dragging] {isolation:isolate;user-select:none}
+[data-card-grid][data-dragging] .card-drag-preview {position:absolute;pointer-events:none;z-index:0;display:block;box-sizing:border-box;padding:0;border:1px dashed var(--accent);background:var(--accent-soft);border-radius:var(--desk-radius)}
+[data-card-grid][data-dragging] [data-card-id] {z-index:1}
+[data-card-grid][data-dragging] [data-card-id][data-gesture] {z-index:4;outline:1px solid var(--accent);outline-offset:1px;box-shadow:0 .55em 1.6em #18254125}
+@keyframes desk-notice {from{opacity:0;translate:0 .35em}to{opacity:1;translate:0 0}}
+@keyframes desk-dialog-in {from{opacity:0;translate:var(--approach-x,0) var(--approach-y,.35em);scale:.975}to{opacity:1;translate:0 0;scale:1}}
+@keyframes desk-dialog-out {to{opacity:0;translate:var(--approach-x,0) var(--approach-y,.18em);scale:.985}}
+@keyframes desk-shade-in {from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:no-preference) {
+  :root[data-motion=on] .launcher-content>:where(.launch-page,.play-library,.standard-page,.lite-workspace,.social-workspace) {animation:none}
+  :root[data-motion=on] .launcher-frame :is(.launch-primary,.small-action,.card-options,.download-sections a,.launcher-navigation a,.lite-picker-results button) {transition:background-color var(--motion-fast),color var(--motion-fast),border-color var(--motion-fast),box-shadow var(--motion-fast),scale var(--motion-fast) ease-out}
+  :root[data-motion=on] .launcher-frame :is(.launch-primary,.small-action,.card-options,.lite-picker-results button):active:enabled {scale:.982}
+  :root[data-motion=on] [data-card-grid][data-dragging] [data-card-id]:not([data-gesture]) {transition:transform var(--motion-fast,.16s) cubic-bezier(.2,.72,.25,1)}
+  :root[data-motion=on] [data-card-grid][data-dragging] [data-gesture] {transition:none}
+  :root[data-motion=on] .launcher-frame :is(.third-toast,.issue-help,.inline-error,.resource-feedback,[role=alert]) {animation:desk-notice var(--motion-panel) cubic-bezier(.2,.75,.25,1) both}
+  :root[data-motion=on]:has(.launcher-frame) .modal[data-state=open]{transform-origin:var(--origin-x,50%) var(--origin-y,50%);animation:desk-dialog-in calc(var(--duration)*.66) cubic-bezier(.2,.75,.25,1)}
+  :root[data-motion=on]:has(.launcher-frame) .modal[data-state=closed],
+  :root[data-motion=on]:has(.launcher-frame) .modal-backdrop[data-state=closed]{animation:desk-dialog-out calc(var(--duration)*.35) ease-in forwards}
+  :root[data-motion=on]:has(.launcher-frame) .modal-backdrop[data-state=open]{animation:desk-shade-in calc(var(--duration)*.48) ease-out}
+}
+:root[data-motion=off]:has(.launcher-frame) *, :root[data-motion=off]:has(.launcher-frame) *::before,:root[data-motion=off]:has(.launcher-frame) *::after {animation-duration:0s!important;animation-delay:0s!important;transition-duration:0s!important;scroll-behavior:auto!important}
+
+
+.launcher-navigation nav a {position:relative}
+.launcher-navigation .nav-indicator {position:absolute;pointer-events:none;inset-inline:0;inset-block-end:.14em;margin-inline:auto;inline-size:1.05em;block-size:.14em;min-block-size:2px;border-radius:1em;background:currentColor}
+.desktop-guide {box-sizing:border-box;display:flex;align-items:center;flex-wrap:wrap;gap:.65em 1em;max-inline-size:var(--page-width);margin-inline:auto;margin-block-start:var(--page-top);padding:.85em var(--panel-pad);inline-size:calc(100% - 2 * var(--desk-inset));border:1px solid var(--edge);border-inline-start:.25em solid var(--accent);border-radius:var(--desk-radius);background:var(--solid);color:var(--foreground)}
+.guide-symbol {flex:none;display:grid;place-items:center;inline-size:2.5em;block-size:2.5em;border-radius:.75em;background:var(--accent-soft);color:var(--accent-text)}
+.guide-instruction {min-inline-size:0;flex:1 1 16em}
+.guide-progress,.guide-actions {display:flex;flex-wrap:wrap;align-items:center;gap:.6em}
+.guide-progress {font-size:.76em;color:var(--accent-text);font-weight:620}
+.guide-progress span+span {font-variant-numeric:tabular-nums;color:var(--secondary)}
+.guide-instruction h2 {margin:.1em 0;font-size:1.04em;line-height:1.4}
+.guide-instruction h2:focus {outline:none}
+.guide-instruction p {margin:0;color:var(--secondary);font-size:.88em;line-height:1.55}
+.guide-actions {margin-inline-start:auto}
+.desktop-guide+.lite-workspace {margin-block-start:var(--section-gap);min-block-size:auto}
+.lite-identity-settings {min-inline-size:0}.lite-identity-settings>.launch-title {margin-block:0 var(--section-gap)}
+.lite-identity-settings h2 {margin:0;font-size:1.2em}.lite-settings-back {justify-self:start;text-decoration:none}
+@media(prefers-reduced-motion:no-preference) {
+  :root[data-motion=on] .guide-instruction h2 {animation:desk-notice var(--motion-panel) cubic-bezier(.2,.75,.25,1)}
+}
+/* Native radio labels own the geometry. The highlight never receives focus or pointer events. */
+.choice-group,.launcher-frame .segments {position:relative;isolation:isolate}
+.choice-glide {display:none}
+:is(.choice-group,.launcher-frame .segments)[data-glide]>.choice-glide {display:block;position:absolute;pointer-events:none;z-index:-1;top:var(--glide-y);left:var(--glide-x);right:calc(100% - var(--glide-x) - var(--glide-width));height:var(--glide-height);border-radius:max(3px,calc(var(--control-radius,8px) - 3px));background:var(--solid);box-shadow:0 1px 3px rgba(45,60,83,.19)}
+.launcher-frame .segments[data-glide]>button.selected,.choice-group[data-glide] .choice-option input:checked+span {background:transparent;box-shadow:none}
+.module-setting input[role=switch] {--switch-unit:.8em;--switch-pad:.16em;--switch-travel:.93em;box-sizing:content-box;width:calc(var(--switch-unit) + var(--switch-travel) + 2 * var(--switch-pad));height:calc(var(--switch-unit) + 2 * var(--switch-pad));border-radius:2em}
+.module-setting input[role=switch]::before {width:var(--switch-unit);height:var(--switch-unit);margin:var(--switch-pad);transform-origin:left center}
+.module-setting input[role=switch]:checked::before {transform:translateX(var(--switch-travel));transform-origin:right center}
+.guide-meter {display:inline-flex;inline-size:3.2em;block-size:.28em;background:var(--cell);border-radius:1em;overflow:hidden}
+.guide-meter b {inline-size:100%;block-size:100%;background:var(--accent-text);transform:scaleX(var(--guide-fraction,.3333));transform-origin:left center}
+.desktop-guide[data-step="2"] {--guide-fraction:.6667;--guide-turn:12deg}
+.desktop-guide[data-step="3"] {--guide-fraction:1;--guide-turn:26deg}
+.guide-symbol svg {transform:rotate(var(--guide-turn,0deg))}
+.action-status {display:inline-grid;place-items:center;width:1em;height:1em;flex:none}.action-status svg {width:1em;height:1em}
+.third-toast {touch-action:pan-y}
+@keyframes status-trace {from{stroke-dashoffset:30}to{stroke-dashoffset:0}}
+@keyframes status-turn {to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:no-preference) {
+  :root[data-motion=on] :is(.choice-group,.launcher-frame .segments)[data-glide=moving]>.choice-glide {
+    --rubber-lead:cubic-bezier(.15,.82,.32,1);--rubber-tail:cubic-bezier(.43,.24,.34,1);
+    transition:left var(--motion-panel,220ms) var(--rubber-tail),right var(--motion-panel,220ms) var(--rubber-lead);
+  }
+  :root[data-motion=on] :is(.choice-group,.launcher-frame .segments)[data-glide=moving][data-direction=left]>.choice-glide {transition-timing-function:var(--rubber-lead),var(--rubber-tail)}
+  :root[data-motion=on] .module-setting input[role=switch] {transition:background-color calc(var(--duration)*.55),border-color calc(var(--duration)*.55)}
+  :root[data-motion=on] .module-setting input[role=switch]::before {transition:transform calc(var(--duration)*.68) cubic-bezier(.24,.86,.26,1.08),background-color calc(var(--duration)*.55)}
+  :root[data-motion=on] .module-setting input[role=switch]:not(:disabled):active::before {transform:scale(1.22,.9)}
+  :root[data-motion=on] .module-setting input[role=switch]:checked:not(:disabled):active::before {transform:translateX(var(--switch-travel)) scale(1.22,.9)}
+  :root[data-motion=on] :is(.guide-meter b,.guide-symbol svg) {transition:transform var(--motion-panel) cubic-bezier(.19,.72,.2,1)}
+  :root[data-motion=on] .status-saved path {stroke-dasharray:30;animation:status-trace var(--motion-panel) ease-out both}
+  :root[data-motion=on] .status-busy {animation:status-turn .9s linear infinite}
+  :root[data-motion=on] .third-toast {translate:var(--notice-offset,0) 0;transition:translate var(--motion-fast) ease-out}
+  :root[data-motion=on] .third-toast[data-swiping] {animation:none;transition:none;user-select:none}
+}
+@media(forced-colors:active) {:is(.choice-group,.launcher-frame .segments) .choice-glide {display:none}.segments>button.selected {outline:2px solid Highlight}.choice-option input:checked+span {outline:2px solid Highlight}}
+
+.launcher-status #archive-status-actions:empty {display:none}

@@ -1,0 +1,21 @@
+import {useState} from 'react';
+import {Download,Upload,RefreshCw,Puzzle,Power,Trash2} from 'lucide-react';
+import {invoke,notify,desktop} from './model';
+import {request,useData} from './data';
+import {Button,Field,Modal} from './ui';
+import './plugins.css';
+
+export function Plugins(){
+ const [view,setView]=useState('installed'),[query,setQuery]=useState(''),[search,setSearch]=useState(''),[trust,setTrust]=useState<any>(null),[busy,setBusy]=useState(false);
+ const installed=useData<any>(()=>desktop?invoke('plugins.list'):Promise.resolve({items:[]}));
+ const market=useData<any>(()=>view==='installed'?Promise.resolve({items:[]}):request('/api/plugins?'+(view==='mine'?'mine=1&':'')+'q='+encodeURIComponent(search)),[view,search]);
+ async function act(action:string,input:any={}){setBusy(true);try{const value=await invoke(action,input);await installed.reload();if(!value?.cancelled)notify(action==='plugins.submit'?'插件已提交，管理员审核后公开下载':'插件设置已更新');return value;}catch(e:any){notify(e.message,true);}finally{setBusy(false);}}
+ const names:any={pending:'待审核',approved:'已发布',rejected:'未通过',withdrawn:'已下架'};
+ return <div className="plugin-center" data-card-title="启动器插件">
+  <div className="setting-group"><h3><Puzzle size={20}/>插件与市场</h3><p>安装卡片后，可以在首页显示文字和站内快捷入口。</p><div className="toolbar">{[['installed','已安装'],['market','插件市场'],['mine','我的提交']].map(([id,label])=><Button key={id} tone={view===id?'solid':''} onClick={()=>setView(id)}>{label}</Button>)}<Button disabled={busy||!desktop} icon={Download} onClick={()=>act('plugins.install')}>导入本地插件</Button><Button disabled={busy||!desktop} icon={Upload} onClick={()=>act('plugins.submit')}>提交插件到市场</Button></div></div>
+  {installed.data?.recovery&&<p className="inline-notice">{installed.data.recovery}</p>}
+  {installed.data?.safeMode&&<p className="inline-notice">当前以插件安全模式启动，插件均未加载。</p>}
+  {view==='installed'?<><div className="toolbar"><Button icon={RefreshCw} onClick={installed.reload}>刷新</Button><Button disabled={busy} onClick={()=>act('plugins.disableAll')}>停用全部插件</Button></div>{installed.error&&<p className="inline-error">{installed.error}</p>}<div className="plugin-grid">{installed.data?.items?.map((p:any)=><article className="setting-group" key={p.manifest.id}><h3>{p.manifest.name}<small>{p.enabled?'已启用':'已停用'}</small></h3><p>{p.manifest.description}</p><p>{p.manifest.author} · {p.manifest.version} · API {p.manifest.apiVersion}</p>{p.error&&<p className="inline-error">{p.error}</p>}<div className="toolbar"><Button icon={Power} disabled={busy} onClick={()=>p.enabled?act('plugins.disable',{id:p.manifest.id}):setTrust(p)}>{p.enabled?'停用':'启用'}</Button><Button icon={Trash2} disabled={busy} onClick={()=>act('plugins.remove',{id:p.manifest.id})}>移除</Button></div></article>)}</div>{!installed.data?.items?.length&&<p>尚未安装插件。可从市场下载，也可导入 .hxzplugin 文件。</p>}<p className="muted">停用后会立即从首页移除。</p></>:<><div className="toolbar"><input aria-label="搜索插件" placeholder="搜索插件名称或作者" value={query} onChange={e=>setQuery(e.target.value)}/><Button onClick={()=>setSearch(query)}>搜索</Button><Button icon={RefreshCw} onClick={market.reload}>刷新</Button></div>{market.error&&<p className="inline-error">插件市场无法连接：{market.error}</p>}<div className="plugin-grid">{market.data?.items?.map((p:any)=><article className="setting-group" key={p.id}><h3>{p.name}<small>{p.version}</small></h3><p>{p.description}</p><p>作者 {p.author} · 提交者 {p.publisher} · {p.downloads} 次下载</p><p>{names[p.status]}{p.reason?' · '+p.reason:''}</p>{view==='market'&&<Button disabled={busy||!desktop} icon={Download} onClick={()=>act('plugins.install',{marketId:p.id,sha256:p.sha256})}>下载并安装</Button>}</article>)}</div>{!market.loading&&!market.error&&!market.data?.items?.length&&<p>{view==='mine'?'尚未提交插件。准备符合规范的 .hxzplugin 文件后点击提交。':'暂无符合条件的已审核插件。'}</p>}</>}
+  <Modal open={!!trust} onClose={()=>setTrust(null)} title={'启用 '+(trust?.manifest.name||'插件')}><p>此卡片申请 home.card 权限。启用后会在首页显示文字和站内入口。</p><p>请确认卡片的作者、版本和用途。</p><Field label="作者与版本"><p>{trust?.manifest.author} · {trust?.manifest.version}</p></Field><div className="modal-actions"><Button onClick={()=>setTrust(null)}>保持停用</Button><Button tone="solid" disabled={busy} onClick={async()=>{await act('plugins.enable',{id:trust.manifest.id,accepted:true});setTrust(null);}}>允许在首页显示</Button></div></Modal>
+ </div>;
+}

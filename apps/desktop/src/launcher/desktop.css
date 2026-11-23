@@ -1,0 +1,24 @@
+/* The installed shell owns page geometry. Older feature styles still supply module-specific controls. */
+@import url('../styles.css') layer(legacy);
+@import url('../layout-hardening.css') layer(legacy);
+@import url('../workbench.css') layer(legacy);
+@import url('../launchpad.css') layer(legacy);
+@import url('../air.css') layer(legacy);
+@import url('../style.css') layer(legacy);
+@import url('../card-finish.css') layer(legacy);
+@import url('../page-header.css') layer(legacy);
+@import url('../monitor.css') layer(legacy);
+@import url('../motion-finish.css') layer(legacy);
+@import url('../workspace/workspace.css') layer(legacy);
+@import url('./launcher.css');
+@import url('./workspace-layout.css');
+@import url('./themes.css');
+@import url('./card-controls.css');
+@import url('./player-workspaces.css');
+@import url('./controls.css');
+@import url('./insets.css');
+@import url('./arcade.css');
+@import url('./adaptive.css');
+@import url('./lite.css');
+@import url('./interaction.css');
+@import url('./micro/micro.css');
