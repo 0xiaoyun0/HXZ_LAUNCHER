@@ -1,11 +1,10 @@
 import React,{lazy,Suspense,useCallback,useEffect,useRef,useState} from 'react';
 import {createRoot} from 'react-dom/client';
-import {HashRouter,Link,Navigate,Route,Routes,useLocation} from 'react-router-dom';
+import {createHashRouter,RouterProvider,Link,Navigate,Route,Routes,useLocation} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
 import {Palette,UserRound} from 'lucide-react';
 import {invoke,state,ui} from '../../desktop/src/model';
 import {extension} from '../../desktop/src/launcher/Extensions';
-import {communityPages} from '../../desktop/src/launcher/community-pages';
 import {CommunityHeading,Social} from '../../desktop/src/launcher/Social';
 import {disconnect} from '../../../packages/community/client';
 import {TownLobby,TownWorld,WorldList,useDirectory,type TownServer} from './TownLobby';
@@ -15,6 +14,7 @@ import {TownAppearance,type AppearanceSection} from './TownAppearance';
 import {TownBackdrop} from './TownBackdrop';
 import {useTownPersonalization} from './personalization';
 import {TownWelcome} from './TownWelcome';
+import {TownRoundDialogs} from './TownRoundDialogs';
 import {useAppearance} from '../../desktop/src/workspace/appearance';
 import {useReducedMotionPreference} from '../../desktop/src/PageFeedback';
 import {Avatar} from '../../desktop/src/ui';
@@ -25,7 +25,6 @@ import './town-motion.css';
 
 type Player={uid?:string;name?:string;canceled?:boolean};
 const GameRoom=lazy(()=>import('../../desktop/src/Arcade').then(m=>({default:m.ArcadePage})));
-function OnlineGames(){return <section className="town-content"><h1>小游戏联机</h1><nav className="desk-actions" aria-label="联机游戏">{communityPages.filter(p=>p.group==='小游戏联机').map(p=><Link className="small-action" to={p.path} key={p.path}>{p.label}</Link>)}</nav><Link className="small-action" to="/community">返回社区</Link></section>;}
 function applyPlayer(player:Player){
   const uid=player.uid||'';
   if(state.settings.selectedAccount!==uid)disconnect();
@@ -91,11 +90,13 @@ function TownApp(){
       <Route path="/town/games" element={<TownLibrary game={task} act={act} start={start} identityReady={model.ready}/>}/>
       <Route path="/town/tasks" element={<TownTasks task={task} act={act} servers={directory.servers}/>}/>
       <Route path="/community/*" element={uid?<Social worldsContent={<WorldList directory={directory}/>}/>:gate}/>
-      <Route path="/arcade" element={uid?<OnlineGames/>:gate}/><Route path="/arcade/*" element={uid?<Suspense fallback={<p role="status">正在打开游戏…</p>}><GameRoom/></Suspense>:gate}/>
+      <Route path="/arcade/*" element={uid||location.pathname==='/arcade'?<Suspense fallback={<p role="status">正在打开游戏…</p>}><GameRoom/></Suspense>:gate}/>
       <Route path="/points" element={<Navigate to="/community/wallet" replace/>}/><Route path="*" element={<Navigate to="/town" replace/>}/></Routes></main>
     {bottomNavigation&&<TownNavigation bottom working={active(task)}/>}
     {appearance&&<TownAppearance close={()=>setAppearance(null)} systemReduced={reducedMotion} personal={personal} initial={appearance}/>}
+    <TownRoundDialogs/>
     {feedback.toast&&<div role="status" className="town-toast">{feedback.toast}</div>}</div>;
 }
 try{Object.assign(state.settings,JSON.parse(localStorage.getItem('town-community-options')||'{}'));}catch{}
-createRoot(document.getElementById('root')!).render(<HashRouter><TownWelcome><TownApp/></TownWelcome></HashRouter>);
+const router=createHashRouter([{path:'*',element:<TownWelcome><TownApp/></TownWelcome>}]);
+createRoot(document.getElementById('root')!).render(<RouterProvider router={router}/>);

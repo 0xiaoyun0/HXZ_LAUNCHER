@@ -25,8 +25,23 @@ window.launcher={
       const write=input.method==='POST'&&/^\/api\/arcade\/[a-z][a-z0-9-]{0,31}\/(start|checkpoint|finish)$/.test(input.route);
       if(!read&&!write)return {ok:false,error:'小游戏成绩请求无效。'};
       try {
-        const {request}=await import('../../desktop/src/data');
-        return {ok:true,value:await request(input.route,input.method,input.body)};
+        const {state}=await import('../../desktop/src/model');
+        const uid=state.settings.selectedAccount;
+        for(const refresh of [false,true]){
+          const result=await window.launcher.invoke('community.connect',{refresh});
+          if(!result.ok)throw Error(result.error||'暂时无法连接社区。');
+          const session=result.value;
+          if(!uid||uid!==state.settings.selectedAccount||session.user.uid!==uid)throw Error('角色已切换，请重新开始本局。');
+          const response=await fetch(new URL(input.route,session.base),{
+            method:input.method,headers:{Authorization:'Bearer '+session.token,'Content-Type':'application/json'},
+            body:write?JSON.stringify(input.body):undefined,redirect:'error',signal:AbortSignal.timeout(30000)
+          });
+          if(response.status===401&&!refresh)continue;
+          const data=await response.json();
+          if(!response.ok)throw Error(data.error||'成绩暂未同步，请稍后重试。');
+          return {ok:true,value:data};
+        }
+        throw Error('社区登录已过期，请重新登录。');
       }catch(e){return {ok:false,error:e instanceof Error?e.message:'成绩暂时无法同步。'};}
     }
     if(action==='settings.save'){

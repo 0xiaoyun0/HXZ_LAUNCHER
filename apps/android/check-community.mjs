@@ -8,6 +8,7 @@ import {randomInt,randomUUID} from 'node:crypto';
 import {chromium} from 'playwright-core';
 import {createCommunity} from '../community-server/src/server.mjs';
 import {checkPersonalization} from './tests/check-personalization.mjs';
+import {checkSharedPlay} from './tests/check-shared-play.mjs';
 
 // Windows can assign a browser-blocked low port when asked for port zero.
 async function listenForBrowser(server){
@@ -23,7 +24,7 @@ async function listenForBrowser(server){
 
 const dir=path.resolve('.runtime/town-android-assets/town');
 const home=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-android-community-'));
-const uid=randomUUID().replaceAll('-',''),name='移动测试旅人';
+const uid=randomUUID().replaceAll('-',''),name='TownMobileQA',admin=randomUUID().replaceAll('-','');
 const assets=http.createServer(async(req,res)=>{
   const file=path.resolve(dir,'.'+decodeURIComponent(new URL(req.url,'http://localhost').pathname));
   if(!file.startsWith(dir+path.sep)){res.writeHead(404).end();return;}
@@ -34,7 +35,9 @@ const assets=http.createServer(async(req,res)=>{
 });
 await listenForBrowser(assets);
 const origin='http://127.0.0.1:'+assets.address().port;
-const service=createCommunity({data:home,origins:[origin],exchange:async()=>({selectedProfile:{id:uid,name},accessToken:'fixture-skin',clientToken:'fixture-client'})});
+const service=createCommunity({data:home,origins:[origin],adminIDs:[admin],exchange:async input=>({
+  selectedProfile:input.clientToken==='fixture-admin'?{id:admin,name:'TownAdminQA'}:{id:uid,name},accessToken:'fixture-skin',clientToken:'fixture-client'
+})});
 let browser,page;
 try{
   await listenForBrowser(service.server);
@@ -42,6 +45,7 @@ try{
   const auth=await fetch(base+'/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});
   assert.equal(auth.status,200);
   const {token,user}=await auth.json();
+  const adminSession=await (await fetch(base+'/api/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({clientToken:'fixture-admin'})})).json();
   browser=await chromium.launch({channel:'msedge',headless:true});
   page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -277,6 +281,34 @@ try{
   const directoryButton=nav.getByRole('button',{name:'全部栏目'});
   await directoryButton.click();
   assert.equal(await page.getByRole('dialog').getByRole('link',{name:'聊天',exact:true}).getAttribute('aria-current'),'page');
+  // Android 11's stock WebView ignores @layer. Keep the portal operable with those rules removed.
+  const layers=await page.evaluateHandle(()=>{
+    const removed=[];
+    for(const sheet of document.styleSheets){
+      for(let i=sheet.cssRules.length-1;i>=0;i--){
+        const rule=sheet.cssRules[i];
+        if(rule instanceof CSSLayerBlockRule){
+          removed.push({sheet,i,text:rule.cssText});
+          sheet.deleteRule(i);
+        }
+      }
+    }
+    return removed;
+  });
+  try{
+    const geometry=await page.getByRole('dialog').evaluate(dialog=>{
+      const rect=dialog.getBoundingClientRect(), shade=document.querySelector('.modal-backdrop').getBoundingClientRect();
+      return {
+        inside:rect.width>0&&rect.height>0&&rect.left>=0&&rect.top>=0&&rect.right<=innerWidth+1&&rect.bottom<=innerHeight+1,
+        covered:shade.left<=0&&shade.top<=0&&shade.right>=innerWidth-1&&shade.bottom>=innerHeight-1
+      };
+    });
+    assert.deepEqual(geometry,{inside:true,covered:true},'栏目弹窗和遮罩在旧 WebView 里应位于当前视口');
+    await page.getByRole('dialog').getByRole('button',{name:'关闭'}).click({trial:true});
+  }finally{
+    await layers.evaluate(rows=>rows.reverse().forEach(({sheet,i,text})=>sheet.insertRule(text,i)));
+    await layers.dispose();
+  }
   await page.keyboard.press('Escape');
   await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='全部栏目');
   await nav.getByRole('link',{name:'论坛',exact:true}).click();
@@ -310,6 +342,7 @@ try{
   await page.locator('.chat-history').getByText(message,{exact:true}).waitFor();
   assert.equal(await page.locator('.chat-history [data-message]').count(),102);
   assert.equal(await page.getByRole('button',{name:'查看更早的消息'}).count(),0);
+  await checkSharedPlay(page,service,base,user,adminSession.token);
   assert.deepEqual(errors,[]);
   console.log('Android 社区页面通过：横竖屏与窄屏大字、个性化媒体与卡片保存恢复、三套外观与减少动效、返回键、公告与公开版本核对、任务、实例设置、角色及社区功能。');
 }catch(error){
