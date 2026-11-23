@@ -86,7 +86,24 @@ export async function checkPlayerActionMotion(page,native,capture){
   const launch=page.locator('.featured-game');
   await launch.getByRole('button',{name:'继续游玩'}).click();
   await page.locator('.task-drawer').waitFor();
-  await page.locator('.task-stage-list>li').first().waitFor({timeout:90000});await capture('windows-task-flow');
+  const step=page.locator('.task-stage-list>li').first();
+  await step.waitFor({timeout:90000});
+  const originalSize=page.viewportSize();
+  for(const size of [{width:1250,height:825},{width:960,height:620}]){
+    await page.setViewportSize(size);
+    const geometry=await step.evaluate(row=>{
+      const card=row.closest('.task-section'),heading=card.querySelector('h3'),title=document.createRange();
+      title.selectNodeContents(heading.firstChild);
+      const mark=row.querySelector('svg').getBoundingClientRect(),content=row.querySelector('.task-step-title').getBoundingClientRect();
+      return {left:title.getBoundingClientRect().left-card.getBoundingClientRect().left,
+        top:title.getBoundingClientRect().top-card.getBoundingClientRect().top,gutter:content.left-mark.right,
+        fits:content.right<=card.getBoundingClientRect().right};
+    });
+    assert.ok(geometry.left>=12&&geometry.top>=8&&geometry.gutter>=8&&geometry.fits,'任务标题和时间线边距 '+JSON.stringify(geometry));
+    await capture('windows-task-flow-'+size.width);
+  }
+  if(originalSize)await page.setViewportSize(originalSize);
+  await capture('windows-task-flow');
   await page.getByRole('button',{name:'收起任务',exact:true}).click();
   await launch.getByRole('button',{name:'停止游戏'}).waitFor({timeout:90000});
   const phases=await page.evaluate(()=>window.launchMotionStates());assert.ok(phases.includes('preparing'),JSON.stringify(phases));
