@@ -14,9 +14,8 @@ import {chromium} from 'playwright-core';
 import {verifyRelease} from '../packages/engine/core/update-sources.mjs';
 import {verifyDesktopArchitecture} from './verify-desktop-arch.mjs';
 
-// Run the shipping Electron updater against draft bytes without changing the
-// public feed, the real profile, shell registration or the installed product.
 const arch=process.argv.includes('--ia32')?'ia32':'x64';
+const publicFeed=process.argv.includes('--github');
 const {version}=JSON.parse(await fs.readFile('package.json','utf8'));
 const oldRelease=process.env.HXZ092_RELEASE,extractor=process.env.HXZ_QA_7Z;
 if(!oldRelease||!extractor)throw Error('需要 HXZ092_RELEASE（原始安装包及签名清单目录）和 HXZ_QA_7Z');
@@ -55,10 +54,12 @@ try{
   assert.equal(JSON.parse(await fs.readFile(path.join(res,'install-channel.json'),'utf8')).channel,'installed');
   const entry=path.join(unpacked,pkg.main);
   let code=await fs.readFile(entry,'utf8');
-  server.listen(0,'127.0.0.1');await once(server,'listening');
   const substitute=(pattern,value)=>{assert.equal([...code.matchAll(pattern)].length,1,'0.9.2 fixture: '+pattern);code=code.replace(pattern,value);};
-  substitute(/var RELEASE_ROOT = "https:\/\/github\.com\/0xiaoyun0\/HXZ_LAUNCHER\/releases";/g,'var RELEASE_ROOT = "http://127.0.0.1:'+server.address().port+'";');
-  substitute(/var UPDATE_SOURCES = Object\.freeze\(\[.*\]\);/g,'var UPDATE_SOURCES = [{name:"草稿附件",prefix:""}];');
+  if(!publicFeed){
+    server.listen(0,'127.0.0.1');await once(server,'listening');
+    substitute(/var RELEASE_ROOT = "https:\/\/github\.com\/0xiaoyun0\/HXZ_LAUNCHER\/releases";/g,'var RELEASE_ROOT = "http://127.0.0.1:'+server.address().port+'";');
+    substitute(/var UPDATE_SOURCES = Object\.freeze\(\[.*\]\);/g,'var UPDATE_SOURCES = [{name:"草稿附件",prefix:""}];');
+  }
   // NsisUpdater supports installDirectory. Its real launch flags, signed feed
   // verification, download, exit and NSIS handoff all run in the old client.
   substitute(/updater2\.autoInstallOnAppQuit = false;/g,'updater2.installDirectory = '+JSON.stringify(target)+'; updater2.autoInstallOnAppQuit = false;');
@@ -75,7 +76,7 @@ try{
     ...process.env,APPDATA:roaming,LOCALAPPDATA:path.join(temp,'local'),HXZ_NEXT_HOME:legacy,HXZ3_HOME:home,HXZ3_QA_INSTANCE:'1',HXZ3_QA_BACKGROUND:'1',
     WEBVIEW2_USER_DATA_FOLDER:path.join(temp,'webview'),WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS:'--remote-debugging-port='+newPort+' --remote-debugging-address=127.0.0.1'
   }});
-  const deadline=Date.now()+115000;
+  const deadline=Date.now()+(publicFeed?300000:115000);
   let lastPhase='';
   while(Date.now()<deadline){
     if(previous.exitCode===null){
@@ -88,7 +89,7 @@ try{
     if(previous.exitCode!==null&&await fs.stat(path.join(target,'installed.flag')).catch(()=>null))break;
     await wait(300);
   }
-  assert.deepEqual([...downloaded].sort(),[feed,asset].sort(),'原版更新器访问的附件；最后状态 '+lastPhase);
+  if(!publicFeed)assert.deepEqual([...downloaded].sort(),[feed,asset].sort(),'原版更新器访问的附件；最后状态 '+lastPhase);
   assert.equal(previous.exitCode,0,'原版结束并交接；最后状态 '+lastPhase);
   await browser?.close().catch(()=>{});browser=undefined;
   for(let i=0;i<100&&!page;i++){
@@ -105,7 +106,7 @@ try{
   await verifyDesktopArchitecture(target,arch);
   const exe='幻想镇 3rd.exe';
   assert.equal(await digest(path.join(target,exe),'sha256','hex'),await digest(path.resolve('release',version,'windows-'+arch,exe),'sha256','hex'));
-  console.log(arch+' 0.9.2 已自动发现、下载、校验、退出并启动 '+version+'；实例与 6656 MB、HXZRE 关闭均已迁移。来源为正式旧安装包、本机草稿更新源、隔离玩家资料。');
+  console.log(arch+' 0.9.2 已自动发现、下载、校验、退出并启动 '+version+'。实例与 6656 MB、HXZRE 关闭均已迁移。来源为正式旧安装包、'+(publicFeed?'原版公开更新渠道':'本机草稿更新源')+'和隔离玩家资料。');
 }finally{
   await page?.evaluate(()=>window.launcher.invoke('window.control',{action:'close'})).catch(()=>{});
   await browser?.close().catch(()=>{});

@@ -22,11 +22,13 @@ object TownUpdates {
                 val tag = json.getString("tag_name")
                 val version = tag.removePrefix("v")
                 require(Regex("(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,2})\\.(0|[1-9][0-9]{0,2})").matches(version))
-                val (major, minor, patch) = version.split(".").map(String::toInt)
                 val assets = json.getJSONArray("assets")
-                val abi = if (android.os.Build.SUPPORTED_ABIS.first().startsWith("x86")) "x86_64" else "arm64-v8a"
+                val abi = android.os.Build.SUPPORTED_ABIS.firstOrNull { it == "arm64-v8a" || it == "x86_64" }
                 val ready = (0 until assets.length()).any { assets.getJSONObject(it).optString("name") == "HXZ-FCL-" + version + "-" + abi + "-release.apk" }
-                val newer = ready && major * 1000000 + minor * 1000 + patch > BuildConfig.VERSION_CODE
+                val current = BuildConfig.VERSION_NAME.split(".").map(String::toInt)
+                val remote = version.split(".").map(String::toInt)
+                val difference = remote.indices.firstOrNull { remote[it] != current[it] }
+                val newer = ready && difference != null && remote[difference] > current[difference]
                 Handler(Looper.getMainLooper()).post {
                     if (context is android.app.Activity && (context.isFinishing || context.isDestroyed)) return@post
                     if (newer) AlertDialog.Builder(context).setTitle("幻想镇 " + version)

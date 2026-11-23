@@ -5,8 +5,12 @@ import {createReadStream} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {verifyUpdateRelease} from './verify-update-release.mjs';
+import {verifyReleaseApk} from '../apps/android/verify-apk.mjs';
+import {supportedAbis} from '../apps/android/release-info.mjs';
 
-const commit=execFileSync('git',['rev-parse','--verify',(process.argv[2]||'HEAD')+'^{commit}'],{encoding:'utf8'}).trim();
+const includeAndroid=process.argv.includes('--android');
+const target=process.argv.slice(2).find(arg=>!arg.startsWith('--'))||'HEAD';
+const commit=execFileSync('git',['rev-parse','--verify',target+'^{commit}'],{encoding:'utf8'}).trim();
 const gitFile=name=>execFileSync('git',['show',commit+':'+name]);
 const {version}=JSON.parse(gitFile('package.json'));
 const root=path.resolve('release',version),dest=path.join(root,'github-draft');
@@ -22,6 +26,14 @@ for(const arch of ['x64','ia32']){
 }
 const modules=JSON.parse(await fs.readFile('.runtime/official-extensions.json','utf8'));
 for(const id of ['community','music','arcade'])await copy('extensions/'+modules[id].name);
+if(includeAndroid){
+  const pin=JSON.parse(gitFile('apps/android/upstream.json'));
+  for(const abi of supportedAbis){
+    const apk='HXZ-FCL-'+version+'-'+abi+'-release.apk';
+    await verifyReleaseApk(path.join(root,'android',apk),abi,pin,version);
+    await copy('android/'+apk);
+  }
+}
 
 // These clients share GitHub's latest release URL with Windows. Retain the
 // published manifests verbatim so each can still resolve its own pinned asset.
@@ -54,4 +66,4 @@ for(const name of files.sort()){
   sums.push(h.digest('hex')+'  '+name);
 }
 await fs.writeFile(path.join(dest,'SHA256SUMS.txt'),sums.join('\n')+'\n');
-console.log(commit+' · '+(files.length+1)+' 个 Windows 草稿附件 · 其他平台清单来源 '+stable.tag_name+'\n'+dest);
+console.log(commit+' · '+(files.length+1)+' 个发布附件 · 兼容更新清单来源 '+stable.tag_name+'\n'+dest);
