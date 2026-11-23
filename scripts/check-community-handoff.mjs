@@ -11,6 +11,7 @@ import path from 'node:path';
 import {DatabaseSync} from 'node:sqlite';
 import {setTimeout as delay} from 'node:timers/promises';
 import {extractNative} from '../packages/engine/core/io.mjs';
+import {listenLoopback} from '../apps/community-server/test/helpers/loopback.mjs';
 
 // Run an original Windows server against disposable data. --github preserves all
 // updater URLs. The local run changes only those URLs and exercises recovery.
@@ -94,8 +95,7 @@ async function localAttachments() {
     res.write(Buffer.from([0]));
     createReadStream(file, {start:1}).pipe(res);
   });
-  fixture.listen(0,'127.0.0.1');
-  await once(fixture,'listening');
+  await listenLoopback(fixture);
   const trust = path.join(app,'src/update-trust.mjs');
   const originalText = await fs.readFile(trust,'utf8');
   const patched = originalText.replace(/^export const ROOT=.*;$/m,
@@ -110,9 +110,7 @@ try {
   await fs.writeFile(path.join(app,'.env'),envSample);
   if (!github) await localAttachments();
   const socket = net.createServer();
-  socket.listen(0, '127.0.0.1');
-  await once(socket, 'listening');
-  origin = 'http://127.0.0.1:' + socket.address().port;
+  origin = 'http://127.0.0.1:' + await listenLoopback(socket);
   await new Promise(resolve => socket.close(resolve));
   await start();
   await eventually(() => api('/health'), h => h.version === '0.9.2', '旧服务未启动');

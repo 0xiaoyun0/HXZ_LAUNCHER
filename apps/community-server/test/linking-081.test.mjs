@@ -1,9 +1,10 @@
 import {test} from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs/promises';import os from 'node:os';import path from 'node:path';
 import {createCommunity} from '../src/server.mjs';
+import {listenLoopback} from './helpers/loopback.mjs';
 test('story expansion preserves live opening and draft; task rewards are gated and issued once',async t=>{
  const data=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-linking081-'));
  const service=createCommunity({data,adminIDs:['admin081'],exchange:async input=>({selectedProfile:{id:input.accessToken,name:input.accessToken},accessToken:input.accessToken})});
- await new Promise(resolve=>service.server.listen(0,'127.0.0.1',resolve));t.after(async()=>{await service.close();await fs.rm(data,{recursive:true,force:true});});const base='http://127.0.0.1:'+service.server.address().port;
+ const port=await listenLoopback(service.server);t.after(async()=>{await service.close();await fs.rm(data,{recursive:true,force:true});});const base='http://127.0.0.1:'+port;
  async function api(route,method='GET',body,token){const r=await fetch(base+route,{method,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:body===undefined?undefined:JSON.stringify(body)});const v=await r.json();if(!r.ok)throw Object.assign(Error(v.error),{status:r.status});return v;}
  const admin=(await api('/api/session','POST',{accessToken:'admin081'})).token,player=(await api('/api/session','POST',{accessToken:'player081'})).token;
  const management=(p,m='GET',b)=>api('/api/admin/linking'+p,m,b,admin),play=(p,m='GET',b)=>api('/api/linking'+p,m,b,player),inventory=(p='',m='GET',b)=>api('/api/inventory'+p,m,b,player);
