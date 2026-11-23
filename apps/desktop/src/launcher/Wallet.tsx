@@ -9,7 +9,7 @@ import {date} from '../ui';
 export function Wallet(){
   const [offset,setOffset]=useState(0),[code,setCode]=useState(''),[busy,setBusy]=useState(false);
   const session=useSnapshot(community);
-  const wallet=useData(()=>request('/api/points?offset='+offset),[offset,session.connected,session.user?.uid]);
+  const wallet=useData(()=>request('/api/points?offset='+offset),[offset,session.connected,session.user?.uid],true);
   const ledger=wallet.data?.ledger||[],total=wallet.data?.total||0;
   async function redeem(){
     setBusy(true);

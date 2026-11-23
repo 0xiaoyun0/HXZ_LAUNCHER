@@ -1,5 +1,7 @@
 # 幻想镇 Android
 
+手机和平板通常选择 ARM64，使用 x86_64 安卓系统的设备或模拟器请选择 x86_64。系统最低版本为 Android 8.0。0.9.2 安卓正式版玩家请直接下载新版 APK 覆盖安装。测试包与正式包独立安装，测试数据在对应的测试应用内。[正式版下载](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/latest)
+
 打开应用进入社区大厅。游客可以阅读服务器公告、查看近期讨论和浏览三个社区服务器。从公告或服务器卡片点「进入服务器」，首次使用会打开原生皮肤站登录窗口。选择角色后继续进入刚才选的服。下次打开应用会恢复这个角色。点顶部的角色名可以切换角色或重新验证。
 
 游戏使用固定提交的 FCL 实例管理、版本安装、Java 运行时、渲染和触控。启动前按服务器要求匹配游戏和加载器版本。缺少实例时，可安装服主发布的整合包、安装指定游戏版本或导入本地整合包。首页和「游戏库」都使用幻想镇界面。公告里可以选择已安装的实例，也能查看和取消安装任务。打开游戏库可下载原版、导入整合包或启动单人游戏。已授予共享存储权限的旧安装继续使用原游戏目录，新安装默认在应用专属目录保存实例和存档。
@@ -26,4 +28,6 @@
 
 `--release` 使用发行方的 `HXZ_ANDROID_STORE`、`HXZ_ANDROID_STORE_PASSWORD`、`HXZ_ANDROID_KEY_ALIAS`、`HXZ_ANDROID_KEY_PASSWORD`。线上更新只识别幻想镇发布页上对应架构的正式包。生产社区部署的 `HXZ_ORIGINS` 若显式配置，需要包括 `https://appassets.androidplatform.net`，以允许 Android 的社区 HTTP 与 WebSocket 请求。
 
-构建后运行 `node apps/android/verify-apk.mjs` 检查两种 APK 内的架构、四套 JRE、JNI、LWJGL、触控和上游版本记录。`npm run test:android:community` 启动临时社区服务，检查横竖屏的导航、图标和点击区域，并在 390×844 的浏览器视口验证从公告选服、取消登录、选择实例、查看和取消下载、聊天收发和在线名单、论坛、冒险者协会、LINKING、排行与钱包。它复用 APK 的网页构建产物。设备验收应从社区公告进服，核对服务器接收的角色，退出游戏并重开应用，检查角色和社区内容。单人世界从「游戏库」启动游戏，在游戏内创建或载入世界，保存退出后回到社区。
+正式包沿用应用标识 `top.hxzmc.community` 和 0.9.2 的签名。分别运行 `npm run android:build -- --release` 与 `npm run android:build -- --release --x86_64`，再运行 `node apps/android/verify-apk.mjs --release` 检查两个正式 APK。生成 GitHub 附件时，运行 `node scripts/prepare-windows-draft.mjs <提交> --android`。本版本的完整修改见源码附件和仓库内的补丁。[对应的 FCL 上游源码](https://github.com/FCL-Team/FoldCraftLauncher/tree/722e2361f8f3013b6ebc026e52749c1bf3b5be71)
+
+构建后运行 `node apps/android/verify-apk.mjs` 检查两种 APK 内的架构、四套 JRE、JNI、LWJGL、触控和上游版本记录。`npm run test:android:community` 启动临时社区服务，检查横竖屏的导航、图标和点击区域，并在 390×844 的浏览器视口验证从公告选服、取消登录、选择实例、查看和取消下载、聊天收发和在线名单、论坛、冒险者协会、LINKING、排行与钱包。同一测试会逐个打开 22 个社区栏目、解码游戏厅的 24 张封面、实际开始一局计分游戏，模拟丢失结算回包，并通过另一会话核对时长奖励、积分余额和榜单。它复用 APK 的网页构建产物。设备验收应从社区公告进服，核对服务器接收的角色，退出游戏并重开应用，检查角色和社区内容。单人世界从「游戏库」启动游戏，在游戏内创建或载入世界，保存退出后回到社区。

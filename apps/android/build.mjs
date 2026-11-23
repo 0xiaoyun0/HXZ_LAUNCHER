@@ -4,7 +4,8 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
 import React from '@vitejs/plugin-react';
-import {verifyApk} from './verify-apk.mjs';
+import {verifyApk,verifyReleaseApk} from './verify-apk.mjs';
+import {androidVersionCode} from './release-info.mjs';
 import {DEFAULT_SERVERS} from '../../server/shared/server-presets.mjs';
 
 const app=path.resolve(fileURLToPath(new URL('.',import.meta.url))), root=path.resolve(app,'../..');
@@ -52,11 +53,9 @@ await copyFile(path.join(source,'LICENSE'),path.join(town,'FCL-LICENSE.txt'));
 await writeFile(path.join(town,'server-presets.json'),JSON.stringify(DEFAULT_SERVERS.map(({id,group,name,address,version,loader,loaderVersion,enabled,profileSource,updateUrls,updateRequired,packageUrl,packageSha256})=>({id,group,name,address,version,loader,loaderVersion,enabled,profileSource,updateUrls,updateRequired,packageUrl,packageSha256}))));
 await writeFile(path.join(town,'source.json'),JSON.stringify({upstream:pin,version,changes:'apps/android/fcl.patch',license:'GPL-3.0-or-later'}));
 if(process.argv.includes('--prepare'))process.exit(0);
-const [major,minor,fix]=version.split('.').map(Number);
-if(!Number.isInteger(fix)||minor>999||fix>999)throw Error('无效的安卓版本号 '+version);
 if(release&&!['HXZ_ANDROID_STORE','HXZ_ANDROID_STORE_PASSWORD','HXZ_ANDROID_KEY_ALIAS','HXZ_ANDROID_KEY_PASSWORD'].every(k=>process.env[k]))throw Error('正式 APK 需要幻想镇自己的发布签名');
 const gradle=process.env.HXZ_GRADLE||path.join(source,process.platform==='win32'?'gradlew.bat':'gradlew');
-const params=['-p',source,'-Darch='+arch,'-PtownApp='+app,'-PtownAssets='+assets,'-PtownVersion='+version,'-PtownCode='+(major*1000000+minor*1000+fix),':FCL:assemble'+(release?'Release':'Debug'),'--console=plain','--max-workers=3'];
+const params=['-p',source,'-Darch='+arch,'-PtownApp='+app,'-PtownAssets='+assets,'-PtownVersion='+version,'-PtownCode='+androidVersionCode(version),':FCL:assemble'+(release?'Release':'Debug'),'--console=plain','--max-workers=3'];
 // Pass arguments as separate values on Unix. On Windows Gradle is normally a batch file.
 let built;
 if(process.platform==='win32'&&/\.(cmd|bat)$/i.test(gradle)){
@@ -73,6 +72,6 @@ if(files.length!==1)throw Error('找不到目标架构的 APK');
 const dir=path.join(root,'release',version,'android');
 await mkdir(dir,{recursive:true});
 const apk=path.join(dir,'HXZ-FCL-'+version+'-'+abi+'-'+mode+'.apk');
-await verifyApk(path.join(output,files[0]),abi,pin,version);
+await (release?verifyReleaseApk:verifyApk)(path.join(output,files[0]),abi,pin,version);
 await copyFile(path.join(output,files[0]),apk);
 console.log(apk);

@@ -2,7 +2,18 @@
 
 打开幻想镇，选一个角色，就能继续上次的世界。平时只想进服，可以用极简版。想看看朋友在做什么，也可以把社区装回同一个窗口。
 
-**下载 Windows 版**　大多数电脑选文件名结尾为 `x64.exe` 的安装包。32 位 Windows 选 `ia32.exe`。安装完成后，从桌面的「幻想镇 3rd」打开。[前往正式版下载页](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/latest)
+## 下载 0.10.0
+
+| 你的设备 | 安装包 |
+| --- | --- |
+| 大多数 Windows 电脑 | [Windows x64](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-Launcher-0.10.0-x64.exe) |
+| 32 位 Windows | [Windows x86（32 位）](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-Launcher-0.10.0-ia32.exe) |
+| 64 位安卓手机或平板 | [Android ARM64](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-FCL-0.10.0-arm64-v8a-release.apk) |
+| x86_64 安卓设备或模拟器 | [Android x86_64](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-FCL-0.10.0-x86_64-release.apk) |
+
+Windows 安装后，从桌面的「幻想镇 3rd」打开。便携版和可选扩展也在[正式版下载页](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/latest)。
+
+安卓打开就是社区。可以从公告或服务器卡片进服，也可以从底部的「游戏库」下载安装游戏。首次进服需要登录皮肤站。安卓版基于 Fold Craft Launcher 构建，需要 Android 8.0 或以上和支持相应 64 位 ABI 的系统。[安卓版说明](apps/android/README.md)
 
 ## 第一次打开
 
@@ -24,11 +35,15 @@
 
 扩展来自当前版本的 GitHub 发布页。如果下载中断，可以在原处重试，也可以选择「从本地安装」，导入同版本的扩展 ZIP。随时可以在设置中移除。
 
+安卓版打开就是社区。「全部栏目」里有聊天、论坛、语音房、活动、蓝图、交易、冒险者协会和 LINKING。底部或顶部导航的「小游戏」可以直接打开 24 款游戏。在 Android 和 Windows 登录同一个皮肤站角色，两个设备看到的是同一份服务器在线记录、积分余额和排行榜。服务器核验的在线时间累计满 24 小时可获得 5 积分，小游戏的离线练习最好成绩保存在当前设备。
+
 ## 从 0.9.2 升级
 
 使用 **0.9.2 Windows 安装版** 的玩家，打开自动更新后，会在新正式版上线时收到更新。也可以在旧版设置里手动检查。退出正在运行的游戏，等安装完成即可。**便携版**需要手动下载新版，在设置里选择原游戏目录或导入旧版的 `settings.json`。
 
 新版第一次打开会读取本机已安装版的游戏目录、游玩记录和内存配置。原有存档继续放在原来的游戏目录。首次使用新版角色功能时，需要重新登录皮肤站。
+
+**0.9.2 安卓正式版**请直接下载上面的 APK，打开后在系统安装界面选择「更新」。沿用原应用签名，可以覆盖安装并保留应用数据。旧客户端有 64 MiB 的更新包上限，这次需要手动下载。只有 32 位安卓系统的设备请继续使用 0.9.2。
 
 ## 遇到问题
 

@@ -35,8 +35,11 @@
 .guided-results mark {background:transparent;color:var(--accent-text);font-weight:720}
 .calendar-sweep {position:absolute;inset:0;z-index:1;overflow:clip;pointer-events:none;border-radius:.25em}
 .calendar-sweep::after {content:"";position:absolute;inset:0;opacity:0;background:linear-gradient(102deg,transparent 15%,rgba(var(--accent-rgb),.28),transparent 82%)}
-.task-stage-list>li {position:relative;isolation:isolate}
-.task-stage-list>li:not(:last-child)::before {content:"";position:absolute;pointer-events:none;inset-inline-start:.52em;inset-block-start:2.35em;inset-block-end:-.8em;inline-size:2px;border-radius:2px;background:var(--accent-border);transform-origin:top}
+.task-stage-list {--step-mark:1.1rem;--step-gap:.75rem;--step-pad:.85rem}
+.task-stage-list>li {position:relative;isolation:isolate;display:grid;grid-template-columns:var(--step-mark) minmax(0,1fr);gap:var(--step-gap);padding-block:var(--step-pad);border:0}
+.task-stage-list>li>.micro-status {display:block;width:var(--step-mark);height:var(--step-mark);margin:0;align-self:start}
+.task-stage-list>li+li::after {content:"";position:absolute;inset-inline:calc(var(--step-mark) + var(--step-gap)) 0;inset-block-start:0;border-block-start:1px solid var(--line);pointer-events:none}
+.task-stage-list>li:not(:last-child)::before {content:"";position:absolute;pointer-events:none;inset-inline-start:calc((var(--step-mark) - 1px)/2);inset-block-start:calc(var(--step-pad) + var(--step-mark) + .12rem);inset-block-end:calc(.12rem - var(--step-pad));inline-size:1px;border-radius:1px;background:var(--accent-border);transform-origin:top}
 .task-stage-list>li[data-status=done]:not(:last-child)::before {background:var(--accent)}
 .task-file-list>li {overflow-wrap:anywhere}
 .chat-send .send-flight {display:grid;place-items:center}

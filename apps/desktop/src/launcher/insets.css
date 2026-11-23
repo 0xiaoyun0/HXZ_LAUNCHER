@@ -120,7 +120,11 @@
 .community-directory h3 {margin:0 0 8px;font-size:.87rem;color:var(--secondary)}
 .launcher-content .extension-help {margin:0}.launcher-content .extension-help summary {padding:var(--inset-row) var(--panel-pad);cursor:pointer;font-weight:600}
 .launcher-content .extension-help>p {margin:0;padding:0 var(--panel-pad) var(--inset-row)}
-.task-section>h3 {margin:0 0 10px;font-size:.9rem}
+.task-section {--task-inset:clamp(.9rem,2vw,1.35rem)}
+.task-section>h3 {display:flex;align-items:baseline;flex-wrap:wrap;gap:.5em;margin:0;padding:.85em var(--task-inset);border-bottom:1px solid var(--line);line-height:1.5;font-size:.9rem}
+.task-section>h3 small {font-weight:400;color:var(--muted)}
+.task-section-empty {margin:0;padding:.85rem var(--task-inset);color:var(--muted)}
+.task-section .task-file-list,.task-section .task-stage-list {padding-inline:var(--task-inset)}
 .launcher-content .hub-list {max-height:none;overflow:visible}
 .lobby-form>.detail-launch {align-self:flex-start}
 [data-skin] .hub-select::after {content:'↗';width:auto;height:auto;border:0;transform:none;color:var(--desk-muted)}

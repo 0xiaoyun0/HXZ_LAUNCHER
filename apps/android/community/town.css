@@ -65,7 +65,7 @@ button.town-switch{display:flex;align-items:center;width:3rem;min-height:2.75rem
 .town-nav-icon{display:grid;place-items:center;position:relative;isolation:isolate}
 .town-nav-icon i{position:absolute;inset-block-start:0;inset-inline-end:.15rem;width:.42rem;height:.42rem;border-radius:50%;background:var(--accent-text)}
 .town-nav-top a[aria-current=page]{background:var(--accent-soft)}
-.town-shell .town-nav-bottom{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));padding:.25rem var(--desk-inset) calc(.25rem + env(safe-area-inset-bottom));border-top:1px solid var(--desk-line);background:var(--desk-surface)}
+.town-shell .town-nav-bottom{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);padding:.25rem var(--desk-inset) calc(.25rem + env(safe-area-inset-bottom));border-top:1px solid var(--desk-line);background:var(--desk-surface)}
 .town-shell .town-nav-bottom a{flex-direction:column;gap:.18rem;padding:.2rem .4rem;min-height:3.25rem;font-size:.74rem}
 .town-nav-bottom .town-nav-icon{width:3.3rem;height:1.55rem}
 .town-nav-bottom .town-nav-icon::before{content:'';position:absolute;inset:0;border-radius:2rem;z-index:-1;background:var(--accent-soft);opacity:0;transform:scaleX(.82)}
@@ -89,9 +89,36 @@ button.town-switch{display:flex;align-items:center;width:3rem;min-height:2.75rem
 @media(min-width:32rem) and (max-width:42rem){.town-shell .social-sections{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @media(max-height:30rem) and (max-width:36rem){.town-bar .brand-home small,.town-bar .town-role>span:last-child:not(.avatar){display:none}.town-shell .town-nav-top a{padding-inline:.3rem}}
 
-[data-app=town-mobile] .modal{--desk-muted:var(--secondary,#485470);--desk-line:var(--edge,#d6dce7);--desk-surface:var(--solid,#fafbff);--desk-ink:var(--foreground,#24314a);--desk-accent:var(--accent-text,#495fae);width:min(34rem,calc(100vw - 2rem));max-height:calc(100vh - 2rem);max-height:calc(100dvh - 2rem);display:flex;flex-direction:column;padding:0;overflow:hidden;border-radius:var(--card-radius,1rem)}
-[data-app=town-mobile] .modal>header{flex:none;padding:.9rem 1.1rem;gap:.75rem;align-items:center}.modal>header .icon-button{min-width:2.75rem;min-height:2.75rem}
+/* Android WebView 83 skips desktop cascade layers and the inset shorthand. Portals live under body. */
+[data-app=town-mobile] .modal-backdrop {
+  position:fixed;top:0;right:0;bottom:0;left:0;z-index:100;
+  background:rgba(15,21,34,.46);
+}
+[data-app=town-mobile] .modal {
+  --desk-muted:var(--secondary,#485470);--desk-line:var(--edge,#d6dce7);--desk-surface:var(--solid,#fafbff);--desk-ink:var(--foreground,#24314a);--desk-accent:var(--accent-text,#495fae);
+  position:fixed;z-index:110;left:50%;top:50%;transform:translate(-50%,-50%);
+  box-sizing:border-box;width:min(34rem,calc(100vw - 2rem));max-height:calc(100vh - 2rem);max-height:calc(100dvh - 2rem);
+  display:flex;flex-direction:column;padding:0;overflow:hidden;background:var(--desk-surface);color:var(--desk-ink);
+  border:1px solid var(--desk-line);border-radius:var(--card-radius,1rem);box-shadow:0 .8rem 3rem rgba(15,21,34,.22);
+}
+[data-app=town-mobile] .modal>header{display:flex;justify-content:space-between;flex:none;padding:.65rem 1.1rem;gap:.75rem;align-items:center;border-bottom:1px solid var(--desk-line)}
+[data-app=town-mobile] .modal>header h2{margin:0;font-size:1.05rem;line-height:1.4}
+[data-app=town-mobile] .modal>header .icon-button{min-width:2.75rem;min-height:2.75rem}
 [data-app=town-mobile] .modal>.modal-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:1rem 1.1rem 1.15rem;scroll-padding-block:.8rem}
+[data-app=town-mobile] .modal-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:.65rem;margin-top:1rem}
+.town-shell .arcade-page .game-catalog-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,10.5rem),1fr));align-items:start}
+.town-shell .game-catalog-card{min-width:0;overflow:hidden}
+.town-shell .game-catalog-cover{display:block;position:relative;width:100%;padding:0;border:0;overflow:hidden}
+.town-shell .game-catalog-cover img{display:block;width:100%;height:auto}
+.town-shell .game-catalog-cover>span{position:absolute;right:.5rem;bottom:.5rem}
+.town-shell .game-catalog-info footer{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
+.town-shell .arcade-session .canvas-stage{position:relative;width:100%;max-width:100%;min-height:0;height:auto;margin:0 auto;overflow:hidden;border-radius:.65rem;background:#16283c}
+.town-shell .canvas-stage::before{content:'';display:block;padding-top:133.333%}
+.town-shell .canvas-stage.landscape::before{padding-top:72.222%}
+.town-shell .canvas-stage canvas,.town-shell .canvas-stage .game-overlay{position:absolute;top:0;right:0;bottom:0;left:0;width:100%;height:100%;box-sizing:border-box}
+.town-shell .canvas-stage canvas{touch-action:none}
+.town-shell .game-overlay{justify-content:center}
+@media(max-width:52rem){.town-shell .arcade-page .game-workspace.arcade-session{grid-template-columns:minmax(0,1fr)}}
 .town-instance-options{gap:1.05rem}.town-instance-options [hidden]{display:none!important}.town-instance-options section+section{border:0;padding:0}
 .town-option-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem;padding:.22rem;background:var(--accent-soft);border-radius:calc(var(--control-radius,8px) + .22rem)}
 .town-option-tabs [role=tab]{min-width:0;min-height:2.75rem;padding:.35rem .55rem;border:1px solid transparent;border-radius:var(--control-radius,8px);background:transparent;color:var(--desk-muted);font:inherit;font-weight:600}

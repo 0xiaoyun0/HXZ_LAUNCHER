@@ -9,7 +9,7 @@ import {RankList} from './RankList';
 
 export function PointsRanking(){
   const [period,setPeriod]=useState('week'),[offset,setOffset]=useState(0),session=useSnapshot(community);
-  const board=useData(()=>request('/api/points/leaderboard?period='+period+'&offset='+offset),[period,offset,session.connected,session.user?.uid]);
+  const board=useData(()=>request('/api/points/leaderboard?period='+period+'&offset='+offset),[period,offset,session.connected,session.user?.uid],true);
   const weekly=period==='week',total=board.data?.total??0;
   return <section className="desktop-panel points-ranking">
     <div className="points-rank-heading"><Segments value={period} onChange={(next:string)=>{setOffset(0);setPeriod(next);}} items={[{id:'week',label:'本周积分'},{id:'annual',label:'年度总榜'}]}/>

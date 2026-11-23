@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
+import {execFileSync} from 'node:child_process';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import {pathToFileURL} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
 import yauzl from 'yauzl';
+import {androidVersionCode,releasePackage,releaseSigner,supportedAbis} from './release-info.mjs';
 
 export async function verifyApk(file,abi,pin,version){
   const zip=await new Promise((resolve,reject)=>yauzl.open(file,{lazyEntries:true},(error,zip)=>error?reject(error):resolve(zip)));
@@ -37,13 +39,34 @@ export async function verifyApk(file,abi,pin,version){
   }
   assert.ok([...names].some(n=>n.startsWith('assets/app_runtime/lwjgl/')&&n.endsWith('/'+abi+'/liblwjgl.so')),abi+' LWJGL');
 }
+export async function verifyReleaseApk(file,abi,pin,version){
+  await verifyApk(file,abi,pin,version);
+  const sdk=process.env.ANDROID_HOME||process.env.ANDROID_SDK_ROOT;
+  assert.ok(sdk,'验证正式 APK 需要 Android SDK 35');
+  const tools=path.join(sdk,'build-tools','35.0.0');
+  const extension=process.platform==='win32'?'.exe':'';
+  const java=process.env.JAVA_HOME?path.join(process.env.JAVA_HOME,'bin','java'+extension):'java';
+  const run=(tool,args)=>execFileSync(tool,args,{encoding:'utf8',windowsHide:true,maxBuffer:4*1024*1024});
+  const info=run(path.join(tools,'aapt'+extension),['dump','badging',file]);
+  const pkg=/^package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'/m.exec(info);
+  assert.ok(pkg,'无法读取 APK 应用标识');
+  assert.equal(pkg[1],releasePackage);
+  assert.equal(Number(pkg[2]),androidVersionCode(version));
+  assert.equal(pkg[3],version);
+  assert.doesNotMatch(info,/^application-debuggable/m);
+  assert.deepEqual(/^native-code: +(.*)$/m.exec(info)?.[1].trim(),"'"+abi+"'");
+  const signature=run(java,['-jar',path.join(tools,'lib','apksigner.jar'),'verify','--verbose','--print-certs',file]);
+  const signers=Array.from(signature.matchAll(/^Signer #\d+ certificate SHA-256 digest: ([a-f0-9]+)\s*$/gmi),m=>m[1].toLowerCase());
+  assert.deepEqual(signers,[releaseSigner],'正式 APK 签名须与原版 0.9.2 一致');
+  assert.match(signature,/Verified using v2 scheme .*: true/);
+}
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
   const root=new URL('../../',import.meta.url),{version}=JSON.parse(await fs.readFile(new URL('package.json',root)));
   const pin=JSON.parse(await fs.readFile(new URL('upstream.json',import.meta.url)));
-  for(const abi of ['arm64-v8a','x86_64']){
-    const file=new URL('release/'+version+'/android/HXZ-FCL-'+version+'-'+abi+'-debug.apk',root);
-    const {fileURLToPath}=await import('node:url');
-    await verifyApk(fileURLToPath(file),abi,pin,version);
-    console.log(abi+' · FCL 来源、JNI、触控、四套 JRE、LWJGL 与社区资源已核对');
+  const official=process.argv.includes('--release');
+  for(const abi of supportedAbis){
+    const file=new URL('release/'+version+'/android/HXZ-FCL-'+version+'-'+abi+'-'+(official?'release':'debug')+'.apk',root);
+    await (official?verifyReleaseApk:verifyApk)(fileURLToPath(file),abi,pin,version);
+    console.log(abi+' · FCL 来源、JNI、触控、四套 JRE、LWJGL 与社区资源已核对'+(official?'；正式签名、包名及版本号通过':''));
   }
 }
