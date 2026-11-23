@@ -63,7 +63,7 @@ export async function communityFixture(temp, dist, title) {
   const code=await fs.readFile(path.join(dist,'engine/engine.cjs'),'utf8'),upstream='https://skin.hxzmc.top/api/yggdrasil';
   assert.ok(code.includes(upstream));assert.ok(code.includes(definition.url));await fs.writeFile(path.join(worker,'engine.cjs'),code.replaceAll(definition.url,skinUrl+'/downloads/community.zip').replaceAll(upstream,skinUrl).replaceAll('https://authlib-injector.yushi.moe/artifact/latest.json',skinUrl+'/artifact/latest.json'));
   return {
-    url:'http://127.0.0.1:'+service.server.address().port,exe:path.join(bin,title),
+    url:'http://127.0.0.1:'+service.server.address().port,skinUrl,exe:path.join(bin,title),
     delivery(mode){delivery=mode;},skinOffline(value){skinOffline=value;},
     seedAnnualBoard(){
       const year=Number(new Intl.DateTimeFormat('en',{year:'numeric',timeZone:'Asia/Shanghai'}).format(Date.now()));

@@ -26,6 +26,7 @@ import {createUpdateLogs} from "./update-logs.mjs";
 import {avatarData} from "./avatars.mjs";
 import http from 'node:http';
 import {createAdmin} from './admin.mjs';
+import {communityOrigins} from './client-origins.mjs';
 import {createFeedback} from './feedback.mjs';
 import {createErrorReports} from './error-reports.mjs';
 import {communityUpdates} from './updates.mjs';
@@ -63,10 +64,7 @@ export function createCommunity(options={}) {
     CREATE TABLE IF NOT EXISTS profiles(uid TEXT PRIMARY KEY,avatar TEXT NOT NULL,version TEXT NOT NULL);`);
   const skin=(options.skin || process.env.HXZ_SKIN_API || 'https://skin.hxzmc.top/api/yggdrasil').replace(/\/$/,'');
   const adminIDs=new Set(options.adminIDs || (process.env.HXZ_ADMIN_IDS || '').split(',').filter(Boolean));
-  const origins=new Set((options.origins || (process.env.HXZ_ORIGINS || 'null,file://,http://tauri.localhost,https://appassets.androidplatform.net,http://localhost:9000,http://127.0.0.1:9000').split(',')).map(v=>v.trim()).filter(Boolean));
-  // Packaged Electron WebSockets use file://; opaque browser origins use null.
-  // Preserve compatibility with existing .env files that already trust desktop clients.
-  if(origins.has('null'))origins.add('file://');
+  const origins=communityOrigins(process.env.HXZ_ORIGINS, options.origins);
   const roomLimit=20, clients=new Map(), attempts=new Map();
   function issue(identity) {const payload=Buffer.from(JSON.stringify({...identity,exp:Date.now()+12*3600000})).toString('base64url');return payload+'.'+createHmac('sha256',key).update(payload).digest('base64url');}
   function verify(token) {

@@ -29,6 +29,7 @@ const modules=JSON.parse(await fs.readFile('.runtime/official-extensions.json','
 for(const id of ['community','music','arcade'])await copy('extensions/'+modules[id].name);
 await copy('server/HXZ-Community-'+version+'-windows-x64.zip');
 await copy('server/HXZ-Community-'+version+'-update.zip');
+await copy('server-tools/HXZ-Community-'+version+'-connection-repair.zip');
 await copy('updates/community-update.json');
 if(includeAndroid){
   const pin=JSON.parse(gitFile('apps/android/upstream.json'));

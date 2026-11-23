@@ -16,6 +16,8 @@ Linux 或已有 Node 环境：使用 Node.js 24+，在本目录安装依赖（np
 
 Windows 首次部署可直接解压完整包。使用 `node src/server.mjs` 直接启动的实例需要改用随包的监护进程入口，才能自动切换版本。[Windows x64 社区服务端完整包](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-Community-0.10.0-windows-x64.zip)
 
+如果后台显示 0.10.0，启动器仍然无法连接，请检查旧 `.env` 的 `HXZ_ORIGINS` 是否包含 Windows 的 `http://tauri.localhost` 和 Android 的 `https://appassets.androidplatform.net`。将修复包解压到服务端根目录，双击「修复社区连接.bat」。重启整个社区服务后，双击「检查社区连接.bat」核对两端的接口和聊天握手。[下载 0.10.0 社区连接修复包](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-Community-0.10.0-connection-repair.zip) · [使用说明](docs/社区连接修复.md)
+
 ## 手动迁移旧部署
 
 1. 先停止旧服务，备份整个旧目录。
