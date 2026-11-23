@@ -33,6 +33,19 @@ test('an incomplete skin refresh leaves the saved role usable on retry and after
    assert.equal((await service.invoke('skin.status',{})).authenticated,true);
  }finally{globalThis.fetch=original;await service.dispose();}
 });
+test('a slow dropped skin validation is retried without refreshing the account',async t=>{
+ const root=await tmp(t);await fs.writeFile(path.join(root,'settings.json'),JSON.stringify(defaults));
+ await fs.writeFile(path.join(root,'accounts.bin'),JSON.stringify([player]));
+ const original=globalThis.fetch;let attempts=0;
+ globalThis.fetch=async url=>{
+   assert.ok(String(url).endsWith('/authserver/validate'));
+   if(++attempts===1){await wait(1900);throw new TypeError('fetch failed');}
+   return new Response(null,{status:204});
+ };
+ const service=await serviceAt(root);
+ try{assert.equal((await service.invoke('skin.status',{})).authenticated,true);assert.equal(attempts,2);}
+ finally{globalThis.fetch=original;await service.dispose();}
+});
 test('simultaneous lobby requests exchange one skin session and preserve cached identity across a temporary outage',async t=>{
  const root=await tmp(t);await fs.writeFile(path.join(root,'settings.json'),JSON.stringify(defaults));await fs.writeFile(path.join(root,'accounts.bin'),JSON.stringify([player]));
  const original=globalThis.fetch;let offline=false,exchanges=0;

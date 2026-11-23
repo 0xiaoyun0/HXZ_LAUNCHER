@@ -381,12 +381,18 @@ export async function createServices({
       return false;
     }
   }
+  async function readSkinEndpoint(url,options={}){
+    const request=()=>remoteJSON(url,{...options,timeoutMs:5000});
+    try{return await request();}
+    catch(error){if(!networkFailure(error)||error.status===429)throw error;}
+    await new Promise(resolve=>setTimeout(resolve,300));
+    return request();
+  }
   async function authCall(method, body) {
-    const response=await remoteJSON(SKIN + "/authserver/" + method, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),timeoutMs:8000,...(method==='validate'?{retryBudgetMs:1800,retryDelay:250}:{})
-    });
+    const url=SKIN+"/authserver/"+method;
+    const options={method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)};
+    if(method==='validate')return readSkinEndpoint(url,options);
+    const response=await remoteJSON(url,{...options,timeoutMs:8000});
     if((method==='authenticate'||method==='refresh')&&
        (typeof response?.accessToken!=='string'||!response.accessToken.trim())){
       throw Error('皮肤站暂时无法提供完整的登录信息，请稍后重新检测');
@@ -2153,7 +2159,7 @@ export async function createServices({
       const start=Date.now();
       const active=accounts.find(a=>a.id===settings.selectedAccount&&a.uuid&&a.accessToken);
       if(active){await ensureAccount();}
-      else await remoteJSON(SKIN,{timeoutMs:6000,retryBudgetMs:1500,retryDelay:250});
+      else await readSkinEndpoint(SKIN);
       return {authenticated:!!active,latency:Date.now()-start};
     },
     async "arcade.score"({route,method,body}){
