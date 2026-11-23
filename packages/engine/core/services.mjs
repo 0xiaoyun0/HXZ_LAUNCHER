@@ -382,11 +382,16 @@ export async function createServices({
     }
   }
   async function authCall(method, body) {
-    return remoteJSON(SKIN + "/authserver/" + method, {
+    const response=await remoteJSON(SKIN + "/authserver/" + method, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),timeoutMs:8000,...(method==='validate'?{retryBudgetMs:1800,retryDelay:250}:{})
     });
+    if((method==='authenticate'||method==='refresh')&&
+       (typeof response?.accessToken!=='string'||!response.accessToken.trim())){
+      throw Error('皮肤站暂时无法提供完整的登录信息，请稍后重新检测');
+    }
+    return response;
   }
   function selected() {
     const a = accounts.find(a => a.id === settings.selectedAccount);
@@ -1398,7 +1403,11 @@ export async function createServices({
       if(input.cardPlacements!=null)nextSettings.cardPlacements=normalizeCardPlacements(input.cardPlacements);
       if(input.widgets!=null)nextSettings.widgets=normalizeWidgets(input.widgets);
       if(input.cardLayouts!=null)nextSettings.cardLayouts=normalizeCardLayouts(input.cardLayouts);
-      if(input.cardStyle!=null){nextSettings.cardStyle={...settings.cardStyle,...normalizeCardStyle(input.cardStyle)};nextSettings.columns.workspace.opacity=nextSettings.cardStyle.opacity;}
+      if(input.cardStyle!=null){
+        const style={...settings.cardStyle,...input.cardStyle};
+        nextSettings.cardStyle={...settings.cardStyle,...normalizeCardStyle(style)};
+        nextSettings.columns.workspace.opacity=nextSettings.cardStyle.opacity;
+      }
       if (input.fontSize != null) {
         if (
           !Number.isInteger(input.fontSize) ||
@@ -2103,6 +2112,8 @@ export async function createServices({
         selectedProfile: profile,
         requestUser: true
       });
+      if(response.selectedProfile?.id!==profile.id||!response.selectedProfile?.name)
+        throw Error('皮肤站暂时无法提供所选角色的确认信息，请重新检测');
       Object.assign(a, {
         accessToken: response.accessToken,
         clientToken: response.clientToken || a.clientToken,

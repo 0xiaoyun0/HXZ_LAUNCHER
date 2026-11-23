@@ -59,9 +59,15 @@ export async function invoke<T=any>(action:string,input:any={}):Promise<T>{
   }catch(error){throw Object.assign(new Error(String((error as any)?.message||error)),{operation:action});}
 }
 export async function perform<T>(fn:()=>Promise<T>|T){try{return await fn();}catch(e){reportFailure(e);return undefined;}}
-export async function reload(){if(!desktop){try{const stored=JSON.parse(localStorage.getItem('hxz-third-appearance')||'{}');Object.assign(state.settings,stored,wallpaperPreferences(stored),{cardLayouts:normalizeCardLayouts(stored.cardLayouts),cardStyle:normalizeCardStyle(stored.cardStyle||defaults.cardStyle)});}catch{}state.instances=DEFAULT_SERVERS.map(p=>({...p,builtin:true,installed:false,placeholder:!p.enabled}));
-    state.ready=true;return;}try{const data=await invoke('state',{localOnly:true});Object.assign(state,data,{ready:true,error:''});}catch(e){state.ready=true;state.error=errorMessage(e);throw e;}}
 let settingsQueue:Promise<unknown>=Promise.resolve();
+function inSettingsOrder<T>(action:()=>Promise<T>){
+ const operation=settingsQueue.then(action);
+ settingsQueue=operation.catch(()=>{});
+ return operation;
+}
+export function reload(){return inSettingsOrder(readState);}
+async function readState(){if(!desktop){try{const stored=JSON.parse(localStorage.getItem('hxz-third-appearance')||'{}');Object.assign(state.settings,stored,wallpaperPreferences(stored),{cardLayouts:normalizeCardLayouts(stored.cardLayouts),cardStyle:normalizeCardStyle(stored.cardStyle||defaults.cardStyle)});}catch{}state.instances=DEFAULT_SERVERS.map(p=>({...p,builtin:true,installed:false,placeholder:!p.enabled}));
+    state.ready=true;return;}try{const data=await invoke('state',{localOnly:true});Object.assign(state,data,{ready:true,error:''});}catch(e){state.ready=true;state.error=errorMessage(e);throw e;}}
 export function saveSettings(patch:any){
  const operation=settingsQueue.then(async()=>{const value=typeof patch==='function'?patch(state.settings):patch;if(!desktop){const preferences={...value,...workspacePatch(state.settings,value),...wallpaperPatch(state.settings,value),...(value.themeChange?changeDesktopTheme(state.settings,value.themeChange):{})};delete preferences.themeChange;Object.assign(state.settings,preferences);try{localStorage.setItem('hxz-third-appearance',JSON.stringify({...Object.fromEntries(Object.keys({...presetAppearance(),...WALLPAPER_DEFAULTS,workspaceLayout:'',liteStartup:false,workspaceModules:{},workspaceShelf:null,libraryView:'auto'}).map(key=>[key,state.settings[key]])),desktopThemes:state.settings.desktopThemes,animationSpeed:state.settings.animationSpeed,fontSize:state.settings.fontSize,cardLayouts:state.settings.cardLayouts,cardPlacements:state.settings.cardPlacements,widgets:state.settings.widgets,cardStyle:state.settings.cardStyle,pinnedLinks:state.settings.pinnedLinks,hiddenLinks:state.settings.hiddenLinks,showLinking:state.settings.showLinking,onboardingDone:state.settings.onboardingDone,gameSleep:state.settings.gameSleep,memoryOptimization:state.settings.memoryOptimization,linkingDiscovered:state.settings.linkingDiscovered}));}catch{}return;}const previousRoot=state.settings.gameRoot;state.settings=await invoke('settings.save',value);if(state.settings.gameRoot!==previousRoot){ui.dialog='';ui.instance='';Object.assign(state,await invoke('state',{localOnly:true}));}});
  settingsQueue=operation.catch(()=>{});return operation;

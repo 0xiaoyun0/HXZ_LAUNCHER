@@ -32,3 +32,32 @@ test('0.9.2 manual heap and disabled FEC survive the first start, later edits an
     assert.equal(await fs.readFile(path.join(legacy,'settings.json'),'utf8'),original);
   }finally{await service.dispose();}
 });
+
+test('independent settings survive concurrent writes, failed edits and a cold start',async t=>{
+  const home=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-setting-roundtrip-'));
+  t.after(()=>fs.rm(home,{recursive:true,force:true}));
+  await fs.writeFile(path.join(home,'settings.json'),JSON.stringify({futureField:{revision:13}}));
+  const open=()=>createServices({data:home,resources:home,emit(){},window:()=>null,safeStorage:{isEncryptionAvailable:()=>false}});
+  let service=await open();
+  const preferences={
+    animationSpeed:0,fontSize:20,memoryMode:'manual',defaultMemoryMB:6656,downloadConcurrency:16,
+    downloadSpeedMBps:2,downloadMode:'domestic',fecEnabled:false,communityRelayEnabled:false,
+    hxzupPopup:false,promptJavaDownload:false,autoCheckUpdates:false,gameWindowAction:'keep',
+    keepLauncherAvailable:true,gameSleep:false,memoryOptimization:false,shortcutEnabled:false,
+    confirmUnsaved:false,chinesePaths:false,showCover:false,autoReportErrors:false,
+    voiceOverlay:true,voiceMode:'push-to-talk',voiceKey:'KeyV',voiceSounds:false,chatHistoryDays:7,
+    musicVolume:0,musicPlayMode:'shuffle',videoQuality:'efficient',onboardingDone:true,
+    communityUrl:'https://example.org',libraryView:'cards'
+  };
+  try{
+    await Promise.all(Object.entries(preferences).map(([key,value])=>service.invoke('settings.save',{[key]:value})));
+    await service.invoke('settings.save',{cardStyle:{opacity:.7,radius:18,color:'#365578',gap:19}});
+    await service.invoke('settings.save',{cardStyle:{gap:22}});
+    await assert.rejects(service.invoke('settings.save',{defaultMemoryMB:1,fontSize:14}));
+    await service.dispose();service=await open();
+    const {settings}=await service.invoke('state',{localOnly:true});
+    for(const [key,value] of Object.entries(preferences))assert.deepEqual(settings[key],value,key);
+    assert.deepEqual(settings.cardStyle,{opacity:.7,radius:18,color:'#365578',gap:22});
+    assert.deepEqual(JSON.parse(await fs.readFile(path.join(home,'settings.json'),'utf8')).futureField,{revision:13});
+  }finally{await service.dispose();}
+});

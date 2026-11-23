@@ -24,7 +24,12 @@ export function usePressSurfaces(){
       if(!(e.target instanceof Element))return;
       if(e instanceof KeyboardEvent&&(e.repeat||e.isComposing||!['Enter',' '].includes(e.key)))return;
       if(e instanceof PointerEvent&&(!e.isPrimary||e.button!==0))return;
-      const target=e.target.closest<HTMLElement>('button,a[href],[role=radio],[role=tab]');
+      const control=e.target.closest<HTMLElement>('button,a[href],summary,[role=button],[role=tab],[role=menuitem],[role=option],[role=radio],[role=switch],[role=checkbox],input[type=checkbox],input[type=radio],label');
+      const input=control instanceof HTMLLabelElement?control.control:control;
+      if(!input||input.matches(':disabled,[aria-disabled=true]'))return;
+      if(control instanceof HTMLLabelElement&&!input.matches('input[type=checkbox],input[type=radio]'))return;
+      if(e instanceof KeyboardEvent&&((input.matches('input[type=checkbox],input[type=radio]')&&e.key!==' ')||(input.matches('a[href]')&&e.key!=='Enter')))return;
+      const target=input.closest<HTMLElement>('.choice-option')||input;
       if(!target||target.matches(':disabled,[aria-disabled=true],.canvas-grip,.card-drag-handle,.card-resize-handle')||
         target.closest('.game-overlay,.window-buttons,.calendar-grid,[data-card-handle]')||target.hasAttribute('data-tauri-drag-region'))return;
       const ms=duration(.94);

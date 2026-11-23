@@ -186,7 +186,14 @@ try {
    await page.getByRole('radio',{name:'手动设置',exact:true}).click();await amount.fill('509');await page.getByRole('button',{name:'保存内存'}).click();await page.getByRole('alert').filter({hasText:'512'}).waitFor();
    await amount.fill('768');await page.getByRole('button',{name:'保存内存'}).click();await page.getByText('已保存，下次启动游戏时生效。').waitFor();
    await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'外观与启动器'}).click();await page.getByRole('radio',{name:'深色',exact:true}).click();await page.waitForFunction(()=>document.documentElement.dataset.theme==='dark');
-   await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'下载与更新'}).click();await page.getByRole('radiogroup',{name:'下载并发数'}).getByRole('radio',{name:'8',exact:true}).click();
+   await page.getByRole('navigation',{name:'设置分类'}).getByRole('link',{name:'下载与更新'}).click();
+   const concurrencyChoice=page.getByRole('radiogroup',{name:'下载并发数'}).getByRole('radio',{name:'8',exact:true});
+   await page.emulateMedia({reducedMotion:'no-preference'});
+   await page.evaluate(()=>document.addEventListener('pointerdown',()=>{
+     window.settingChoiceMotion=document.getAnimations().some(a=>a.id==='surface-press');
+   },{once:true}));
+   await concurrencyChoice.click();
+   assert.equal(await page.evaluate(()=>window.settingChoiceMotion),true,'原生单选项与按钮应有相同的按压反馈');
    const speed=page.getByRole('slider',{name:'下载总限速'});await speed.focus();await speed.press('Home');for(let i=0;i<3;i++)await speed.press('ArrowRight');await page.getByRole('radio',{name:'国内镜像优先',exact:true}).click();
    await page.waitForFunction(async()=>{const r=await window.launcher.invoke('state',{localOnly:true});return r.value?.settings.downloadConcurrency===8&&r.value.settings.downloadSpeedMBps===2&&r.value.settings.downloadMode==='domestic';});
    await page.reload();await page.getByRole('heading',{name:'设置',exact:true}).waitFor();
@@ -312,8 +319,9 @@ try {
        assert.equal((await native('extension.status')).value.active,expected);
      };
      await pluginSettings();await capture('launcher-extensions');
-     fixture.delivery('offline');await page.getByRole('button',{name:'下载社区插件'}).click();await page.getByText('社区插件下载暂时不可用').waitFor();await page.getByRole('button',{name:'复制给管理员的摘要'}).click();await page.getByText(/已复制脱敏摘要|请选择下方摘要并复制/).waitFor();await capture('extension-recovery');
-     fixture.delivery('bad');await page.getByRole('button',{name:'下载社区插件'}).click();await page.getByText('社区插件与启动器版本不匹配').waitFor();assert.equal((await native('extension.status')).value.installed,false);
+     fixture.delivery('offline');await page.getByRole('button',{name:'下载社区插件'}).click();await page.getByText('暂时无法下载扩展').waitFor();await page.getByRole('button',{name:'复制给管理员的摘要'}).click();await page.getByText(/已复制脱敏摘要|请选择下方摘要并复制/).waitFor();await capture('extension-recovery');
+     fixture.delivery('short');await page.getByRole('button',{name:'下载社区插件'}).click();await page.getByText('扩展包没有下载完整').waitFor();
+     fixture.delivery('bad');await page.getByRole('button',{name:'下载社区插件'}).click();await page.getByText('扩展包与当前版本不匹配').waitFor();assert.equal((await native('extension.status')).value.installed,false);
      console.log('Checked game heap, playtime, skin outage and two rejected plugin downloads');fixture.delivery('good');await page.getByRole('button',{name:'下载社区插件'}).click();await page.getByText('已下载 · 重启后启用').waitFor({timeout:65000});
      assert.equal((await native('extension.status')).value.active,false);assert.equal(await nav.getByRole('link',{name:'社区',exact:true}).count(),0);
      await page.reload();await page.getByRole('button',{name:'重启启动器'}).waitFor();assert.equal((await native('extension.status')).value.active,false);

@@ -14,6 +14,25 @@ const player={id:'first',name:'Test',username:'Test',uuid:'a'.repeat(32),accessT
 async function serviceAt(dir){
  return createServices({data:dir,resources:dir,safeStorage:{isEncryptionAvailable:()=>true,encryptString:s=>Buffer.from(s),decryptString:b=>b.toString()},emit:()=>{},window:()=>null,initialRoot:async()=>''});
 }
+test('an incomplete skin refresh leaves the saved role usable on retry and after restart',async t=>{
+ const root=await tmp(t),stored=JSON.stringify([player]),file=path.join(root,'accounts.bin');
+ await fs.writeFile(path.join(root,'settings.json'),JSON.stringify(defaults));await fs.writeFile(file,stored);
+ const original=globalThis.fetch;let incomplete=true;
+ globalThis.fetch=async(url,init)=>{
+   if(String(url).endsWith('/authserver/refresh'))return Response.json(incomplete?{}:{accessToken:'renewed',clientToken:player.clientToken});
+   if(String(url).endsWith('/authserver/validate'))return JSON.parse(init.body).accessToken==='renewed'?new Response(null,{status:204}):Response.json({error:'invalid token'},{status:403});
+   throw Error('unexpected request');
+ };
+ let service=await serviceAt(root);
+ try{
+   await assert.rejects(service.invoke('skin.status',{}),/皮肤站/);
+   assert.equal(await fs.readFile(file,'utf8'),stored);
+   incomplete=false;
+   assert.equal((await service.invoke('skin.status',{})).authenticated,true);
+   await service.dispose();service=await serviceAt(root);
+   assert.equal((await service.invoke('skin.status',{})).authenticated,true);
+ }finally{globalThis.fetch=original;await service.dispose();}
+});
 test('simultaneous lobby requests exchange one skin session and preserve cached identity across a temporary outage',async t=>{
  const root=await tmp(t);await fs.writeFile(path.join(root,'settings.json'),JSON.stringify(defaults));await fs.writeFile(path.join(root,'accounts.bin'),JSON.stringify([player]));
  const original=globalThis.fetch;let offline=false,exchanges=0;
