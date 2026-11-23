@@ -4,8 +4,10 @@ import path from 'node:path';
 import {createReadStream} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {verifyRelease,RELEASE_ROOT} from '../packages/engine/core/update-sources.mjs';
+import {verifyCommunityRelease} from './verify-community-release.mjs';
 
 export async function verifyUpdateRelease(dir,version){
+  await verifyCommunityRelease(dir,version);
   for(const arch of ['x64','ia32']){
     const feed=arch==='x64'?'latest.json':'latest-ia32.json';
     const envelope=JSON.parse(await fs.readFile(path.join(dir,'updates',feed),'utf8'));

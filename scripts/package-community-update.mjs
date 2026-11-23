@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';import path from 'node:path';import os from 'n
 import {updateManifest,KEY} from '../apps/community-server/src/update-trust.mjs';import {validEntryName} from '../apps/community-server/src/update-archive.mjs';
 import {publicLinkingSource} from './linking-release-sources.mjs';
 const version=JSON.parse(await fs.readFile('package.json','utf8')).version,base=path.resolve('release',version),server=path.join(base,'server/幻想镇社区服务端'),output=path.join(base,'server',`HXZ-Community-${version}-update.zip`);
+if(JSON.parse(await fs.readFile(path.join(server,'package.json'),'utf8')).version!==version)throw Error('请先构建与本次发布版本相符的服务端完整包');
 const zip=new yazl.ZipFile(),writing=pipeline(zip.outputStream,createWriteStream(output));
 async function add(relative){const current=path.join(server,relative),stat=await fs.lstat(current);if(stat.isSymbolicLink())throw Error('Symlink in release');if(stat.isDirectory()){for(const name of await fs.readdir(current))await add(relative+'/'+name);}else{if(!validEntryName(relative))throw Error('Unsafe update entry '+relative);if(/^src\/linking-volume[12]-reality081\.mjs$/.test(relative))zip.addBuffer(await publicLinkingSource(relative,await fs.readFile(current)),relative);else zip.addFile(current,relative);}}
 for(const name of ['src','public','shared','integrations','node_modules','package.json','LICENSE'])await add(name);zip.end();await writing;

@@ -45,6 +45,8 @@ Windows 安装后，从桌面的「幻想镇 3rd」打开。便携版和可选�
 
 **0.9.2 安卓正式版**请直接下载上面的 APK，打开后在系统安装界面选择「更新」。沿用原应用签名，可以覆盖安装并保留应用数据。旧客户端有 64 MiB 的更新包上限，这次需要手动下载。只有 32 位安卓系统的设备请继续使用 0.9.2。
 
+自己运营社区的服主可以在后台「服务维护 → 服务更新」给原版 0.9.2 升级，也可以开启按北京时间定时备份和安装。[服务端更新说明](apps/community-server/README.md#从-092-更新) · [Windows x64 服务端完整包](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-Community-0.10.0-windows-x64.zip)
+
 ## 遇到问题
 
 启动失败时先看提示里的原因和处理办法。内存问题可以在「启动前检查」里核对 Java 实际会使用多少内存。持续遇到同一问题，可以从「帮助与反馈」复制诊断摘要，再附上当时点了什么。[提交问题](https://github.com/0xiaoyun0/HXZ_LAUNCHER/issues)

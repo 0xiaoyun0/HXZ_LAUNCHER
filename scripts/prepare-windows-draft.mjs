@@ -5,6 +5,7 @@ import {createReadStream} from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {verifyUpdateRelease} from './verify-update-release.mjs';
+import {verifyCommunityRelease} from './verify-community-release.mjs';
 import {verifyReleaseApk} from '../apps/android/verify-apk.mjs';
 import {supportedAbis} from '../apps/android/release-info.mjs';
 
@@ -26,6 +27,9 @@ for(const arch of ['x64','ia32']){
 }
 const modules=JSON.parse(await fs.readFile('.runtime/official-extensions.json','utf8'));
 for(const id of ['community','music','arcade'])await copy('extensions/'+modules[id].name);
+await copy('server/HXZ-Community-'+version+'-windows-x64.zip');
+await copy('server/HXZ-Community-'+version+'-update.zip');
+await copy('updates/community-update.json');
 if(includeAndroid){
   const pin=JSON.parse(gitFile('apps/android/upstream.json'));
   for(const abi of supportedAbis){
@@ -35,13 +39,12 @@ if(includeAndroid){
   }
 }
 
-// These clients share GitHub's latest release URL with Windows. Retain the
-// published manifests verbatim so each can still resolve its own pinned asset.
+// Legacy Android and its separately versioned runtime still use their previous feeds.
 const repo='https://api.github.com/repos/0xiaoyun0/HXZ_LAUNCHER';
 const current=await fetch(repo+'/releases/latest',{headers:{'User-Agent':'HXZ-release-preparation'},signal:AbortSignal.timeout(25000)});
 assert.ok(current.ok,'无法读取当前公开版的附件目录：'+current.status);
 const stable=await current.json();
-for(const name of ['android-latest.json','game-runtime-latest.json','community-update.json']){
+for(const name of ['android-latest.json','game-runtime-latest.json']){
   const item=stable.assets.find(file=>file.name===name);
   assert.match(item?.digest||'',/^sha256:[0-9a-f]{64}$/,name);
   let bytes;
@@ -60,6 +63,7 @@ files.push(source);
 for(const [from,to] of [['README.md','README.md'],['docs/'+version+'发布说明.md','RELEASE-NOTES.md'],['docs/'+version+'-Windows验收.md','WINDOWS-ACCEPTANCE.md']]){
   await fs.writeFile(path.join(dest,to),gitFile(from));files.push(to);
 }
+await verifyCommunityRelease(dest, version, {flat:true});
 const sums=[];
 for(const name of files.sort()){
   const h=createHash('sha256');for await(const bytes of createReadStream(path.join(dest,name)))h.update(bytes);
