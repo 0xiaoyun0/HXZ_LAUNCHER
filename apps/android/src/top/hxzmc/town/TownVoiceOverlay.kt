@@ -81,6 +81,11 @@ class TownVoiceOverlay : Service() {
     private val accent = Color.rgb(181, 202, 255)
     private val quiet = Color.rgb(180, 187, 201)
     private fun dp(value: Int) = (resources.displayMetrics.density * value).roundToInt()
+    private fun speakerWidth(): Int {
+        val screen = resources.displayMetrics.widthPixels
+        val buttonSpace = dp(3 * 48 + 8)
+        return (screen / 4).coerceIn(dp(56), dp(112)).coerceAtMost((screen - buttonSpace).coerceAtLeast(1))
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -126,13 +131,13 @@ class TownVoiceOverlay : Service() {
         position.y = dp(72)
         position.setTitle("幻想镇语音悬浮控件")
         handle = TextView(this).apply {
-            minHeight = dp(48); minWidth = dp(56); maxWidth = dp(112)
+            minHeight = dp(48)
             gravity = Gravity.CENTER; textSize = 13f; setTextColor(Color.WHITE)
             setPadding(dp(6), 0, dp(6), 0)
             maxLines = 1; ellipsize = TextUtils.TruncateAt.END
             setOnClickListener { owner.get()?.command("open") }
         }
-        row.addView(handle)
+        row.addView(handle, LinearLayout.LayoutParams(speakerWidth(), LinearLayout.LayoutParams.WRAP_CONTENT))
         fun button(icon: Int, description: String, action: String): ImageButton {
             val b = ImageButton(this)
             b.background = RippleDrawable(ColorStateList.valueOf(0x405E74A8), null, null)
@@ -174,6 +179,7 @@ class TownVoiceOverlay : Service() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        if (::handle.isInitialized) handle.layoutParams = handle.layoutParams.apply { width = speakerWidth() }
         panel?.post { move(position.x, position.y) }
     }
 

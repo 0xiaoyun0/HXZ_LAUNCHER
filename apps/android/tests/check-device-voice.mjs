@@ -93,6 +93,10 @@ try{
   await poll('回到语音房收起悬浮窗',()=>!bounds());
   home();const panel=await poll('桌面上真实的系统悬浮窗',bounds);
   await shot('device-voice-overlay');
+  clearInterval(tone);
+  await poll('说话人停止发送音频',()=>evaluate("window.voiceTest.slice(-1)[0]?.speaker===''"));
+  const quietPanel=await poll('静默时的悬浮控件',bounds);
+  assert.equal(quietPanel[2]-quietPanel[0],panel[2]-panel[0],'说话状态改变时三个操作留在原处');
   const density=Number(shell('wm','density').match(/(\d+)\s*$/)[1])/160;
   const tapAction=(box,offset)=>shell('input','tap',String(Math.round(box[2]-density*(4+(offset+.5)*48))),String(Math.round((box[1]+box[3])/2)));
   tapAction(panel,1);
@@ -106,7 +110,9 @@ try{
   shell('pm','grant',pkg,'android.permission.RECORD_AUDIO');
   await click('开麦');await poll('启用系统麦克风',()=>evaluate("window.voiceTest.slice(-1)[0]?.listenOnly===false"),22000);
   home();
-  tapAction(await poll('通话面板',bounds),2);
+  const talkingPanel=await poll('通话面板',bounds);
+  assert.equal(talkingPanel[2]-talkingPanel[0],panel[2]-panel[0],'切换到系统麦克风不移动按钮');
+  tapAction(talkingPanel,2);
   await poll('悬浮窗静音麦克风',()=>evaluate("window.voiceTest.slice(-1)[0]?.muted===true"));
   const current=await poll('返回语音房的悬浮控件',bounds);
   shell('input','tap',String(Math.round(current[0]+25*density)),String(Math.round((current[1]+current[3])/2)));
