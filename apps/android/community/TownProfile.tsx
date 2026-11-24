@@ -1,12 +1,13 @@
 import {useCallback,useEffect,useState} from 'react';
 import {Link,useLocation} from 'react-router-dom';
 import {useSnapshot} from 'valtio';
-import {AudioLines,Backpack,CalendarDays,ChevronRight,Coins,LayoutGrid,Mail,MonitorSmartphone,Palette,ShoppingBag,Trophy} from 'lucide-react';
+import {AudioLines,Backpack,CalendarDays,ChevronRight,Coins,Download,LayoutGrid,Mail,MonitorSmartphone,Palette,ShoppingBag,Trophy} from 'lucide-react';
 import {community,toggleMute,toggleDeafen,voiceActivity} from '../../../packages/community/client';
 import {invoke,notify} from '../../desktop/src/model';
 import {Avatar} from '../../desktop/src/ui';
 
 type Tools={overlay:boolean;permission:boolean;canPin:boolean;widgets:number};
+type AppUpdate={version:string;unmetered:boolean;official:boolean};
 export function useTownVoiceControls(uid:string,identityReady:boolean){
   const c=useSnapshot(community);
   const roomPage=useLocation().pathname==='/community/voice';
@@ -56,6 +57,14 @@ const groups=[
 
 export function TownProfile({name,portrait,account,busy,appearance}:{name:string;portrait:string;account:()=>void;busy:boolean;appearance:()=>void}){
   const [tools,setTools]=useState<Tools|null>(null),[problem,setProblem]=useState(''),[working,setWorking]=useState(false),[tip,setTip]=useState('');
+  const [update,setUpdate]=useState<AppUpdate|null>(null),[savingUpdate,setSavingUpdate]=useState(false);
+  useEffect(()=>{let live=true;void invoke<AppUpdate>('android.update.options').then(result=>{if(live)setUpdate(result);}).catch(()=>{});return ()=>{live=false;};},[]);
+  async function toggleUpdates(){
+    if(!update||savingUpdate)return;
+    setSavingUpdate(true);
+    try{setUpdate(await invoke<AppUpdate>('android.update.options',{unmetered:!update.unmetered}));}
+    catch{notify('无法保存更新偏好，请重试。',true);}finally{setSavingUpdate(false);}
+  }
   const refresh=useCallback(()=>{void invoke<Tools>('android.device.tools').then(v=>{setTools(v);setProblem('');}).catch(()=>setProblem('无法读取手机工具设置。'));},[]);
   useEffect(()=>{refresh();window.addEventListener('town-resume',refresh);window.addEventListener('town-tools',refresh);
     return ()=>{window.removeEventListener('town-resume',refresh);window.removeEventListener('town-tools',refresh);};},[refresh]);
@@ -77,5 +86,11 @@ export function TownProfile({name,portrait,account,busy,appearance}:{name:string
     </section>
     {groups.map(rows=><div className="desk-card town-menu" key={rows[0].path}>{rows.map(({path,label,icon:Icon})=><Link key={path} to={path}><Icon size={18}/><span>{label}</span><ChevronRight size={15}/></Link>)}</div>)}
     <div className="desk-card town-menu"><button onClick={appearance}><Palette size={18}/><span>外观与动效</span><ChevronRight size={15}/></button></div>
+    {update&&<section className="desk-card town-device-tools"><h2>应用更新</h2>
+      <div className="town-tool-line"><Download size={19}/><div><strong>幻想镇 {update.version}</strong><small>{update.official?'正式版':'独立测试版'}</small></div>
+        <button className="small-action" onClick={()=>void invoke('android.update.check').catch(()=>notify('无法检查更新，请重试。',true))}>检查更新</button></div>
+      {update.official&&<div className="town-tool-line"><MonitorSmartphone size={19}/><div><strong>自动下载更新</strong><small>使用非计费网络下载，安装时由你确认。</small></div>
+        <button type="button" className="town-switch" role="switch" aria-label="自动下载更新" aria-checked={update.unmetered} disabled={savingUpdate} onClick={()=>void toggleUpdates()}><span/></button></div>}
+    </section>}
   </section>;
 }

@@ -49,6 +49,11 @@ try{
   assert.equal(await digest(oldInstaller,'sha512','base64'),original.files[0].sha512);
   execFileSync(extractor,['x','-y','-o'+from,oldInstaller],{windowsHide:true,stdio:'ignore',timeout:160000});
   const res=path.join(from,'resources'),packed=path.join(res,'app.asar'),unpacked=path.join(res,'app');
+  if(!await fs.stat(packed).catch(()=>null)){
+    // electron-builder NSIS installers store the application in a second archive.
+    const inner=path.join(from,'$PLUGINSDIR',arch==='ia32'?'app-32.7z':'app-64.7z');
+    execFileSync(extractor,['x','-y','-o'+from,inner],{windowsHide:true,stdio:'ignore',timeout:160000});
+  }
   asar.extractAll(packed,unpacked);await fs.rename(packed,path.join(temp,'original.asar'));
   const pkg=JSON.parse(await fs.readFile(path.join(unpacked,'package.json'),'utf8'));assert.equal(pkg.version,'0.9.2');
   assert.equal(JSON.parse(await fs.readFile(path.join(res,'install-channel.json'),'utf8')).channel,'installed');

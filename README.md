@@ -2,18 +2,20 @@
 
 打开幻想镇，选一个角色，就能继续上次的世界。平时只想进服，可以用极简版。想看看朋友在做什么，也可以把社区装回同一个窗口。
 
-## 下载 0.10.0
+## 下载
 
 | 你的设备 | 安装包 |
 | --- | --- |
-| 大多数 Windows 电脑 | [Windows x64](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-Launcher-0.10.0-x64.exe) |
-| 32 位 Windows | [Windows x86（32 位）](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-Launcher-0.10.0-ia32.exe) |
-| 64 位安卓手机或平板 | [Android ARM64](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-FCL-0.10.0-arm64-v8a-release.apk) |
-| x86_64 安卓设备或模拟器 | [Android x86_64](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-FCL-0.10.0-x86_64-release.apk) |
+| 大多数 Windows 电脑 | [Windows x64 · 0.10.0](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-Launcher-0.10.0-x64.exe) |
+| 32 位 Windows | [Windows x86（32 位）· 0.10.0](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-Launcher-0.10.0-ia32.exe) |
+| 64 位安卓手机或平板 | [Android ARM64 · 0.10.1](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.1/HXZ-FCL-0.10.1-arm64-v8a-release.apk) |
+| x86_64 安卓设备或模拟器 | [Android x86_64 · 0.10.1](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.1/HXZ-FCL-0.10.1-x86_64-release.apk) |
 
-Windows 安装后，从桌面的「幻想镇 3rd」打开。便携版和可选扩展也在[正式版下载页](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/latest)。
+Windows 安装后，从桌面的「幻想镇 3rd」打开。便携版和可选扩展见 [Windows 正式版下载页](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.10.0)。
 
-安卓打开就是社区。可以从公告或服务器卡片进服，也可以从底部的「游戏库」下载安装游戏。首次进服需要登录皮肤站。安卓版基于 Fold Craft Launcher 构建，需要 Android 8.0 或以上和支持相应 64 位 ABI 的系统。[安卓版说明](apps/android/README.md)
+安卓打开就是社区。可以从公告或服务器卡片进服，也可以从「游戏 → 游戏库」下载安装游戏。首次进服需要登录皮肤站。安卓版基于 Fold Craft Launcher 构建，需要 Android 8.0 或以上和支持相应 64 位 ABI 的系统。[安卓版说明](apps/android/README.md)
+
+已装 0.10.0 安卓正式版的玩家，看到更新提示后打开发布页，下载适合手机的 APK，在系统安装界面点「更新」。如果社区首页没有弹窗，直接点上方安卓下载链接即可。从 0.10.1 起，打开社区就会自动检查，在非计费网络上默认预下载新版，到安装时再请你确认。「我的 → 应用更新」可以检查版本，也可以关闭自动下载。
 
 ## 第一次打开
 
@@ -35,7 +37,7 @@ Windows 安装后，从桌面的「幻想镇 3rd」打开。便携版和可选�
 
 扩展来自当前版本的 GitHub 发布页。如果下载中断，可以在原处重试，也可以选择「从本地安装」，导入同版本的扩展 ZIP。随时可以在设置中移除。
 
-安卓版打开就是社区。「全部栏目」里有聊天、论坛、语音房、活动、蓝图、交易、冒险者协会和 LINKING。底部或顶部导航的「小游戏」可以直接打开 24 款游戏。在 Android 和 Windows 登录同一个皮肤站角色，两个设备看到的是同一份服务器在线记录、积分余额和排行榜。服务器核验的在线时间累计满 24 小时可获得 5 积分，小游戏的离线练习最好成绩保存在当前设备。
+在安卓版的「社区」可以浏览论坛、活动、蓝图、交易和冒险者协会。「聊天」里有文字大厅和语音房，LINKING 有独立入口，「游戏 → 小游戏」可以玩 24 款游戏。在 Android 和 Windows 登录同一个皮肤站角色，两个设备看到的是同一份服务器在线记录、积分余额和排行榜。服务器核验的在线时间累计满 24 小时可获得 5 积分，小游戏的离线练习最好成绩保存在当前设备。
 
 ## 从 0.9.2 升级
 

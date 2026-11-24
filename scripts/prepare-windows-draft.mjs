@@ -6,8 +6,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import {verifyUpdateRelease} from './verify-update-release.mjs';
 import {verifyCommunityRelease} from './verify-community-release.mjs';
-import {verifyReleaseApk} from '../apps/android/verify-apk.mjs';
 import {supportedAbis} from '../apps/android/release-info.mjs';
+import {androidFeed,prepareAndroidFeed,readAndroidFeed} from './android-update-index.mjs';
 
 const includeAndroid=process.argv.includes('--android');
 const target=process.argv.slice(2).find(arg=>!arg.startsWith('--'))||'HEAD';
@@ -33,9 +33,10 @@ await copy('server-tools/HXZ-Community-'+version+'-connection-repair.zip');
 await copy('updates/community-update.json');
 if(includeAndroid){
   const pin=JSON.parse(gitFile('apps/android/upstream.json'));
+  await prepareAndroidFeed(path.join(root,'android'),version,pin);
+  await copy('android/'+androidFeed);
   for(const abi of supportedAbis){
     const apk='HXZ-FCL-'+version+'-'+abi+'-release.apk';
-    await verifyReleaseApk(path.join(root,'android',apk),abi,pin,version);
     await copy('android/'+apk);
   }
 }
@@ -45,7 +46,9 @@ const repo='https://api.github.com/repos/0xiaoyun0/HXZ_LAUNCHER';
 const current=await fetch(repo+'/releases/latest',{headers:{'User-Agent':'HXZ-release-preparation'},signal:AbortSignal.timeout(25000)});
 assert.ok(current.ok,'无法读取当前公开版的附件目录：'+current.status);
 const stable=await current.json();
-for(const name of ['android-latest.json','game-runtime-latest.json']){
+const preserved=['android-latest.json','game-runtime-latest.json'];
+if(!includeAndroid)preserved.push(androidFeed);
+for(const name of preserved){
   const item=stable.assets.find(file=>file.name===name);
   assert.match(item?.digest||'',/^sha256:[0-9a-f]{64}$/,name);
   let bytes;
@@ -56,6 +59,7 @@ for(const name of ['android-latest.json','game-runtime-latest.json']){
   }
   assert.equal('sha256:'+createHash('sha256').update(bytes).digest('hex'),item.digest,name);
   const signed=JSON.parse(bytes);assert.ok(signed.payload&&signed.signature,name);
+  if(name===androidFeed)readAndroidFeed(bytes);
   await fs.writeFile(path.join(dest,name),bytes);files.push(name);
 }
 const source='HXZ-Launcher-'+version+'-source.zip';

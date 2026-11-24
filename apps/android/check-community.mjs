@@ -71,6 +71,11 @@ try{
       if(action==='android.appearance.bars')value=true;
       if(action==='android.legal.read')value='测试协议正文';
       if(action==='android.legal.accept'){localStorage.setItem('accepted','yes');value=true;}
+      if(action==='android.update.options'){
+        if(typeof input.unmetered==='boolean')localStorage.setItem('unmetered',String(input.unmetered));
+        value={version:'0.10.1',unmetered:localStorage.getItem('unmetered')!=='false',official:true};
+      }
+      if(action==='android.update.check'){sessionStorage.setItem('manual-update','requested');value=true;}
       if(['android.device.tools','android.voice.overlay','android.widget.pin'].includes(action)){
         if(action==='android.voice.overlay'&&(!input.enabled||sessionStorage.getItem('overlay-permission')))localStorage.setItem('overlay-enabled',String(input.enabled));
         value={overlay:localStorage.getItem('overlay-enabled')==='true',permission:!!sessionStorage.getItem('overlay-permission'),canPin:true,widgets:0,
@@ -195,6 +200,13 @@ try{
   await page.reload();await overlay.click();
   await page.waitForFunction(()=>document.querySelector('[aria-label="语音悬浮控件"]').getAttribute('aria-checked')==='false');
   await page.getByRole('button',{name:'添加',exact:true}).click();await page.getByText('请在桌面确认添加幻想镇小组件。').waitFor();
+  const unmetered=page.getByRole('switch',{name:'自动下载更新'});
+  await unmetered.click();await page.reload();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="自动下载更新"]')?.getAttribute('aria-checked')==='false');
+  await unmetered.click();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="自动下载更新"]')?.getAttribute('aria-checked')==='true');
+  await page.getByRole('button',{name:'检查更新',exact:true}).click();
+  await page.waitForFunction(()=>sessionStorage.getItem('manual-update')==='requested');
   await capture(page,'android-profile.png');
   await page.getByRole('button',{name:'外观与动效',exact:true}).click();
   await capture(page,'android-appearance.png');

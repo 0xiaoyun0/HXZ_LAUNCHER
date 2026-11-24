@@ -45,6 +45,7 @@ class TownCommunityActivity : FragmentActivity() {
     private var save: Save? = null
     private var handlingBack = false
     private var widgetRoute: String? = null
+    private val appUpdates by lazy { TownAppUpdates(this) }
     private val deviceTools by lazy { TownDeviceTools(this) { name, args ->
         if (::view.isInitialized && !isDestroyed && view.url?.substringBefore('#') == origin + "/index.html")
             view.evaluateJavascript("window.dispatchEvent(new CustomEvent(" + JSONObject.quote(name) + ",{detail:" + args.toString() + "}))", null)
@@ -181,10 +182,12 @@ class TownCommunityActivity : FragmentActivity() {
             io.execute { try { reply(port,id,LegalAgreement.load(this,doc)) } catch (_:Exception) { reply(port,id,error="无法读取随应用提供的协议。") } }
             return
         }
-        if (action == "android.legal.accept") { LegalAgreement.accept(this); reply(port,id,true); return }
+        if (action == "android.legal.accept") { LegalAgreement.accept(this); reply(port,id,true); appUpdates.resume(); return }
         if (action == "android.close") { finish(); return }
         if (!LegalAgreement.isAccepted(this)) { reply(port,id,error="阅读并同意使用协议后即可进入社区。"); return }
         when (action) {
+            "android.update.options" -> reply(port, id, appUpdates.options(if (args.has("unmetered")) args.getBoolean("unmetered") else null))
+            "android.update.check" -> { appUpdates.check(true); reply(port, id, true) }
             "android.widget.target" -> { val path = widgetRoute.orEmpty(); widgetRoute = null; reply(port, id, path) }
             "android.device.tools","android.widget.pin","android.widget.presence","android.voice.overlay","android.voice.status" -> try {
                 val result = when (action) {
@@ -379,12 +382,18 @@ class TownCommunityActivity : FragmentActivity() {
         picker?.onReceiveValue(uris); picker = null
     }
     override fun onPause() {
+        appUpdates.pause()
         deviceTools.pause()
         if (::view.isInitialized) view.evaluateJavascript("window.dispatchEvent(new Event('town-pause'))", null)
         super.onPause()
     }
     override fun onResume() {
         super.onResume()
+        appUpdates.resume()
+        if (intent.getBooleanExtra("town-check-update", false)) {
+            intent.removeExtra("town-check-update")
+            window.decorView.post { appUpdates.check(true) }
+        }
         deviceTools.resume()
         games.returned()
         if (::view.isInitialized) view.evaluateJavascript("window.dispatchEvent(new Event('town-resume'))", null)
