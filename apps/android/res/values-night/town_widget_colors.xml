@@ -1,0 +1,4 @@
+<resources>
+    <color name="town_widget_canvas">#20283A</color><color name="town_widget_edge">#39465D</color>
+    <color name="town_widget_ink">#F1F4FF</color><color name="town_widget_key">#BED0FF</color>
+</resources>

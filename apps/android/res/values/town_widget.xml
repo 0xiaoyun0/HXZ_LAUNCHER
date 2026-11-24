@@ -1,0 +1,18 @@
+<resources>
+    <string name="town_widget_label">幻想镇 · 社区入口</string>
+    <color name="town_widget_canvas">#F6F8FE</color>
+    <color name="town_widget_edge">#DBE2F3</color>
+    <color name="town_widget_ink">#24304A</color>
+    <color name="town_widget_key">#3856AA</color>
+    <style name="TownWidgetAction">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:minHeight">44dp</item>
+        <item name="android:gravity">center</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:textColor">@color/town_widget_key</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+</resources>

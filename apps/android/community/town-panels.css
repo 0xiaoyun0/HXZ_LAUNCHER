@@ -1,0 +1,74 @@
+/* Portals mount under body, outside .town-shell. Keep their palette and geometry available on older WebViews. */
+[data-app=town-mobile] .modal-backdrop { position:fixed; top:0; right:0; bottom:0; left:0; z-index:100; background:rgba(15,23,44,.4); }
+[data-app=town-mobile] .modal {
+  --desk-muted:var(--town-muted); --desk-line:var(--town-line); --desk-surface:var(--town-card); --desk-ink:var(--town-ink); --desk-accent:var(--town-key);
+  position:fixed; z-index:110; left:50%; top:50%; transform:translate(-50%,-50%);
+  display:flex; flex-direction:column; width:min(35rem,calc(100vw - 2rem)); min-width:0; max-height:calc(100vh - 2rem); max-height:calc(100dvh - 2rem);
+  padding:0; overflow:hidden; border:1px solid var(--town-line); border-radius:var(--town-radius); box-shadow:0 1rem 3rem rgba(15,21,34,.22); background:var(--town-card); color:var(--town-ink); font-family:inherit;
+}
+[data-app=town-mobile] .modal > header { flex:none; display:flex; justify-content:space-between; align-items:center; gap:.75rem; padding:.7rem var(--town-pad); border-bottom:1px solid var(--town-line); }
+[data-app=town-mobile] .modal > header h2 { margin:0; font-size:1.15rem; line-height:1.4; }
+[data-app=town-mobile] .modal > header p { margin:.2rem 0 0; font-size:.83rem; color:var(--town-muted); overflow-wrap:anywhere; }
+[data-app=town-mobile] .modal > header .icon-button { display:grid; place-items:center; min-width:var(--town-touch); min-height:var(--town-touch); padding:0; border:0; border-radius:50%; color:var(--town-muted); background:var(--town-tint); }
+[data-app=town-mobile] .modal > .modal-body { min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:var(--town-pad); scroll-padding-block:.8rem; }
+[data-app=town-mobile] .modal-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.6rem; margin-top:1rem; }
+[data-app=town-mobile] .modal-body .small-action, [data-app=town-mobile] .modal-body .text-action, [data-app=town-mobile] .modal-actions button { min-height:var(--town-touch); }
+@media(max-width:42rem) {
+  [data-app=town-mobile] .modal { left:0; right:0; top:auto; bottom:0; transform:translateY(var(--sheet-drag,0px)); width:100%; max-width:100%; max-height:calc(100vh - max(1rem,env(safe-area-inset-top))); max-height:calc(100dvh - max(1rem,env(safe-area-inset-top))); border-radius:1.4rem 1.4rem 0 0; border-bottom:0; }
+  [data-app=town-mobile] .modal > header { position:relative; padding-top:1.12rem; touch-action:none; }
+  [data-app=town-mobile] .modal > header::before { content:''; position:absolute; top:.42rem; left:50%; width:2.25rem; height:.23rem; border-radius:1rem; background:var(--town-line); transform:translateX(-50%); }
+  [data-app=town-mobile] .modal > .modal-body { padding-bottom:calc(var(--town-pad) + env(safe-area-inset-bottom)); }
+}
+.town-appearance,.town-instance-options { display:grid; gap:1rem; min-width:0; }
+.town-option-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:1rem; }
+.town-option-row strong { display:block; font-size:.95rem; line-height:1.48; }
+.town-appearance .town-option-row p,.town-instance-options p { margin:.25rem 0 0; color:var(--town-muted); font-size:.86rem; line-height:1.58; }
+.town-instance-options h3 { margin:0; font-size:.97rem; }
+.town-instance-options section { display:grid; gap:.9rem; }.town-instance-options [hidden] { display:none!important; }
+.town-option-tabs,.town-custom-tabs { display:grid; gap:.2rem; padding:.22rem; border-radius:1rem; background:var(--town-tint); }
+.town-option-tabs { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.town-option-tabs button,.town-custom-tabs button { min-width:0; min-height:var(--town-touch); padding:.35rem .45rem; border:0; border-radius:.76rem; background:transparent; color:var(--town-muted); font:inherit; font-size:.86rem; font-weight:610; }
+.town-option-tabs [aria-selected=true],.town-custom-tabs [aria-selected=true] { background:var(--town-card); color:var(--town-key); box-shadow:0 .1rem .35rem rgba(19,33,57,.12); }
+button.town-switch { position:relative; isolation:isolate; display:flex; align-items:center; width:3.15rem; min-height:var(--town-touch); padding:0 .3rem; border:0; border-radius:1rem; background:transparent; }
+.town-switch::before { content:''; position:absolute; left:0; right:0; top:50%; height:1.68rem; transform:translateY(-50%); z-index:-1; border-radius:2rem; background:var(--town-muted); }
+.town-switch[aria-checked=true]::before { background:var(--town-key); }
+.town-switch span { display:grid; place-items:center; width:1.12rem; height:1.12rem; border-radius:50%; background:#fff; color:#34467e; }
+.town-switch[aria-checked=true] span { transform:translateX(1.43rem); }
+.town-switch:disabled { opacity:.55; }
+.town-memory-readout { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,8.1rem),1fr)); gap:.65rem; margin:0; }
+.town-memory-cell { min-width:0; padding:.8rem; border:1px solid var(--town-line); border-radius:.9rem; }
+.town-memory-cell dt { display:flex; align-items:center; gap:.35rem; font-size:.83rem; color:var(--town-muted); }
+.town-memory-cell dd { display:grid; gap:.38rem; margin:.4rem 0 0; font-size:1.18rem; font-weight:680; font-variant-numeric:tabular-nums; }
+.town-memory-cell small { font-size:.77rem; color:var(--town-muted); font-weight:450; }
+.town-memory-meter { height:.32rem; overflow:hidden; border-radius:1rem; background:var(--town-tint); }
+.town-memory-meter i { display:block; width:100%; height:100%; transform-origin:left; border-radius:inherit; background:var(--town-key); }
+.town-memory-cell + .town-memory-cell .town-memory-meter i { background:#43877e; }
+.town-renderers { display:flex; flex-wrap:wrap; gap:.4rem; margin:.5rem 0 .2rem; }
+.town-renderers [aria-pressed=true] { background:var(--town-tint); color:var(--town-key); border-color:currentColor; }
+.town-risk { display:inline-flex; align-items:center; gap:.3rem; margin-top:.35rem; padding:.18rem .5rem; border-radius:.45rem; background:#f9e7d6; color:#79421e; font-size:.77rem; font-weight:650; }
+.town-budget { padding:.7rem .8rem; background:var(--town-tint); border-radius:.7rem; }
+.town-themes { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,6rem),1fr)); gap:.55rem; }
+.town-themes button { position:relative; display:grid; align-content:start; gap:.5rem; min-width:0; padding:.46rem; font:inherit; font-size:.83rem; font-weight:620; text-align:start; color:var(--town-ink); background:var(--town-card); border:1px solid var(--town-line); border-radius:.85rem; }
+.town-themes button[aria-pressed=true] { border-color:var(--town-key); color:var(--town-key); box-shadow:inset 0 0 0 1px var(--town-key); }
+.town-swatch { position:relative; display:block; width:100%; height:2.55rem; overflow:hidden; border-radius:.5rem; background:var(--sample-canvas); }
+.town-swatch i { position:absolute; left:12%; height:.3rem; border-radius:1rem; }
+.town-swatch i:nth-child(1) { top:20%; width:35%; background:var(--sample-accent); }
+.town-swatch i:nth-child(2) { top:45%; width:72%; height:40%; border-radius:.3rem; background:var(--sample-card); }
+.town-swatch i:nth-child(3) { top:60%; left:19%; width:38%; height:.18rem; background:var(--sample-accent); }
+.town-theme-check { position:absolute; top:.26rem; right:.26rem; display:grid; place-items:center; }
+.town-themes [aria-pressed=true] .town-theme-check { width:1.16rem; height:1.16rem; border-radius:50%; color:var(--town-card); background:var(--town-key); }
+[data-palette=town] { --sample-canvas:#e0e5f7; --sample-card:#fafbff; --sample-accent:#5769b7; }
+[data-palette=observatory] { --sample-canvas:#112b38; --sample-card:#34515f; --sample-accent:#81d9c7; }
+[data-palette=paper] { --sample-canvas:#eae1d0; --sample-card:#fffaf0; --sample-accent:#a35c36; }
+/* The game canvas and archive keep their independent full-size viewport. */
+.town-shell .arcade-page .game-catalog-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,10.5rem),1fr)); align-items:start; }
+.town-shell .game-catalog-card { min-width:0; overflow:hidden; }
+.town-shell .game-catalog-cover { display:block; position:relative; width:100%; padding:0; border:0; overflow:hidden; }
+.town-shell .game-catalog-cover img { display:block; width:100%; height:auto; }
+.town-shell .game-catalog-cover > span { position:absolute; right:.5rem; bottom:.5rem; }
+.town-shell .game-catalog-info footer { display:flex; align-items:center; justify-content:space-between; gap:.5rem; }
+.town-shell .arcade-session .canvas-stage { position:relative; width:100%; max-width:100%; min-height:0; height:auto; margin:0 auto; overflow:hidden; border-radius:.7rem; background:#16283c; }
+.town-shell .canvas-stage::before { content:''; display:block; padding-top:133.333%; }.town-shell .canvas-stage.landscape::before { padding-top:72.222%; }
+.town-shell .canvas-stage canvas,.town-shell .canvas-stage .game-overlay { position:absolute; top:0; right:0; bottom:0; left:0; width:100%; height:100%; }
+.town-shell .canvas-stage canvas { touch-action:none; }.town-shell .game-overlay { justify-content:center; }
+@media(max-width:52rem) { .town-shell .arcade-page .game-workspace.arcade-session { grid-template-columns:minmax(0,1fr); } }

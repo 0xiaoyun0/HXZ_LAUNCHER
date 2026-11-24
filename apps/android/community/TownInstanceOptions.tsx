@@ -1,5 +1,5 @@
 import {useEffect,useId,useState} from 'react';
-import {AlertTriangle,Check} from 'lucide-react';
+import {AlertTriangle,Check,Cpu,Layers} from 'lucide-react';
 import {invoke} from '../../desktop/src/model';
 import {Modal} from '../../desktop/src/ui';
 
@@ -7,6 +7,12 @@ type Budget = {enabled:boolean;customHeap:boolean;baseMiB:number;extraMiB:number
 type InstanceOptions = {enabled:boolean;tier:'standard'|'large';physicalMiB:number;availableMiB:number;swapMiB:number;freeSwapMiB:number;
   customHeap:boolean;last:Budget|null;isolated:boolean;mobileGraphics:boolean;modelsAvailable:boolean;modelsEnabled:boolean;renderer:string;supportsZink:boolean;itemSearch:boolean|null};
 const gib=(mib:number)=>(mib/1024).toFixed(1)+' GiB';
+function MemoryReading({swap=false,total,free}:{swap?:boolean;total:number;free:number}){
+  const Icon=swap?Layers:Cpu,used=total>0?Math.max(0,Math.min(1,1-free/total)):0;
+  return <div className="town-memory-cell"><dt><Icon size={15} aria-hidden/>{swap?'系统虚拟内存':'物理运存'}</dt>
+    <dd>{gib(total)}<span className="town-memory-meter" aria-hidden="true"><i style={{transform:'scaleX('+used+')'}}/></span>
+      <small>{swap?'空闲':'可用'} {gib(free)}</small></dd></div>;
+}
 
 export type OptionTab='memory'|'graphics';
 const tabs=[{id:'memory',name:'内存'},{id:'graphics',name:'画质与加载'}] as const;
@@ -55,8 +61,8 @@ export function TownInstanceOptions({instance,close,initialTab='memory'}:{instan
                 onClick={()=>void save('renderer',value)}>{label}</button>)}</div></div>
         </section>
         <section role="tabpanel" id={prefix+'-panel-memory'} aria-labelledby={prefix+'-tab-memory'} hidden={tab!=='memory'}>
-          <dl className="town-memory-readout"><div><dt>物理运存</dt><dd>{gib(data.physicalMiB)}<small>可用 {gib(data.availableMiB)}</small></dd></div>
-            <div><dt>系统虚拟内存</dt><dd>{gib(data.swapMiB)}<small>空闲 {gib(data.freeSwapMiB)}</small></dd></div></dl>
+          <dl className="town-memory-readout"><MemoryReading total={data.physicalMiB} free={data.availableMiB}/>
+            <MemoryReading swap total={data.swapMiB} free={data.freeSwapMiB}/></dl>
           <div className="town-option-row"><div><strong>将系统虚拟内存计入游戏预算</strong><span className="town-risk"><AlertTriangle size={14}/>风险选项</span></div>
           <button type="button" className="town-switch" role="switch" aria-label="将系统虚拟内存计入游戏预算"
             aria-describedby="town-swap-help" aria-checked={data.enabled} disabled={busy||(!data.enabled&&(data.customHeap||data.swapMiB<=0))}

@@ -1,38 +1,61 @@
-@keyframes town-page-enter {
-  from { opacity: .76; transform: translateY(.28rem); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes town-working { to { transform: rotate(1turn); } }
+/* Phone motion: short actions follow the finger. Lifecycle or progress changes animate once. */
+@keyframes town-rise { from { opacity:.55; transform:translateY(.48rem); } to { opacity:1; transform:none; } }
+@keyframes town-tick { from { stroke-dashoffset:1; } to { stroke-dashoffset:0; } }
+@keyframes town-pop { 0% { transform:scale(.87); } 66% { transform:scale(1.055); } 100% { transform:scale(1); } }
+@keyframes town-segment { 0%,100% { transform:scale(1); } 44% { transform:scale(1.14,.92); } 78% { transform:scale(.98,1.02); } }
+@keyframes town-sheet-in { from { clip-path:inset(2rem 0 0 0 round 1.4rem 1.4rem 0 0); opacity:.3; } to { clip-path:inset(0 0 0 0 round 1.4rem 1.4rem 0 0); opacity:1; } }
+@keyframes town-sheet-out { from { clip-path:inset(0); opacity:1; } to { clip-path:inset(1.5rem 0 0 0); opacity:0; } }
+@keyframes town-dialog-in { from { opacity:0; transform:translate(-50%,-48%) scale(.97); } to { opacity:1; transform:translate(-50%,-50%); } }
+@keyframes town-dialog-out { from { opacity:1; } to { opacity:0; } }
+@keyframes town-dim-in { from { opacity:0; } to { opacity:1; } }
+@keyframes town-spin { to { transform:rotate(1turn); } }
 
-@media (prefers-reduced-motion: no-preference) {
+@media (prefers-reduced-motion:no-preference) {
   [data-app=town-mobile][data-motion=on] {
-    --town-press-time: calc(var(--duration, .32s) * .35);
-    --town-settle-time: calc(var(--duration, .32s) * .62);
-    --town-settle: cubic-bezier(.2,.75,.25,1);
+    --town-press-time:calc(var(--duration,.32s)*.36); --town-settle-time:calc(var(--duration,.32s)*.76);
+    --town-settle:cubic-bezier(.2,.8,.2,1); --town-spring:cubic-bezier(.22,.98,.32,1.14);
   }
-  [data-motion=on] .town-main :is(.town-content,.social-content) > header,
-  [data-motion=on] .town-main .town-progress,
-  [data-motion=on] .town-instance-options [role=tabpanel]:not([hidden]) {
-    animation: town-page-enter var(--town-settle-time) var(--town-settle);
+  [data-motion=on] .town-nav-track i { transition:transform var(--town-settle-time) var(--town-spring); }
+  [data-motion=on] .town-nav-track b { animation:town-segment var(--town-settle-time) var(--town-settle); }
+  [data-motion=on] .town-nav a[aria-current=page] .town-nav-icon svg,
+  [data-motion=on] .town-themes [aria-pressed=true] .town-theme-check svg { animation:town-pop var(--town-settle-time) var(--town-spring); }
+  [data-motion=on] .town-shell a,[data-motion=on] .town-shell button,[data-app=town-mobile][data-motion=on] .modal button {
+    transition:transform var(--town-press-time) var(--town-settle), color var(--town-press-time), background-color var(--town-press-time), border-color var(--town-press-time);
   }
-  [data-app=town-mobile][data-motion=on] .town-main > :is(.launch-page,.social-workspace) { animation: none; }
-  [data-motion=on] .town-shell :is(.town-item,.small-action,.launch-primary,.icon-button,.town-nav a),
-  [data-motion=on] .town-instance-options :is(button,[role=tab]) {
-    transition: background-color var(--town-press-time), color var(--town-press-time), transform var(--town-press-time) var(--town-settle);
-  }
-  [data-motion=on] .town-shell :is(.town-item,.small-action,.launch-primary,.icon-button,.town-nav a):active:not(:disabled),
-  [data-motion=on] .town-instance-options button:active:not(:disabled) { transform: scale(.985); }
-  [data-motion=on] .town-nav-icon::before,
-  [data-motion=on] .town-switch span { transition: transform var(--town-settle-time) var(--town-settle), opacity var(--town-press-time); }
-  [data-motion=on] .town-switch::before { transition: background-color var(--town-settle-time); }
-  [data-motion=on] .town-busy-icon { animation: town-working 1.3s linear infinite; }
+  [data-motion=on] .town-shell button:enabled:active,[data-motion=on] .town-shell a:active,[data-app=town-mobile][data-motion=on] .modal button:enabled:active { transform:scale(.975); }
+  [data-motion=on] .town-lobby-heading .social-sections svg,[data-motion=on] .town-item .town-tail svg { transition:transform var(--town-settle-time) var(--town-spring); }
+  [data-motion=on] .town-lobby-heading .social-sections :active > svg { transform:scale(.91) translateY(.08rem); }
+  [data-motion=on] .town-item:active .town-tail svg { transform:translateX(.18rem); }
+  [data-motion=on] .town-home-cards > section { animation:town-rise var(--town-settle-time) var(--town-settle) backwards; }
+  [data-motion=on] .town-home-cards > section:nth-child(2) { animation-delay:35ms; }
+  [data-motion=on] .town-home-cards > section:nth-child(3) { animation-delay:65ms; }
+  [data-motion=on] .town-custom-panel,[data-motion=on] .town-instance-options [role=tabpanel]:not([hidden]),[data-motion=on] .town-feedback,[data-motion=on] .town-toast,[data-motion=on] .town-instance-options .inline-error { animation:town-rise var(--town-settle-time) var(--town-settle); }
+  [data-motion=on] .town-memory-meter i { transition:transform var(--town-settle-time) var(--town-settle); }
+  [data-motion=on] .town-edit-card:not([data-lift]) { transition:transform var(--town-settle-time) var(--town-settle); }
+  [data-motion=on] .town-switch span { transition:transform var(--town-settle-time) var(--town-spring); }
+  [data-motion=on] .town-switch::before { transition:background-color var(--town-press-time); }
+  [data-motion=on] .town-switch:active span { transform:scaleX(1.15); }
+  [data-motion=on] .town-switch[aria-checked=true]:active span { transform:translateX(1.43rem) scaleX(1.15); }
+  [data-motion=on] .town-switch svg { stroke-dasharray:24; animation:town-pop var(--town-settle-time) var(--town-spring); }
+  [data-motion=on] .town-pull[data-pull] { transform:translate(-50%,calc(var(--pull,0)*1.8rem)); }
+  [data-motion=on] .town-pull svg { transition:transform var(--town-settle-time) var(--town-settle); }
+  [data-motion=on] .town-pull[data-refresh]::after { animation:town-spin .85s linear infinite; }
+  [data-app=town-mobile][data-motion=on] .modal-backdrop[data-state=open] { animation:town-dim-in .18s ease-out; }
+  [data-app=town-mobile][data-motion=on] .modal-backdrop[data-state=closed],
+  [data-app=town-mobile][data-motion=on] .modal[data-state=closed] { animation:town-dialog-out .14s ease-in; }
+  [data-app=town-mobile][data-motion=on] .modal[data-state=open] { animation:town-dialog-in var(--town-settle-time) var(--town-settle); }
+  [data-app=town-mobile][data-motion=on] .town-progress .mark-ink { animation:town-tick var(--town-settle-time) ease-out; }
+  [data-motion=on] .town-library-actions button:active .folder-sheet { transform:translateY(-2px) rotate(-6deg); }
 }
-
-[data-app=town-mobile][data-motion=off] *,
-[data-app=town-mobile][data-motion=off] *::before,
-[data-app=town-mobile][data-motion=off] *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
-@media (prefers-reduced-motion: reduce) {
-  [data-app=town-mobile] *, [data-app=town-mobile] *::before, [data-app=town-mobile] *::after {
-    animation: none !important; transition: none !important; scroll-behavior: auto !important;
-  }
+@media(prefers-reduced-motion:no-preference) and (max-width:42rem) {
+  [data-app=town-mobile][data-motion=on] .modal[data-state=open] { animation:town-sheet-in var(--town-settle-time) var(--town-settle); transition:transform var(--town-settle-time) var(--town-settle); }
+  [data-app=town-mobile][data-motion=on] .modal[data-dragging=true] { transition:none; }
+  [data-app=town-mobile][data-motion=on] .modal[data-state=closed] { animation:town-sheet-out .16s ease-in; }
+}
+[data-app=town-mobile][data-motion=off] *, [data-app=town-mobile][data-motion=off] *::before, [data-app=town-mobile][data-motion=off] *::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }
+[data-motion=off] .town-edit-card { transform:none; }
+[data-motion=off] .town-edit-card[data-target] { border-color:var(--town-key); }
+@media(prefers-reduced-motion:reduce) {
+  [data-app=town-mobile] *, [data-app=town-mobile] *::before, [data-app=town-mobile] *::after { animation:none!important; transition:none!important; scroll-behavior:auto!important; }
+  .town-edit-card { transform:none; }.town-edit-card[data-target] { border-color:var(--town-key); }
 }

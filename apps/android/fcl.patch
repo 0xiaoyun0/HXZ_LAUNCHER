@@ -101,10 +101,20 @@ index 5cba3a7..590d51c 100644
      implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
      implementation(project(":ZipFileSystem"))
 diff --git a/FCL/src/main/AndroidManifest.xml b/FCL/src/main/AndroidManifest.xml
-index da0588e..21240f1 100644
+index da0588e..44ce8f9 100644
 --- a/FCL/src/main/AndroidManifest.xml
 +++ b/FCL/src/main/AndroidManifest.xml
-@@ -37,37 +37,35 @@
+@@ -28,6 +28,9 @@
+         android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS"
+         tools:ignore="HighSamplingRate" />
+     <uses-permission android:name="android.permission.RECORD_AUDIO" />
++    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
++    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
++    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+ 
+     <application
+         android:name=".FCLApp"
+@@ -37,37 +40,40 @@
          android:dataExtractionRules="@xml/data_extraction_rules"
          android:fullBackupContent="@xml/backup_rules"
          android:hasFragileUserData="true"
@@ -129,6 +139,11 @@ index da0588e..21240f1 100644
 -            android:exported="true"
 -            android:screenOrientation="sensorLandscape"
 -            android:theme="@style/Theme.Splash">
++        <receiver android:name="top.hxzmc.community.CommunityWidget" android:exported="false" android:label="@string/town_widget_label">
++            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
++            <meta-data android:name="android.appwidget.provider" android:resource="@xml/town_widget_info" />
++        </receiver>
++        <service android:name="top.hxzmc.town.TownVoiceOverlay" android:exported="false" android:foregroundServiceType="microphone|mediaPlayback" />
 +        <activity android:name="top.hxzmc.town.TownCommunityActivity" android:exported="false"
 +            android:launchMode="singleTop" android:windowSoftInputMode="adjustResize"
 +            android:configChanges="keyboardHidden|orientation|screenSize|smallestScreenSize|screenLayout|keyboard|navigation|uiMode" />
@@ -151,7 +166,7 @@ index da0588e..21240f1 100644
              <intent-filter>
                  <action android:name="android.intent.action.VIEW" />
  
-@@ -204,4 +202,4 @@
+@@ -204,4 +210,4 @@
              <action android:name="android.intent.action.TTS_SERVICE" />
          </intent>
      </queries>

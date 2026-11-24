@@ -5,16 +5,16 @@ export type CardId=keyof typeof cardNames;
 export type Slot='background'|'cover';
 export type Source='plain'|'scene'|'custom';
 export type Visual={kind:'image'|'video';blob:Blob;poster?:Blob};
-export type TownLayout={background:Source;cover:Source;backgroundFocus:number;coverFocus:number;shade:number;order:CardId[];hidden:CardId[]};
+export type TownLayout={background:Source;cover:Source;contentImages:boolean;backgroundFocus:number;coverFocus:number;shade:number;order:CardId[];hidden:CardId[]};
 const allCards=Object.keys(cardNames) as CardId[];
-const defaults:TownLayout={background:'plain',cover:'plain',backgroundFocus:50,coverFocus:50,shade:60,order:allCards,hidden:[]};
+const defaults:TownLayout={background:'plain',cover:'plain',contentImages:false,backgroundFocus:50,coverFocus:50,shade:60,order:allCards,hidden:[]};
 type LayoutState={layout:TownLayout;media:Partial<Record<Slot,Visual>>};
 
 function layoutFrom(value:Partial<TownLayout>|undefined):TownLayout{
   const cards=(items:unknown)=>Array.isArray(items)?items.filter((item):item is CardId=>allCards.includes(item)):[];
   const percent=(v:unknown,base:number)=>typeof v==='number'&&Number.isFinite(v)?Math.max(0,Math.min(100,v)):base;
   return {...defaults,...value,background:value?.background==='custom'?'custom':'plain',cover:value?.cover==='custom'||value?.cover==='scene'?value.cover:'plain',
-    backgroundFocus:percent(value?.backgroundFocus,50),coverFocus:percent(value?.coverFocus,50),shade:percent(value?.shade,60),
+    contentImages:value?.contentImages===true,backgroundFocus:percent(value?.backgroundFocus,50),coverFocus:percent(value?.coverFocus,50),shade:percent(value?.shade,60),
     order:[...new Set([...cards(value?.order),...allCards])],hidden:[...new Set(cards(value?.hidden))]};
 }
 

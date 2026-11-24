@@ -23,6 +23,14 @@ async function listenForBrowser(server){
 }
 
 const dir=path.resolve('.runtime/town-android-assets/town');
+async function capture(page,name){
+  if(!process.env.HXZ_ANDROID_PREVIEW)return;
+  await page.evaluate(async()=>{
+    await document.fonts.ready;
+    await Promise.all(document.getAnimations().filter(a=>Number.isFinite(a.effect?.getComputedTiming().endTime)).map(a=>a.finished.catch(()=>{})));
+  });
+  await page.screenshot({path:path.join(process.env.HXZ_ANDROID_PREVIEW,name)});
+}
 const home=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-android-community-'));
 const uid=randomUUID().replaceAll('-',''),name='TownMobileQA',admin=randomUUID().replaceAll('-','');
 const assets=http.createServer(async(req,res)=>{
@@ -49,6 +57,8 @@ try{
   browser=await chromium.launch({channel:'msedge',headless:true});
   page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  const initialImages=[];
+  page.on('request',request=>{if(request.resourceType()==='image'&&new URL(request.url()).protocol.startsWith('http'))initialImages.push(request.url());});
   const noticeId=randomUUID();
   service.db.prepare('INSERT INTO notices VALUES(?,?,?,?,?,?)').run(noticeId,'mod-1','模组一服开服活动','从本公告进入模组一服。',name,Date.now());
   await page.addInitScript(({base,token,user})=>{
@@ -61,6 +71,11 @@ try{
       if(action==='android.appearance.bars')value=true;
       if(action==='android.legal.read')value='测试协议正文';
       if(action==='android.legal.accept'){localStorage.setItem('accepted','yes');value=true;}
+      if(['android.device.tools','android.voice.overlay','android.widget.pin'].includes(action)){
+        if(action==='android.voice.overlay'&&(!input.enabled||sessionStorage.getItem('overlay-permission')))localStorage.setItem('overlay-enabled',String(input.enabled));
+        value={overlay:localStorage.getItem('overlay-enabled')==='true',permission:!!sessionStorage.getItem('overlay-permission'),canPin:true,widgets:0,
+          hint:action==='android.widget.pin'?'请在桌面确认添加幻想镇小组件。':''};
+      }
       const task=()=>JSON.parse(sessionStorage.getItem('task')||'{"phase":"idle"}');
       if(action==='android.game.state')value=task();
       if(action==='android.game.list')value=['测试实例','另一实例'];
@@ -86,6 +101,7 @@ try{
       }
       if(action==='community.connect'&&session)value={token,user,base};
       if(action.startsWith('android.directory'))value=(await (await fetch(base+'/api/server-presets')).json()).servers;
+      if(action==='android.directory.refresh')sessionStorage.setItem('qa-lobby-refreshes',String(Number(sessionStorage.getItem('qa-lobby-refreshes')||0)+1));
       if(action==='android.server.profile'){
         if(sessionStorage.getItem('offline-profile')){bridge.onmessage?.({data:JSON.stringify({id,ok:false,error:'暂时无法核对版本'})});return;}
         value={id:input.server,version:'1.21.1',loader:'neoforge',loaderVersion:'21.1.250',profileState:'fresh',profileSource:'hxzup'};
@@ -103,23 +119,26 @@ try{
     window.TownNative=bridge;
   },{base,token,user});
   await page.goto(origin+'/index.html');
+  await page.getByRole('button',{name:'同意并进入社区'}).waitFor();
+  assert.equal(await page.locator('.town-welcome img,.town-welcome video').count(),0);
   await page.getByRole('button',{name:'阅读隐私政策'}).click();
   await page.getByText('测试协议正文').waitFor();
   await page.getByRole('dialog').getByRole('button',{name:'关闭'}).click();
   await page.getByRole('button',{name:'同意并进入社区'}).click();
   await page.getByRole('heading',{name:'社区大厅',exact:true}).waitFor();
   await page.getByRole('link',{name:/原版生存群组服/}).waitFor();
-  await page.locator('.brand-home img').evaluate(img=>img.decode());
+  assert.equal(await page.locator('.town-shell img, .town-shell video').count(),0,'新安装的大厅保持纯色和文字');
+  assert.deepEqual(initialImages,[],'首次打开不下载配图');
   assert.equal(await page.locator('.town-hall-cover').count(),0,'首次打开使用简洁大厅');
-  await page.locator('.town-server-mark').evaluateAll(imgs=>Promise.all(imgs.map(img=>img.decode())));
+  assert.equal(await page.locator('.town-server-mark svg').count(),3);
   for(const [width,height] of [[320,720],[360,800],[412,915],[800,420]]){
     await page.setViewportSize({width,height});
     const fits=await page.evaluate(()=>{
       const el=document.querySelector('.town-bar'),items=[...el.children].map(c=>c.getBoundingClientRect());
-      const tabs=document.querySelector('nav[aria-label="社区导航"]'),heading=tabs?.closest('header'),title=heading?.querySelector('h1');
-      if(!title||getComputedStyle(tabs).backgroundColor!=='rgba(0, 0, 0, 0)')return false;
+      const tabs=document.querySelector('nav[aria-label="社区导航"]'),title=document.querySelector('.town-lobby h1');
+      if(!title||!tabs)return false;
       const a=title.getBoundingClientRect(),b=tabs.getBoundingClientRect();
-      const separate=a.right<=b.left+1||a.bottom<=b.top+1;
+      const separate=b.bottom<=a.top+1;
       const controls=[...tabs.children].map(c=>c.getBoundingClientRect());
       const brand=el.querySelector('.brand-home strong');
       const bars=document.querySelectorAll('nav[aria-label="主导航"]');if(bars.length!==1)return false;
@@ -134,12 +153,51 @@ try{
     assert.ok(fits,'Android navigation fits '+width+'×'+height);
   }
   await page.setViewportSize({width:390,height:844});
+  const touch=await page.context().newCDPSession(page);
+  async function swipe(x,y,dx,dy){
+    await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y}]});
+    for(const step of [.25,.5,.75,1])await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:x+dx*step,y:y+dy*step}]});
+    await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  }
+  const refreshCount=()=>page.evaluate(()=>Number(sessionStorage.getItem('qa-lobby-refreshes')));
+  const previousRefresh=await refreshCount();
+  await swipe(190,270,60,10);
+  assert.equal(await refreshCount(),previousRefresh,'横向移动不会刷新大厅');
+  await swipe(190,270,0,110);
+  await page.waitForFunction(n=>Number(sessionStorage.getItem('qa-lobby-refreshes'))===n+1,previousRefresh);
+  await page.getByRole('button',{name:'自定义社区大厅'}).click();
+  const sheet=page.getByRole('dialog');
+  await sheet.getByRole('tab',{name:'首页卡片'}).click();
+  const rows=sheet.locator('.town-edit-card');
+  const grip=await rows.first().locator('.town-grip').boundingBox(),target=await rows.nth(1).boundingBox();
+  const x=grip.x+grip.width/2,y=grip.y+grip.height/2;
+  await swipe(x,y,0,target.y+target.height*.65-y);
+  await page.waitForFunction(()=>document.querySelector('.town-edit-card strong')?.textContent==='服务器公告');
+  await sheet.getByRole('button',{name:'恢复默认顺序与显示'}).click();
+  const header=await sheet.locator('header').boundingBox();
+  const sheetBox=await sheet.boundingBox();
+  assert.ok(sheetBox.x<=1&&Math.abs(sheetBox.width-390)<=1&&Math.abs(sheetBox.y+sheetBox.height-844)<=1,'手机面板贴合两侧与底边');
+  await swipe(header.x+header.width/2,header.y+12,0,100);
+  await sheet.waitFor({state:'hidden'});
+  await touch.detach();
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.waitForFunction(()=>document.documentElement.dataset.motion==='off');
-  assert.equal(await page.locator('.town-nav-icon').first().evaluate(el=>getComputedStyle(el,'::before').transitionDuration),'0s');
+  assert.equal(await page.locator('.town-nav-track i').evaluate(el=>getComputedStyle(el).transitionDuration),'0s');
   await page.emulateMedia({reducedMotion:'no-preference'});
   await page.waitForFunction(()=>document.documentElement.dataset.motion==='on');
+  const mainNav=page.getByRole('navigation',{name:'主导航'});
+  await mainNav.getByRole('link',{name:'我的',exact:true}).click();
+  const overlay=page.getByRole('switch',{name:'语音悬浮控件'});
+  await overlay.click();
+  assert.equal(await overlay.getAttribute('aria-checked'),'false','系统尚未授权时保持关闭');
+  await page.evaluate(()=>sessionStorage.setItem('overlay-permission','1'));await overlay.click();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="语音悬浮控件"]').getAttribute('aria-checked')==='true');
+  await page.reload();await overlay.click();
+  await page.waitForFunction(()=>document.querySelector('[aria-label="语音悬浮控件"]').getAttribute('aria-checked')==='false');
+  await page.getByRole('button',{name:'添加',exact:true}).click();await page.getByText('请在桌面确认添加幻想镇小组件。').waitFor();
+  await capture(page,'android-profile.png');
   await page.getByRole('button',{name:'外观与动效',exact:true}).click();
+  await capture(page,'android-appearance.png');
   await page.getByRole('button',{name:'星海观测站'}).click();
   await page.waitForFunction(()=>document.documentElement.dataset.skin==='observatory');
   await page.getByRole('switch',{name:'减少动态效果'}).click();
@@ -154,17 +212,18 @@ try{
   await page.getByRole('button',{name:'小镇微光'}).click();
   assert.equal(await page.evaluate(()=>window.dispatchEvent(new Event('town-back',{cancelable:true}))),false);
   await page.getByRole('dialog',{name:'外观与动效'}).waitFor({state:'hidden'});
+  await mainNav.getByRole('link',{name:'社区',exact:true}).click();
   await checkPersonalization(page);
-  const mainNav=page.getByRole('navigation',{name:'主导航'});
-  await mainNav.getByRole('link',{name:'游戏任务'}).click();
+  await mainNav.getByRole('link',{name:'游戏',exact:true}).click();
+  await page.getByRole('navigation',{name:'游戏内容'}).getByRole('link',{name:'游戏任务'}).click();
   await page.getByRole('heading',{name:'当前没有游戏任务'}).waitFor();
   await mainNav.getByRole('link',{name:'社区'}).click();
-  if(process.env.HXZ_ANDROID_PREVIEW)await page.screenshot({path:path.join(process.env.HXZ_ANDROID_PREVIEW,'android-town-community.png')});
+  await capture(page,'android-town-community.png');
   await page.getByRole('link',{name:/模组一服开服活动/}).click();
   await page.getByRole('heading',{name:'模组一服开服活动'}).waitFor();
   assert.ok(page.url().includes('/town/world/HXZ-mod-1?notice='));
   assert.equal(await page.getByRole('navigation',{name:'社区导航'}).count(),0);
-  const titleGap=await page.locator('.town-world-title').evaluate(header=>header.querySelector('h1').getBoundingClientRect().left-header.querySelector('img').getBoundingClientRect().right);
+  const titleGap=await page.locator('.town-world-title').evaluate(header=>header.querySelector('h1').getBoundingClientRect().left-header.querySelector('.town-server-mark').getBoundingClientRect().right);
   assert.ok(titleGap>=6&&titleGap<=20,'服务器图标与标题应成组排列');
   await page.getByText('1.21.1 · NeoForge · 21.1.250',{exact:true}).waitFor();
   await page.evaluate(()=>sessionStorage.setItem('offline-profile','1'));
@@ -180,10 +239,10 @@ try{
   await page.getByRole('button',{name:'登录并进入服务器'}).click();
   await page.waitForFunction(()=>!!localStorage.getItem('test-joined'));
   assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem('test-joined'))),{server:'HXZ-mod-1',uid});
-  if(process.env.HXZ_ANDROID_PREVIEW)await page.screenshot({path:path.join(process.env.HXZ_ANDROID_PREVIEW,'android-town-select.png')});
+  await capture(page,'android-town-select.png');
   await page.getByRole('button',{name:'测试实例二'}).click();
   await page.getByRole('heading',{name:'正在校验和补全游戏文件'}).waitFor();
-  await page.getByRole('navigation',{name:'主导航'}).getByRole('link',{name:'游戏库'}).click();
+  await mainNav.getByRole('link',{name:'游戏',exact:true}).click();
   await page.getByRole('heading',{name:'正在校验和补全游戏文件'}).waitFor();
   await page.getByRole('button',{name:'取消',exact:true}).click();
   const openOptions=()=>page.getByRole('button',{name:'测试实例 实例设置'}).click();
@@ -271,59 +330,63 @@ try{
   await composer.fill(message);await composer.press('Enter');
   await page.locator('.chat-history').getByText(message,{exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'查看更早的消息'}).count(),0,'新收到的第一条消息之前没有历史记录');
-  await page.getByRole('button',{name:/此刻在线/}).click();
+  const roster=page.getByRole('navigation',{name:'聊天频道'}).getByRole('button',{name:/此刻在线/});
+  await roster.click();
   await page.getByRole('dialog',{name:'此刻在线'}).locator('.person').filter({hasText:name}).waitFor();
   await page.getByRole('dialog').getByRole('button',{name:'关闭'}).click();
   const chatBounds=await page.locator('.chat-main').boundingBox(),statusBounds=await page.locator('.town-nav-bottom').boundingBox();
-  assert.ok(statusBounds.y-(chatBounds.y+chatBounds.height)<42,'聊天卡片应填满可用工作区');
+  assert.ok(Math.abs(statusBounds.y-(chatBounds.y+chatBounds.height))<2,'消息区与底栏无空白层');
+  const inputBounds=await page.locator('.chat-composer').boundingBox();
+  assert.ok(statusBounds.y-inputBounds.y-inputBounds.height<14,'手机输入框靠近底栏');
+  for(const size of [{width:320,height:568},{width:390,height:844}]){
+    await page.setViewportSize(size);
+    assert.ok(await page.locator('.chat-composer-tools .composer-tool,.chat-send,.town-members-slot button').evaluateAll(buttons=>
+      buttons.length>=3&&buttons.every(el=>{const b=el.getBoundingClientRect();return b.height>=47.9&&b.width>=47.9&&b.left>=0&&b.right<=innerWidth+1;})),'窄屏聊天按钮完整且至少 48 CSS 像素');
+  }
   const nav=page.getByRole('navigation',{name:'社区导航'});
-  if(process.env.HXZ_ANDROID_PREVIEW)await page.screenshot({path:path.join(process.env.HXZ_ANDROID_PREVIEW,'android-community-chat.png')});
+  await capture(page,'android-community-chat.png');
+  await mainNav.getByRole('link',{name:'社区',exact:true}).click();
   const directoryButton=nav.getByRole('button',{name:'全部栏目'});
   await directoryButton.click();
-  assert.equal(await page.getByRole('dialog').getByRole('link',{name:'聊天',exact:true}).getAttribute('aria-current'),'page');
-  // Android 11's stock WebView ignores @layer. Keep the portal operable with those rules removed.
-  const layers=await page.evaluateHandle(()=>{
-    const removed=[];
-    for(const sheet of document.styleSheets){
-      for(let i=sheet.cssRules.length-1;i>=0;i--){
-        const rule=sheet.cssRules[i];
-        if(rule instanceof CSSLayerBlockRule){
-          removed.push({sheet,i,text:rule.cssText});
-          sheet.deleteRule(i);
-        }
-      }
-    }
-    return removed;
+  assert.equal(await page.getByRole('dialog').getByRole('link',{name:'聊天',exact:true}).getAttribute('href'),'#/community');
+  const cssFiles=(await fs.readdir(path.join(dir,'assets'))).filter(name=>name.endsWith('.css'));
+  assert.equal(cssFiles.length,1,'手机共享样式在同一层叠顺序中编译');
+  const compiled=await fs.readFile(path.join(dir,'assets',cssFiles[0]),'utf8');
+  assert.doesNotMatch(compiled,/@layer\b/,'旧 WebView 必须能读取所有组件规则');
+  const geometry=await page.getByRole('dialog').evaluate(dialog=>{
+    const rect=dialog.getBoundingClientRect(), shade=document.querySelector('.modal-backdrop').getBoundingClientRect();
+    return {
+      inside:rect.width>0&&rect.height>0&&rect.left>=0&&rect.top>=0&&rect.right<=innerWidth+1&&rect.bottom<=innerHeight+1,
+      covered:shade.left<=0&&shade.top<=0&&shade.right>=innerWidth-1&&shade.bottom>=innerHeight-1
+    };
   });
-  try{
-    const geometry=await page.getByRole('dialog').evaluate(dialog=>{
-      const rect=dialog.getBoundingClientRect(), shade=document.querySelector('.modal-backdrop').getBoundingClientRect();
-      return {
-        inside:rect.width>0&&rect.height>0&&rect.left>=0&&rect.top>=0&&rect.right<=innerWidth+1&&rect.bottom<=innerHeight+1,
-        covered:shade.left<=0&&shade.top<=0&&shade.right>=innerWidth-1&&shade.bottom>=innerHeight-1
-      };
-    });
-    assert.deepEqual(geometry,{inside:true,covered:true},'栏目弹窗和遮罩在旧 WebView 里应位于当前视口');
-    await page.getByRole('dialog').getByRole('button',{name:'关闭'}).click({trial:true});
-  }finally{
-    await layers.evaluate(rows=>rows.reverse().forEach(({sheet,i,text})=>sheet.insertRule(text,i)));
-    await layers.dispose();
-  }
+  assert.deepEqual(geometry,{inside:true,covered:true},'栏目弹窗和遮罩在旧 WebView 里应位于当前视口');
+  await page.getByRole('dialog').getByRole('button',{name:'关闭'}).click({trial:true});
   await page.keyboard.press('Escape');
   await page.waitForFunction(()=>document.activeElement?.getAttribute('aria-label')==='全部栏目');
   await nav.getByRole('link',{name:'论坛',exact:true}).click();
   await page.getByRole('heading',{name:'社区论坛',exact:true}).waitFor();
   for(const [label,section] of [['冒险者协会','.guild-viewport'],['LINKING 档案馆','.archive-viewport'],['积分排行榜','.points-ranking'],['我的积分','.social-content']]){
-    const primary=nav.getByRole('link',{name:label,exact:true});
-    if(label==='积分排行榜')await primary.click();
-    else {
-      await nav.getByRole('button',{name:'全部栏目'}).click();
-      await page.getByRole('dialog').getByRole('link',{name:label,exact:true}).click();
-    }
+    await mainNav.getByRole('link',{name:'社区',exact:true}).click();
+    await nav.getByRole('button',{name:'全部栏目'}).click();
+    await page.getByRole('dialog').getByRole('link',{name:label,exact:true}).click();
     await page.locator(section).waitFor();
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1),true,label+' phone width');
   }
   const insert=service.db.prepare('INSERT INTO messages(channel,uid,name,body,created) VALUES(?,?,?,?,?)');
+  const desktopDevice=await fetch(base+'/api/hub/devices',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body:JSON.stringify({id:'desktop-qa',name:'接续测试电脑',platform:'desktop'})});
+  assert.ok(desktopDevice.ok);
+  await mainNav.getByRole('link',{name:'我的',exact:true}).click();
+  await page.getByRole('link',{name:'多端接续'}).click();
+  await page.getByRole('button',{name:'登记这台手机'}).click();
+  await page.getByText('这台手机',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'发送待办',exact:true}).click();
+  await page.getByRole('button',{name:'模组二服',exact:true}).click();
+  await page.getByRole('button',{name:'发送安装待办'}).click();
+  await page.getByText('安装模组二服',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'取消',exact:true}).click();
+  await page.getByText(/已取消 · 接续测试电脑/).waitFor();
   const seed=n=>insert.run('lobby',uid,name,'记录 '+n,Date.now());
   const count=Number(service.db.prepare("SELECT count(*) AS n FROM messages WHERE channel='lobby'").get().n);
   for(let i=count+1;i<=100;i++)seed(i);

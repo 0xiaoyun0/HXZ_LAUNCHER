@@ -1,14 +1,15 @@
 import {useEffect,useState} from 'react';
 import {Bookmark,ImagePlus,Trash2} from 'lucide-react';
 import {Button,IconButton,Modal,Empty} from './ui';
+import {useContentImages} from './content-images';
 import {request} from './data';
 import {communityMediaURL} from '../../../packages/community/client';
 import {notify,perform} from './model';
 import './chat-media.css';
 
 export function ChatAttachments({items=[]}:{items?:any[]}){
- const [active,setActive]=useState<any>(null);
- return <><div className="chat-attachments">{items.map((item,index)=>item.expired?<small className="chat-media-expired" key={index}>图片已过期</small>:<button key={item.id||index} type="button" className="chat-picture" style={{aspectRatio:Math.min(2,Math.max(.75,item.width/item.height))}} onClick={()=>setActive(item)} aria-label="查看聊天图片"><img src={communityMediaURL(item)} loading="lazy" decoding="async" alt={item.mime==='image/gif'?'聊天动图':'聊天图片'} onError={e=>{e.currentTarget.hidden=true;e.currentTarget.parentElement!.dataset.error='图片未能载入';}}/></button>)}</div><Modal open={!!active} title="聊天图片" onClose={()=>setActive(null)}><div className="chat-lightbox">{active&&<img src={communityMediaURL(active)} alt="聊天图片"/>}</div><Button icon={Bookmark} onClick={()=>perform(async()=>{await request('/api/chat/stickers','POST',{id:active.id});notify('已加入我的表情');})}>收藏为表情</Button></Modal></>;
+ const [active,setActive]=useState<any>(null),previews=useContentImages();
+ return <><div className="chat-attachments">{items.map((item,index)=>item.expired?<small className="chat-media-expired" key={index}>图片已过期</small>:!previews?<button key={item.id||index} className="small-action" onClick={()=>setActive(item)}>查看聊天图片</button>:<button key={item.id||index} type="button" className="chat-picture" style={{aspectRatio:Math.min(2,Math.max(.75,item.width/item.height))}} onClick={()=>setActive(item)} aria-label="查看聊天图片"><img src={communityMediaURL(item)} loading="lazy" decoding="async" alt={item.mime==='image/gif'?'聊天动图':'聊天图片'} onError={e=>{e.currentTarget.hidden=true;e.currentTarget.parentElement!.dataset.error='图片未能载入';}}/></button>)}</div><Modal open={!!active} title="聊天图片" onClose={()=>setActive(null)}><div className="chat-lightbox">{active&&<img src={communityMediaURL(active)} alt="聊天图片"/>}</div><Button icon={Bookmark} onClick={()=>perform(async()=>{await request('/api/chat/stickers','POST',{id:active.id});notify('已加入我的表情');})}>收藏为表情</Button></Modal></>;
 }
 export function SavedStickers({pick,disabled}:{pick:(item:any)=>void;disabled?:boolean}){
  const [items,setItems]=useState<any[]>([]),[error,setError]=useState(''),[loading,setLoading]=useState(true);

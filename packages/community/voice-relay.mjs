@@ -1,6 +1,9 @@
 import captureURL from "./voice-capture.worklet.js?url&no-inline";
 import playbackURL from "./voice-playback.worklet.js?url&no-inline";
 
+let loadFallback;
+export function setVoiceFallback(loader) { loadFallback = loader; }
+
 export function createRelayVoice({ send, onError, canTransmit = () => true, onActivity = (id) => {} }) {
   let context,
     input,
@@ -13,6 +16,7 @@ export function createRelayVoice({ send, onError, canTransmit = () => true, onAc
     musicInput,
     musicGain,
     encoder,
+    fallback,
     codecConfig,
     disposed = false,
     muted = false,
@@ -25,17 +29,24 @@ export function createRelayVoice({ send, onError, canTransmit = () => true, onAc
     peers = new Map();
   function remove(id) {
     const peer = peers.get(id);
-    if (peer?.decoder.state !== "closed") peer?.decoder.close();
+    if (peer && peer.decoder.state !== "closed") peer.decoder.close();
     peers.delete(id);
     playback?.port.postMessage({ remove: id });
   }
+  function sendPacket(size,copy) {
+    if (disposed || (muted && !musicInput) || size > 4000) return;
+    if(!musicInput && size<=3){const now=performance.now();if(now-lastSilence<400)return;lastSilence=now;}
+    const bytes = new Uint8Array(9+size), header=new DataView(bytes.buffer);
+    bytes[0]=1; header.setUint32(1,epoch); header.setUint32(5,sequence++);
+    copy(bytes.subarray(9)); send(bytes.buffer);
+  }
+  function playSamples(id,samples) {
+    if(disposed||deafened||!playback)return;
+    activity(id,samples);
+    playback.port.postMessage({id,samples},[samples.buffer]);
+  }
   return {
     async start(stream) {
-      if (
-        typeof AudioEncoder === "undefined" ||
-        typeof AudioDecoder === "undefined"
-      )
-        throw Error("当前运行环境不支持语音，请使用新版桌面启动器");
       const config = {
         codec: "opus",
         sampleRate: 48000,
@@ -50,8 +61,14 @@ export function createRelayVoice({ send, onError, canTransmit = () => true, onAc
         }
       };
       codecConfig=config;
-      if (!(await AudioEncoder.isConfigSupported(config)).supported)
-        throw Error("当前设备不支持语音编码");
+      const native = typeof AudioEncoder !== 'undefined' && typeof AudioDecoder !== 'undefined'
+        && (await AudioEncoder.isConfigSupported(config)).supported
+        && (await AudioDecoder.isConfigSupported(config)).supported;
+      if (!native) {
+        if (!loadFallback) throw Error("当前运行环境不支持语音编码，请更新系统 WebView 后重试。");
+        fallback = await loadFallback();
+        if(disposed){fallback.close();return;}
+      }
       if (disposed) return;
       context = new AudioContext({
         sampleRate: 48000,
@@ -68,34 +85,32 @@ export function createRelayVoice({ send, onError, canTransmit = () => true, onAc
         outputChannelCount: [1]
       });
       playback.connect(context.destination);
-      encoder = new AudioEncoder({
+      if (!fallback) {
+        encoder = new AudioEncoder({
         error: e => {
           if (!disposed) onError(e);
         },
-        output: chunk => {
-          if (disposed || (muted && !musicInput) || chunk.byteLength > 4000) return;
-          if(!musicInput&&chunk.byteLength<=3){const now=performance.now();if(now-lastSilence<400)return;lastSilence=now;}
-          const bytes = new Uint8Array(9 + chunk.byteLength),
-            view = new DataView(bytes.buffer);
-          bytes[0] = 1;
-          view.setUint32(1, epoch);
-          view.setUint32(5, sequence++);
-          chunk.copyTo(bytes.subarray(9));
-          send(bytes.buffer);
-        }
-      });
-      encoder.configure(config);
+          output: chunk => sendPacket(chunk.byteLength, dest=>chunk.copyTo(dest))
+        });
+        encoder.configure(config);
+      }
       capture = new AudioWorkletNode(context, "hxz-voice-capture");
       capture.port.onmessage = ({ data }) => {
         capture.port.postMessage("consumed");
         if (
           disposed ||
           (muted && !musicInput) ||
-          encoder.state !== "configured" ||
-          encoder.encodeQueueSize > 5
+          (!fallback && (encoder.state !== "configured" || encoder.encodeQueueSize > 5))
         )
           return;
         if(!muted&&canTransmit())activity('self',data);
+        if(fallback){
+          try {
+            const packet=fallback.encode(data);
+            sendPacket(packet.byteLength,dest=>dest.set(packet));
+          } catch(error){onError(error);}
+          return;
+        }
         const frame = new AudioData({
           format: "f32-planar",
           sampleRate: 48000,
@@ -145,24 +160,21 @@ export function createRelayVoice({ send, onError, canTransmit = () => true, onAc
       }
       if (!peer) {
         if (peers.size >= 49) return;
-        const decoder = new AudioDecoder({
-          error: e => {
-            remove(id);
-            if (!disposed) onError(e);
-          },
+        const fail=e=>{remove(id);if(!disposed)onError(e);};
+        const decoder = fallback ? fallback.decoder(samples=>playSamples(id,samples),fail) : new AudioDecoder({
+          error: fail,
           output: frame => {
             try {
               if (disposed || deafened) return;
               const samples = new Float32Array(frame.numberOfFrames);
               frame.copyTo(samples, { planeIndex: 0, format: "f32-planar" });
-              activity(id,samples);
-              playback.port.postMessage({ id, samples }, [samples.buffer]);
+              playSamples(id,samples);
             } finally {
               frame.close();
             }
           }
         });
-        decoder.configure({
+        if(!fallback)decoder.configure({
           codec: "opus",
           sampleRate: 48000,
           numberOfChannels: 1
@@ -173,7 +185,8 @@ export function createRelayVoice({ send, onError, canTransmit = () => true, onAc
       if (seq <= peer.seq || peer.decoder.decodeQueueSize > 6) return;
       peer.seq = seq;
       try {
-        peer.decoder.decode(
+        if(fallback)peer.decoder.decode(bytes.subarray(45));
+        else peer.decoder.decode(
           new EncodedAudioChunk({
             type: "key",
             timestamp: seq * 20000,
@@ -202,6 +215,7 @@ export function createRelayVoice({ send, onError, canTransmit = () => true, onAc
     music(stream) {
       musicInput?.disconnect();musicGain?.disconnect();musicInput=null;musicGain=null;
       if(stream&&context&&capture){musicInput=context.createMediaStreamSource(stream);musicGain=context.createGain();musicGain.gain.value=.65;musicInput.connect(musicGain);musicGain.connect(capture);}
+      fallback?.music(!!stream);
       if(encoder?.state==='configured')encoder.configure({...codecConfig,bitrate:stream?64000:24000,opus:{...codecConfig.opus,application:stream?'audio':'voip',usedtx:!stream}});
     },
     deafen(value) {
@@ -222,6 +236,7 @@ export function createRelayVoice({ send, onError, canTransmit = () => true, onAc
       playback?.disconnect();
       playback?.port.close();
       if (encoder && encoder.state !== "closed") encoder.close();
+      fallback?.close();fallback=null;
       for (const id of peers.keys()) remove(id);
       if (context && context.state !== "closed")
         void context.close().catch(() => {});

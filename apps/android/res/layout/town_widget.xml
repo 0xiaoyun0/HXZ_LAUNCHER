@@ -1,0 +1,19 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:gravity="center_vertical"
+    android:paddingStart="12dp" android:paddingEnd="12dp" android:background="@drawable/town_widget_surface">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView android:id="@+id/town_widget_home" style="@style/TownWidgetAction"
+            android:layout_weight="2" android:gravity="center_vertical" android:text="幻想镇社区"
+            android:textColor="@color/town_widget_ink" android:textStyle="bold" android:textSize="16sp"/>
+        <TextView android:id="@+id/town_widget_devices" style="@style/TownWidgetAction" android:text="接续"/>
+        <TextView android:id="@+id/town_widget_events" style="@style/TownWidgetAction" android:text="活动"/>
+    </LinearLayout>
+    <TextView android:id="@+id/town_widget_summary" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:maxLines="1" android:ellipsize="end" android:text="上次在线人数尚未记录" android:textColor="@color/town_widget_ink" android:textSize="12sp"/>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView android:id="@+id/town_widget_chat" style="@style/TownWidgetAction" android:text="聊天"/>
+        <TextView android:id="@+id/town_widget_voice" style="@style/TownWidgetAction" android:text="语音房"/>
+        <TextView android:id="@+id/town_widget_inbox" style="@style/TownWidgetAction" android:text="收件箱"/>
+    </LinearLayout>
+</LinearLayout>

@@ -4,6 +4,8 @@ import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {build} from 'vite';
 import React from '@vitejs/plugin-react';
+import postcss from 'postcss';
+import cascadeLayers from '@csstools/postcss-cascade-layers';
 import {verifyApk,verifyReleaseApk} from './verify-apk.mjs';
 import {androidVersionCode} from './release-info.mjs';
 import {DEFAULT_SERVERS} from '../../server/shared/server-presets.mjs';
@@ -37,7 +39,19 @@ for(const [cwd,script] of [[root,'scripts/build-linking-story-preview081.mjs'],[
   const result=spawnSync(process.execPath,[script],{cwd,stdio:'inherit',windowsHide:true});
   if(result.status!==0)throw Error('准备 LINKING 资源失败');
 }
-await build({root:path.join(app,'community'),base:'./',publicDir:false,configFile:false,plugins:[React()],build:{outDir:town,emptyOutDir:true,target:'chrome80'}});
+// Flatten once after Vite combines shared and lazy styles. Resolving each source separately changes their cascade.
+const mobileLayers={
+  name:'town-android-cascade',
+  generateBundle:{order:'post',async handler(_,bundle){
+    for(const asset of Object.values(bundle)){
+      if(asset.type!=='asset'||!asset.fileName.endsWith('.css'))continue;
+      const input=typeof asset.source==='string'?asset.source:Buffer.from(asset.source).toString('utf8');
+      asset.source=(await postcss([cascadeLayers()]).process(input,{from:asset.fileName,map:false})).css;
+    }
+  }}
+};
+await build({root:path.join(app,'community'),base:'./',publicDir:false,configFile:false,plugins:[React(),mobileLayers],
+  build:{outDir:town,emptyOutDir:true,target:'chrome80',cssTarget:'chrome80',cssCodeSplit:false}});
 await build({root:archive,configFile:path.join(archive,'vite.config.ts'),plugins:[{
   name:'town-android-linking',enforce:'pre',
   transform(code,id){
@@ -47,9 +61,12 @@ await build({root:archive,configFile:path.join(archive,'vite.config.ts'),plugins
   }
 }],build:{outDir:path.join(town,'linking'),emptyOutDir:true,target:'chrome80',cssTarget:'chrome80'}});
 await cp(path.join(root,'public/media/games'),path.join(town,'media/games'),{recursive:true});
-await cp(path.join(root,'public/media/town'),path.join(town,'media/town'),{recursive:true});
-await copyFile(path.join(root,'public/media/brand/launcher.svg'),path.join(town,'town-mark.svg'));
+// Preserve the hall photo only for players who selected it in an earlier build.
+await mkdir(path.join(town,'media/town'),{recursive:true});
+await copyFile(path.join(root,'public/media/town/town-hall.webp'),path.join(town,'media/town/town-hall.webp'));
 await copyFile(path.join(source,'LICENSE'),path.join(town,'FCL-LICENSE.txt'));
+const opus=path.join(root,'node_modules','libopus-wasm');
+await writeFile(path.join(town,'OPUS-LICENSE.txt'),(await readFile(path.join(opus,'LICENSE'),'utf8'))+'\n'+(await readFile(path.join(opus,'THIRD_PARTY_NOTICES.md'),'utf8')));
 await writeFile(path.join(town,'server-presets.json'),JSON.stringify(DEFAULT_SERVERS.map(({id,group,name,address,version,loader,loaderVersion,enabled,profileSource,updateUrls,updateRequired,packageUrl,packageSha256})=>({id,group,name,address,version,loader,loaderVersion,enabled,profileSource,updateUrls,updateRequired,packageUrl,packageSha256}))));
 await writeFile(path.join(town,'source.json'),JSON.stringify({upstream:pin,version,changes:'apps/android/fcl.patch',license:'GPL-3.0-or-later'}));
 if(process.argv.includes('--prepare'))process.exit(0);

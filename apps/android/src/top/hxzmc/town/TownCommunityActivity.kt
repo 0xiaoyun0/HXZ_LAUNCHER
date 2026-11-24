@@ -1,5 +1,7 @@
 package top.hxzmc.town
 
+import top.hxzmc.community.CommunityWidget as TownWidget
+
 import android.Manifest
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
@@ -42,6 +44,11 @@ class TownCommunityActivity : FragmentActivity() {
     private data class Save(val port: Reply, val id: Int, val document: TownFiles.Document)
     private var save: Save? = null
     private var handlingBack = false
+    private var widgetRoute: String? = null
+    private val deviceTools by lazy { TownDeviceTools(this) { name, args ->
+        if (::view.isInitialized && !isDestroyed && view.url?.substringBefore('#') == origin + "/index.html")
+            view.evaluateJavascript("window.dispatchEvent(new CustomEvent(" + JSONObject.quote(name) + ",{detail:" + args.toString() + "}))", null)
+    } }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,6 +56,7 @@ class TownCommunityActivity : FragmentActivity() {
         // The game activity owns immersive mode. The community uses normal Android system bars.
         window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_FULLSCREEN or
             android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_STATUS or android.view.WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         applySystemBars(getSharedPreferences("town-appearance", MODE_PRIVATE).getString("skin", "town"))
         val loader = WebViewAssetLoader.Builder().addPathHandler("/") { asset ->
             val missing = { WebResourceResponse("text/plain", "UTF-8", 404, "Missing", emptyMap(), ByteArrayInputStream(byteArrayOf())) }
@@ -67,6 +75,17 @@ class TownCommunityActivity : FragmentActivity() {
         }.build()
         view = WebView(this)
         setContentView(view)
+        var keyboardVisible = false
+        view.viewTreeObserver.addOnGlobalLayoutListener {
+            val insets = androidx.core.view.ViewCompat.getRootWindowInsets(view)
+            val visible = insets?.isVisible(androidx.core.view.WindowInsetsCompat.Type.ime()) == true
+            if (visible != keyboardVisible) {
+                keyboardVisible = visible
+                if (view.url?.substringBefore('#') == origin + "/index.html") {
+                    view.evaluateJavascript("document.documentElement.toggleAttribute('data-ime', $visible)", null)
+                }
+            }
+        }
         with(view.settings) {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -86,6 +105,7 @@ class TownCommunityActivity : FragmentActivity() {
         view.webViewClient = object : WebViewClient() {
             override fun onPageStarted(v: WebView, url: String, icon: android.graphics.Bitmap?) {
                 document++
+                deviceTools.resetVoice()
                 channel?.close()
                 channel = null
             }
@@ -128,7 +148,10 @@ class TownCommunityActivity : FragmentActivity() {
                 return true
             }
         }
-        val lastPath = savedInstanceState?.getString("town-route")?.takeIf { it.startsWith("#/") && it.length < 800 } ?: if (incomingPack != null) "#/town/games" else "#/town"
+        widgetRoute = TownWidget.consumeRoute(intent) ?: savedInstanceState?.getString("town-widget-route")
+        val lastPath = widgetRoute?.let { "#" + it }
+            ?: savedInstanceState?.getString("town-route")?.takeIf { it.startsWith("#/") && it.length < 800 }
+            ?: if (incomingPack != null) "#/town/games" else "#/town"
         view.loadUrl(origin + "/index.html" + lastPath)
     }
 
@@ -162,6 +185,17 @@ class TownCommunityActivity : FragmentActivity() {
         if (action == "android.close") { finish(); return }
         if (!LegalAgreement.isAccepted(this)) { reply(port,id,error="阅读并同意使用协议后即可进入社区。"); return }
         when (action) {
+            "android.widget.target" -> { val path = widgetRoute.orEmpty(); widgetRoute = null; reply(port, id, path) }
+            "android.device.tools","android.widget.pin","android.widget.presence","android.voice.overlay","android.voice.status" -> try {
+                val result = when (action) {
+                    "android.widget.pin" -> deviceTools.pin()
+                    "android.widget.presence" -> { TownWidget.observe(this, args.optInt("online", -1)); true }
+                    "android.voice.overlay" -> deviceTools.overlay(args.getBoolean("enabled"))
+                    "android.voice.status" -> { deviceTools.snapshot(args); true }
+                    else -> deviceTools.tools()
+                }
+                reply(port,id,result)
+            } catch (_: Exception) { reply(port,id,error="系统没有完成这次操作，请检查桌面或悬浮窗权限后重试。") }
             "android.appearance.bars" -> {
                 val skin = args.optString("skin")
                 if (skin !in setOf("town","observatory","paper")) { reply(port,id,error="该外观方案不存在。"); return }
@@ -284,6 +318,11 @@ class TownCommunityActivity : FragmentActivity() {
 
     override fun onNewIntent(value: Intent) {
         super.onNewIntent(value)
+        setIntent(value)
+        TownWidget.consumeRoute(value)?.let { path ->
+            widgetRoute = path
+            view.evaluateJavascript("window.dispatchEvent(new Event('town-widget'))", null)
+        }
         importUri(value)?.let { incomingPack=it; view.evaluateJavascript("location.hash='/town/games'",null) }
     }
     suspend fun takePack(): Uri? {
@@ -340,16 +379,19 @@ class TownCommunityActivity : FragmentActivity() {
         picker?.onReceiveValue(uris); picker = null
     }
     override fun onPause() {
+        deviceTools.pause()
         if (::view.isInitialized) view.evaluateJavascript("window.dispatchEvent(new Event('town-pause'))", null)
         super.onPause()
     }
     override fun onResume() {
         super.onResume()
+        deviceTools.resume()
         games.returned()
         if (::view.isInitialized) view.evaluateJavascript("window.dispatchEvent(new Event('town-resume'))", null)
     }
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
+        widgetRoute?.let { outState.putString("town-widget-route", it) }
         if (::view.isInitialized) view.url?.substringAfter('#', "")?.takeIf { it.startsWith('/') }?.let { outState.putString("town-route", "#" + it) }
     }
     @Deprecated("Uses WebView navigation history")
@@ -364,6 +406,7 @@ class TownCommunityActivity : FragmentActivity() {
         }
     }
     override fun onDestroy() {
+        deviceTools.close()
         packPicker?.cancel()
         publicNetwork.shutdownNow()
         if (!::view.isInitialized) { io.shutdown(); super.onDestroy(); return }

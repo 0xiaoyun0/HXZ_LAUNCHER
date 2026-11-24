@@ -15,14 +15,19 @@ export async function checkSharedPlay(page,service,base,player,adminToken){
   service.db.prepare('INSERT INTO playtime_accounts(uid,milliseconds,awarded) VALUES(?,?,0)').run(player.uid,86400000-1000);
   await poll();
   const main=page.getByRole('navigation',{name:'主导航'});
-  await main.getByRole('link',{name:'小游戏',exact:true}).click();
+  await main.getByRole('link',{name:'游戏',exact:true}).click();
+  await page.getByRole('navigation',{name:'游戏内容'}).getByRole('link',{name:'小游戏',exact:true}).click();
   const shelf=page.locator('.game-catalog-card');
   await shelf.first().waitFor();
   assert.equal(await shelf.count(),24);
+  assert.equal(await page.locator('.game-lobby img').count(),0,'默认不加载小游戏封面');
+  await page.getByRole('button',{name:'显示封面',exact:true}).click();
+  assert.equal(await shelf.locator('img').count(),24);
   await shelf.locator('img').evaluateAll(images=>Promise.all(images.map(async image=>{
     image.loading='eager';await image.decode();if(!image.naturalWidth)throw Error('小游戏封面为空');
   })));
-  await page.locator('.game-runner .game-catalog-cover').click();
+  await page.getByRole('button',{name:'收起封面',exact:true}).click();
+  await page.locator('.game-runner').getByRole('button',{name:'开始挑战'}).click();
   await page.getByRole('button',{name:'开始游戏',exact:true}).click();
   await page.getByText('社区计分',{exact:true}).waitFor();
   await page.waitForFunction(()=>Number(document.querySelector('.game-score>b')?.textContent.replaceAll(',',''))>0);
@@ -35,7 +40,7 @@ export async function checkSharedPlay(page,service,base,player,adminToken){
     await route.abort('connectionreset');
   },{times:1});
   const finish=page.waitForResponse(r=>r.url().endsWith('/api/arcade/runner/finish')&&r.request().method()==='POST');
-  await main.getByRole('link',{name:'小游戏',exact:true}).click();
+  await page.evaluate(()=>window.dispatchEvent(new Event('town-back',{cancelable:true})));
   await page.getByRole('dialog').getByRole('button',{name:'结算并离开'}).click();
   await page.getByRole('dialog').getByRole('button',{name:'重试提交'}).click();
   const ack=await finish;assert.equal(ack.status(),200);
@@ -54,11 +59,13 @@ export async function checkSharedPlay(page,service,base,player,adminToken){
   await page.getByRole('link',{name:'我的积分',exact:true}).click();
   await page.waitForFunction(expected=>document.querySelector('.wallet-balance strong')?.textContent===expected,wallet.balance);
   const nav=page.getByRole('navigation',{name:'社区导航'});
+  await main.getByRole('link',{name:'社区',exact:true}).click();
   await nav.getByRole('button',{name:'全部栏目'}).click();
   await page.getByRole('dialog').getByRole('link',{name:'服务器在线记录'}).click();
   await page.getByText('累计获得 5 积分',{exact:true}).waitFor();
   assert.equal(await page.getByRole('button',{name:'本机游玩'}).count(),0);
   console.log('手机端 24 款小游戏、封面、计分对局、断流重试去重，两份角色会话的在线记录、排行榜及 5 积分账本一致。');
+  await main.getByRole('link',{name:'社区',exact:true}).click();
   await nav.getByRole('button',{name:'全部栏目'}).click();
   const directory=page.getByRole('dialog',{name:'社区栏目'});
   const columns=await directory.getByRole('link').evaluateAll(links=>links.map(link=>({label:link.textContent.trim(),hash:link.hash})));
