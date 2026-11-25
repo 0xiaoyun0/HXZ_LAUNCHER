@@ -3,16 +3,21 @@ import {createReadStream} from 'node:fs';
 import {pipeline} from 'node:stream/promises';
 import path from 'node:path';
 import pkg from '../../../package.json' with {type:'json'};
+import {androidRelease,apkName} from '../../android/release-info.mjs';
 const {version}=pkg, base='HXZ-3rd-'+version;
+const android=androidRelease(pkg);
 const files=[
  ...['x64','ia32'].flatMap(arch=>[base+'-setup-'+arch+'.exe',base+'-windows-'+arch+'.zip','updates/HXZ-Launcher-'+version+'-'+arch+'.exe']),
  ...['Community','Music','Arcade'].map(id=>'extensions/HXZ-'+id+'-Plugin-'+version+'.zip'),
- 'updates/latest.json','updates/latest-ia32.json','android/HXZ-FCL-'+version+'-arm64-v8a-release.apk','SHA256SUMS.txt'
+ 'updates/latest.json','updates/latest-ia32.json','android/'+apkName(android,'arm64-v8a'),'SHA256SUMS.txt'
 ];
 async function shipped(){
- const dirs=process.env.HXZ3_RELEASE_DIR?[path.resolve(process.env.HXZ3_RELEASE_DIR)]:[path.resolve(import.meta.dirname,'../../..'),path.resolve(import.meta.dirname,'../../../release',version)];
+ const root=path.resolve(import.meta.dirname,'../../..');
  const list=[];
  for(const rel of files){const name=path.basename(rel);
+   const isAndroid=rel.startsWith('android/');
+   const dirs=process.env.HXZ3_RELEASE_DIR?[path.resolve(process.env.HXZ3_RELEASE_DIR)]:
+     isAndroid?[path.resolve(root,'release',android.id),path.resolve(root,'..',android.id),root]:[root,path.resolve(root,'release',version)];
    for(const dir of dirs){const absolute=path.join(dir,rel),stat=await fs.stat(absolute).catch(()=>null);if(stat?.isFile()){list.push({name,absolute,size:stat.size,url:'/api/release-file/'+name});break;}}
  }
  return list;

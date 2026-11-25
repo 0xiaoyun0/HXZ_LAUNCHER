@@ -1,6 +1,11 @@
 {
   "name": "hxz-third",
   "version": "0.10.1",
+  "androidBuild": {
+    "version": "0.10.0",
+    "number": 2,
+    "versionCode": 100101
+  },
   "private": true,
   "type": "module",
   "description": "幻想镇 3rd · Rust / WebView2 桌面启动器",

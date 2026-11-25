@@ -38,8 +38,10 @@
 
 社区样式在打包时按完整的层叠顺序合并，Android 11 自带的 WebView 也能应用按钮、表单和弹窗样式。系统键盘展开时会收起底栏，输入框和发送按钮留在键盘上方。
 
-0.10.1 的社区前台每六小时检查一次签名清单。「我的 → 应用更新」提供即时检查和非计费网络自动下载开关。下载交给 Android，在提交给系统安装器前核对文件大小、SHA-256、包名、版本、ABI 与原安装证书。已装 0.10.0 的玩家也可从正式发布页覆盖安装。
+0.10.0 构建 2 起，社区在前台每六小时检查一次签名清单。「我的 → 应用更新」可以立即检查，也可以关闭非计费网络自动下载。Android 下载完成后，应用核对文件大小、SHA-256、包名、显示版本、安装序号、ABI 和原安装证书，再打开系统安装界面。初版 0.10.0 和曾以 0.10.1 发布的安装包需要先从正式发布页手动覆盖安装一次。
 
-只发安卓时，用正式密钥构建并验证两种 APK，提交源码后运行 `node scripts/prepare-android-draft.mjs`。附件目录为 `release/<版本>/github-android`。该脚本签发 `android-fcl-latest.json`，从当前正式版逐字节继承 Windows、社区服务、旧安卓和游戏运行时的签名清单。全平台发布使用 `scripts/prepare-windows-draft.mjs --android`。GitHub 草稿的附件全部通过摘要校验后才设为最新正式版。0.10.0 的安卓更新器匹配正式标签和同版本的 `HXZ-FCL-<版本>-<ABI>-release.apk`。
+根目录 `package.json` 的 `androidBuild.version` 指定安卓产品版本。只发手机更新时，增加 `androidBuild.number`，并使用高于所有已发布 APK 的 `androidBuild.versionCode`。桌面版本由独立的顶层 `version` 管理。手机的系统设置显示为 `0.10.0+2`，应用内显示为「0.10.0 · 构建 2」。两个安卓架构共用同一组版本信息。
+
+只发安卓时，用正式密钥构建并验证两种 APK，提交源码后运行 `node scripts/prepare-android-draft.mjs`。附件目录为 `release/<版本>-build.<构建号>/github-android`，Git 标签为 `v<版本>-build.<构建号>`。脚本签发 `android-build-latest.json`，与上次上线的安装序号比较，并沿用 Windows、社区服务、旧安卓和游戏运行时的签名清单。全平台发布使用 `scripts/prepare-windows-draft.mjs --android`。核对草稿中所有附件的摘要后，再设为 GitHub 最新正式版。
 
 构建后运行 `node apps/android/verify-apk.mjs` 检查两种 APK 内的架构、四套 JRE、JNI、LWJGL、触控和上游版本记录。`npm run test:android:community` 启动临时社区服务，检查横竖屏的导航、图标和点击区域，并在 390×844 的浏览器视口验证从公告选服、取消登录、选择实例、查看和取消下载、聊天收发和在线名单、论坛、冒险者协会、LINKING、排行与钱包。同一测试会逐个打开 22 个社区栏目、解码游戏厅的 24 张封面、实际开始一局计分游戏，模拟丢失结算回包，并通过另一会话核对时长奖励、积分余额和榜单。它复用 APK 的网页构建产物。设备验收应从社区公告进服，核对服务器接收的角色，退出游戏并重开应用，检查角色和社区内容。单人世界从「游戏库」启动游戏，在游戏内创建或载入世界，保存退出后回到社区。

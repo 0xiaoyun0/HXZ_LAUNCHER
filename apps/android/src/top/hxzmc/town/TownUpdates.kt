@@ -37,13 +37,14 @@ internal class TownAppUpdates(private val host: TownCommunityActivity) {
     private var monitor: Job? = null
     private var dialog: AlertDialog? = null
     private var prompted = 0
+    private val installedLabel get() = BuildConfig.VERSION_NAME.replace("+", " · 构建 ")
 
     fun options(enabled: Boolean? = null): JSONObject {
         if (enabled != null) {
             prefs.edit().putBoolean("unmetered", enabled).apply()
             if (!enabled && prefs.getBoolean("automaticTask", false) && id >= 0) forgetDownload()
         }
-        return JSONObject().put("unmetered", auto).put("version", BuildConfig.VERSION_NAME).put("official", host.packageName == RELEASE_PACKAGE)
+        return JSONObject().put("unmetered", auto).put("version", installedLabel).put("official", host.packageName == RELEASE_PACKAGE)
     }
 
     fun resume() {
@@ -96,7 +97,7 @@ internal class TownAppUpdates(private val host: TownCommunityActivity) {
                 if (release.code <= BuildConfig.VERSION_CODE) {
                     forgetDownload()
                     dir.listFiles()?.filter { it.isFile }?.forEach { it.delete() }
-                    if (manualPending && foreground) toast("当前已是最新版本 " + BuildConfig.VERSION_NAME)
+                    if (manualPending && foreground) toast("当前已是最新版本 " + installedLabel)
                 } else if (foreground) handle(release)
             } catch (e: kotlinx.coroutines.CancellationException) { throw e }
             catch (_: Exception) {
@@ -114,7 +115,7 @@ internal class TownAppUpdates(private val host: TownCommunityActivity) {
             }
             if (manualPending || prompted != release.code) {
                 prompted = release.code
-                show("幻想镇 " + release.version, "更新已下载，可覆盖安装并保留应用数据。", "安装更新") { install(release, file) }
+                show("幻想镇 " + release.label, "更新已下载，可覆盖安装并保留应用数据。", "安装更新") { install(release, file) }
             }
             return
         }
@@ -153,7 +154,7 @@ internal class TownAppUpdates(private val host: TownCommunityActivity) {
                     if (foreground) handle(release)
                 }
                 DownloadManager.STATUS_PENDING, DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PAUSED ->
-                    if (manualPending && foreground) show("正在下载 " + release.version, "可以离开此页，系统会在网络可用时继续。", "暂停下载") {
+                    if (manualPending && foreground) show("正在下载 " + release.label, "可以离开此页，系统会在网络可用时继续。", "暂停下载") {
                         prefs.edit().putInt("hold", release.code).apply(); forgetDownload()
                     }
                 else -> { forgetDownload(); failed(release, "下载中断，请检查网络和可用空间后重试。") }
@@ -166,7 +167,7 @@ internal class TownAppUpdates(private val host: TownCommunityActivity) {
         if (auto && !held && unmetered) { enqueue(release, true); return }
         if (manualPending || (!held && prompted != release.code)) {
             prompted = release.code
-            show("发现幻想镇 " + release.version, "安装包约 ${(release.size + 1048575) / 1048576} MiB，将使用当前网络下载。", "下载更新") { enqueue(release, false) }
+            show("发现幻想镇 " + release.label, "安装包约 ${(release.size + 1048575) / 1048576} MiB，将使用当前网络下载。", "下载更新") { enqueue(release, false) }
         }
     }
 
@@ -175,7 +176,7 @@ internal class TownAppUpdates(private val host: TownCommunityActivity) {
         try {
             val prefix = if (prefs.getBoolean("alternate", false)) UPDATE_MIRROR else prefs.getString("prefix", "").orEmpty()
             val request = DownloadManager.Request(Uri.parse(prefix + release.url))
-                .setTitle("幻想镇 " + release.version).setDescription("下载应用更新")
+                .setTitle("幻想镇 " + release.label).setDescription("下载应用更新")
                 .setMimeType("application/vnd.android.package-archive")
                 .setAllowedOverMetered(!automatic).setAllowedOverRoaming(!automatic)
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)

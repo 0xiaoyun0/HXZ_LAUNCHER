@@ -9,6 +9,9 @@ import {chromium} from 'playwright-core';
 import {createCommunity} from '../community-server/src/server.mjs';
 import {checkPersonalization} from './tests/check-personalization.mjs';
 import {checkSharedPlay} from './tests/check-shared-play.mjs';
+import {androidRelease} from './release-info.mjs';
+const android=androidRelease(JSON.parse(await fs.readFile(new URL('../../package.json',import.meta.url))));
+const versionLabel=android.version+' · 构建 '+android.build;
 
 // Windows can assign a browser-blocked low port when asked for port zero.
 async function listenForBrowser(server){
@@ -61,7 +64,7 @@ try{
   page.on('request',request=>{if(request.resourceType()==='image'&&new URL(request.url()).protocol.startsWith('http'))initialImages.push(request.url());});
   const noticeId=randomUUID();
   service.db.prepare('INSERT INTO notices VALUES(?,?,?,?,?,?)').run(noticeId,'mod-1','模组一服开服活动','从本公告进入模组一服。',name,Date.now());
-  await page.addInitScript(({base,token,user})=>{
+  await page.addInitScript(({base,token,user,versionLabel})=>{
     const bridge=new EventTarget();
     bridge.postMessage=async data=>{
       const {id,action,input}=JSON.parse(data);
@@ -73,7 +76,7 @@ try{
       if(action==='android.legal.accept'){localStorage.setItem('accepted','yes');value=true;}
       if(action==='android.update.options'){
         if(typeof input.unmetered==='boolean')localStorage.setItem('unmetered',String(input.unmetered));
-        value={version:'0.10.1',unmetered:localStorage.getItem('unmetered')!=='false',official:true};
+        value={version:versionLabel,unmetered:localStorage.getItem('unmetered')!=='false',official:true};
       }
       if(action==='android.update.check'){sessionStorage.setItem('manual-update','requested');value=true;}
       if(['android.device.tools','android.voice.overlay','android.widget.pin'].includes(action)){
@@ -122,7 +125,7 @@ try{
       bridge.onmessage?.({data:JSON.stringify({id,ok:value!==undefined,value})});
     };
     window.TownNative=bridge;
-  },{base,token,user});
+  },{base,token,user,versionLabel});
   await page.goto(origin+'/index.html');
   await page.getByRole('button',{name:'同意并进入社区'}).waitFor();
   assert.equal(await page.locator('.town-welcome img,.town-welcome video').count(),0);
@@ -201,6 +204,7 @@ try{
   await page.waitForFunction(()=>document.querySelector('[aria-label="语音悬浮控件"]').getAttribute('aria-checked')==='false');
   await page.getByRole('button',{name:'添加',exact:true}).click();await page.getByText('请在桌面确认添加幻想镇小组件。').waitFor();
   const unmetered=page.getByRole('switch',{name:'自动下载更新'});
+  await page.getByText('幻想镇 '+versionLabel,{exact:true}).waitFor();
   await unmetered.click();await page.reload();
   await page.waitForFunction(()=>document.querySelector('[aria-label="自动下载更新"]')?.getAttribute('aria-checked')==='false');
   await unmetered.click();

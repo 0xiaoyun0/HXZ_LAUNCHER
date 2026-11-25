@@ -8,14 +8,14 @@
 | --- | --- |
 | 大多数 Windows 电脑 | [Windows x64 · 0.10.0](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-Launcher-0.10.0-x64.exe) |
 | 32 位 Windows | [Windows x86（32 位）· 0.10.0](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0/HXZ-Launcher-0.10.0-ia32.exe) |
-| 64 位安卓手机或平板 | [Android ARM64 · 0.10.1](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.1/HXZ-FCL-0.10.1-arm64-v8a-release.apk) |
-| x86_64 安卓设备或模拟器 | [Android x86_64 · 0.10.1](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.1/HXZ-FCL-0.10.1-x86_64-release.apk) |
+| 64 位安卓手机或平板 | [Android ARM64 · 0.10.0 构建 2](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0-build.2/HXZ-FCL-0.10.0-build.2-arm64-v8a-release.apk) |
+| x86_64 安卓设备或模拟器 | [Android x86_64 · 0.10.0 构建 2](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/download/v0.10.0-build.2/HXZ-FCL-0.10.0-build.2-x86_64-release.apk) |
 
 Windows 安装后，从桌面的「幻想镇 3rd」打开。便携版和可选扩展见 [Windows 正式版下载页](https://github.com/0xiaoyun0/HXZ_LAUNCHER/releases/tag/v0.10.0)。
 
 安卓打开就是社区。可以从公告或服务器卡片进服，也可以从「游戏 → 游戏库」下载安装游戏。首次进服需要登录皮肤站。安卓版基于 Fold Craft Launcher 构建，需要 Android 8.0 或以上和支持相应 64 位 ABI 的系统。[安卓版说明](apps/android/README.md)
 
-已装 0.10.0 安卓正式版的玩家，看到更新提示后打开发布页，下载适合手机的 APK，在系统安装界面点「更新」。如果社区首页没有弹窗，直接点上方安卓下载链接即可。从 0.10.1 起，打开社区就会自动检查，在非计费网络上默认预下载新版，到安装时再请你确认。「我的 → 应用更新」可以检查版本，也可以关闭自动下载。
+已装初版 0.10.0 或之前标为 0.10.1 的安卓包，请下载上方 APK，在系统安装界面点「更新」，可以沿用手机里的设置和存档。从 0.10.0 构建 2 起，打开社区就会自动检查后续构建，默认在非计费网络上下载，安装前请你确认。「我的 → 应用更新」也可以随时检查或关闭自动下载。
 
 ## 第一次打开
 

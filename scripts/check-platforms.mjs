@@ -7,7 +7,8 @@ import net from 'node:net';
 import {spawn} from 'node:child_process';
 import {once} from 'node:events';
 import {setTimeout as wait} from 'node:timers/promises';
-const {version}=JSON.parse(await fs.readFile('package.json','utf8')),release=path.resolve('release',version);
+import {androidRelease,apkName} from '../apps/android/release-info.mjs';
+const pkg=JSON.parse(await fs.readFile('package.json','utf8')),{version}=pkg,info=androidRelease(pkg),release=path.resolve('release',version);
 const temp=await fs.mkdtemp(path.join(os.tmpdir(),'hxz-delivery-'));
 async function check(folder,script,paths) {
  const server=net.createServer();server.listen(0,'127.0.0.1');await once(server,'listening');const port=server.address().port;await new Promise(r=>server.close(r));
@@ -20,8 +21,8 @@ async function check(folder,script,paths) {
     else if(route==='/api/releases'){
       const catalog=await response.json();assert.equal(catalog.version,version);
       const origin='http://127.0.0.1:'+port;
-      const androidName='HXZ-FCL-'+version+'-arm64-v8a-release.apk';
-      const android=await fs.stat(path.join(release,'android',androidName)).catch(error=>{
+      const androidName=apkName(info,'arm64-v8a');
+      const android=await fs.stat(path.resolve('release',info.id,'android',androidName)).catch(error=>{
         if(error.code!=='ENOENT')throw error;
         return null;
       });
@@ -32,7 +33,7 @@ async function check(folder,script,paths) {
         assert.equal(head.status,200);assert.equal(Number(head.headers.get('content-length')),android.size);
       }
       for(const abi of ['arm64-v8a','x86_64']){
-        const debug=await fetch(origin+'/api/release-file/HXZ-FCL-'+version+'-'+abi+'-debug.apk',{method:'HEAD'});
+        const debug=await fetch(origin+'/api/release-file/'+apkName(info,abi,'debug'),{method:'HEAD'});
         assert.equal(debug.status,404);
       }
       for(const arch of ['x64','ia32']){

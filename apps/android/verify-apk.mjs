@@ -4,9 +4,9 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import yauzl from 'yauzl';
-import {androidVersionCode,releasePackage,releaseSigner,supportedAbis} from './release-info.mjs';
+import {androidRelease,apkName,releasePackage,releaseSigner,supportedAbis} from './release-info.mjs';
 
-export async function verifyApk(file,abi,pin,version){
+export async function verifyApk(file,abi,pin,info){
   const zip=await new Promise((resolve,reject)=>yauzl.open(file,{lazyEntries:true},(error,zip)=>error?reject(error):resolve(zip)));
   const names=new Set(),abis=new Set();
   let source;
@@ -28,7 +28,8 @@ export async function verifyApk(file,abi,pin,version){
   }finally{zip.close();}
   assert.deepEqual([...abis],[abi],file+' native ABI');
   const meta=JSON.parse(source);
-  assert.deepEqual(meta.upstream,pin);assert.equal(meta.version,version);
+  assert.deepEqual(meta.upstream,pin);
+  for(const key of ['version','build','versionCode'])assert.equal(meta[key],info[key],key);
   for(const name of ['AndroidManifest.xml','classes.dex','assets/controllers/00000000.json','assets/town/index.html','assets/town/linking/index.html','assets/town/server-presets.json','assets/town/FCL-LICENSE.txt','assets/town/OPUS-LICENSE.txt','assets/town/media/town/town-hall.webp','lib/'+abi+'/libfcl.so','lib/'+abi+'/libgl4es_114.so','lib/'+abi+'/libng_gl4es.so','lib/'+abi+'/libpojavexec.so'])assert.ok(names.has(name),name);
   for(const renderer of ['libglxshim.so','libEGL_mesa.so','libmobileglues.so'])assert.ok(names.has('lib/'+abi+'/'+renderer),abi+' '+renderer);
   for(const jre of [8,17,21,25]){
@@ -38,8 +39,8 @@ export async function verifyApk(file,abi,pin,version){
   }
   assert.ok([...names].some(n=>n.startsWith('assets/app_runtime/lwjgl/')&&n.endsWith('/'+abi+'/liblwjgl.so')),abi+' LWJGL');
 }
-export async function verifyReleaseApk(file,abi,pin,version){
-  await verifyApk(file,abi,pin,version);
+export async function verifyReleaseApk(file,abi,pin,release){
+  await verifyApk(file,abi,pin,release);
   const sdk=process.env.ANDROID_HOME||process.env.ANDROID_SDK_ROOT;
   assert.ok(sdk,'验证正式 APK 需要 Android SDK 35');
   const tools=path.join(sdk,'build-tools','35.0.0');
@@ -50,8 +51,8 @@ export async function verifyReleaseApk(file,abi,pin,version){
   const pkg=/^package: name='([^']+)' versionCode='(\d+)' versionName='([^']+)'/m.exec(info);
   assert.ok(pkg,'无法读取 APK 应用标识');
   assert.equal(pkg[1],releasePackage);
-  assert.equal(Number(pkg[2]),androidVersionCode(version));
-  assert.equal(pkg[3],version);
+  assert.equal(Number(pkg[2]),release.versionCode);
+  assert.equal(pkg[3],release.versionName);
   assert.doesNotMatch(info,/^application-debuggable/m);
   assert.deepEqual(/^native-code: +(.*)$/m.exec(info)?.[1].trim(),"'"+abi+"'");
   const signature=run(java,['-jar',path.join(tools,'lib','apksigner.jar'),'verify','--verbose','--print-certs',file]);
@@ -60,12 +61,12 @@ export async function verifyReleaseApk(file,abi,pin,version){
   assert.match(signature,/Verified using v2 scheme .*: true/);
 }
 if(process.argv[1]&&pathToFileURL(path.resolve(process.argv[1])).href===import.meta.url){
-  const root=new URL('../../',import.meta.url),{version}=JSON.parse(await fs.readFile(new URL('package.json',root)));
+  const root=new URL('../../',import.meta.url),release=androidRelease(JSON.parse(await fs.readFile(new URL('package.json',root))));
   const pin=JSON.parse(await fs.readFile(new URL('upstream.json',import.meta.url)));
   const official=process.argv.includes('--release');
   for(const abi of supportedAbis){
-    const file=new URL('release/'+version+'/android/HXZ-FCL-'+version+'-'+abi+'-'+(official?'release':'debug')+'.apk',root);
-    await (official?verifyReleaseApk:verifyApk)(fileURLToPath(file),abi,pin,version);
+    const file=new URL('release/'+release.id+'/android/'+apkName(release,abi,official?'release':'debug'),root);
+    await (official?verifyReleaseApk:verifyApk)(fileURLToPath(file),abi,pin,release);
     console.log(abi+' · FCL 来源、JNI、触控、四套 JRE、LWJGL 与社区资源已核对'+(official?'；正式签名、包名及版本号通过':''));
   }
 }
